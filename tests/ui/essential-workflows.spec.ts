@@ -11,6 +11,45 @@ async function doubleClickCanvasAt(page: import("@playwright/test").Page, x: num
   await page.locator(".tl-background").first().dblclick({ position: { x, y } });
 }
 
+async function queuePendingCast(page: import("@playwright/test").Page, fromIndex: number, toIndex: number) {
+  await page.evaluate(
+    ([sourceIndex, targetIndex]) => {
+      const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+      if (!store) throw new Error("missing dev store hook");
+      const state = store.getState() as {
+        editorRef: {
+          getCurrentPageShapeIds: () => Iterable<string>;
+          getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
+        } | null;
+        setPendingCast: (v: {
+          fromShapeId: string;
+          toShapeId: string;
+          sourceNodeId: string;
+          targetNodeId: string;
+        }) => void;
+      };
+      const editor = state.editorRef;
+      if (!editor) throw new Error("editor not ready");
+      const nodes: Array<{ shapeId: string; nodeId: string }> = [];
+      for (const shapeId of editor.getCurrentPageShapeIds()) {
+        const shape = editor.getShape(shapeId);
+        const nodeId = shape?.type === "geo" ? (shape.meta?.mpNodeId as string | undefined) : undefined;
+        if (nodeId) nodes.push({ shapeId, nodeId });
+      }
+      const fromNode = nodes[sourceIndex];
+      const toNode = nodes[targetIndex];
+      if (!fromNode || !toNode) throw new Error("need at least two nodes");
+      state.setPendingCast({
+        fromShapeId: fromNode.shapeId,
+        toShapeId: toNode.shapeId,
+        sourceNodeId: fromNode.nodeId,
+        targetNodeId: toNode.nodeId,
+      });
+    },
+    [fromIndex, toIndex],
+  );
+}
+
 test("palace save/load workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
@@ -54,37 +93,7 @@ test("connect workflow opens and applies CAST", async ({ page }) => {
 
   await page.getByRole("button", { name: /^Node$/ }).click();
   await doubleClickCanvasAt(page, 180, 140);
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
-      } | null;
-      setPendingCast: (v: {
-        fromShapeId: string;
-        toShapeId: string;
-        sourceNodeId: string;
-        targetNodeId: string;
-      }) => void;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
-    const nodes: Array<{ shapeId: string; nodeId: string }> = [];
-    for (const shapeId of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(shapeId);
-      const nodeId = shape?.type === "geo" ? (shape.meta?.mpNodeId as string | undefined) : undefined;
-      if (nodeId) nodes.push({ shapeId, nodeId });
-    }
-    if (nodes.length < 2) throw new Error("need at least two nodes");
-    state.setPendingCast({
-      fromShapeId: nodes[0].shapeId,
-      toShapeId: nodes[1].shapeId,
-      sourceNodeId: nodes[0].nodeId,
-      targetNodeId: nodes[1].nodeId,
-    });
-  });
+  await queuePendingCast(page, 0, 1);
 
   await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
   await expect(page.getByLabel("Tier 1 edge verb")).toHaveValue("links");
@@ -94,7 +103,7 @@ test("connect workflow opens and applies CAST", async ({ page }) => {
   await expect(page.getByText("C bits: 01")).toBeVisible();
   await page.getByRole("button", { name: "?" }).click();
   await expect(page.getByRole("heading", { name: "CAST quick reference" })).toBeVisible();
-  await expect(page.getByText(/Tier 1: verb-only\./)).toBeVisible();
+  await expect(page.getByText(/Tier 1: one or more verb labels\./)).toBeVisible();
   await page.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: /create edge/i }).click();
 
@@ -129,41 +138,13 @@ test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
 
   await page.getByRole("button", { name: /^Node$/ }).click();
   await doubleClickCanvasAt(page, 180, 140);
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
-      } | null;
-      setPendingCast: (v: {
-        fromShapeId: string;
-        toShapeId: string;
-        sourceNodeId: string;
-        targetNodeId: string;
-      }) => void;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
-    const nodes: Array<{ shapeId: string; nodeId: string }> = [];
-    for (const shapeId of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(shapeId);
-      const nodeId = shape?.type === "geo" ? (shape.meta?.mpNodeId as string | undefined) : undefined;
-      if (nodeId) nodes.push({ shapeId, nodeId });
-    }
-    if (nodes.length < 2) throw new Error("need at least two nodes");
-    state.setPendingCast({
-      fromShapeId: nodes[0].shapeId,
-      toShapeId: nodes[1].shapeId,
-      sourceNodeId: nodes[0].nodeId,
-      targetNodeId: nodes[1].nodeId,
-    });
-  });
+  await queuePendingCast(page, 0, 1);
 
   await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
   await page.getByRole("button", { name: "triggers", exact: true }).click();
-  await expect(page.getByLabel("Tier 1 edge verb")).toHaveValue("triggers");
+  await page.getByRole("button", { name: "depends on", exact: true }).click();
+  await expect(page.getByLabel("Tier 1 edge verb")).toHaveValue("triggers; depends on");
+  await expect(page.getByText("triggers · depends on")).toBeVisible();
   await page.getByLabel("Tier 1 direction").selectOption("two-way");
   await page.getByRole("button", { name: /create edge/i }).click();
 
@@ -183,9 +164,199 @@ test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
       .filter((shape) => shape?.type === "arrow");
     if (!arrows.length) throw new Error("no arrow created");
     const edge = arrows[arrows.length - 1];
+    const richText = JSON.stringify(edge?.props?.richText ?? "");
+    if (!richText.includes("triggers") || !richText.includes("depends on")) {
+      throw new Error("tier1 multi-verb label was not written to the arrow");
+    }
     if (edge?.props?.arrowheadStart !== "arrow" || edge?.props?.arrowheadEnd !== "arrow") {
       throw new Error("tier1 two-way should render bidirectional arrowheads");
     }
+  });
+});
+
+test("reverse-direction edges curve away from each other", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await doubleClickCanvasAt(page, 180, 140);
+
+  await queuePendingCast(page, 0, 1);
+  await page.getByLabel("Tier 1 edge verb").fill("feeds");
+  await page.getByRole("button", { name: /create edge/i }).click();
+
+  await queuePendingCast(page, 1, 0);
+  await page.getByLabel("Tier 1 edge verb").fill("depends on");
+  await page.getByRole("button", { name: /create edge/i }).click();
+
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: Record<string, unknown>; props?: Record<string, unknown> } | undefined;
+      } | null;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const arrows = Array.from(editor.getCurrentPageShapeIds())
+      .map((id) => editor.getShape(id))
+      .filter((shape) => shape?.type === "arrow");
+    if (arrows.length < 2) throw new Error("expected two arrows");
+
+    const [edgeA, edgeB] = arrows.slice(-2);
+    const sourceA = edgeA?.meta?.mpSourceNodeId as string | undefined;
+    const targetA = edgeA?.meta?.mpTargetNodeId as string | undefined;
+    const sourceB = edgeB?.meta?.mpSourceNodeId as string | undefined;
+    const targetB = edgeB?.meta?.mpTargetNodeId as string | undefined;
+    if (!sourceA || !targetA || !sourceB || !targetB) throw new Error("edge metadata missing");
+    if (sourceA !== targetB || targetA !== sourceB) {
+      throw new Error("latest arrows are not opposite directions of the same pair");
+    }
+
+    const bendA = Number(edgeA?.props?.bend ?? 0);
+    const bendB = Number(edgeB?.props?.bend ?? 0);
+    if (bendA === 0 || bendB === 0) throw new Error("reverse-direction edges should both be curved");
+    if (bendA !== -bendB) throw new Error(`expected opposite bends, got ${bendA} and ${bendB}`);
+  });
+});
+
+test("selected edge metadata appears in inspector", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await doubleClickCanvasAt(page, 180, 140);
+
+  await queuePendingCast(page, 0, 1);
+  await page.getByLabel("Tier 1 edge verb").fill("feeds");
+  await page.getByRole("button", { name: /create edge/i }).click();
+
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string } | undefined;
+        setSelectedShapes: (ids: string[]) => void;
+      } | null;
+      setSelectedShapeId: (id: string | null) => void;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const arrowId = Array.from(editor.getCurrentPageShapeIds()).find((id) => editor.getShape(id)?.type === "arrow");
+    if (!arrowId) throw new Error("no arrow found");
+    editor.setSelectedShapes([arrowId]);
+    state.setSelectedShapeId(arrowId);
+  });
+
+  await expect(page.locator("#mp-edge-label")).toHaveValue("feeds");
+  await expect(page.locator("#mp-edge-source")).not.toBeEmpty();
+  await expect(page.locator("#mp-edge-target")).not.toBeEmpty();
+  await expect(page.locator("#mp-edge-c")).toContainText("Giant");
+  await expect(page.locator("#mp-edge-a")).toContainText("Spreading");
+  await expect(page.locator("#mp-edge-s")).toContainText("Cloud");
+  await expect(page.locator("#mp-edge-t")).toContainText("Blue ocean");
+});
+
+test("edge inspector falls back to stored graph data when arrow meta is incomplete", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await doubleClickCanvasAt(page, 180, 140);
+
+  await queuePendingCast(page, 0, 1);
+  await page.getByLabel("Tier 1 edge verb").fill("feeds");
+  await page.getByRole("button", { name: /create edge/i }).click();
+  await page.getByRole("button", { name: /^Save$/ }).click();
+
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
+        updateShape: (shape: { id: string; type: string; meta: Record<string, unknown> }) => void;
+        setSelectedShapes: (ids: string[]) => void;
+      } | null;
+      setSelectedShapeId: (id: string | null) => void;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const arrowId = Array.from(editor.getCurrentPageShapeIds()).find((id) => editor.getShape(id)?.type === "arrow");
+    if (!arrowId) throw new Error("no arrow found");
+    const arrow = editor.getShape(arrowId);
+    if (!arrow?.meta?.mpObjectId) throw new Error("expected arrow object id");
+
+    editor.updateShape({
+      id: arrowId,
+      type: "arrow",
+      meta: {
+        mpPalaceId: arrow.meta.mpPalaceId as string,
+        mpObjectId: arrow.meta.mpObjectId as string,
+      },
+    });
+    editor.setSelectedShapes([arrowId]);
+    state.setSelectedShapeId(arrowId);
+  });
+
+  await expect(page.locator("#mp-edge-label")).toHaveValue("feeds");
+  await expect(page.locator("#mp-edge-source")).not.toBeEmpty();
+  await expect(page.locator("#mp-edge-target")).not.toBeEmpty();
+  await expect(page.locator("#mp-edge-c")).toContainText("Giant");
+  await expect(page.locator("#mp-edge-a")).toContainText("Spreading");
+  await expect(page.locator("#mp-edge-s")).toContainText("Cloud");
+  await expect(page.locator("#mp-edge-t")).toContainText("Blue ocean");
+});
+
+test("theSystem pipeline materializes into graph workflow state", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Closures");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await page.getByRole("button", { name: "theSystem" }).click();
+  await expect(page.getByText("graph-native thinking workflows")).toBeVisible();
+  await page.getByRole("button", { name: "Comprehension Protocol" }).click();
+
+  await expect(page.locator("#system-session-focus")).toHaveValue("Closures");
+  await page.locator("#system-session-title").fill("Understanding closures");
+  await page.locator("#system-session-outcome").fill("Explain closures from scratch and debug them in code.");
+  await page.getByLabel("Locate notes").fill("JavaScript scope, lexical environment, and function factories.");
+  await page.getByLabel("Represent notes").fill("Plain language, code example, and scope chain diagram.");
+  await page.getByRole("button", { name: /materialize to graph/i }).click();
+
+  await expect(page.getByText(/graph run with 7 nodes/i)).toBeVisible();
+  await expect(page.locator("select")).toContainText("Comprehension run: Understanding closures");
+
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      routes: Array<{ id: string; name: string }>;
+      loci: Array<{ routeId: string }>;
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: Record<string, unknown>; props?: Record<string, unknown> } | undefined;
+      } | null;
+    };
+
+    const route = state.routes.find((candidate) => candidate.name === "Comprehension run: Understanding closures");
+    if (!route) throw new Error("comprehension route missing");
+    const routeLoci = state.loci.filter((locus) => locus.routeId === route.id);
+    if (routeLoci.length !== 6) throw new Error(`expected 6 loci for comprehension run, got ${routeLoci.length}`);
+
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const shapes = Array.from(editor.getCurrentPageShapeIds()).map((id) => editor.getShape(id));
+    const overview = shapes.find((shape) => shape?.type === "geo" && shape?.meta?.mpTitle === "Comprehension: Understanding closures");
+    if (!overview) throw new Error("overview node missing");
+    const focusEdge = shapes.find(
+      (shape) => shape?.type === "arrow" && JSON.stringify(shape?.props?.richText ?? "").includes("focuses on"),
+    );
+    if (!focusEdge) throw new Error("selected-node attachment edge missing");
   });
 });
 

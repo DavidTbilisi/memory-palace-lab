@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 import { orderedLoci, locusAtOrderedIndex } from "../domain/services/walkService";
+import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -31,11 +32,11 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   });
 
   const title = useMemo(() => {
-    if (!nodeId || !editorRef) return "—";
+    if (!nodeId || !editorRef) return "No node";
     for (const id of editorRef.getCurrentPageShapeIds()) {
       const s = editorRef.getShape(id);
       if (s?.type === "geo" && (s.meta as { mpNodeId?: string }).mpNodeId === nodeId) {
-        return (s.meta as { mpTitle?: string }).mpTitle ?? "Untitled";
+        return resolveMemoryNodeTitle(s);
       }
     }
     return nodeId.slice(0, 8);
@@ -45,7 +46,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
 
   return (
     <div
-      className={`flex items-center gap-2 border-b px-2 py-1.5 transition-colors ${
+      className={`flex items-center gap-2 overflow-hidden border-b px-2 py-1.5 transition-colors ${
         walkOpen ? "border-violet-700 bg-violet-950/40" : "border-zinc-800 bg-zinc-900/90"
       }`}
     >
@@ -65,40 +66,51 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
       </Button>
       {walkOpen ? (
         <>
-          <span className="rounded bg-violet-700/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-100">
-            Walk active
-          </span>
-          <span className="rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">Route: {routeName}</span>
-          <span className="text-xs font-medium text-violet-100">
-            Step {count ? walkIndex + 1 : 0}/{count} · {title}
-          </span>
-          <div className="hidden h-1.5 w-28 overflow-hidden rounded-full bg-zinc-800 md:block">
-            <div className="h-full bg-violet-400 transition-all" style={{ width: `${progressPct}%` }} />
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <span className="rounded bg-violet-700/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-100">
+              Walk active
+            </span>
+            <span className="hidden min-w-0 max-w-48 items-center rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300 sm:inline-flex">
+              Route:
+              <span className="ml-1 truncate">{routeName}</span>
+            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-1 text-xs font-medium text-violet-100">
+              <span className="shrink-0">Step {count ? walkIndex + 1 : 0}/{count}</span>
+              <span className="text-violet-300">-</span>
+              <span className="truncate">{title}</span>
+            </div>
+            <div className="hidden h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-zinc-800 lg:block">
+              <div className="h-full bg-violet-400 transition-all" style={{ width: `${progressPct}%` }} />
+            </div>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            type="button"
-            aria-label="Previous step"
-            onClick={() => walkPrev()}
-            disabled={walkIndex <= 0}
-            onMouseEnter={() => onHoverHintChange?.("Previous locus in current route.")}
-            onMouseLeave={() => onHoverHintChange?.(null)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            type="button"
-            aria-label="Next step"
-            onClick={() => walkNext()}
-            disabled={count === 0 || walkIndex >= count - 1}
-            onMouseEnter={() => onHoverHintChange?.("Next locus in current route.")}
-            onMouseLeave={() => onHoverHintChange?.(null)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-1 border-l border-zinc-800/80 pl-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              type="button"
+              aria-label="Previous step"
+              className="shrink-0"
+              onClick={() => walkPrev()}
+              disabled={walkIndex <= 0}
+              onMouseEnter={() => onHoverHintChange?.("Previous locus in current route.")}
+              onMouseLeave={() => onHoverHintChange?.(null)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              type="button"
+              aria-label="Next step"
+              className="shrink-0"
+              onClick={() => walkNext()}
+              disabled={count === 0 || walkIndex >= count - 1}
+              onMouseEnter={() => onHoverHintChange?.("Next locus in current route.")}
+              onMouseLeave={() => onHoverHintChange?.(null)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </>
       ) : null}
     </div>

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Editor } from "@tldraw/editor";
-import type { Locus, MemoryRoute, Palace, PalaceSnapshot } from "../domain/entities/types";
+import type { Locus, MemoryEdge, MemoryNode, MemoryRoute, Palace, PalaceSnapshot } from "../domain/entities/types";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import {
   walkNext as nextWalkIndex,
@@ -18,6 +18,8 @@ type ConnectState = { fromShapeId: string | null };
 export type PalaceStore = {
   palaces: Palace[];
   currentPalace: Palace | null;
+  nodes: MemoryNode[];
+  edges: MemoryEdge[];
   routes: MemoryRoute[];
   loci: Locus[];
   editorRef: Editor | null;
@@ -51,6 +53,8 @@ export type PalaceStore = {
 export const usePalaceStore = create<PalaceStore>((set, get) => ({
   palaces: [],
   currentPalace: null,
+  nodes: [],
+  edges: [],
   routes: [],
   loci: [],
   editorRef: null,
@@ -85,7 +89,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
     const { buildPalaceSnapshot } = await import("../canvas/buildPalaceSnapshot");
     const snap = buildPalaceSnapshot(editorRef, currentPalace, routes, loci);
     await repo.savePalace(snap);
-    set({ currentPalace: snap.palace });
+    set({ currentPalace: snap.palace, nodes: snap.nodes, edges: snap.edges });
     await get().loadPalaces();
   },
 
@@ -162,6 +166,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
   hydrateFromSnapshot(s) {
     set({
       currentPalace: s.palace,
+      nodes: s.nodes,
+      edges: s.edges,
       routes: s.routes,
       loci: s.loci,
       walkRouteId: s.routes[0]?.id ?? null,

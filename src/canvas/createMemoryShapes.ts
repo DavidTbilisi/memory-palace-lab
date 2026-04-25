@@ -11,6 +11,63 @@ function arrowheadsFromCastWho(role: string): { start: "none" | "arrow"; end: "n
   return { start: "none", end: "arrow" };
 }
 
+function pairedArrowBendMagnitude(
+  fromBounds: { x: number; y: number; w: number; h: number },
+  toBounds: { x: number; y: number; w: number; h: number },
+) {
+  const fromCenterX = fromBounds.x + fromBounds.w / 2;
+  const fromCenterY = fromBounds.y + fromBounds.h / 2;
+  const toCenterX = toBounds.x + toBounds.w / 2;
+  const toCenterY = toBounds.y + toBounds.h / 2;
+  const distance = Math.hypot(toCenterX - fromCenterX, toCenterY - fromCenterY);
+  return Math.round(Math.min(96, Math.max(40, distance * 0.22)));
+}
+
+function pairedArrowBendDirection(
+  fromBounds: { x: number; y: number; w: number; h: number },
+  toBounds: { x: number; y: number; w: number; h: number },
+) {
+  const fromCenterX = fromBounds.x + fromBounds.w / 2;
+  const fromCenterY = fromBounds.y + fromBounds.h / 2;
+  const toCenterX = toBounds.x + toBounds.w / 2;
+  const toCenterY = toBounds.y + toBounds.h / 2;
+  if (Math.abs(toCenterX - fromCenterX) >= Math.abs(toCenterY - fromCenterY)) {
+    return fromCenterX <= toCenterX ? 1 : -1;
+  }
+  return fromCenterY <= toCenterY ? 1 : -1;
+}
+
+function reservePairedArrowCurve(
+  editor: Editor,
+  sourceNodeId: string,
+  targetNodeId: string,
+  fromBounds: { x: number; y: number; w: number; h: number },
+  toBounds: { x: number; y: number; w: number; h: number },
+) {
+  const bend = pairedArrowBendMagnitude(fromBounds, toBounds) * pairedArrowBendDirection(fromBounds, toBounds);
+  let paired = false;
+
+  for (const currentShapeId of editor.getCurrentPageShapeIds()) {
+    const shape = editor.getShape(currentShapeId);
+    if (!shape || shape.type !== "arrow") continue;
+    const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+    if (meta.mpSourceNodeId !== targetNodeId || meta.mpTargetNodeId !== sourceNodeId) continue;
+
+    editor.updateShape({
+      id: shape.id,
+      type: "arrow",
+      props: {
+        ...shape.props,
+        bend: -bend,
+        labelPosition: 0.5,
+      },
+    });
+    paired = true;
+  }
+
+  return paired ? bend : 0;
+}
+
 export function createGeoMemoryNode(editor: Editor, palaceId: string, pagePoint: { x: number; y: number }) {
   const objectId = crypto.randomUUID();
   const nodeId = crypto.randomUUID();
@@ -83,6 +140,7 @@ export function createMemoryArrow(
     castGh: cast.gh,
   };
   const arrowheads = arrowheadsFromCastWho(cast.ab);
+  const bend = reservePairedArrowCurve(editor, sourceNodeId, targetNodeId, b1, b2);
 
   editor.createShape({
     id: shapeId,
@@ -102,7 +160,7 @@ export function createMemoryArrow(
       font: "draw",
       start: { x: ax, y: ay },
       end: { x: bx, y: by },
-      bend: 0,
+      bend,
       richText: toRichText(cast.label ?? ""),
       labelPosition: 0.5,
       scale: 1,

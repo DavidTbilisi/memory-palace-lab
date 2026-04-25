@@ -118,11 +118,13 @@ export function MemoryPalaceApp() {
             variant="secondary"
             type="button"
             onClick={() => setShowOnboarding((v) => !v)}
-            onMouseEnter={() => setHoverHint("Lessons: open onboarding with guided steps and examples.")}
+            onMouseEnter={() =>
+              setHoverHint("Learn panel: onboarding guides plus theSystem pipelines that can materialize into the graph.")
+            }
             onMouseLeave={() => setHoverHint(null)}
           >
             <BookOpen className="h-4 w-4" />
-            Lessons
+            Learn
           </Button>
           <span className="text-xs text-zinc-500">Local · SQLite · tldraw</span>
         </div>

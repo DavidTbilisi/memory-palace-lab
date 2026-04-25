@@ -5,6 +5,7 @@ import { Label } from "./ui/label";
 import { usePalaceStore } from "../store/palaceStore";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { TLShapeId } from "@tldraw/tlschema";
+import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -39,7 +40,7 @@ export function RoutePanel({ onHoverHintChange }: Props) {
       if (!shape || shape.type !== "geo") continue;
       const meta = shape.meta as MemoryPalaceMeta;
       if (!meta.mpNodeId) continue;
-      map.set(meta.mpNodeId, meta.mpTitle?.trim() || "Untitled");
+      map.set(meta.mpNodeId, meta.mpTitle?.trim() || resolveMemoryNodeTitle(shape));
     }
     return map;
   })();
@@ -53,7 +54,7 @@ export function RoutePanel({ onHoverHintChange }: Props) {
     if (!sh || sh.type !== "geo") return;
     const m = sh.meta as MemoryPalaceMeta;
     if (!m.mpNodeId) return;
-    addLocusForSelectedRoute(m.mpNodeId, m.mpTitle?.trim() || "Untitled");
+    addLocusForSelectedRoute(m.mpNodeId, m.mpTitle?.trim() || resolveMemoryNodeTitle(sh));
   };
 
   return (
