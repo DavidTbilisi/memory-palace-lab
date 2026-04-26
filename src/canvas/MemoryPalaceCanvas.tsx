@@ -129,7 +129,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           const ids = editor.getSelectedShapeIds();
           setSelectedShapeId(ids.length === 1 ? ids[0] : null);
         },
-        { source: "user", scope: "document" },
+        { source: "all", scope: "session" },
       );
 
       const unsubDraft = editor.store.listen(

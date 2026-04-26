@@ -213,6 +213,51 @@ test("spaced review queue surfaces due node and route reviews", async ({ page })
   await expect(page.getByRole("button", { name: "Reveal answer" })).toBeVisible();
 });
 
+test("memory strength dashboard opens weak route review across palaces", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Dashboard Source");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard Source" })).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Weak Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Weak Palace" })).toBeVisible();
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Weak Concept");
+  await page.locator("#mp-content").fill("Hard to recall answer.");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await page.getByPlaceholder("Route name").fill("Weak Route");
+  await page.getByRole("button", { name: "Add route" }).click();
+  await page.getByRole("button", { name: /add selected node to route/i }).click();
+
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await page.getByRole("button", { name: "Recall-first" }).click();
+  await page.getByRole("button", { name: "Reveal answer" }).click();
+  await page.getByRole("button", { name: "Fail" }).click();
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+
+  await page.getByRole("button", { name: "Dashboard Source", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard Source" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Learn" }).click();
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click();
+  await expect(page.getByText(/memory strength/i)).toBeVisible();
+
+  const weakRouteCard = page
+    .locator("section")
+    .filter({ hasText: "Weak Route" })
+    .filter({ has: page.getByRole("button", { name: "Review route" }) })
+    .first();
+  await expect(weakRouteCard).toContainText("Weak Palace");
+  await weakRouteCard.getByRole("button", { name: "Review route" }).click();
+
+  await expect(page.getByRole("heading", { name: "Weak Palace" })).toBeVisible();
+  await expect(page.getByText("Step 1/1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reveal answer" })).toBeVisible();
+});
+
 test("connect workflow opens and applies CAST", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
