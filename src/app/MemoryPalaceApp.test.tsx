@@ -53,18 +53,19 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
   });
 
   describe("Navigation tabs centering", () => {
-    it("should render all 5 navigation tabs", () => {
+    it("should render all 6 navigation tabs", () => {
       const { container } = render(<MemoryPalaceApp />);
 
       const nav = container.querySelector("nav");
       const buttons = nav?.querySelectorAll("button") || [];
 
-      expect(buttons.length).toBe(5);
+      expect(buttons.length).toBe(6);
       expect(buttons[0]?.textContent).toMatch(/Graph/);
       expect(buttons[1]?.textContent).toMatch(/Review/);
       expect(buttons[2]?.textContent).toMatch(/Insights/);
       expect(buttons[3]?.textContent).toMatch(/System/);
-      expect(buttons[4]?.textContent).toMatch(/Help/);
+      expect(buttons[4]?.textContent).toMatch(/Atlas/);
+      expect(buttons[5]?.textContent).toMatch(/Help/);
     });
 
     it("should position nav tabs in center of header", () => {
