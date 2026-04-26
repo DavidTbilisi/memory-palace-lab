@@ -28,6 +28,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const setSelectedShapeId = usePalaceStore((s) => s.setSelectedShapeId);
   const queueDraftSave = usePalaceStore((s) => s.queueDraftSave);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
+  const walkRecallMode = usePalaceStore((s) => s.walkRecallMode);
+  const walkAnswerRevealed = usePalaceStore((s) => s.walkAnswerRevealed);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
@@ -191,13 +193,18 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
     if (activeShapeId) {
       editor.setHintingShapes([activeShapeId]);
-      editor.setSelectedShapes([activeShapeId]);
+      if (walkRecallMode && !walkAnswerRevealed) {
+        editor.setSelectedShapes([]);
+        usePalaceStore.getState().setSelectedShapeId(null);
+      } else {
+        editor.setSelectedShapes([activeShapeId]);
+      }
       if (lastWalkNodeIdRef.current !== nodeId) {
         editor.zoomToSelectionIfOffscreen(96, { animation: { duration: 260 } });
         lastWalkNodeIdRef.current = nodeId;
       }
     }
-  }, [walkOpen, walkIndex, walkRouteId, loci]);
+  }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci]);
 
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
