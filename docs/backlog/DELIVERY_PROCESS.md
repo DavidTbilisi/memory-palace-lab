@@ -40,8 +40,8 @@ Do not commit unless:
 2. `02-recall-first-walk-mode.feature`
 3. `03-spaced-review-queue.feature`
 4. `04-memory-strength-dashboard.feature`
-5. `05-semantic-magic-theme-engine.feature`
+5. `05-adaptive-review-interventions.feature`
 6. `06-encoding-assistant.feature`
 7. `07-contrast-and-confusion-nodes.feature`
-8. `08-media-cues.feature`
-
+8. `08-semantic-magic-theme-engine.feature`
+9. `09-media-cues.feature`

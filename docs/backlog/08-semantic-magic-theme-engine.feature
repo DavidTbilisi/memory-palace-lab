@@ -26,6 +26,11 @@ Feature: Semantic magic theme engine
     When a node is weak or overdue
     Then its visual treatment reflects that state in a stable and legible way
 
+  Scenario: Link visuals to confusion and intervention state
+    Given a node is marked as confused, dangerous, or intervention-worthy
+    When the graph is rendered
+    Then the visual treatment makes that risk obvious without overwhelming the rest of the palace
+
   Scenario: Theme a palace intentionally
     Given a user wants a palace to feel like a neon district, ritual chamber, or storm archive
     When the user applies a theme
@@ -35,4 +40,3 @@ Feature: Semantic magic theme engine
     Given a large palace is open
     When effects are enabled
     Then animation and glow do not make the app feel sluggish or noisy
-

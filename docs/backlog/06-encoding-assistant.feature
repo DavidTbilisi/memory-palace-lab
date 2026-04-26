@@ -30,8 +30,12 @@ Feature: Encoding assistant
     When the encoding assistant generates suggestions
     Then the suggestions can reference that place explicitly
 
+  Scenario: Start from a weak dashboard item
+    Given a node is marked weak in analytics
+    When the user starts encoding help from the dashboard or review queue
+    Then the assistant opens focused on that node instead of starting from scratch
+
   Scenario: Improve later recall
     Given a generated encoding is used in review
     When analytics compare encoded vs non-encoded material
     Then the app can later show whether the encoding style is helping
-

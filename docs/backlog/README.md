@@ -1,6 +1,6 @@
 # Memory Palace ROI Backlog
 
-This backlog ranks high-ROI features from both technical and psychological perspectives.
+This backlog ranks the highest-ROI feature work from the current product state, not from zero.
 
 Execution rule:
 - Work top to bottom.
@@ -9,39 +9,43 @@ Execution rule:
 - Do not commit if verification is red.
 
 Ranking logic:
-- `ROI` favors features that improve recall, reduce loss of work, or create measurable learning gains.
-- `Psych` captures memory science leverage: retrieval, spacing, distinctiveness, dual coding, chunking, and interference reduction.
-- `Tech` captures platform leverage: reusable infrastructure, observability, and features that unlock later work.
+- `ROI` favors features that improve recall, reduce forgetting, or turn telemetry into better study behavior.
+- `Psych` captures memory-science leverage: retrieval, spacing, elaboration, distinctiveness, dual coding, chunking, and interference reduction.
+- `Tech` captures infrastructure leverage: features that reuse analytics, review state, and graph primitives instead of adding isolated UI.
 
-## Rank Order
+## Core Already Delivered
 
 1. [Analytics Foundation](./01-analytics-foundation.feature)
-   Why first: everything after this gets smarter if we can measure what actually helps.
-
 2. [Recall-First Walk Mode](./02-recall-first-walk-mode.feature)
-   Why second: forced retrieval is the strongest direct memory upgrade.
-
 3. [Spaced Review Queue](./03-spaced-review-queue.feature)
-   Why third: retrieval becomes durable only when the schedule adapts over time.
-
 4. [Memory Strength Dashboard](./04-memory-strength-dashboard.feature)
-   Why fourth: analytics becomes actionable only when weak areas are visible.
 
-5. [Semantic Magic Theme Engine](./05-semantic-magic-theme-engine.feature)
-   Why fifth: neon and magic become useful when they encode meaning instead of decoration.
+Why this matters:
+- The app can now measure review behavior.
+- The app can force retrieval instead of passive rereading.
+- The app can schedule due work.
+- The app can show weak and unstable memory areas.
+
+## Next Highest ROI
+
+5. [Adaptive Review Interventions](./05-adaptive-review-interventions.feature)
+   Why next: analytics should not stop at observation. The highest payoff now is converting weak signals into direct actions like re-encode, split a route, add confusion contrast, or shorten a cognitively expensive sequence.
 
 6. [Encoding Assistant](./06-encoding-assistant.feature)
-   Why sixth: dry facts need help becoming vivid, image-rich memory material.
+   Why here: once the system knows what is weak, it should help convert dry material into vivid, memorable imagery and action.
 
 7. [Contrast and Confusion Nodes](./07-contrast-and-confusion-nodes.feature)
-   Why seventh: confusion is often a discrimination problem, not a storage problem.
+   Why here: many failures are interference failures. Explicit contrast structure improves discrimination, not just storage.
 
-8. [Media Cues](./08-media-cues.feature)
-   Why eighth: images and audio add dual coding, but only after the core review loop exists.
+8. [Semantic Magic Theme Engine](./08-semantic-magic-theme-engine.feature)
+   Why here: neon, glow, and magic become high value only when tied to actual meaning, weakness, danger, or importance.
+
+9. [Media Cues](./09-media-cues.feature)
+   Why here: dual coding helps, but should come after the app already knows what deserves extra sensory reinforcement.
 
 ## Delivery Notes
 
-- `01` through `04` are the cognitive core.
-- `05` is where the interface becomes more magical without sacrificing precision.
-- `06` through `08` expand encoding power once analytics and review loops are stable.
-
+- `01` through `04` are the cognitive core and are already in place.
+- `05` through `07` are the highest-ROI learning loop extensions.
+- `08` is where the interface becomes more magical without losing mnemonic precision.
+- `09` expands sensory encoding once the graph and review loop know where media is worth the cost.

@@ -30,8 +30,12 @@ Feature: Contrast and confusion nodes
     When analytics are computed
     Then the dashboard marks that pair as a confusion hotspot
 
+  Scenario: Start from a hotspot
+    Given the dashboard identifies a confusion hotspot
+    When the user clicks that hotspot
+    Then the app opens the related concepts and offers a direct way to create a confusion or contrast link
+
   Scenario: Preserve graph clarity
     Given confusion links exist
     When the graph is rendered
     Then confusion links are visually distinct from normal semantic or CAST links
-

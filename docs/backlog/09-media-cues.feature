@@ -30,8 +30,12 @@ Feature: Media cues for dual coding
     When the user reviews that node
     Then the review flow can reveal media as an optional reinforcement layer
 
+  Scenario: Let analytics justify the cost
+    Given analytics mark a concept as weak or unusually valuable
+    When the user adds media cues
+    Then the app can later compare whether those cues improved recall enough to justify the added complexity
+
   Scenario: Keep performance and storage reasonable
     Given many media assets exist
     When the palace loads
     Then the app remains responsive and does not degrade into asset management overhead
-
