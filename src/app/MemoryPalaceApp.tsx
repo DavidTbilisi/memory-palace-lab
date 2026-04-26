@@ -9,6 +9,7 @@ import {
   Globe,
   HelpCircle,
   LayoutDashboard,
+  ListOrdered,
   PanelLeft,
   PanelRightOpen,
   Search,
@@ -28,6 +29,7 @@ import { AnalyticsPanel } from "../components/AnalyticsPanel";
 import { PalaceSidebar } from "../components/PalaceSidebar";
 import { PalaceToolbar } from "../components/PalaceToolbar";
 import { ReviewPage } from "../components/ReviewPage";
+import { RouteEditorPage } from "../components/RouteEditorPage";
 import { RoutePanel } from "../components/RoutePanel";
 import { TheSystemWorkbench } from "../components/TheSystemWorkbench";
 import { WalkModeBar } from "../components/WalkModeBar";
@@ -37,7 +39,7 @@ import { OnboardingPanel } from "../components/OnboardingPanel";
 import { Button } from "../components/ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 
-type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "help";
+type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "routes" | "help";
 
 const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 
@@ -62,6 +64,12 @@ function pageHint(page: AppPage) {
   }
   if (page === "system") {
     return "System is where theSystem frameworks become runnable thinking pipelines and graph output.";
+  }
+  if (page === "atlas") {
+    return "Atlas organizes palaces by geography: domain, place, section. Build a hierarchy across multiple spaces.";
+  }
+  if (page === "routes") {
+    return "Routes are ordered walks through your palace. Organize and edit loci sequences here without toolbar noise.";
   }
   if (page === "help") {
     return "Help is onboarding plus examples. Use it to start fast, then leave it once the palace is alive.";
@@ -360,13 +368,14 @@ export function MemoryPalaceApp() {
         </div>
 
         <nav className="flex justify-center items-center gap-1">
-          {(["graph", "review", "insights", "system", "atlas", "help"] as const).map((page) => {
+          {(["graph", "review", "insights", "system", "atlas", "routes", "help"] as const).map((page) => {
             const icons: Record<typeof page, React.ReactNode> = {
               graph: <LayoutDashboard className="h-4 w-4" />,
               review: <BookOpen className="h-4 w-4" />,
               insights: <BarChart2 className="h-4 w-4" />,
               system: <Cpu className="h-4 w-4" />,
               atlas: <Globe className="h-4 w-4" />,
+              routes: <ListOrdered className="h-4 w-4" />,
               help: <HelpCircle className="h-4 w-4" />,
             };
             const labels: Record<typeof page, string> = {
@@ -375,6 +384,7 @@ export function MemoryPalaceApp() {
               insights: "Insights",
               system: "System",
               atlas: "Atlas",
+              routes: "Routes",
               help: "Help",
             };
             return (
@@ -511,6 +521,14 @@ export function MemoryPalaceApp() {
                     navigateToPage("graph");
                   }
                 }} />
+              </div>
+            </div>
+          ) : null}
+
+          {currentPage === "routes" ? (
+            <div className="min-h-0 flex-1 overflow-hidden p-5">
+              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
+                <RouteEditorPage />
               </div>
             </div>
           ) : null}
