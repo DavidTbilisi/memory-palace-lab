@@ -84,6 +84,7 @@ export type AnalyticsEventType =
   | "locus_updated"
   | "walk_started"
   | "walk_stepped"
+  | "walk_answer_revealed"
   | "walk_recall_rated"
   | "walk_closed"
   | "system_run_materialized";

@@ -15,6 +15,9 @@ function formatEventDetail(event: AnalyticsEvent) {
     const latency = typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms` : "no timer";
     return `${rating} • ${latency}`;
   }
+  if (event.eventType === "walk_answer_revealed") {
+    return typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms to reveal` : "answer revealed";
+  }
   if (event.eventType === "node_created" || event.eventType === "node_updated") {
     return typeof payload.title === "string" && payload.title.trim() ? payload.title : "memory node";
   }
@@ -119,7 +122,7 @@ export function AnalyticsPanel() {
             <ul className="mt-3 space-y-1 text-sm text-zinc-300">
               <li>- Palace lifecycle: created, opened, draft-saved, checkpoint-saved.</li>
               <li>- Graph work: node create/update, edge create/update, route create, locus add/update.</li>
-              <li>- Review flow: walk start, step changes, recall ratings, walk close.</li>
+              <li>- Review flow: walk start, step changes, answer reveals, recall ratings, walk close.</li>
               <li>- theSystem runs: pipeline materialization into graph structure.</li>
             </ul>
           </section>
@@ -146,7 +149,9 @@ export function AnalyticsPanel() {
               <div className="rounded border border-zinc-800 bg-zinc-950/40 px-3 py-2">
                 <div className="text-zinc-500">Review actions</div>
                 <div className="font-semibold text-zinc-100">
-                  {(allSummary.currentSessionCounts.walk_stepped ?? 0) + (allSummary.currentSessionCounts.walk_recall_rated ?? 0)}
+                  {(allSummary.currentSessionCounts.walk_stepped ?? 0) +
+                    (allSummary.currentSessionCounts.walk_answer_revealed ?? 0) +
+                    (allSummary.currentSessionCounts.walk_recall_rated ?? 0)}
                 </div>
               </div>
             </div>

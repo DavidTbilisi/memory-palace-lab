@@ -63,7 +63,12 @@ export type PalaceStore = {
   walkOpen: boolean;
   walkRouteId: string | null;
   walkIndex: number;
+  walkRecallMode: boolean;
+  walkCueOnly: boolean;
+  walkAnswerRevealed: boolean;
   walkStepEnteredAt: string | null;
+  walkRevealedAt: string | null;
+  walkRevealLatencyMs: number | null;
   persistenceState: PalacePersistenceState;
   lastDraftSavedAt: string | null;
   draftRestored: boolean;
@@ -92,6 +97,9 @@ export type PalaceStore = {
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
   setWalkOpen: (v: boolean) => void;
+  setWalkRecallMode: (v: boolean) => void;
+  setWalkCueOnly: (v: boolean) => void;
+  revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
   walkNext: () => void;
   walkPrev: () => void;
@@ -187,7 +195,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   const noteWalkStepEntered = (direction: "open" | "next" | "prev" | "route_change") => {
     const enteredAt = new Date().toISOString();
-    set({ walkStepEnteredAt: enteredAt });
+    set((state) => ({
+      walkStepEnteredAt: enteredAt,
+      walkRevealedAt: null,
+      walkRevealLatencyMs: null,
+      walkAnswerRevealed: !state.walkRecallMode,
+    }));
     const context = getWalkContext();
     if (!context.routeId || !context.nodeId) return;
     void recordAnalytics({
@@ -262,7 +275,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkOpen: false,
     walkRouteId: null,
     walkIndex: 0,
+    walkRecallMode: false,
+    walkCueOnly: true,
+    walkAnswerRevealed: true,
     walkStepEnteredAt: null,
+    walkRevealedAt: null,
+    walkRevealLatencyMs: null,
     persistenceState: "clean",
     lastDraftSavedAt: null,
     draftRestored: false,
@@ -534,7 +552,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkRouteId: routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
+        walkAnswerRevealed: !get().walkRecallMode,
         walkStepEnteredAt: null,
+        walkRevealedAt: null,
+        walkRevealLatencyMs: null,
       });
       scheduleDraftSave();
       if (!currentPalace) return;
@@ -610,7 +631,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     setWalkRoute(walkRouteId) {
       const wasOpen = get().walkOpen;
-      set({ walkRouteId, walkIndex: 0 });
+      set((state) => ({
+        walkRouteId,
+        walkIndex: 0,
+        walkAnswerRevealed: !state.walkRecallMode,
+        walkStepEnteredAt: null,
+        walkRevealedAt: null,
+        walkRevealLatencyMs: null,
+      }));
       if (!wasOpen || !walkRouteId) return;
       const context = getWalkContext();
       if (context.routeId) {
@@ -635,7 +663,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       set({
         walkOpen,
         walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
+        walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
+        walkRevealedAt: null,
+        walkRevealLatencyMs: null,
       });
 
       if (!walkOpen) {
@@ -652,7 +683,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             },
           });
         }
-        set({ walkStepEnteredAt: null });
+        set({ walkStepEnteredAt: null, walkRevealedAt: null, walkRevealLatencyMs: null });
         return;
       }
 
@@ -675,13 +706,62 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       }
     },
 
-    rateWalkRecall(rating) {
+    setWalkRecallMode(walkRecallMode) {
+      const enteredAt = new Date().toISOString();
+      set({
+        walkRecallMode,
+        walkAnswerRevealed: !walkRecallMode,
+        walkStepEnteredAt: get().walkOpen ? enteredAt : null,
+        walkRevealedAt: null,
+        walkRevealLatencyMs: null,
+      });
+    },
+
+    setWalkCueOnly(walkCueOnly) {
+      set({ walkCueOnly });
+    },
+
+    revealWalkAnswer() {
       const context = getWalkContext();
-      if (!context.routeId || !context.nodeId) return;
       const enteredAt = get().walkStepEnteredAt;
       const now = Date.now();
       const timeToRevealMs = enteredAt ? Math.max(0, now - Date.parse(enteredAt)) : null;
-      set({ walkStepEnteredAt: new Date(now).toISOString() });
+      set({
+        walkAnswerRevealed: true,
+        walkRevealedAt: new Date(now).toISOString(),
+        walkRevealLatencyMs: timeToRevealMs,
+      });
+      if (!context.routeId || !context.nodeId) return;
+      void recordAnalytics({
+        eventType: "walk_answer_revealed",
+        eventGroup: "review",
+        routeId: context.routeId,
+        nodeId: context.nodeId,
+        payload: {
+          stepIndex: context.stepIndex,
+          routeLength: context.count,
+          locusId: context.locus?.id ?? null,
+          routeName: context.routeName,
+          timeToRevealMs,
+        },
+      });
+    },
+
+    rateWalkRecall(rating) {
+      const context = getWalkContext();
+      if (!context.routeId || !context.nodeId) return;
+      if (get().walkRecallMode && !get().walkAnswerRevealed) return;
+      const enteredAt = get().walkStepEnteredAt;
+      const revealedAt = get().walkRevealedAt;
+      const revealLatencyMs = get().walkRevealLatencyMs;
+      const now = Date.now();
+      const timeToRevealMs = revealLatencyMs ?? (enteredAt ? Math.max(0, now - Date.parse(enteredAt)) : null);
+      const timeFromRevealToRatingMs = revealedAt ? Math.max(0, now - Date.parse(revealedAt)) : null;
+      set({
+        walkStepEnteredAt: new Date(now).toISOString(),
+        walkRevealedAt: revealedAt,
+        walkRevealLatencyMs: revealLatencyMs,
+      });
       void recordAnalytics({
         eventType: "walk_recall_rated",
         eventGroup: "review",
@@ -694,6 +774,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           locusId: context.locus?.id ?? null,
           routeName: context.routeName,
           timeToRevealMs,
+          timeFromRevealToRatingMs,
         },
       });
     },
@@ -737,7 +818,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkRouteId: s.routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
+        walkAnswerRevealed: !state.walkRecallMode,
         walkStepEnteredAt: null,
+        walkRevealedAt: null,
+        walkRevealLatencyMs: null,
         selectedShapeId: null,
         persistenceState: options?.persistenceState ?? "clean",
         draftRestored: options?.draftRestored ?? false,
