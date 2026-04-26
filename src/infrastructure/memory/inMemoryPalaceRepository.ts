@@ -32,7 +32,7 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
     async createPalace(name: string, atlasPath?: string | null) {
       const id = crypto.randomUUID();
       const createdAt = new Date().toISOString();
-      const palace: Palace = { id, name, createdAt, atlasPath: atlasPath?.trim() || null };
+      const palace: Palace = { id, name, createdAt, alias: null, atlasPath: atlasPath?.trim() || null };
       const snap: PalaceSnapshot = {
         palace,
         canvasObjects: [],

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Save } from "lucide-react";
 import type { Palace } from "../domain/entities/types";
+import { composeAtlasPath, DEFAULT_ATLAS_LEVEL_LABELS, splitAtlasPath } from "../domain/services/atlasHierarchy";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -11,13 +12,6 @@ type AtlasTreeNode = {
   children: AtlasTreeNode[];
   palaces: Palace[];
 };
-
-function splitAtlasPath(path: string | null | undefined) {
-  return (path ?? "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-}
 
 function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
   type MutableNode = AtlasTreeNode & { childMap: Map<string, MutableNode> };
@@ -101,6 +95,7 @@ function PalaceListItem({
       }`}
     >
       <div>{palace.name}</div>
+      {palace.alias?.trim() ? <div className="text-[11px] text-violet-300">Alias: {palace.alias}</div> : null}
       {palace.atlasPath?.trim() ? <div className="text-[11px] text-zinc-500">{palace.atlasPath}</div> : null}
     </button>
   );
@@ -143,18 +138,57 @@ export function PalaceSidebar() {
   const [name, setName] = useState("My palace");
   const [atlasPath, setAtlasPath] = useState("");
   const [currentName, setCurrentName] = useState("");
+  const [currentAlias, setCurrentAlias] = useState("");
   const [currentAtlasPath, setCurrentAtlasPath] = useState("");
+  const [levelLabels, setLevelLabels] = useState(DEFAULT_ATLAS_LEVEL_LABELS);
+  const [hierarchySegments, setHierarchySegments] = useState<string[]>([]);
 
   useEffect(() => {
     void loadPalaces();
   }, [loadPalaces]);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("mp-atlas-level-labels");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed) && parsed.every((entry) => typeof entry === "string")) {
+        setLevelLabels(parsed.length > 0 ? parsed : DEFAULT_ATLAS_LEVEL_LABELS);
+      }
+    } catch {
+      setLevelLabels(DEFAULT_ATLAS_LEVEL_LABELS);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("mp-atlas-level-labels", JSON.stringify(levelLabels));
+  }, [levelLabels]);
+
+  useEffect(() => {
     setCurrentName(currentPalace?.name ?? "");
+    setCurrentAlias(currentPalace?.alias ?? "");
     setCurrentAtlasPath(currentPalace?.atlasPath ?? "");
-  }, [currentPalace?.atlasPath, currentPalace?.name]);
+    setHierarchySegments(splitAtlasPath(currentPalace?.atlasPath));
+  }, [currentPalace?.alias, currentPalace?.atlasPath, currentPalace?.name]);
 
   const groupedPalaces = useMemo(() => buildAtlasTree(palaces), [palaces]);
+  const hierarchyRowCount = Math.max(levelLabels.length, hierarchySegments.length + 1, DEFAULT_ATLAS_LEVEL_LABELS.length);
+
+  const updateLevelLabel = (index: number, value: string) => {
+    setLevelLabels((current) => {
+      const next = [...current];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const updateHierarchySegment = (index: number, value: string) => {
+    setHierarchySegments((current) => {
+      const next = [...current];
+      next[index] = value;
+      return next;
+    });
+  };
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
@@ -200,6 +234,13 @@ export function PalaceSidebar() {
               className="h-8 text-xs"
             />
             <Input
+              aria-label="Current palace alias"
+              value={currentAlias}
+              onChange={(e) => setCurrentAlias(e.target.value)}
+              placeholder="Alias"
+              className="h-8 text-xs"
+            />
+            <Input
               aria-label="Current atlas path"
               value={currentAtlasPath}
               onChange={(e) => setCurrentAtlasPath(e.target.value)}
@@ -212,13 +253,79 @@ export function PalaceSidebar() {
               className="w-full justify-center"
               type="button"
               onClick={() => {
-                setCurrentPalaceMeta({ name: currentName, atlasPath: currentAtlasPath });
+                setCurrentPalaceMeta({ name: currentName, alias: currentAlias, atlasPath: currentAtlasPath });
                 void saveCurrent();
               }}
             >
               <Save className="h-4 w-4" />
               Save details
             </Button>
+            <details className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
+              <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Hierarchy editor
+              </summary>
+              <div className="mt-2 space-y-3">
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Terminology</div>
+                  <div className="mt-2 space-y-2">
+                    {Array.from({ length: hierarchyRowCount }).map((_, index) => (
+                      <Input
+                        key={`level-label-${index}`}
+                        aria-label={`Atlas level ${index + 1} name`}
+                        value={levelLabels[index] ?? ""}
+                        onChange={(e) => updateLevelLabel(index, e.target.value)}
+                        placeholder={`Level ${index + 1}`}
+                        className="h-8 text-xs"
+                      />
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2 w-full justify-center"
+                    type="button"
+                    onClick={() => setLevelLabels((current) => [...current, `Level ${current.length + 1}`])}
+                  >
+                    Add level
+                  </Button>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Current palace outline</div>
+                  <div className="mt-2 space-y-2">
+                    {Array.from({ length: hierarchyRowCount }).map((_, index) => {
+                      const label = levelLabels[index]?.trim() || `Level ${index + 1}`;
+                      return (
+                        <div key={`hierarchy-segment-${index}`} className="grid grid-cols-[6rem_1fr] items-center gap-2">
+                          <div className="truncate text-[11px] text-zinc-500" title={label}>
+                            {label}
+                          </div>
+                          <Input
+                            aria-label={`${label} segment`}
+                            value={hierarchySegments[index] ?? ""}
+                            onChange={(e) => updateHierarchySegment(index, e.target.value)}
+                            placeholder={index === 0 ? "e.g. Course" : "Optional"}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-2 w-full justify-center"
+                    type="button"
+                    onClick={() => {
+                      const atlasPath = composeAtlasPath(hierarchySegments);
+                      setCurrentAtlasPath(atlasPath);
+                      setCurrentPalaceMeta({ atlasPath });
+                      void saveCurrent();
+                    }}
+                  >
+                    Save hierarchy
+                  </Button>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       ) : null}

@@ -20,6 +20,7 @@ type InvokePalaceSnapshot = {
     id: string;
     objectId: string;
     title: string;
+    alias?: string;
     content: string;
     nodeKind?: string;
     nodeMetaJson?: string;
@@ -29,6 +30,7 @@ type InvokePalaceSnapshot = {
     objectId: string;
     sourceNodeId: string;
     targetNodeId: string;
+    alias?: string;
     castAb: string;
     castCd: string;
     castEf: string;
@@ -68,6 +70,7 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       id: n.id,
       objectId: n.objectId,
       title: n.title,
+      alias: n.alias ?? "",
       content: n.content,
       kind: n.nodeKind === "portal" ? "portal" : "memory",
       portal: (() => {
@@ -84,6 +87,7 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       objectId: e.objectId,
       sourceNodeId: e.sourceNodeId,
       targetNodeId: e.targetNodeId,
+      alias: e.alias ?? "",
       castAb: e.castAb,
       castCd: e.castCd,
       castEf: e.castEf,
@@ -122,6 +126,7 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       id: n.id,
       objectId: n.objectId,
       title: n.title,
+      alias: n.alias ?? "",
       content: n.content,
       nodeKind: n.kind,
       nodeMetaJson: JSON.stringify(n.portal ?? {}),
@@ -131,6 +136,7 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       objectId: e.objectId,
       sourceNodeId: e.sourceNodeId,
       targetNodeId: e.targetNodeId,
+      alias: e.alias ?? "",
       castAb: e.castAb,
       castCd: e.castCd,
       castEf: e.castEf,

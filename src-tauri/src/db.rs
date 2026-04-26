@@ -9,6 +9,8 @@ pub struct PalaceDto {
     pub name: String,
     pub created_at: String,
     #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
     pub atlas_path: Option<String>,
     #[serde(default)]
     pub editor_snapshot: Option<String>,
@@ -35,6 +37,8 @@ pub struct NodeDto {
     pub id: String,
     pub object_id: String,
     pub title: String,
+    #[serde(default)]
+    pub alias: String,
     pub content: String,
     #[serde(default = "default_node_kind")]
     pub node_kind: String,
@@ -49,6 +53,8 @@ pub struct EdgeDto {
     pub object_id: String,
     pub source_node_id: String,
     pub target_node_id: String,
+    #[serde(default)]
+    pub alias: String,
     pub cast_ab: String,
     pub cast_cd: String,
     pub cast_ef: String,
@@ -126,6 +132,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             id TEXT PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            alias TEXT,
             atlas_path TEXT,
             editor_snapshot TEXT
         );
@@ -146,6 +153,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             id TEXT PRIMARY KEY NOT NULL,
             object_id TEXT NOT NULL REFERENCES canvas_objects(id) ON DELETE CASCADE,
             title TEXT NOT NULL DEFAULT '',
+            alias TEXT NOT NULL DEFAULT '',
             content TEXT NOT NULL DEFAULT '',
             node_kind TEXT NOT NULL DEFAULT 'memory',
             node_meta_json TEXT NOT NULL DEFAULT '{}'
@@ -156,6 +164,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             object_id TEXT NOT NULL REFERENCES canvas_objects(id) ON DELETE CASCADE,
             source_node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
             target_node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            alias TEXT NOT NULL DEFAULT '',
             cast_ab TEXT NOT NULL DEFAULT '',
             cast_cd TEXT NOT NULL DEFAULT '',
             cast_ef TEXT NOT NULL DEFAULT '',
@@ -211,6 +220,12 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN alias TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
     if let Err(err) =
         conn.execute("ALTER TABLE nodes ADD COLUMN node_kind TEXT NOT NULL DEFAULT 'memory'", [])
     {
@@ -223,6 +238,18 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         "ALTER TABLE nodes ADD COLUMN node_meta_json TEXT NOT NULL DEFAULT '{}'",
         [],
     ) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE nodes ADD COLUMN alias TEXT NOT NULL DEFAULT ''", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE edges ADD COLUMN alias TEXT NOT NULL DEFAULT ''", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -270,7 +297,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
 
 pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, atlas_path FROM palaces ORDER BY COALESCE(atlas_path, ''), created_at DESC",
+        "SELECT id, name, created_at, alias, atlas_path FROM palaces ORDER BY COALESCE(atlas_path, ''), created_at DESC",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -278,7 +305,8 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
                 id: r.get(0)?,
                 name: r.get(1)?,
                 created_at: r.get(2)?,
-                atlas_path: r.get(3)?,
+                alias: r.get(3)?,
+                atlas_path: r.get(4)?,
                 editor_snapshot: None,
             })
         })?
@@ -294,13 +322,14 @@ pub fn create_palace(
     created_at: &str,
 ) -> rusqlite::Result<PalaceDto> {
     conn.execute(
-        "INSERT INTO palaces (id, name, created_at, atlas_path) VALUES (?1, ?2, ?3, ?4)",
-        params![id, name, created_at, atlas_path],
+        "INSERT INTO palaces (id, name, created_at, alias, atlas_path) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![id, name, created_at, Option::<&str>::None, atlas_path],
     )?;
     Ok(PalaceDto {
         id: id.to_string(),
         name: name.to_string(),
         created_at: created_at.to_string(),
+        alias: None,
         atlas_path: atlas_path.map(|value| value.to_string()),
         editor_snapshot: None,
     })
@@ -309,15 +338,16 @@ pub fn create_palace(
 pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Option<PalaceSnapshot>> {
     let palace: Option<PalaceDto> = conn
         .query_row(
-            "SELECT id, name, created_at, atlas_path, editor_snapshot FROM palaces WHERE id = ?1",
+            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot FROM palaces WHERE id = ?1",
             params![palace_id],
             |r| {
                 Ok(PalaceDto {
                     id: r.get(0)?,
                     name: r.get(1)?,
                     created_at: r.get(2)?,
-                    atlas_path: r.get(3)?,
-                    editor_snapshot: r.get(4)?,
+                    alias: r.get(3)?,
+                    atlas_path: r.get(4)?,
+                    editor_snapshot: r.get(5)?,
                 })
             },
         )
@@ -368,7 +398,7 @@ fn load_canvas_objects(conn: &Connection, palace_id: &str) -> rusqlite::Result<V
 
 fn load_nodes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<NodeDto>> {
     let mut stmt = conn.prepare(
-        "SELECT n.id, n.object_id, n.title, n.content, n.node_kind, n.node_meta_json
+        "SELECT n.id, n.object_id, n.title, n.alias, n.content, n.node_kind, n.node_meta_json
          FROM nodes n
          INNER JOIN canvas_objects c ON c.id = n.object_id
          WHERE c.palace_id = ?1",
@@ -379,9 +409,10 @@ fn load_nodes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<NodeDt
                 id: r.get(0)?,
                 object_id: r.get(1)?,
                 title: r.get(2)?,
-                content: r.get(3)?,
-                node_kind: r.get(4)?,
-                node_meta_json: r.get(5)?,
+                alias: r.get(3)?,
+                content: r.get(4)?,
+                node_kind: r.get(5)?,
+                node_meta_json: r.get(6)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -390,7 +421,7 @@ fn load_nodes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<NodeDt
 
 fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDto>> {
     let mut stmt = conn.prepare(
-        "SELECT e.id, e.object_id, e.source_node_id, e.target_node_id,
+        "SELECT e.id, e.object_id, e.source_node_id, e.target_node_id, e.alias,
                 e.cast_ab, e.cast_cd, e.cast_ef, e.cast_gh
          FROM edges e
          INNER JOIN canvas_objects c ON c.id = e.object_id
@@ -403,10 +434,11 @@ fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDt
                 object_id: r.get(1)?,
                 source_node_id: r.get(2)?,
                 target_node_id: r.get(3)?,
-                cast_ab: r.get(4)?,
-                cast_cd: r.get(5)?,
-                cast_ef: r.get(6)?,
-                cast_gh: r.get(7)?,
+                alias: r.get(4)?,
+                cast_ab: r.get(5)?,
+                cast_cd: r.get(6)?,
+                cast_ef: r.get(7)?,
+                cast_gh: r.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -455,10 +487,11 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
     let palace_id = &snap.palace.id;
 
     tx.execute(
-        "UPDATE palaces SET name = ?2, atlas_path = ?3, editor_snapshot = ?4 WHERE id = ?1",
+        "UPDATE palaces SET name = ?2, alias = ?3, atlas_path = ?4, editor_snapshot = ?5 WHERE id = ?1",
         params![
             palace_id,
             snap.palace.name,
+            snap.palace.alias.as_deref(),
             snap.palace.atlas_path.as_deref(),
             snap.palace.editor_snapshot.as_deref()
         ],
@@ -502,11 +535,12 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
 
     for n in &snap.nodes {
         tx.execute(
-            "INSERT INTO nodes (id, object_id, title, content, node_kind, node_meta_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO nodes (id, object_id, title, alias, content, node_kind, node_meta_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 n.id,
                 n.object_id,
                 n.title,
+                n.alias,
                 n.content,
                 n.node_kind,
                 n.node_meta_json
@@ -516,13 +550,14 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
 
     for e in &snap.edges {
         tx.execute(
-            "INSERT INTO edges (id, object_id, source_node_id, target_node_id, cast_ab, cast_cd, cast_ef, cast_gh)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO edges (id, object_id, source_node_id, target_node_id, alias, cast_ab, cast_cd, cast_ef, cast_gh)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 e.id,
                 e.object_id,
                 e.source_node_id,
                 e.target_node_id,
+                e.alias,
                 e.cast_ab,
                 e.cast_cd,
                 e.cast_ef,

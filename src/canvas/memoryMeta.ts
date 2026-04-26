@@ -7,6 +7,7 @@ export type MemoryPalaceMeta = {
   mpBackgroundAssetPath?: string;
   mpEdgeId?: string;
   mpTitle?: string;
+  mpAlias?: string;
   mpContent?: string;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;

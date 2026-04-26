@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LibraryBig, Search } from "lucide-react";
 import {
   THE_SYSTEM_CATEGORIES,
@@ -8,6 +8,7 @@ import {
 } from "../content/theSystemLibrary";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { splitMarkdownSections } from "../domain/services/markdownSections";
 
 type Props = {
   preferredSlug?: string;
@@ -19,6 +20,8 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<TheSystemCategory | "All">("All");
   const [selectedSlug, setSelectedSlug] = useState<string>(preferredSlug ?? "");
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const sectionTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +70,18 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
     docs.find((doc) => doc.slug === selectedSlug) ??
     filteredDocs[0] ??
     null;
+  const docSections = useMemo(() => splitMarkdownSections(selectedDoc?.body ?? ""), [selectedDoc?.body]);
+  const activeSection = docSections[Math.min(activeSectionIndex, docSections.length - 1)] ?? docSections[0];
+
+  useEffect(() => {
+    setActiveSectionIndex(0);
+  }, [selectedDoc?.slug]);
+
+  const moveSectionFocus = (nextIndex: number) => {
+    const boundedIndex = Math.max(0, Math.min(nextIndex, docSections.length - 1));
+    setActiveSectionIndex(boundedIndex);
+    window.requestAnimationFrame(() => sectionTabRefs.current[boundedIndex]?.focus());
+  };
 
   return (
     <div className="flex min-h-0 flex-1 gap-3">
@@ -147,10 +162,69 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
               <p className="mt-1 text-sm leading-6 text-zinc-400">{selectedDoc.summary}</p>
               <div className="mt-2 text-[11px] text-zinc-500">{selectedDoc.filename}</div>
             </div>
+            {docSections.length > 1 ? (
+              <div
+                aria-label="Document sections"
+                role="tablist"
+                className="flex gap-1 overflow-x-auto border-b border-zinc-800 px-3 py-2"
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    moveSectionFocus(activeSectionIndex + 1);
+                  }
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    moveSectionFocus(activeSectionIndex - 1);
+                  }
+                  if (event.key === "Home") {
+                    event.preventDefault();
+                    moveSectionFocus(0);
+                  }
+                  if (event.key === "End") {
+                    event.preventDefault();
+                    moveSectionFocus(docSections.length - 1);
+                  }
+                }}
+              >
+                {docSections.map((section, index) => (
+                  <button
+                    key={`${selectedDoc.slug}:${section.id}:${index}`}
+                    ref={(element) => {
+                      sectionTabRefs.current[index] = element;
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`doc-section-tab-${section.id}-${index}`}
+                    aria-selected={index === activeSectionIndex}
+                    aria-controls={`doc-section-panel-${section.id}-${index}`}
+                    tabIndex={index === activeSectionIndex ? 0 : -1}
+                    className={`shrink-0 rounded-md border px-3 py-1.5 text-xs transition ${
+                      index === activeSectionIndex
+                        ? "border-violet-500/60 bg-violet-900/30 text-violet-100"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                    }`}
+                    onClick={() => setActiveSectionIndex(index)}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div id="the-system-doc-content" className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-200">
-                {selectedDoc.body}
-              </pre>
+              {activeSection ? (
+                <section
+                  id={`doc-section-panel-${activeSection.id}-${activeSectionIndex}`}
+                  role={docSections.length > 1 ? "tabpanel" : undefined}
+                  aria-labelledby={
+                    docSections.length > 1 ? `doc-section-tab-${activeSection.id}-${activeSectionIndex}` : undefined
+                  }
+                >
+                  <h3 className="mb-3 text-base font-semibold text-zinc-100">{activeSection.title}</h3>
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-200">
+                    {activeSection.content}
+                  </pre>
+                </section>
+              ) : null}
             </div>
           </>
         ) : (

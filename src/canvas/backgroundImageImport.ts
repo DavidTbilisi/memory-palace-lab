@@ -176,6 +176,7 @@ export async function insertBackgroundImageFromFile(editor: Editor, palaceId: st
     editor.createAssets([
       {
         id: assetId,
+        typeName: "asset",
         type: "image",
         props: {
           name: "Background",
@@ -192,6 +193,13 @@ export async function insertBackgroundImageFromFile(editor: Editor, palaceId: st
     const viewport = editor.getViewportPageBounds();
     const fitted = fitImageToViewport(asset.width, asset.height, viewport);
     const shapeId = createShapeId();
+    const backgroundMeta: MemoryPalaceMeta = {
+      mpPalaceId: palaceId,
+      mpBackground: true,
+    };
+    if (asset.storedPath) {
+      backgroundMeta.mpBackgroundAssetPath = asset.storedPath;
+    }
     editor.createShape({
       id: shapeId,
       type: "image",
@@ -199,11 +207,7 @@ export async function insertBackgroundImageFromFile(editor: Editor, palaceId: st
       y: fitted.y,
       isLocked: true,
       opacity: 0.92,
-      meta: {
-        mpPalaceId: palaceId,
-        mpBackground: true,
-        mpBackgroundAssetPath: asset.storedPath,
-      } as MemoryPalaceMeta,
+      meta: backgroundMeta,
       props: {
         w: fitted.w,
         h: fitted.h,

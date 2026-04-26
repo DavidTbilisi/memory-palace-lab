@@ -4,6 +4,7 @@ export interface Palace {
   id: string;
   name: string;
   createdAt: string;
+  alias?: string | null;
   atlasPath?: string | null;
   editorSnapshot?: string | null;
 }
@@ -35,6 +36,7 @@ export interface MemoryNode {
   id: string;
   objectId: string;
   title: string;
+  alias?: string;
   content: string;
   kind: MemoryNodeKind;
   portal: PalacePortalRef | null;
@@ -45,6 +47,7 @@ export interface MemoryEdge {
   objectId: string;
   sourceNodeId: string;
   targetNodeId: string;
+  alias?: string;
   castAb: string;
   castCd: string;
   castEf: string;

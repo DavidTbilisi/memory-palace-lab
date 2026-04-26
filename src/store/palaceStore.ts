@@ -21,7 +21,13 @@ import {
   walkPrevious as prevWalkIndex,
   orderedLoci,
   locusAtOrderedIndex,
+  clampWalkIndex,
 } from "../domain/services/walkService";
+import {
+  deleteLocus as deleteRouteLocus,
+  moveLocus as moveRouteLocus,
+  reassignLocusRoute as reassignRouteLocus,
+} from "../domain/services/routeEditing";
 
 const repo = getPalaceRepository();
 const DRAFT_SAVE_DELAY_MS = 900;
@@ -70,7 +76,7 @@ export type PalaceStore = {
   saveCurrent: () => Promise<void>;
   queueDraftSave: () => void;
   flushDraftSave: () => Promise<void>;
-  setCurrentPalaceMeta: (patch: Partial<Pick<Palace, "name" | "atlasPath">>) => void;
+  setCurrentPalaceMeta: (patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>) => void;
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
@@ -78,7 +84,11 @@ export type PalaceStore = {
   setPendingCast: (v: PalaceStore["pendingCast"]) => void;
   addRoute: (name: string) => void;
   addLocusForSelectedRoute: (nodeId: string, label?: string) => void;
+  updateRouteName: (routeId: string, name: string) => void;
   updateLocusLabel: (locusId: string, label: string) => void;
+  moveLocus: (locusId: string, direction: "up" | "down") => void;
+  deleteLocus: (locusId: string) => void;
+  reassignLocusRoute: (locusId: string, routeId: string) => void;
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
   setWalkOpen: (v: boolean) => void;
@@ -377,6 +387,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         ...currentPalace,
         ...patch,
         name: patch.name?.trim() || currentPalace.name,
+        alias: patch.alias === undefined ? currentPalace.alias ?? null : patch.alias?.trim() || null,
         atlasPath:
           patch.atlasPath === undefined ? currentPalace.atlasPath ?? null : patch.atlasPath?.trim() || null,
       };
@@ -449,6 +460,15 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       });
     },
 
+    updateRouteName(routeId: string, name: string) {
+      const { routes } = get();
+      const trimmedName = name.trim() || "Route";
+      set({
+        routes: routes.map((route) => (route.id === routeId ? { ...route, name: trimmedName } : route)),
+      });
+      scheduleDraftSave();
+    },
+
     updateLocusLabel(locusId: string, label: string) {
       const { loci } = get();
       const previous = loci.find((locus) => locus.id === locusId);
@@ -470,6 +490,40 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           },
         });
       }
+    },
+
+    moveLocus(locusId, direction) {
+      const { loci } = get();
+      set({ loci: moveRouteLocus(loci, locusId, direction) });
+      scheduleDraftSave();
+    },
+
+    deleteLocus(locusId) {
+      const { loci, routes, walkRouteId, walkIndex } = get();
+      const nextLoci = deleteRouteLocus(loci, locusId);
+      const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
+      const nextRouteLength = effectiveRouteId
+        ? nextLoci.filter((locus) => locus.routeId === effectiveRouteId).length
+        : 0;
+      set({
+        loci: nextLoci,
+        walkIndex: clampWalkIndex(walkIndex, nextRouteLength),
+      });
+      scheduleDraftSave();
+    },
+
+    reassignLocusRoute(locusId, routeId) {
+      const { loci, routes, walkRouteId, walkIndex } = get();
+      const nextLoci = reassignRouteLocus(loci, locusId, routeId);
+      const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
+      const nextRouteLength = effectiveRouteId
+        ? nextLoci.filter((locus) => locus.routeId === effectiveRouteId).length
+        : 0;
+      set({
+        loci: nextLoci,
+        walkIndex: clampWalkIndex(walkIndex, nextRouteLength),
+      });
+      scheduleDraftSave();
     },
 
     replaceRoutesAndLoci(routes, loci) {

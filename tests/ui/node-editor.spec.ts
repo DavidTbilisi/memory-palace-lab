@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 async function bootstrapPalace(page: import("@playwright/test").Page, name = "Node Test Palace") {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("mp-idle-tip-delay-ms", "600000");
+  });
   await page.goto("/");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
   await page.getByRole("button", { name: "Create palace" }).click();
@@ -43,6 +46,15 @@ async function selectNodeByTitle(page: import("@playwright/test").Page, title: s
         }
         return false;
       }, title),
+    )
+    .toBe(true);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        return !!store?.getState() && !!(store.getState() as { editorRef?: unknown }).editorRef;
+      }),
     )
     .toBe(true);
 
@@ -107,6 +119,15 @@ async function clickNodeByTitle(page: import("@playwright/test").Page, title: st
     )
     .toBe(true);
 
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        return !!store?.getState() && !!(store.getState() as { editorRef?: unknown }).editorRef;
+      }),
+    )
+    .toBe(true);
+
   const point = await page.evaluate((expectedTitle) => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing dev store hook");
@@ -139,6 +160,67 @@ async function clickNodeByTitle(page: import("@playwright/test").Page, title: st
   }, title);
 
   await page.mouse.click(point.x, point.y);
+}
+
+async function queuePendingCast(page: import("@playwright/test").Page, fromIndex: number, toIndex: number) {
+  await page.evaluate(
+    ([sourceIndex, targetIndex]) => {
+      const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+      if (!store) throw new Error("missing dev store hook");
+      const state = store.getState() as {
+        editorRef: {
+          getCurrentPageShapeIds: () => Iterable<string>;
+          getShape: (id: string) => { type?: string; x?: number; meta?: Record<string, unknown> } | undefined;
+        } | null;
+        setPendingCast: (v: {
+          fromShapeId: string;
+          toShapeId: string;
+          sourceNodeId: string;
+          targetNodeId: string;
+        }) => void;
+      };
+      const editor = state.editorRef;
+      if (!editor) throw new Error("editor not ready");
+      const nodes: Array<{ shapeId: string; nodeId: string; x: number }> = [];
+      for (const shapeId of editor.getCurrentPageShapeIds()) {
+        const shape = editor.getShape(shapeId);
+        const nodeId = shape?.type === "geo" ? (shape.meta?.mpNodeId as string | undefined) : undefined;
+        if (nodeId) nodes.push({ shapeId, nodeId, x: shape?.x ?? 0 });
+      }
+      nodes.sort((a, b) => a.x - b.x);
+      const fromNode = nodes[sourceIndex];
+      const toNode = nodes[targetIndex];
+      if (!fromNode || !toNode) throw new Error("need at least two nodes");
+      state.setPendingCast({
+        fromShapeId: fromNode.shapeId,
+        toShapeId: toNode.shapeId,
+        sourceNodeId: fromNode.nodeId,
+        targetNodeId: toNode.nodeId,
+      });
+    },
+    [fromIndex, toIndex],
+  );
+}
+
+async function selectFirstArrow(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string } | undefined;
+        setSelectedShapes: (ids: string[]) => void;
+      } | null;
+      setSelectedShapeId: (id: string | null) => void;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const arrowId = Array.from(editor.getCurrentPageShapeIds()).find((id) => editor.getShape(id)?.type === "arrow");
+    if (!arrowId) throw new Error("no arrow found");
+    editor.setSelectedShapes([arrowId]);
+    state.setSelectedShapeId(arrowId);
+  });
 }
 
 test("node title/content editing follows selected node", async ({ page }) => {
@@ -199,6 +281,48 @@ test("node title/content persist after save and reopen palace", async ({ page })
   await expect(page.locator("#mp-title")).toBeVisible();
   await expect(page.locator("#mp-title")).toHaveValue("Server Room");
   await expect(page.locator("#mp-content")).toHaveValue("Racks left to right: auth, router, db.");
+});
+
+test("aliases persist for palace, node, and edge inspectors", async ({ page }) => {
+  await bootstrapPalace(page, "Alias Palace");
+
+  await page.getByRole("textbox", { name: "Current palace alias" }).fill("AP");
+  await page.getByRole("button", { name: "Save details" }).click();
+  await expect(page.getByText("Alias: AP")).toBeVisible();
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Gateway");
+  await page.locator("#mp-alias").fill("GW");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await createNodeByDoubleClickAt(page, 520, 260);
+  await page.locator("#mp-title").fill("Database");
+  await page.locator("#mp-alias").fill("DB");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await queuePendingCast(page, 0, 1);
+  await page.getByLabel("Tier 1 edge verb").fill("writes");
+  await page.getByRole("button", { name: /create edge/i }).click();
+  await selectFirstArrow(page);
+  await page.locator("#mp-edge-alias").fill("Write path");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await page.getByRole("button", { name: /^Save$/ }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Alias Temporary Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Alias Temporary Palace" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Alias Palace/ }).click();
+  await expect(page.getByRole("heading", { name: "Alias Palace" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Current palace alias" })).toHaveValue("AP");
+
+  await selectNodeByTitle(page, "Gateway");
+  await expect(page.locator("#mp-alias")).toHaveValue("GW");
+
+  await selectFirstArrow(page);
+  await expect(page.locator("#mp-edge-alias")).toHaveValue("Write path");
+  await expect(page.locator("#mp-edge-source")).toContainText("Gateway (GW)");
+  await expect(page.locator("#mp-edge-target")).toContainText("Database (DB)");
 });
 
 test("inspector title matches clicked canvas node", async ({ page }) => {

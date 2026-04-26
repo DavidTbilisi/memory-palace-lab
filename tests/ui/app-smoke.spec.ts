@@ -31,6 +31,11 @@ test("shell pages and layout workflow", async ({ page }) => {
   await expect(page.getByLabel("Search theSystem")).toBeVisible();
   await expect(page.getByRole("heading", { name: /NAVIGATOR/ })).toBeVisible();
   await expect(page.locator("#the-system-doc-content")).toContainText("Acronym = order");
+  await expect(page.getByRole("tablist", { name: "Document sections" })).toBeVisible();
+  await page.getByRole("tab", { name: "Narrow" }).click();
+  await expect(page.locator("#the-system-doc-content")).toContainText("Success criteria");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Phases" })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("button", { name: /^Help$/ }).click();
   await expect(page.getByText("Help Center")).toBeVisible();
 
@@ -107,5 +112,23 @@ test("atlas path groups palaces into nested places", async ({ page }) => {
   await expect(page.getByText("Tbilisi", { exact: true })).toBeVisible();
   await expect(page.getByText("Vake", { exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue("Georgia/Tbilisi/Vake");
+
+  await page.getByText("Hierarchy editor").click();
+  await expect(page.getByRole("textbox", { name: "Domain segment" })).toHaveValue("Georgia");
+  await expect(page.getByRole("textbox", { name: "Place segment" })).toHaveValue("Tbilisi");
+  await expect(page.getByRole("textbox", { name: "Section segment" })).toHaveValue("Vake");
+
+  await page.getByRole("textbox", { name: "Atlas level 1 name" }).fill("Subject");
+  await page.getByRole("textbox", { name: "Atlas level 2 name" }).fill("Topic");
+  await page.getByRole("textbox", { name: "Atlas level 3 name" }).fill("Lesson");
+  await page.getByRole("textbox", { name: "Subject segment" }).fill("Math");
+  await page.getByRole("textbox", { name: "Topic segment" }).fill("Algebra");
+  await page.getByRole("textbox", { name: "Lesson segment" }).fill("Quadratics");
+  await page.getByRole("button", { name: "Save hierarchy" }).click();
+
+  await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue("Math/Algebra/Quadratics");
+  await expect(page.getByText("Math", { exact: true })).toBeVisible();
+  await expect(page.getByText("Algebra", { exact: true })).toBeVisible();
+  await expect(page.getByText("Quadratics", { exact: true })).toBeVisible();
 });
 

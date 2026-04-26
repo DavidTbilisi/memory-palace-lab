@@ -462,8 +462,8 @@ export function MemoryPalaceApp() {
         id: `palace:${palace.id}`,
         group: "Palaces",
         title: palace.name,
-        subtitle: palace.atlasPath?.trim() || "Open palace",
-        keywords: `open palace ${palace.name} ${palace.atlasPath ?? ""}`,
+        subtitle: palace.alias?.trim() || palace.atlasPath?.trim() || "Open palace",
+        keywords: `open palace ${palace.name} ${palace.alias ?? ""} ${palace.atlasPath ?? ""}`,
         onSelect: () => {
           void openPalace(palace.id).then(() => navigateToPage("graph"));
         },
@@ -488,8 +488,8 @@ export function MemoryPalaceApp() {
         id: `node:${node.id}`,
         group: "Nodes",
         title: `Focus node: ${node.title || "Untitled node"}`,
-        subtitle: node.kind === "portal" ? "Portal node" : "Memory node",
-        keywords: `node focus ${node.title} ${node.kind}`,
+        subtitle: node.alias?.trim() || (node.kind === "portal" ? "Portal node" : "Memory node"),
+        keywords: `node focus ${node.title} ${node.alias ?? ""} ${node.kind}`,
         onSelect: () => focusNode(node.id),
       }));
 

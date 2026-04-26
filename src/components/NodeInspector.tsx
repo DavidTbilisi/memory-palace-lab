@@ -19,7 +19,7 @@ function resolveNodeSummary(
   nodeId: string | undefined,
   snapshotNodes: MemoryNode[],
 ) {
-  if (!nodeId) return { title: "Unknown node", id: "Unknown id" };
+  if (!nodeId) return { title: "Unknown node", alias: "", id: "Unknown id" };
   if (editorRef) {
     for (const shapeId of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(shapeId as TLShapeId);
@@ -28,6 +28,7 @@ function resolveNodeSummary(
       if (meta.mpNodeId !== nodeId) continue;
       return {
         title: resolveMemoryNodeTitle(shape),
+        alias: meta.mpAlias ?? "",
         id: nodeId,
       };
     }
@@ -36,10 +37,11 @@ function resolveNodeSummary(
   if (storedNode) {
     return {
       title: storedNode.title || "Untitled",
+      alias: storedNode.alias ?? "",
       id: nodeId,
     };
   }
-  return { title: nodeId.slice(0, 8), id: nodeId };
+  return { title: nodeId.slice(0, 8), alias: "", id: nodeId };
 }
 
 function resolveArrowBindingNodeIds(
@@ -90,6 +92,7 @@ function resolveEdgeMeta(
     castCd: meta.castCd ?? storedEdge?.castCd ?? "",
     castEf: meta.castEf ?? storedEdge?.castEf ?? "",
     castGh: meta.castGh ?? storedEdge?.castGh ?? "",
+    alias: meta.mpAlias ?? storedEdge?.alias ?? "",
     hasGraphContext: !!(meta.mpEdgeId || storedEdge || sourceNodeId || targetNodeId),
   };
 }
@@ -125,8 +128,10 @@ export function NodeInspector() {
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
   const [title, setTitle] = useState("");
+  const [alias, setAlias] = useState("");
   const [content, setContent] = useState("");
   const [edgeLabel, setEdgeLabel] = useState("");
+  const [edgeAlias, setEdgeAlias] = useState("");
   const [nodeKind, setNodeKind] = useState<MemoryNodeKind>("memory");
   const [portalPalaceId, setPortalPalaceId] = useState("");
   const [portalRouteId, setPortalRouteId] = useState("");
@@ -143,8 +148,10 @@ export function NodeInspector() {
   const syncFromSelectedShape = useCallback(() => {
     if (!editorRef || !selectedShapeId) {
       setTitle("");
+      setAlias("");
       setContent("");
       setEdgeLabel("");
+      setEdgeAlias("");
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
@@ -154,8 +161,10 @@ export function NodeInspector() {
     const sh = editorRef.getShape(selectedShapeId as TLShapeId);
     if (!sh) {
       setTitle("");
+      setAlias("");
       setContent("");
       setEdgeLabel("");
+      setEdgeAlias("");
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
@@ -166,9 +175,12 @@ export function NodeInspector() {
     if (sh.type === "geo" && meta.mpNodeId) {
       const resolvedTitle = resolveMemoryNodeTitle(sh);
       const resolvedPortal = resolvePortalDraft(meta, snapshotNodes);
+      const storedNode = snapshotNodes.find((node) => node.id === meta.mpNodeId);
       setTitle(resolvedTitle);
+      setAlias(meta.mpAlias ?? storedNode?.alias ?? "");
       setContent(meta.mpContent ?? "");
       setEdgeLabel("");
+      setEdgeAlias("");
       setNodeKind(resolvedPortal.kind);
       setPortalPalaceId(resolvedPortal.portal?.targetPalaceId ?? "");
       setPortalRouteId(resolvedPortal.portal?.targetRouteId ?? "");
@@ -176,9 +188,12 @@ export function NodeInspector() {
     }
 
     if (sh.type === "arrow") {
+      const resolvedEdge = resolveEdgeMeta(editorRef, selectedShapeId as TLShapeId, meta, snapshotEdges);
       setTitle("");
+      setAlias("");
       setContent("");
       setEdgeLabel(plainTextFromRichText((sh as { props?: { richText?: unknown } }).props?.richText));
+      setEdgeAlias(resolvedEdge.alias);
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
@@ -186,12 +201,14 @@ export function NodeInspector() {
     }
 
     setTitle("");
+    setAlias("");
     setContent("");
     setEdgeLabel("");
+    setEdgeAlias("");
     setNodeKind("memory");
     setPortalPalaceId("");
     setPortalRouteId("");
-  }, [editorRef, selectedShapeId, snapshotNodes]);
+  }, [editorRef, selectedShapeId, snapshotEdges, snapshotNodes]);
 
   useEffect(() => {
     syncFromSelectedShape();
@@ -299,7 +316,7 @@ export function NodeInspector() {
       if (!shape || shape.type !== "geo") return;
       const prev = shape.meta as MemoryPalaceMeta;
       const nextMeta = applyPortalRefToMeta(
-        { ...prev, mpTitle: title, mpContent: content },
+        { ...prev, mpTitle: title, mpAlias: alias, mpContent: content },
         nodeKind,
         portalDraft,
       );
@@ -331,6 +348,10 @@ export function NodeInspector() {
         <div>
           <Label htmlFor="mp-title">Title</Label>
           <Input id="mp-title" className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="mp-alias">Alias</Label>
+          <Input id="mp-alias" className="mt-1" value={alias} onChange={(e) => setAlias(e.target.value)} />
         </div>
         <div>
           <Label htmlFor="mp-node-kind">Type</Label>
@@ -414,6 +435,7 @@ export function NodeInspector() {
       editorRef.updateShape({
         id: selectedShapeId as TLShapeId,
         type: "arrow",
+        meta: { ...(shape.meta as MemoryPalaceMeta), mpAlias: edgeAlias },
         props: { ...shape.props, richText: toRichText(edgeLabel || " ") },
       });
     };
@@ -430,8 +452,22 @@ export function NodeInspector() {
             This arrow is missing live memory metadata. Showing whatever can be recovered from bindings and saved graph data.
           </div>
         ) : null}
-        <ReadOnlyMetaField id="mp-edge-source" label="From" value={source.title} subvalue={source.id} />
-        <ReadOnlyMetaField id="mp-edge-target" label="To" value={target.title} subvalue={target.id} />
+        <div>
+          <Label htmlFor="mp-edge-alias">Alias</Label>
+          <Input id="mp-edge-alias" className="mt-1" value={edgeAlias} onChange={(e) => setEdgeAlias(e.target.value)} />
+        </div>
+        <ReadOnlyMetaField
+          id="mp-edge-source"
+          label="From"
+          value={source.alias ? `${source.title} (${source.alias})` : source.title}
+          subvalue={source.id}
+        />
+        <ReadOnlyMetaField
+          id="mp-edge-target"
+          label="To"
+          value={target.alias ? `${target.title} (${target.alias})` : target.title}
+          subvalue={target.id}
+        />
         <ReadOnlyMetaField id="mp-edge-c" label="C - Character" value={resolvedEdge.castAb || "None"} />
         <ReadOnlyMetaField id="mp-edge-a" label="A - Action" value={resolvedEdge.castCd || "None"} />
         <ReadOnlyMetaField id="mp-edge-s" label="S - Stream" value={resolvedEdge.castEf || "None"} />
