@@ -542,7 +542,7 @@ export function MemoryPalaceApp() {
           ) : null}
         </main>
         <OnboardingPanel
-          open={showOnboarding || palaces.length === 0}
+          open={showOnboarding}
           onClose={() => {
             setShowOnboarding(false);
           }}

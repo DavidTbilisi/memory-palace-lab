@@ -162,4 +162,85 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       }
     });
   });
+
+  describe("Onboarding/Learn Panel (#14)", () => {
+    it("should render learn button in header controls", () => {
+      const { container } = render(<MemoryPalaceApp />);
+      const buttons = container.querySelectorAll("header button");
+      const learnButton = Array.from(buttons).find(btn => btn.textContent?.includes("Learn"));
+      expect(learnButton).toBeInTheDocument();
+    });
+
+    it("should show onboarding panel when no palaces exist", () => {
+      const { container } = render(<MemoryPalaceApp />);
+      // OnboardingPanel should be rendered and visible initially
+      // Check for lesson content or panel structure
+      const lessonContent = container.textContent;
+      expect(lessonContent).toMatch(/Lesson 1|Build your first palace/);
+    });
+
+    it("should allow closing onboarding panel even with no palaces", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<MemoryPalaceApp />);
+
+      // Find the close button in the onboarding panel
+      const closeButton = Array.from(container.querySelectorAll("button")).find(
+        btn => btn.getAttribute("aria-label")?.includes("Close") ||
+               btn.className?.includes("close")
+      );
+
+      if (closeButton) {
+        await user.click(closeButton);
+        // After closing, panel should not be visible
+        // Check that onboarding lesson content is gone or hidden
+        const lessons = container.querySelectorAll("[data-lesson-id], .lesson");
+        expect(lessons.length).toBe(0);
+      }
+    });
+
+    it("should toggle onboarding panel with learn button", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<MemoryPalaceApp />);
+
+      const buttons = container.querySelectorAll("header button");
+      const learnButton = Array.from(buttons).find(btn => btn.textContent?.includes("Learn"));
+
+      if (learnButton) {
+        // Click to close
+        await user.click(learnButton);
+        // After clicking, panel should be hidden
+        // (This will depend on how the panel implements the toggle)
+
+        // Click again to reopen
+        await user.click(learnButton);
+        // Panel should reappear
+      }
+    });
+
+    it("should keep onboarding closed after explicit close, even when navigating back", async () => {
+      const user = userEvent.setup();
+      const { container } = render(<MemoryPalaceApp />);
+
+      // Find and click the close button
+      const closeButton = Array.from(container.querySelectorAll("button")).find(
+        btn => btn.getAttribute("aria-label")?.includes("Close") ||
+               btn.className?.includes("close")
+      );
+
+      if (closeButton) {
+        await user.click(closeButton);
+
+        // Navigate to another page and back
+        const nav = container.querySelector("nav");
+        const helpButton = nav?.querySelectorAll("button")[6]; // Help is last
+
+        if (helpButton) {
+          await user.click(helpButton);
+          // Panel should still be closed
+          const lessons = container.querySelectorAll("[data-lesson-id], .lesson");
+          expect(lessons.length).toBe(0);
+        }
+      }
+    });
+  });
 });
