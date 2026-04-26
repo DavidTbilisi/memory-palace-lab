@@ -159,7 +159,7 @@ export function TheSystemWorkbench() {
           <TheSystemLibrary preferredSlug={template.docsSlug} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
           <div className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-6xl px-3">
               <div className="mb-3">
@@ -171,7 +171,7 @@ export function TheSystemWorkbench() {
                   Start with a fixed framework, then turn the run into graph structure.
                 </p>
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-3 pb-4">
                 {THE_SYSTEM_PIPELINES.map((candidate) => (
                   <button
                     key={candidate.id}
@@ -201,7 +201,7 @@ export function TheSystemWorkbench() {
               <div className="mt-2 text-xs text-zinc-500">Best for: {template.recommendedFor}</div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-6">
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
