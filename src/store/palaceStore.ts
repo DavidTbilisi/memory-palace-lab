@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Editor } from "@tldraw/editor";
+import type { TLShapeId } from "@tldraw/tlschema";
 import type {
   AnalyticsEvent,
   AnalyticsEventGroup,
@@ -13,6 +14,8 @@ import type {
   RecallRating,
 } from "../domain/entities/types";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
+import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
+import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import { createAnalyticsEvent } from "../domain/services/analyticsService";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { clearPalaceDraft, loadPalaceDraft, savePalaceDraft } from "../infrastructure/draft/palaceDraftStore";
@@ -63,6 +66,7 @@ export type PalaceStore = {
   walkOpen: boolean;
   walkRouteId: string | null;
   walkIndex: number;
+  walkSessionId: string | null;
   walkRecallMode: boolean;
   walkCueOnly: boolean;
   walkAnswerRevealed: boolean;
@@ -193,6 +197,21 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     };
   };
 
+  const resolveNodeTitleForAnalytics = (nodeId: string | null) => {
+    if (!nodeId) return null;
+    const { editorRef, nodes } = get();
+    if (editorRef) {
+      for (const shapeId of editorRef.getCurrentPageShapeIds()) {
+        const shape = editorRef.getShape(shapeId as TLShapeId);
+        if (shape?.type !== "geo") continue;
+        const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+        if (meta.mpNodeId !== nodeId) continue;
+        return resolveMemoryNodeTitle(shape);
+      }
+    }
+    return nodes.find((node) => node.id === nodeId)?.title ?? null;
+  };
+
   const noteWalkStepEntered = (direction: "open" | "next" | "prev" | "route_change") => {
     const enteredAt = new Date().toISOString();
     set((state) => ({
@@ -206,6 +225,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     void recordAnalytics({
       eventType: "walk_stepped",
       eventGroup: "review",
+      sessionId: get().walkSessionId,
       palaceId: context.palaceId,
       routeId: context.routeId,
       nodeId: context.nodeId,
@@ -215,6 +235,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         routeLength: context.count,
         locusId: context.locus?.id ?? null,
         routeName: context.routeName,
+        nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
       },
     });
   };
@@ -275,6 +296,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkOpen: false,
     walkRouteId: null,
     walkIndex: 0,
+    walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
     walkAnswerRevealed: true,
@@ -552,6 +574,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkRouteId: routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
+        walkSessionId: null,
         walkAnswerRevealed: !get().walkRecallMode,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
@@ -630,27 +653,49 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     setWalkRoute(walkRouteId) {
-      const wasOpen = get().walkOpen;
+      const state = get();
+      const wasOpen = state.walkOpen;
+      const previousContext = getWalkContext();
+      const previousWalkSessionId = state.walkSessionId;
+      const nextWalkSessionId = wasOpen && walkRouteId ? crypto.randomUUID() : null;
       set((state) => ({
         walkRouteId,
         walkIndex: 0,
+        walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
       }));
       if (!wasOpen || !walkRouteId) return;
+      if (previousContext.routeId && previousWalkSessionId) {
+        void recordAnalytics({
+          eventType: "walk_closed",
+          eventGroup: "review",
+          sessionId: previousWalkSessionId,
+          routeId: previousContext.routeId,
+          nodeId: previousContext.nodeId,
+          payload: {
+            stepIndex: previousContext.stepIndex,
+            routeLength: previousContext.count,
+            routeName: previousContext.routeName,
+            nodeTitle: resolveNodeTitleForAnalytics(previousContext.nodeId),
+          },
+        });
+      }
       const context = getWalkContext();
       if (context.routeId) {
         void recordAnalytics({
           eventType: "walk_started",
           eventGroup: "review",
+          sessionId: nextWalkSessionId,
           routeId: context.routeId,
           nodeId: context.nodeId,
           payload: {
             source: "route_change",
             routeLength: context.count,
             routeName: context.routeName,
+            nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
           },
         });
       }
@@ -660,9 +705,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const state = get();
       const wasOpen = state.walkOpen;
       const previousContext = getWalkContext();
+      const nextWalkSessionId = walkOpen && !wasOpen ? crypto.randomUUID() : walkOpen ? state.walkSessionId : null;
       set({
         walkOpen,
         walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
+        walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
@@ -674,12 +721,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           void recordAnalytics({
             eventType: "walk_closed",
             eventGroup: "review",
+            sessionId: state.walkSessionId,
             routeId: previousContext.routeId,
             nodeId: previousContext.nodeId,
             payload: {
               stepIndex: previousContext.stepIndex,
               routeLength: previousContext.count,
               routeName: previousContext.routeName,
+              nodeTitle: resolveNodeTitleForAnalytics(previousContext.nodeId),
             },
           });
         }
@@ -693,12 +742,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           void recordAnalytics({
             eventType: "walk_started",
             eventGroup: "review",
+            sessionId: nextWalkSessionId,
             routeId: context.routeId,
             nodeId: context.nodeId,
             payload: {
               source: "toggle",
               routeLength: context.count,
               routeName: context.routeName,
+              nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
             },
           });
         }
@@ -735,6 +786,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       void recordAnalytics({
         eventType: "walk_answer_revealed",
         eventGroup: "review",
+        sessionId: get().walkSessionId,
         routeId: context.routeId,
         nodeId: context.nodeId,
         payload: {
@@ -742,6 +794,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           routeLength: context.count,
           locusId: context.locus?.id ?? null,
           routeName: context.routeName,
+          nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
           timeToRevealMs,
         },
       });
@@ -765,6 +818,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       void recordAnalytics({
         eventType: "walk_recall_rated",
         eventGroup: "review",
+        sessionId: get().walkSessionId,
         routeId: context.routeId,
         nodeId: context.nodeId,
         payload: {
@@ -773,6 +827,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           routeLength: context.count,
           locusId: context.locus?.id ?? null,
           routeName: context.routeName,
+          nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
           timeToRevealMs,
           timeFromRevealToRatingMs,
         },
@@ -818,6 +873,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkRouteId: s.routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
+        walkSessionId: null,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepEnteredAt: null,
         walkRevealedAt: null,

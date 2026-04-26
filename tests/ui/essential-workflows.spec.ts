@@ -51,6 +51,19 @@ async function queuePendingCast(page: import("@playwright/test").Page, fromIndex
   );
 }
 
+async function waitForEditorReady(page: import("@playwright/test").Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        if (!store) return false;
+        const state = store.getState() as { editorRef: unknown | null };
+        return !!state.editorRef;
+      }),
+    )
+    .toBe(true);
+}
+
 test("palace save/load workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
@@ -86,6 +99,7 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
   await page.getByRole("button", { name: "Draft Palace", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
   await expect(page.getByText("Draft restored")).toBeVisible();
+  await waitForEditorReady(page);
 
   await page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -165,6 +179,39 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
   await expect(page.getByText("Recent events")).toBeVisible();
   await expect(page.getByText(/walk recall rated/i)).toBeVisible();
   await expect(page.getByText(/graph work: node create\/update, edge create\/update/i)).toBeVisible();
+});
+
+test("spaced review queue surfaces due node and route reviews", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Queue Node");
+  await page.locator("#mp-content").fill("Queue content for spaced review.");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await page.getByPlaceholder("Route name").fill("Spaced Route");
+  await page.getByRole("button", { name: "Add route" }).click();
+  await page.getByRole("button", { name: /add selected node to route/i }).click();
+
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await page.getByRole("button", { name: "Recall-first" }).click();
+  await page.getByRole("button", { name: "Reveal answer" }).click();
+  await page.getByRole("button", { name: "Fail" }).click();
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+
+  await expect(page.getByRole("button", { name: "2 due" })).toBeVisible();
+  await page.getByRole("button", { name: "2 due" }).click();
+
+  await expect(page.getByText("Review Queue", { exact: true })).toBeVisible();
+  const routeCard = page.locator("section").filter({ has: page.getByRole("button", { name: "Review route" }) }).first();
+  const nodeCard = page.locator("section").filter({ has: page.getByRole("button", { name: "Focus node" }) }).first();
+  await expect(routeCard.getByText("Spaced Route", { exact: true })).toBeVisible();
+  await expect(nodeCard.getByText("Queue Node", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review route" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Review route" }).click();
+  await expect(page.getByRole("button", { name: "Recall-first" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reveal answer" })).toBeVisible();
 });
 
 test("connect workflow opens and applies CAST", async ({ page }) => {
