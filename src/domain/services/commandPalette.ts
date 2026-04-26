@@ -1,4 +1,4 @@
-export type PaletteGroup = "Actions" | "Palaces" | "Routes" | "Nodes" | "Pages";
+export type PaletteGroup = "Actions" | "Palaces" | "Routes" | "Nodes" | "Pages" | "Docs";
 
 export type PaletteItem = {
   id: string;
@@ -19,6 +19,7 @@ const GROUP_ORDER: Record<PaletteGroup, number> = {
   Palaces: 2,
   Routes: 3,
   Nodes: 4,
+  Docs: 5,
 };
 
 function normalize(text: string) {
