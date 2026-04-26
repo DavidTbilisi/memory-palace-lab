@@ -2,9 +2,18 @@ export type MemoryPalaceMeta = {
   mpPalaceId?: string;
   mpObjectId?: string;
   mpNodeId?: string;
+  mpNodeKind?: "memory" | "portal";
+  mpBackground?: boolean;
+  mpBackgroundAssetPath?: string;
   mpEdgeId?: string;
   mpTitle?: string;
   mpContent?: string;
+  mpPortalPalaceId?: string;
+  mpPortalPalaceName?: string;
+  mpPortalAtlasPath?: string | null;
+  mpPortalRouteId?: string;
+  mpPortalRouteName?: string;
+  mpPortalNodeId?: string;
   mpSourceNodeId?: string;
   mpTargetNodeId?: string;
   castAb?: string;

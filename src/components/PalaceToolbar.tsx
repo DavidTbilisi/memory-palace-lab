@@ -1,12 +1,13 @@
-import { MousePointer2, Link2, ListOrdered, ImageIcon, Save, SquarePlus, LocateFixed } from "lucide-react";
+import { MousePointer2, Link2, ListOrdered, ImageIcon, Save, SquarePlus, LocateFixed, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
 
-const tools: { id: ToolMode | "save" | "bg" | "node" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
+const tools: { id: ToolMode | "save" | "bg" | "node" | "portal" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "Select", icon: MousePointer2 },
   { id: "node", label: "Add Node", icon: SquarePlus },
+  { id: "portal", label: "Portal", icon: ExternalLink },
   { id: "connect", label: "Connect", icon: Link2 },
   { id: "route", label: "Route", icon: ListOrdered },
   { id: "reset", label: "Reset View", icon: LocateFixed },
@@ -22,6 +23,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
   const toolMode = usePalaceStore((s) => s.toolMode);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
+  const persistenceState = usePalaceStore((s) => s.persistenceState);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
 
@@ -34,11 +36,15 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             <Button
               key={t.id}
               size="sm"
-              variant="secondary"
+              variant={persistenceState === "clean" ? "secondary" : "default"}
               type="button"
-              title="Save palace (SQLite)"
+              title="Save checkpoint (SQLite)"
               onClick={() => void saveCurrent()}
-              onMouseEnter={() => onHoverHintChange?.("Save: persist current palace canvas, graph, routes, and loci to SQLite.")}
+              onMouseEnter={() =>
+                onHoverHintChange?.(
+                  "Save checkpoint: commit the current draft to SQLite and clear the temporary recovery draft.",
+                )
+              }
               onMouseLeave={() => onHoverHintChange?.(null)}
             >
               <Icon className="h-4 w-4" />
@@ -111,6 +117,42 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             >
               <Icon className="h-4 w-4" />
               <span className="hidden lg:inline">Node</span>
+            </Button>
+          );
+        }
+        if (t.id === "portal") {
+          return (
+            <Button
+              key={t.id}
+              size="sm"
+              variant="outline"
+              type="button"
+              title="Add palace portal at viewport center"
+              disabled={!editorRef || !currentPalace}
+              onMouseEnter={() =>
+                onHoverHintChange?.("Portal: create a node that links to another palace or a route inside it.")
+              }
+              onMouseLeave={() => onHoverHintChange?.(null)}
+              onClick={() => {
+                if (!editorRef || !currentPalace) return;
+                const vp = editorRef.getViewportPageBounds();
+                createGeoMemoryNode(
+                  editorRef,
+                  currentPalace.id,
+                  {
+                    x: vp.x + vp.w / 2,
+                    y: vp.y + vp.h / 2,
+                  },
+                  {
+                    title: "Palace portal",
+                    content: "Open another palace or route from this graph.",
+                    kind: "portal",
+                  },
+                );
+              }}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="hidden lg:inline">Portal</span>
             </Button>
           );
         }

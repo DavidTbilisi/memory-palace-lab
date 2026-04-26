@@ -22,14 +22,28 @@ test("basic onboarding and layout workflow", async ({ page }) => {
 
   await page.getByPlaceholder("Route name").fill("Smoke Route");
   await page.getByRole("button", { name: /add route/i }).click();
-  await expect(page.locator("select")).toContainText("Smoke Route");
+  await expect(page.getByLabel("Active route")).toContainText("Smoke Route");
 
   await page.locator('button[title="Focus mode"]').click();
-  await expect(page.getByText("Palaces")).toHaveCount(0);
+  await expect(page.getByText("Atlas", { exact: true })).toHaveCount(0);
 
   await page.locator('button[title="Balanced layout"]').click();
-  await expect(page.getByText("Palaces")).toBeVisible();
+  await expect(page.getByText("Atlas", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: /reset/i }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+});
+
+test("atlas path groups palaces into nested places", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Atlas Palace");
+  await page.getByRole("textbox", { name: "Atlas path" }).fill("Georgia/Tbilisi/Vake");
+  await page.getByRole("button", { name: "Create palace" }).click();
+
+  await expect(page.getByRole("heading", { name: "Atlas Palace" })).toBeVisible();
+  await expect(page.getByText("Georgia", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tbilisi", { exact: true })).toBeVisible();
+  await expect(page.getByText("Vake", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue("Georgia/Tbilisi/Vake");
 });
 

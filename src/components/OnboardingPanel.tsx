@@ -111,6 +111,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   const createPalace = usePalaceStore((s) => s.createPalace);
   const openPalace = usePalaceStore((s) => s.openPalace);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
+  const replaceRoutesAndLoci = usePalaceStore((s) => s.replaceRoutesAndLoci);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
 
   const [lessonId, setLessonId] = useState<string>(LESSONS[0].id);
@@ -186,13 +187,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   };
 
   const setRoutesAndLoci = (nextRoutes: MemoryRoute[], nextLoci: Locus[]) => {
-    usePalaceStore.setState({
-      routes: nextRoutes,
-      loci: nextLoci,
-      walkRouteId: nextRoutes[0]?.id ?? null,
-      walkIndex: 0,
-      walkOpen: false,
-    });
+    replaceRoutesAndLoci(nextRoutes, nextLoci);
   };
 
   const populateExample = async (exampleId: string) => {

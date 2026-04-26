@@ -63,6 +63,7 @@ export function RoutePanel({ onHoverHintChange }: Props) {
         <div>
           <Label className="text-xs">Routes</Label>
           <select
+            aria-label="Active route"
             className="mt-1 block min-w-[140px] rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100"
             value={activeRoute ?? ""}
             onChange={(e) => setWalkRoute(e.target.value || null)}

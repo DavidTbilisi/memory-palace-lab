@@ -8,7 +8,7 @@ async function bootstrapPalace(page: import("@playwright/test").Page, name = "No
 }
 
 async function createNodeByDoubleClick(page: import("@playwright/test").Page) {
-  await page.locator(".tl-background").first().dblclick({ position: { x: 360, y: 180 } });
+  await page.locator(".tl-background").first().dblclick({ position: { x: 160, y: 180 } });
 }
 
 async function createNodeByDoubleClickAt(page: import("@playwright/test").Page, x: number, y: number) {

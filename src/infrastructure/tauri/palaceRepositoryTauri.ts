@@ -21,6 +21,8 @@ type InvokePalaceSnapshot = {
     objectId: string;
     title: string;
     content: string;
+    nodeKind?: string;
+    nodeMetaJson?: string;
   }>;
   edges: Array<{
     id: string;
@@ -65,6 +67,15 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       objectId: n.objectId,
       title: n.title,
       content: n.content,
+      kind: n.nodeKind === "portal" ? "portal" : "memory",
+      portal: (() => {
+        if (!n.nodeMetaJson) return null;
+        try {
+          return JSON.parse(n.nodeMetaJson) as PalaceSnapshot["nodes"][number]["portal"];
+        } catch {
+          return null;
+        }
+      })(),
     })),
     edges: raw.edges.map((e) => ({
       id: e.id,
@@ -110,6 +121,8 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       objectId: n.objectId,
       title: n.title,
       content: n.content,
+      nodeKind: n.kind,
+      nodeMetaJson: JSON.stringify(n.portal ?? {}),
     })),
     edges: s.edges.map((e) => ({
       id: e.id,
@@ -141,8 +154,8 @@ export function createPalaceRepositoryTauri(): PalaceRepository {
     async listPalaces() {
       return invoke<Palace[]>("palace_list");
     },
-    async createPalace(name: string) {
-      return invoke<Palace>("palace_create", { name });
+    async createPalace(name: string, atlasPath?: string | null) {
+      return invoke<Palace>("palace_create", { name, atlasPath: atlasPath?.trim() || null });
     },
     async loadPalace(palaceId: string) {
       const raw = await invoke<InvokePalaceSnapshot | null>("palace_load", { palaceId });

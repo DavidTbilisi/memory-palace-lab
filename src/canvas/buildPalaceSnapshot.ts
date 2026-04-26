@@ -3,6 +3,7 @@ import type { MemoryEdge, MemoryNode, Palace, CanvasObject } from "../domain/ent
 import type { MemoryRoute, Locus } from "../domain/entities/types";
 import type { PalaceSnapshot } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
+import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { resolveMemoryNodeTitle } from "./readShapeText";
 
 function metaOf(shape: TLShape): MemoryPalaceMeta {
@@ -48,6 +49,8 @@ export function buildPalaceSnapshot(
           objectId: m.mpObjectId,
           title: resolveMemoryNodeTitle(shape),
           content: m.mpContent ?? "",
+          kind: nodeKindFromMeta(m),
+          portal: portalRefFromMeta(m),
         });
       }
     }

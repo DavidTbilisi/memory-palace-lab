@@ -67,6 +67,44 @@ test("palace save/load workflow", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Tutorial Palace", exact: true })).toBeVisible();
 });
 
+test("draft autosave restores unsaved work after switching palaces", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Draft Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Draft Node");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page.getByText("Draft saved")).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Other Palace" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Draft Palace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
+  await expect(page.getByText("Draft restored")).toBeVisible();
+
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
+      } | null;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const restored = Array.from(editor.getCurrentPageShapeIds()).some((id) => {
+      const shape = editor.getShape(id);
+      return shape?.type === "geo" && shape.meta?.mpTitle === "Draft Node";
+    });
+    if (!restored) throw new Error("draft node was not restored");
+  });
+});
+
 test("route and walk workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
@@ -310,6 +348,41 @@ test("edge inspector falls back to stored graph data when arrow meta is incomple
   await expect(page.locator("#mp-edge-t")).toContainText("Blue ocean");
 });
 
+test("portal node opens a linked palace and route", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Portal Source");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Portal Source" })).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Portal Target");
+  await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("Georgia/Tbilisi");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Arrival");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await page.getByPlaceholder("Route name").fill("Entry Route");
+  await page.getByRole("button", { name: "Add route" }).click();
+  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await page.getByRole("button", { name: /^Save$/ }).click();
+
+  await page.getByRole("button", { name: "Portal Source", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Portal Source" })).toBeVisible();
+
+  await page.getByRole("button", { name: /^Portal$/ }).click();
+  await expect(page.locator("#mp-node-kind")).toHaveValue("portal");
+  await page.locator("#mp-title").fill("Jump to target");
+  await page.getByLabel("Target palace").selectOption({ label: "Georgia/Tbilisi / Portal Target" });
+  await expect(page.getByLabel("Target route")).toContainText("Entry Route");
+  await page.getByLabel("Target route").selectOption({ label: "Entry Route" });
+  await page.getByRole("button", { name: "Apply" }).click();
+  await page.getByRole("button", { name: "Open linked palace" }).click();
+
+  await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
+  await expect(page.getByText("Step 1/1")).toBeVisible();
+});
+
 test("theSystem pipeline materializes into graph workflow state", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
@@ -329,7 +402,7 @@ test("theSystem pipeline materializes into graph workflow state", async ({ page 
   await page.getByRole("button", { name: /materialize to graph/i }).click();
 
   await expect(page.getByText(/graph run with 7 nodes/i)).toBeVisible();
-  await expect(page.locator("select")).toContainText("Comprehension run: Understanding closures");
+  await expect(page.getByLabel("Active route")).toContainText("Comprehension run: Understanding closures");
 
   await page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;

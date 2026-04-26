@@ -18,6 +18,7 @@ export function TheSystemWorkbench() {
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
+  const replaceRoutesAndLoci = usePalaceStore((s) => s.replaceRoutesAndLoci);
 
   const [tab, setTab] = useState<WorkbenchTab>("pipelines");
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>(THE_SYSTEM_PIPELINES[0]?.id ?? "");
@@ -82,12 +83,8 @@ export function TheSystemWorkbench() {
       });
 
       const state = usePalaceStore.getState();
+      replaceRoutesAndLoci([...state.routes, result.route], [...state.loci, ...result.loci]);
       usePalaceStore.setState({
-        routes: [...state.routes, result.route],
-        loci: [...state.loci, ...result.loci],
-        walkRouteId: result.route.id,
-        walkIndex: 0,
-        walkOpen: false,
         selectedShapeId: result.overviewShapeId,
       });
 

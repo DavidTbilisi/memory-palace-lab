@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Columns3, Focus, PanelLeft, PanelRightOpen } from "lucide-react";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
 import { PalaceSidebar } from "../components/PalaceSidebar";
@@ -17,6 +17,9 @@ export function MemoryPalaceApp() {
   const palaces = usePalaceStore((s) => s.palaces);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
   const setPendingCast = usePalaceStore((s) => s.setPendingCast);
+  const persistenceState = usePalaceStore((s) => s.persistenceState);
+  const draftRestored = usePalaceStore((s) => s.draftRestored);
+  const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
@@ -41,6 +44,37 @@ export function MemoryPalaceApp() {
     if (!currentPalace) return "Create or open a palace to begin.";
     return 'Tip: Double-click empty canvas to create a memory node, or use "Node" in the toolbar.';
   }, [currentPalace]);
+  const persistenceLabel = useMemo(() => {
+    if (!currentPalace) return "Local · SQLite · tldraw";
+    if (persistenceState === "dirty") return "Local · SQLite · Draft pending";
+    if (persistenceState === "draft" && draftRestored) return "Local · SQLite · Draft restored";
+    if (persistenceState === "draft") {
+      return lastDraftSavedAt
+        ? `Local · SQLite · Draft saved ${new Date(lastDraftSavedAt).toLocaleTimeString()}`
+        : "Local · SQLite · Draft saved";
+    }
+    return "Local · SQLite · Saved checkpoint";
+  }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
+
+  useEffect(() => {
+    const flushDraft = () => {
+      void usePalaceStore.getState().flushDraftSave();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushDraft();
+      }
+    };
+
+    window.addEventListener("beforeunload", flushDraft);
+    window.addEventListener("pagehide", flushDraft);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", flushDraft);
+      window.removeEventListener("pagehide", flushDraft);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const applyViewMode = (mode: "balanced" | "focus" | "learn") => {
     setViewMode(mode);
@@ -126,7 +160,7 @@ export function MemoryPalaceApp() {
             <BookOpen className="h-4 w-4" />
             Learn
           </Button>
-          <span className="text-xs text-zinc-500">Local · SQLite · tldraw</span>
+          <span className="text-xs text-zinc-500">{persistenceLabel}</span>
         </div>
       </header>
       <div className="flex min-h-0 flex-1">

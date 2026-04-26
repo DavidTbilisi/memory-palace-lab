@@ -6,6 +6,7 @@ import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
 import { createGeoMemoryNode } from "./createMemoryShapes";
 import type { MemoryPalaceMeta } from "./memoryMeta";
+import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 
 type Props = {
   palaceId: string;
@@ -24,6 +25,7 @@ function isGeoMemory(shape: unknown): shape is TLGeoShape {
 export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const setEditor = usePalaceStore((s) => s.setEditor);
   const setSelectedShapeId = usePalaceStore((s) => s.setSelectedShapeId);
+  const queueDraftSave = usePalaceStore((s) => s.queueDraftSave);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
@@ -57,6 +59,21 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           const hitShape = editor.getShape(hit.id);
           if (!isGeoMemory(hitShape)) {
             createGeoMemoryNode(editor, palaceId, point);
+            return;
+          }
+
+          const hitMeta = (hitShape.meta ?? {}) as MemoryPalaceMeta;
+          const hitKind = nodeKindFromMeta(hitMeta);
+          if (hitKind === "portal") {
+            const portal = portalRefFromMeta(hitMeta);
+            if (portal?.targetPalaceId) {
+              void usePalaceStore.getState().openPalace(portal.targetPalaceId).then(() => {
+                if (portal.targetRouteId) {
+                  usePalaceStore.getState().setWalkRoute(portal.targetRouteId);
+                  usePalaceStore.getState().setWalkOpen(true);
+                }
+              });
+            }
           }
         }
 
@@ -110,14 +127,23 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         { source: "user", scope: "document" },
       );
 
+      const unsubDraft = editor.store.listen(
+        () => {
+          if (usePalaceStore.getState().currentPalace?.id !== palaceId) return;
+          queueDraftSave();
+        },
+        { source: "user", scope: "document" },
+      );
+
       return () => {
         editor.off("event", onEvent);
         unsubSel();
+        unsubDraft();
         setEditor(null);
         editorRef.current = null;
       };
     },
-    [palaceId, setEditor, setSelectedShapeId],
+    [palaceId, queueDraftSave, setEditor, setSelectedShapeId],
   );
 
   useEffect(() => {

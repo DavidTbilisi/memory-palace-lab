@@ -4,13 +4,14 @@ import { createInMemoryPalaceRepository } from "./inMemoryPalaceRepository";
 describe("createInMemoryPalaceRepository", () => {
   it("creates, loads, and saves a palace snapshot", async () => {
     const r = createInMemoryPalaceRepository();
-    const p = await r.createPalace("Hall");
+    const p = await r.createPalace("Hall", "Georgia/Tbilisi");
     const loaded = await r.loadPalace(p.id);
     expect(loaded?.palace.name).toBe("Hall");
+    expect(loaded?.palace.atlasPath).toBe("Georgia/Tbilisi");
     if (!loaded) throw new Error("missing");
     const updated = {
       ...loaded,
-      palace: { ...loaded.palace, name: "Renamed" },
+      palace: { ...loaded.palace, name: "Renamed", atlasPath: "Georgia/Tbilisi/Vake" },
       loci: [
         {
           id: "l1",
@@ -26,12 +27,15 @@ describe("createInMemoryPalaceRepository", () => {
           objectId: "o1",
           title: "A",
           content: "",
+          kind: "memory" as const,
+          portal: null,
         },
       ],
     };
     await r.savePalace(updated);
     const again = await r.loadPalace(p.id);
     expect(again?.palace.name).toBe("Renamed");
+    expect(again?.palace.atlasPath).toBe("Georgia/Tbilisi/Vake");
     expect(again?.nodes[0]?.title).toBe("A");
     expect(again?.loci[0]?.label).toBe("Front Door");
   });

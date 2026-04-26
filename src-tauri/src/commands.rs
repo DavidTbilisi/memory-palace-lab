@@ -19,11 +19,11 @@ pub fn palace_list(state: State<DbState>) -> Result<Vec<PalaceDto>, String> {
 }
 
 #[tauri::command]
-pub fn palace_create(state: State<DbState>, name: String) -> Result<PalaceDto, String> {
+pub fn palace_create(state: State<DbState>, name: String, atlas_path: Option<String>) -> Result<PalaceDto, String> {
     let conn = open(&state)?;
     let id = uuid::Uuid::new_v4().to_string();
     let created_at = chrono::Utc::now().to_rfc3339();
-    create_palace(&conn, &name, &id, &created_at).map_err(|e| e.to_string())
+    create_palace(&conn, &name, atlas_path.as_deref(), &id, &created_at).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

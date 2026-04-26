@@ -4,6 +4,7 @@ export interface Palace {
   id: string;
   name: string;
   createdAt: string;
+  atlasPath?: string | null;
   editorSnapshot?: string | null;
 }
 
@@ -19,11 +20,24 @@ export interface CanvasObject {
   payloadJson: string;
 }
 
+export type MemoryNodeKind = "memory" | "portal";
+
+export interface PalacePortalRef {
+  targetPalaceId?: string;
+  targetPalaceName?: string;
+  targetAtlasPath?: string | null;
+  targetRouteId?: string;
+  targetRouteName?: string;
+  targetNodeId?: string;
+}
+
 export interface MemoryNode {
   id: string;
   objectId: string;
   title: string;
   content: string;
+  kind: MemoryNodeKind;
+  portal: PalacePortalRef | null;
 }
 
 export interface MemoryEdge {
