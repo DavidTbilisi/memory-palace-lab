@@ -10,8 +10,9 @@ import {
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 
-const DEFAULT_IDLE_DELAY_MS = 20000;
+const DEFAULT_IDLE_DELAY_MS = 60000;
 const IDLE_DELAY_STORAGE_KEY = "mp-idle-tip-delay-ms";
+const DISMISSED_TIPS_STORAGE_KEY = "mp-dismissed-tip-ids";
 
 type Props = {
   context: ContextualTipContext;
@@ -26,6 +27,25 @@ function resolveIdleDelayMs() {
   return Number.isFinite(parsed) && parsed >= 50 ? parsed : DEFAULT_IDLE_DELAY_MS;
 }
 
+function loadDismissedTipIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_TIPS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function dismissTipPermanently(tipId: string) {
+  if (typeof window === "undefined") return;
+  const dismissed = loadDismissedTipIds();
+  dismissed.add(tipId);
+  window.localStorage.setItem(DISMISSED_TIPS_STORAGE_KEY, JSON.stringify(Array.from(dismissed)));
+}
+
 export function ContextualTipCard({ context, onOpenHelp }: Props) {
   const editorRef = usePalaceStore((s) => s.editorRef);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
@@ -33,8 +53,10 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const [currentTip, setCurrentTip] = useState<ContextualTip | null>(null);
   const [lastTipId, setLastTipId] = useState<string | null>(null);
+  const [dismissedTipIds, setDismissedTipIds] = useState<Set<string>>(() => loadDismissedTipIds());
 
-  const eligibleTips = useMemo(() => buildEligibleContextTips(context), [context]);
+  const allEligibleTips = useMemo(() => buildEligibleContextTips(context), [context]);
+  const eligibleTips = useMemo(() => allEligibleTips.filter((tip) => !dismissedTipIds.has(tip.id)), [allEligibleTips, dismissedTipIds]);
 
   useEffect(() => {
     if (currentTip && eligibleTips.some((tip) => tip.id === currentTip.id)) return;
@@ -116,6 +138,13 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
     }
   };
 
+  const dismissTipForever = () => {
+    if (!currentTip) return;
+    dismissTipPermanently(currentTip.id);
+    setDismissedTipIds((prev) => new Set([...prev, currentTip.id]));
+    setCurrentTip(null);
+  };
+
   if (!currentTip) return null;
 
   return (
@@ -142,10 +171,13 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-zinc-500">Tips appear after you pause and stay visible until you dismiss them with the X button.</div>
+          <div className="text-xs text-zinc-500">Tips appear after 1 minute of inactivity. Click "Do not show again" to permanently dismiss this tip.</div>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" type="button" variant="secondary" onClick={showAnotherTip}>
               Another tip
+            </Button>
+            <Button size="sm" type="button" variant="ghost" onClick={dismissTipForever}>
+              Do not show again
             </Button>
             {currentTip.action && currentTip.ctaLabel ? (
               <Button size="sm" type="button" onClick={runTipAction}>
