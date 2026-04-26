@@ -114,6 +114,13 @@ export type PalaceStore = {
   ) => void;
 };
 
+function safeElapsedMs(isoTimestamp: string | null, now: number): number | null {
+  if (!isoTimestamp) return null;
+  const parsed = Date.parse(isoTimestamp);
+  if (Number.isNaN(parsed)) return null;
+  return Math.max(0, now - parsed);
+}
+
 export const usePalaceStore = create<PalaceStore>((set, get) => {
   let draftTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -776,7 +783,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const context = getWalkContext();
       const enteredAt = get().walkStepEnteredAt;
       const now = Date.now();
-      const timeToRevealMs = enteredAt ? Math.max(0, now - Date.parse(enteredAt)) : null;
+      const timeToRevealMs = safeElapsedMs(enteredAt, now);
       set({
         walkAnswerRevealed: true,
         walkRevealedAt: new Date(now).toISOString(),
@@ -808,8 +815,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const revealedAt = get().walkRevealedAt;
       const revealLatencyMs = get().walkRevealLatencyMs;
       const now = Date.now();
-      const timeToRevealMs = revealLatencyMs ?? (enteredAt ? Math.max(0, now - Date.parse(enteredAt)) : null);
-      const timeFromRevealToRatingMs = revealedAt ? Math.max(0, now - Date.parse(revealedAt)) : null;
+      const timeToRevealMs = revealLatencyMs ?? safeElapsedMs(enteredAt, now);
+      const timeFromRevealToRatingMs = safeElapsedMs(revealedAt, now);
       set({
         walkStepEnteredAt: new Date(now).toISOString(),
         walkRevealedAt: revealedAt,
