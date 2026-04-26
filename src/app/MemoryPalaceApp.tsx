@@ -6,6 +6,7 @@ import {
   Columns3,
   Cpu,
   Focus,
+  Globe,
   HelpCircle,
   LayoutDashboard,
   PanelLeft,
@@ -16,6 +17,7 @@ import {
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
+import { AtlasEditorPage } from "../components/AtlasEditorPage";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
 import { CommandPalette } from "../components/CommandPalette";
 import { ContextualTipCard } from "../components/ContextualTipCard";
@@ -35,7 +37,7 @@ import { OnboardingPanel } from "../components/OnboardingPanel";
 import { Button } from "../components/ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 
-type AppPage = "graph" | "review" | "insights" | "system" | "help";
+type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "help";
 
 const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 
@@ -149,6 +151,7 @@ export function MemoryPalaceApp() {
         { id: "page-review", group: "Pages" as const, title: "Review queue", subtitle: "Spaced review scheduling", onSelect: () => navigateToPage("review") },
         { id: "page-insights", group: "Pages" as const, title: "Insights dashboard", subtitle: "Memory strength telemetry", onSelect: () => navigateToPage("insights") },
         { id: "page-system", group: "Pages" as const, title: "System workbench", subtitle: "Run frameworks as pipelines", onSelect: () => navigateToPage("system") },
+        { id: "page-atlas", group: "Pages" as const, title: "Atlas hierarchy", subtitle: "Organize palaces by geography", onSelect: () => navigateToPage("atlas") },
         { id: "page-help", group: "Pages" as const, title: "Help center", subtitle: "Onboarding and guides", onSelect: () => navigateToPage("help") },
 
         { id: "doc-walk-mode", group: "Docs" as const, title: "Walk Mode — recall-first review", subtitle: "Test before revealing answers", onSelect: () => navigateToPage("help") },
@@ -357,12 +360,13 @@ export function MemoryPalaceApp() {
         </div>
 
         <nav className="flex justify-center items-center gap-1">
-          {(["graph", "review", "insights", "system", "help"] as const).map((page) => {
+          {(["graph", "review", "insights", "system", "atlas", "help"] as const).map((page) => {
             const icons: Record<typeof page, React.ReactNode> = {
               graph: <LayoutDashboard className="h-4 w-4" />,
               review: <BookOpen className="h-4 w-4" />,
               insights: <BarChart2 className="h-4 w-4" />,
               system: <Cpu className="h-4 w-4" />,
+              atlas: <Globe className="h-4 w-4" />,
               help: <HelpCircle className="h-4 w-4" />,
             };
             const labels: Record<typeof page, string> = {
@@ -370,6 +374,7 @@ export function MemoryPalaceApp() {
               review: "Review",
               insights: "Insights",
               system: "System",
+              atlas: "Atlas",
               help: "Help",
             };
             return (
@@ -492,6 +497,20 @@ export function MemoryPalaceApp() {
             <div className="min-h-0 flex-1 overflow-hidden p-5">
               <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
                 <TheSystemWorkbench />
+              </div>
+            </div>
+          ) : null}
+
+          {currentPage === "atlas" ? (
+            <div className="min-h-0 flex-1 overflow-hidden p-5">
+              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
+                <AtlasEditorPage onOpenPalace={(palaceId) => {
+                  const palace = palaces.find(p => p.id === palaceId);
+                  if (palace) {
+                    void usePalaceStore.getState().openPalace(palace.id);
+                    navigateToPage("graph");
+                  }
+                }} />
               </div>
             </div>
           ) : null}
