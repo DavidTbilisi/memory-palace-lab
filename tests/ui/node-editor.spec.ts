@@ -16,6 +16,36 @@ async function createNodeByDoubleClickAt(page: import("@playwright/test").Page, 
 }
 
 async function selectNodeByTitle(page: import("@playwright/test").Page, title: string) {
+  await expect
+    .poll(() =>
+      page.evaluate((expectedTitle) => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        if (!store) throw new Error("missing dev store hook");
+
+        const state = store.getState() as {
+          editorRef: {
+            getCurrentPageShapeIds: () => Iterable<string>;
+            getShape: (
+              id: string,
+            ) =>
+              | { type?: string; meta?: { mpTitle?: string } }
+              | undefined;
+          } | null;
+        };
+        const editor = state.editorRef;
+        if (!editor) throw new Error("editor not ready");
+
+        for (const id of editor.getCurrentPageShapeIds()) {
+          const shape = editor.getShape(id);
+          if (shape?.type === "geo" && shape.meta?.mpTitle === expectedTitle) {
+            return true;
+          }
+        }
+        return false;
+      }, title),
+    )
+    .toBe(true);
+
   await page.evaluate((expectedTitle) => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing dev store hook");
@@ -48,6 +78,67 @@ async function selectNodeByTitle(page: import("@playwright/test").Page, title: s
     editor.setSelectedShapes([targetShapeId]);
     state.setSelectedShapeId(targetShapeId);
   }, title);
+}
+
+async function clickNodeByTitle(page: import("@playwright/test").Page, title: string) {
+  await expect
+    .poll(() =>
+      page.evaluate((expectedTitle) => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        if (!store) throw new Error("missing dev store hook");
+
+        const state = store.getState() as {
+          editorRef: {
+            getCurrentPageShapeIds: () => Iterable<string>;
+            getShape: (id: string) => { type?: string; meta?: { mpTitle?: string } } | undefined;
+          } | null;
+        };
+        const editor = state.editorRef;
+        if (!editor) throw new Error("editor not ready");
+
+        for (const id of editor.getCurrentPageShapeIds()) {
+          const shape = editor.getShape(id);
+          if (shape?.type === "geo" && shape.meta?.mpTitle === expectedTitle) {
+            return true;
+          }
+        }
+        return false;
+      }, title),
+    )
+    .toBe(true);
+
+  const point = await page.evaluate((expectedTitle) => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: { mpTitle?: string } } | undefined;
+        getShapePageBounds: (id: string) => { center: { x: number; y: number } } | undefined;
+        pageToScreen: (point: { x: number; y: number }) => { x: number; y: number };
+      } | null;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+
+    let targetShapeId: string | null = null;
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(id);
+      if (shape?.type === "geo" && shape.meta?.mpTitle === expectedTitle) {
+        targetShapeId = id;
+        break;
+      }
+    }
+
+    if (!targetShapeId) throw new Error(`unable to find node with title ${expectedTitle}`);
+    const bounds = editor.getShapePageBounds(targetShapeId);
+    if (!bounds) throw new Error(`unable to read bounds for ${expectedTitle}`);
+    const point = editor.pageToScreen(bounds.center);
+    return { x: point.x, y: point.y };
+  }, title);
+
+  await page.mouse.click(point.x, point.y);
 }
 
 test("node title/content editing follows selected node", async ({ page }) => {
@@ -111,11 +202,6 @@ test("node title/content persist after save and reopen palace", async ({ page })
 });
 
 test("inspector title matches clicked canvas node", async ({ page }) => {
-  test.fail(
-    true,
-    "Known regression: clicking a node can leave inspector bound to a different node selection.",
-  );
-
   await bootstrapPalace(page, "Selection Sync Palace");
 
   await createNodeByDoubleClickAt(page, 180, 160);
@@ -130,11 +216,11 @@ test("inspector title matches clicked canvas node", async ({ page }) => {
   await page.locator("#mp-content").fill("Beta content");
   await page.getByRole("button", { name: "Apply" }).click();
 
-  await page.locator(".tl-html-layer p").filter({ hasText: /^A$/ }).first().click({ force: true });
+  await clickNodeByTitle(page, "A");
   await expect(page.locator("#mp-title")).toHaveValue("A");
   await expect(page.locator("#mp-content")).toHaveValue("Alpha content");
 
-  await page.locator(".tl-html-layer p").filter({ hasText: /^B$/ }).first().click({ force: true });
+  await clickNodeByTitle(page, "B");
   await expect(page.locator("#mp-title")).toHaveValue("B");
   await expect(page.locator("#mp-content")).toHaveValue("Beta content");
 });

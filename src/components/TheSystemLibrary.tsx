@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { LibraryBig, Search } from "lucide-react";
-import { THE_SYSTEM_CATEGORIES, THE_SYSTEM_DOCS, type TheSystemCategory } from "../content/theSystemLibrary";
+import {
+  THE_SYSTEM_CATEGORIES,
+  loadTheSystemDocs,
+  type TheSystemCategory,
+  type TheSystemDoc,
+} from "../content/theSystemLibrary";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -9,19 +14,41 @@ type Props = {
 };
 
 export function TheSystemLibrary({ preferredSlug }: Props) {
+  const [docs, setDocs] = useState<TheSystemDoc[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<TheSystemCategory | "All">("All");
-  const [selectedSlug, setSelectedSlug] = useState<string>(preferredSlug ?? THE_SYSTEM_DOCS[0]?.slug ?? "");
+  const [selectedSlug, setSelectedSlug] = useState<string>(preferredSlug ?? "");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void loadTheSystemDocs()
+      .then((loadedDocs) => {
+        if (cancelled) return;
+        setDocs(loadedDocs);
+        setLoading(false);
+        setSelectedSlug((current) => current || preferredSlug || loadedDocs[0]?.slug || "");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDocs([]);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preferredSlug]);
 
   const filteredDocs = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return THE_SYSTEM_DOCS.filter((doc) => {
+    return docs.filter((doc) => {
       if (category !== "All" && doc.category !== category) return false;
       if (!query) return true;
       const haystack = `${doc.title} ${doc.summary} ${doc.filename} ${doc.body}`.toLowerCase();
       return haystack.includes(query);
     });
-  }, [category, search]);
+  }, [category, docs, search]);
 
   useEffect(() => {
     if (filteredDocs.length === 0) return;
@@ -37,7 +64,7 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
 
   const selectedDoc =
     filteredDocs.find((doc) => doc.slug === selectedSlug) ??
-    THE_SYSTEM_DOCS.find((doc) => doc.slug === selectedSlug) ??
+    docs.find((doc) => doc.slug === selectedSlug) ??
     filteredDocs[0] ??
     null;
 
@@ -80,7 +107,11 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
-          {filteredDocs.length > 0 ? (
+          {loading ? (
+            <div className="rounded-md border border-dashed border-zinc-800 bg-zinc-900/30 p-3 text-xs text-zinc-500">
+              Loading theSystem documents...
+            </div>
+          ) : filteredDocs.length > 0 ? (
             <div className="space-y-2">
               {filteredDocs.map((doc) => (
                 <button

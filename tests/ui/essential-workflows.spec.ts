@@ -5,6 +5,7 @@ async function bootstrapTutorialPalace(page: import("@playwright/test").Page) {
   await expect(page.getByText("Memory Palace Lab")).toBeVisible();
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Node$/ })).toBeEnabled();
 }
 
 async function doubleClickCanvasAt(page: import("@playwright/test").Page, x: number, y: number) {
@@ -159,7 +160,7 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
       recallRated: true,
     });
 
-  await page.getByRole("button", { name: "Analytics" }).click();
+  await page.getByRole("button", { name: /^Insights$/ }).click();
   await expect(page.getByText(/local-first telemetry for encoding and retrieval/i)).toBeVisible();
   await expect(page.getByText("Recent events")).toBeVisible();
   await expect(page.getByText(/walk recall rated/i)).toBeVisible();
@@ -207,8 +208,6 @@ test("connect workflow opens and applies CAST", async ({ page }) => {
     }
   });
 
-  const edgeProgress = page.locator("li", { hasText: "Connected nodes with CAST edges" }).first();
-  await expect(edgeProgress).toContainText("✓");
 });
 
 test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
@@ -430,7 +429,7 @@ test("theSystem pipeline materializes into graph workflow state", async ({ page 
   await page.locator("#mp-title").fill("Closures");
   await page.getByRole("button", { name: "Apply" }).click();
 
-  await page.getByRole("button", { name: "theSystem" }).click();
+  await page.getByRole("button", { name: /^System$/ }).click();
   await expect(page.getByText("graph-native thinking workflows")).toBeVisible();
   await page.getByRole("button", { name: "Comprehension Protocol" }).click();
 

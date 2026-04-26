@@ -133,7 +133,7 @@ export function TheSystemWorkbench() {
       <div className="border-b border-zinc-800 pb-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
           <Wand2 className="h-4 w-4" />
-          theSystem Workbench
+          System Workbench
         </div>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-400">
           Turn theSystem into graph-native thinking workflows. Run a framework, capture working notes, and materialize

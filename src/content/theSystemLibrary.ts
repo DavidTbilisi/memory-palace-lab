@@ -83,11 +83,10 @@ const DOC_CATEGORY_BY_SLUG: Record<string, TheSystemCategory> = {
   "steam-stemm-examples": "Examples",
 };
 
-const rawDocs = import.meta.glob("../../theSystem/*.md", {
-  eager: true,
+const rawDocModules = import.meta.glob("../../theSystem/*.md", {
   import: "default",
   query: "?raw",
-}) as Record<string, string>;
+}) as Record<string, () => Promise<string>>;
 
 const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 
@@ -154,19 +153,32 @@ function compareDocs(a: TheSystemDoc, b: TheSystemDoc) {
   return a.title.localeCompare(b.title);
 }
 
-export const THE_SYSTEM_DOCS: TheSystemDoc[] = Object.entries(rawDocs)
-  .map(([path, content]) => {
-    const slug = slugFromPath(path);
-    return {
-      slug,
-      filename: path.split("/").pop() ?? `${slug}.md`,
-      title: extractTitle(slug, content),
-      summary: extractSummary(content),
-      category: DOC_CATEGORY_BY_SLUG[slug] ?? "Examples",
-      body: extractBody(content),
-    };
-  })
-  .sort(compareDocs);
+function buildDocs(entries: Array<[string, string]>) {
+  return entries
+    .map(([path, content]) => {
+      const slug = slugFromPath(path);
+      return {
+        slug,
+        filename: path.split("/").pop() ?? `${slug}.md`,
+        title: extractTitle(slug, content),
+        summary: extractSummary(content),
+        category: DOC_CATEGORY_BY_SLUG[slug] ?? "Examples",
+        body: extractBody(content),
+      };
+    })
+    .sort(compareDocs);
+}
+
+let docsPromise: Promise<TheSystemDoc[]> | null = null;
+
+export function loadTheSystemDocs() {
+  if (!docsPromise) {
+    docsPromise = Promise.all(
+      Object.entries(rawDocModules).map(async ([path, loader]) => [path, await loader()] as [string, string]),
+    ).then(buildDocs);
+  }
+  return docsPromise;
+}
 
 export const THE_SYSTEM_CATEGORIES: Array<TheSystemCategory | "All"> = [
   "All",

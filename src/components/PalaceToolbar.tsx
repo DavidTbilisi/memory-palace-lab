@@ -65,7 +65,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               onMouseLeave={() => onHoverHintChange?.(null)}
               onClick={() => {
                 if (!editorRef || !currentPalace) return;
-                void import("../canvas/createMemoryShapes").then(({ insertBackgroundImageFromFile }) =>
+                void import("../canvas/backgroundImageImport").then(({ insertBackgroundImageFromFile }) =>
                   insertBackgroundImageFromFile(editorRef, currentPalace.id),
                 );
               }}

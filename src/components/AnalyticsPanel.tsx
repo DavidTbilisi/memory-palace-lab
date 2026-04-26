@@ -84,11 +84,12 @@ export function AnalyticsPanel() {
       <div className="border-b border-zinc-800 pb-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
           <BarChart3 className="h-4 w-4" />
-          Analytics
+          Insights
         </div>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-400">
           Local-first telemetry for encoding and retrieval. Events stay on this device by default, are stored in SQLite
-          in the app and `localStorage` in the browser fallback, and can be inspected here.
+          in the app and `localStorage` in the browser fallback, and surface here as memory strength and workflow
+          insight.
         </p>
       </div>
 
