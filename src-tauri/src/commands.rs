@@ -1,4 +1,7 @@
-use crate::db::{create_palace, list_palaces, load_palace, save_snapshot, PalaceDto, PalaceSnapshot};
+use crate::db::{
+    append_analytics_events, create_palace, list_analytics_events, list_palaces, load_palace,
+    save_snapshot, AnalyticsEventDto, PalaceDto, PalaceSnapshot,
+};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -36,6 +39,24 @@ pub fn palace_load(state: State<DbState>, palace_id: String) -> Result<Option<Pa
 pub fn palace_save(state: State<DbState>, snapshot: PalaceSnapshot) -> Result<(), String> {
     let mut conn = open(&state)?;
     save_snapshot(&mut conn, &snapshot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn analytics_list(
+    state: State<DbState>,
+    limit: Option<usize>,
+) -> Result<Vec<AnalyticsEventDto>, String> {
+    let conn = open(&state)?;
+    list_analytics_events(&conn, limit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn analytics_append(
+    state: State<DbState>,
+    events: Vec<AnalyticsEventDto>,
+) -> Result<(), String> {
+    let mut conn = open(&state)?;
+    append_analytics_events(&mut conn, &events).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize)]

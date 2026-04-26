@@ -19,6 +19,7 @@ export function TheSystemWorkbench() {
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
   const replaceRoutesAndLoci = usePalaceStore((s) => s.replaceRoutesAndLoci);
+  const recordAnalyticsEvent = usePalaceStore((s) => s.recordAnalyticsEvent);
 
   const [tab, setTab] = useState<WorkbenchTab>("pipelines");
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>(THE_SYSTEM_PIPELINES[0]?.id ?? "");
@@ -86,6 +87,21 @@ export function TheSystemWorkbench() {
       replaceRoutesAndLoci([...state.routes, result.route], [...state.loci, ...result.loci]);
       usePalaceStore.setState({
         selectedShapeId: result.overviewShapeId,
+      });
+      void recordAnalyticsEvent({
+        eventType: "system_run_materialized",
+        eventGroup: "system",
+        palaceId: currentPalace.id,
+        routeId: result.route.id,
+        nodeId: result.overviewNodeId,
+        payload: {
+          pipelineId: template.id,
+          pipelineTitle: template.title,
+          sessionTitle: sessionTitle.trim() || null,
+          focus: focus.trim() || null,
+          createdNodeCount: result.createdNodeCount,
+          selectedShapeId: selectedNodeContext?.shapeId ?? null,
+        },
       });
 
       editorRef.setSelectedShapes([result.overviewShapeId as TLShapeId]);

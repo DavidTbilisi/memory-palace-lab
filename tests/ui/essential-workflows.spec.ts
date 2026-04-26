@@ -126,6 +126,46 @@ test("route and walk workflow", async ({ page }) => {
   await expect(page.getByText("Step 1/2")).toBeVisible();
 });
 
+test("analytics panel shows local review and graph telemetry", async ({ page }) => {
+  await bootstrapTutorialPalace(page);
+
+  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator("#mp-title").fill("Analytics Node");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await page.getByPlaceholder("Route name").fill("Telemetry Route");
+  await page.getByRole("button", { name: "Add route" }).click();
+  await page.getByRole("button", { name: /add selected node to route/i }).click();
+
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await page.getByRole("button", { name: "Good" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        if (!store) throw new Error("missing dev store hook");
+        const state = store.getState() as { analyticsEvents: Array<{ eventType: string }> };
+        return {
+          nodeCreated: state.analyticsEvents.some((event) => event.eventType === "node_created"),
+          routeCreated: state.analyticsEvents.some((event) => event.eventType === "route_created"),
+          recallRated: state.analyticsEvents.some((event) => event.eventType === "walk_recall_rated"),
+        };
+      }),
+    )
+    .toMatchObject({
+      nodeCreated: true,
+      routeCreated: true,
+      recallRated: true,
+    });
+
+  await page.getByRole("button", { name: "Analytics" }).click();
+  await expect(page.getByText(/local-first telemetry for encoding and retrieval/i)).toBeVisible();
+  await expect(page.getByText("Recent events")).toBeVisible();
+  await expect(page.getByText(/walk recall rated/i)).toBeVisible();
+  await expect(page.getByText(/graph work: node create\/update, edge create\/update/i)).toBeVisible();
+});
+
 test("connect workflow opens and applies CAST", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 

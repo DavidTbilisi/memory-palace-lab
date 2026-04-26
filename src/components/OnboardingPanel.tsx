@@ -8,6 +8,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { Locus, MemoryRoute } from "../domain/entities/types";
+import { AnalyticsPanel } from "./AnalyticsPanel";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
 
 type Lesson = {
@@ -115,7 +116,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
 
   const [lessonId, setLessonId] = useState<string>(LESSONS[0].id);
-  const [panelTab, setPanelTab] = useState<"guides" | "system">("guides");
+  const [panelTab, setPanelTab] = useState<"guides" | "system" | "analytics">("guides");
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [, bumpSceneRevision] = useReducer((v: number) => v + 1, 0);
 
@@ -402,7 +403,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   return (
     <aside
       className={`flex h-full shrink-0 flex-col border-l border-zinc-800 bg-zinc-950 ${
-        panelTab === "system" ? "w-[min(720px,68vw)]" : "w-[360px]"
+        panelTab === "guides" ? "w-[360px]" : "w-[min(760px,72vw)]"
       }`}
     >
       <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
@@ -432,6 +433,14 @@ export function OnboardingPanel({ open, onClose }: Props) {
             onClick={() => setPanelTab("system")}
           >
             theSystem
+          </Button>
+          <Button
+            size="sm"
+            type="button"
+            variant={panelTab === "analytics" ? "default" : "secondary"}
+            onClick={() => setPanelTab("analytics")}
+          >
+            Analytics
           </Button>
         </div>
       </div>
@@ -525,9 +534,13 @@ export function OnboardingPanel({ open, onClose }: Props) {
             </Button>
           </div>
         </>
-      ) : (
+      ) : panelTab === "system" ? (
         <div className="min-h-0 flex-1 p-3">
           <TheSystemWorkbench />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 p-3">
+          <AnalyticsPanel />
         </div>
       )}
     </aside>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInMemoryPalaceRepository } from "./inMemoryPalaceRepository";
+import { createAnalyticsEvent } from "../../domain/services/analyticsService";
 
 describe("createInMemoryPalaceRepository", () => {
   it("creates, loads, and saves a palace snapshot", async () => {
@@ -48,5 +49,27 @@ describe("createInMemoryPalaceRepository", () => {
     const json = await r.exportJson(snap);
     const imported = await r.importJson(json);
     expect(imported.palace.id).toBe(p.id);
+  });
+
+  it("persists analytics events in browser storage fallback", async () => {
+    window.localStorage.clear();
+    const first = createInMemoryPalaceRepository();
+    await first.appendAnalyticsEvents([
+      createAnalyticsEvent({
+        eventType: "palace_opened",
+        eventGroup: "palace",
+        sessionId: "session-1",
+        palaceId: "palace-1",
+        createdAt: "2026-04-26T09:00:00.000Z",
+      }),
+    ]);
+
+    const second = createInMemoryPalaceRepository();
+    const events = await second.listAnalyticsEvents();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.sessionId).toBe("session-1");
+    expect(events[0]?.eventType).toBe("palace_opened");
+    window.localStorage.clear();
   });
 });
