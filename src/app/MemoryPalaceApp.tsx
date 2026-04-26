@@ -7,8 +7,9 @@ import { RoutePanel } from "../components/RoutePanel";
 import { WalkModeBar } from "../components/WalkModeBar";
 import { NodeInspector } from "../components/NodeInspector";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
-import { OnboardingPanel } from "../components/OnboardingPanel";
+import { OnboardingPanel, type LearnPanelTab } from "../components/OnboardingPanel";
 import { Button } from "../components/ui/button";
+import { buildReviewQueue, summarizeReviewQueue } from "../domain/services/reviewQueueService";
 import { usePalaceStore } from "../store/palaceStore";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 
@@ -22,11 +23,15 @@ export function MemoryPalaceApp() {
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const nodes = usePalaceStore((s) => s.nodes);
+  const routes = usePalaceStore((s) => s.routes);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
   const [viewMode, setViewMode] = useState<"balanced" | "focus" | "learn">("balanced");
   const [hoverHint, setHoverHint] = useState<string | null>(null);
+  const [preferredLearnTab, setPreferredLearnTab] = useState<LearnPanelTab>("guides");
 
   const snap = currentPalace?.editorSnapshot;
 
@@ -57,6 +62,19 @@ export function MemoryPalaceApp() {
     }
     return "Local · SQLite · Saved checkpoint";
   }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
+  const reviewSummary = useMemo(() => {
+    if (!currentPalace) {
+      return summarizeReviewQueue([]);
+    }
+    return summarizeReviewQueue(
+      buildReviewQueue({
+        analyticsEvents,
+        palaceId: currentPalace.id,
+        nodes,
+        routes,
+      }),
+    );
+  }, [analyticsEvents, currentPalace, nodes, routes]);
 
   useEffect(() => {
     if (!analyticsLoaded) {
@@ -100,6 +118,11 @@ export function MemoryPalaceApp() {
     }
     setShowSidebar(false);
     setShowInspector(false);
+    setShowOnboarding(true);
+  };
+
+  const openLearnTab = (tab: LearnPanelTab) => {
+    setPreferredLearnTab(tab);
     setShowOnboarding(true);
   };
 
@@ -159,7 +182,7 @@ export function MemoryPalaceApp() {
             size="sm"
             variant="secondary"
             type="button"
-            onClick={() => setShowOnboarding((v) => !v)}
+            onClick={() => openLearnTab("guides")}
             onMouseEnter={() =>
               setHoverHint("Learn panel: onboarding guides plus theSystem pipelines that can materialize into the graph.")
             }
@@ -168,6 +191,19 @@ export function MemoryPalaceApp() {
             <BookOpen className="h-4 w-4" />
             Learn
           </Button>
+          {reviewSummary.dueCount > 0 ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              className="border-amber-700/70 bg-amber-950/30 text-amber-100 hover:bg-amber-900/40"
+              onClick={() => openLearnTab("review")}
+              onMouseEnter={() => setHoverHint("Review queue: overdue and due-now items for the current palace.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              {reviewSummary.dueCount} due
+            </Button>
+          ) : null}
           <span className="text-xs text-zinc-500">{persistenceLabel}</span>
         </div>
       </header>
@@ -190,6 +226,7 @@ export function MemoryPalaceApp() {
         </main>
         <OnboardingPanel
           open={showOnboarding || palaces.length === 0}
+          preferredTab={preferredLearnTab}
           onClose={() => {
             setShowOnboarding(false);
           }}

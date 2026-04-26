@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { Locus, MemoryRoute } from "../domain/entities/types";
 import { AnalyticsPanel } from "./AnalyticsPanel";
+import { ReviewQueuePanel } from "./ReviewQueuePanel";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
 
 type Lesson = {
@@ -98,12 +99,15 @@ const EXAMPLES: ExampleBlueprint[] = [
   },
 ];
 
+export type LearnPanelTab = "guides" | "system" | "analytics" | "review";
+
 type Props = {
   open: boolean;
   onClose: () => void;
+  preferredTab?: LearnPanelTab;
 };
 
-export function OnboardingPanel({ open, onClose }: Props) {
+export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
   const palaces = usePalaceStore((s) => s.palaces);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const routes = usePalaceStore((s) => s.routes);
@@ -116,7 +120,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
 
   const [lessonId, setLessonId] = useState<string>(LESSONS[0].id);
-  const [panelTab, setPanelTab] = useState<"guides" | "system" | "analytics">("guides");
+  const [panelTab, setPanelTab] = useState<LearnPanelTab>(preferredTab ?? "guides");
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [, bumpSceneRevision] = useReducer((v: number) => v + 1, 0);
 
@@ -132,6 +136,11 @@ export function OnboardingPanel({ open, onClose }: Props) {
       unlisten();
     };
   }, [editorRef]);
+
+  useEffect(() => {
+    if (!preferredTab) return;
+    setPanelTab(preferredTab);
+  }, [preferredTab]);
 
   const selectedLesson = LESSONS.find((x) => x.id === lessonId) ?? LESSONS[0];
 
@@ -437,6 +446,14 @@ export function OnboardingPanel({ open, onClose }: Props) {
           <Button
             size="sm"
             type="button"
+            variant={panelTab === "review" ? "default" : "secondary"}
+            onClick={() => setPanelTab("review")}
+          >
+            Review
+          </Button>
+          <Button
+            size="sm"
+            type="button"
             variant={panelTab === "analytics" ? "default" : "secondary"}
             onClick={() => setPanelTab("analytics")}
           >
@@ -537,6 +554,10 @@ export function OnboardingPanel({ open, onClose }: Props) {
       ) : panelTab === "system" ? (
         <div className="min-h-0 flex-1 p-3">
           <TheSystemWorkbench />
+        </div>
+      ) : panelTab === "review" ? (
+        <div className="min-h-0 flex-1 p-3">
+          <ReviewQueuePanel />
         </div>
       ) : (
         <div className="min-h-0 flex-1 p-3">
