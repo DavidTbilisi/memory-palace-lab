@@ -51,7 +51,6 @@ export function AtlasEditorPage({ onOpenPalace }: Props) {
     for (const path of paths) {
       const segments = splitAtlasPath(path);
       const label = segments[segments.length - 1];
-      const parentPath = segments.slice(0, -1).join("/");
 
       nodeMap.set(path, {
         path,

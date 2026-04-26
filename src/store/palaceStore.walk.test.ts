@@ -127,11 +127,12 @@ describe("walkNext", () => {
   });
 
   it("updates walkStepEnteredAt on advance", () => {
-    const before = usePalaceStore.getState().walkStepEnteredAt;
+    resetWalkState({ walkOpen: true, walkSessionId: "s1", walkStepEnteredAt: "2020-01-01T00:00:00.000Z" });
     usePalaceStore.getState().walkNext();
     const after = usePalaceStore.getState().walkStepEnteredAt;
     expect(after).not.toBeNull();
-    expect(after).not.toBe(before);
+    // new timestamp must be strictly later than the seeded 2020 value
+    expect(Date.parse(after!)).toBeGreaterThan(Date.parse("2020-01-01T00:00:00.000Z"));
   });
 
   it("resets walkAnswerRevealed to false in recall mode", () => {

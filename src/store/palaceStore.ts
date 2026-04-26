@@ -98,6 +98,8 @@ export type PalaceStore = {
   moveLocus: (locusId: string, direction: "up" | "down") => void;
   deleteLocus: (locusId: string) => void;
   reassignLocusRoute: (locusId: string, routeId: string) => void;
+  moveRoute: (routeId: string, direction: "up" | "down") => void;
+  deleteRoute: (routeId: string) => void;
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
   setWalkOpen: (v: boolean) => void;
@@ -570,6 +572,27 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         loci: nextLoci,
         walkIndex: clampWalkIndex(walkIndex, nextRouteLength),
       });
+      scheduleDraftSave();
+    },
+
+    moveRoute(routeId, direction) {
+      const { routes } = get();
+      const idx = routes.findIndex((r) => r.id === routeId);
+      if (idx === -1) return;
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= routes.length) return;
+      const next = [...routes];
+      [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+      set({ routes: next });
+      scheduleDraftSave();
+    },
+
+    deleteRoute(routeId) {
+      const { routes, loci, walkRouteId } = get();
+      const nextRoutes = routes.filter((r) => r.id !== routeId);
+      const nextLoci = loci.filter((l) => l.routeId !== routeId);
+      const nextWalkRouteId = walkRouteId === routeId ? (nextRoutes[0]?.id ?? null) : walkRouteId;
+      set({ routes: nextRoutes, loci: nextLoci, walkRouteId: nextWalkRouteId });
       scheduleDraftSave();
     },
 

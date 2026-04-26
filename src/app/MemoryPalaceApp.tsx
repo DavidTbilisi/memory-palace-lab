@@ -38,6 +38,7 @@ import { NodeInspector } from "../components/NodeInspector";
 import { OnboardingPanel } from "../components/OnboardingPanel";
 import { Button } from "../components/ui/button";
 import { usePalaceStore } from "../store/palaceStore";
+import { buildPrimaryContextHint } from "../domain/services/contextualTips";
 
 type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "routes" | "help";
 
@@ -129,28 +130,20 @@ function GraphEmptyState({
 }
 
 export function MemoryPalaceApp() {
-    // Additional state and placeholder logic to resolve missing references
-    const [commandOpen, setCommandOpen] = useState(false);
-    const [glossaryOpen, setGlossaryOpen] = useState(false);
-    const [currentPage, setCurrentPage] = useState<AppPage>("graph");
-    // Placeholder for recentCommandIds (should be replaced with actual logic if available)
-    const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
-    // Placeholder for graphControls (should be replaced with actual logic if available)
-    const graphControls = true;
-    // Placeholder for editorRef and selectedShapeId (should be replaced with actual logic if available)
-    const editorRef = null;
-    const selectedShapeId = null;
-    // Placeholder for routes, loci, walkOpen, toolMode (should be replaced with actual logic if available)
-    const routes: any[] = [];
-    const loci: any[] = [];
-    const walkOpen = false;
-    const toolMode = null;
-    // Placeholder for buildReviewQueue and buildPrimaryContextHint (should be replaced with actual logic if available)
-    const buildReviewQueue = () => [];
-    const buildPrimaryContextHint = () => "";
-    const trackCommandRun = () => {};
-    const startRouteReview = () => {};
-    const createPalace = () => {};
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState<AppPage>("graph");
+  const [recentCommandIds] = useState<string[]>(loadRecentCommandIds);
+  const graphControls = true;
+  const editorRef = usePalaceStore((s) => s.editorRef);
+  const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
+  const routes = usePalaceStore((s) => s.routes);
+  const loci = usePalaceStore((s) => s.loci);
+  const walkOpen = usePalaceStore((s) => s.walkOpen);
+  const toolMode = usePalaceStore((s) => s.toolMode);
+  const createPalace = usePalaceStore((s) => s.createPalace);
+  const trackCommandRun = () => {};
+  const startRouteReview = () => {};
 
     const paletteCommands: any[] = useMemo(() => {
       const baseCommands = [
@@ -172,14 +165,12 @@ export function MemoryPalaceApp() {
     }, []);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const palaces = usePalaceStore((s) => s.palaces);
-  const nodes = usePalaceStore((s) => s.nodes);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
   const setPendingCast = usePalaceStore((s) => s.setPendingCast);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const draftRestored = usePalaceStore((s) => s.draftRestored);
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
-  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -312,18 +303,6 @@ export function MemoryPalaceApp() {
       toolMode,
       walkOpen,
     ],
-  );
-
-  const reviewQueue = useMemo(
-    () =>
-      buildReviewQueue({
-        currentPalaceId: currentPalace?.id,
-        routes,
-        loci,
-        nodes,
-        analyticsEvents,
-      }),
-    [analyticsEvents, currentPalace?.id, loci, nodes, routes],
   );
 
   const title = useMemo(() => currentPalace?.name ?? "Memory Palace Lab", [currentPalace?.name]);

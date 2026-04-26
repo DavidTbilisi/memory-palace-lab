@@ -3,8 +3,6 @@ import { ChevronDown, ChevronRight, Trash2, ArrowUp, ArrowDown, Plus } from "luc
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-
 export function RouteEditorPage() {
   const routes = usePalaceStore((s) => s.routes);
   const loci = usePalaceStore((s) => s.loci);
@@ -15,7 +13,6 @@ export function RouteEditorPage() {
   const updateLocusLabel = usePalaceStore((s) => s.updateLocusLabel);
   const moveLocus = usePalaceStore((s) => s.moveLocus);
   const deleteLocus = usePalaceStore((s) => s.deleteLocus);
-  const reassignLocusRoute = usePalaceStore((s) => s.reassignLocusRoute);
 
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
   const [routeNameEdits, setRouteNameEdits] = useState<Record<string, string>>({});
