@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { toRichText } from "@tldraw/tlschema";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { BookOpen, Sparkles, Wand2, X } from "lucide-react";
@@ -116,7 +116,6 @@ export function OnboardingPanel({ open, onClose }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
 
   const [lessonId, setLessonId] = useState<string>(LESSONS[0].id);
-  const panelTab = "guides";
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [, bumpSceneRevision] = useReducer((v: number) => v + 1, 0);
 
@@ -402,11 +401,7 @@ export function OnboardingPanel({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <aside
-      className={`flex h-full shrink-0 flex-col border-l border-zinc-800 bg-zinc-950 ${
-w-[360px]
-      }`}
-    >
+    <aside className="flex h-full shrink-0 flex-col border-l border-zinc-800 bg-zinc-950 w-[360px]">
       <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
           <BookOpen className="h-4 w-4" />
@@ -417,9 +412,7 @@ w-[360px]
         </Button>
       </div>
 
-
-      <>
-        <div className="space-y-4 overflow-y-auto p-3 text-sm">
+      <div className="space-y-4 overflow-y-auto p-3 text-sm">
             <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -482,9 +475,9 @@ w-[360px]
                 ))}
               </div>
             </section>
-          </div>
+      </div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-zinc-800 p-3">
+      <div className="grid grid-cols-2 gap-2 border-t border-zinc-800 p-3">
             <Button
               variant="secondary"
               type="button"
@@ -504,8 +497,7 @@ w-[360px]
             >
               Try connect tool
             </Button>
-        </div>
-      </>
+      </div>
     </aside>
   );
 }
