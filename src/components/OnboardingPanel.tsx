@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useReducer, useState } from "react";
 import { toRichText } from "@tldraw/tlschema";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { BookOpen, Sparkles, Wand2, X } from "lucide-react";
@@ -8,9 +8,6 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { Locus, MemoryRoute } from "../domain/entities/types";
-import { AnalyticsPanel } from "./AnalyticsPanel";
-import { ReviewQueuePanel } from "./ReviewQueuePanel";
-import { TheSystemWorkbench } from "./TheSystemWorkbench";
 
 type Lesson = {
   id: string;
@@ -99,15 +96,14 @@ const EXAMPLES: ExampleBlueprint[] = [
   },
 ];
 
-export type LearnPanelTab = "guides" | "system" | "analytics" | "review";
+export type LearnPanelTab = "guides";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  preferredTab?: LearnPanelTab;
 };
 
-export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
+export function OnboardingPanel({ open, onClose }: Props) {
   const palaces = usePalaceStore((s) => s.palaces);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const routes = usePalaceStore((s) => s.routes);
@@ -120,7 +116,7 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
 
   const [lessonId, setLessonId] = useState<string>(LESSONS[0].id);
-  const [panelTab, setPanelTab] = useState<LearnPanelTab>(preferredTab ?? "guides");
+  const panelTab = "guides";
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [, bumpSceneRevision] = useReducer((v: number) => v + 1, 0);
 
@@ -137,10 +133,6 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
     };
   }, [editorRef]);
 
-  useEffect(() => {
-    if (!preferredTab) return;
-    setPanelTab(preferredTab);
-  }, [preferredTab]);
 
   const selectedLesson = LESSONS.find((x) => x.id === lessonId) ?? LESSONS[0];
 
@@ -412,7 +404,7 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
   return (
     <aside
       className={`flex h-full shrink-0 flex-col border-l border-zinc-800 bg-zinc-950 ${
-        panelTab === "guides" ? "w-[360px]" : "w-[min(760px,72vw)]"
+w-[360px]
       }`}
     >
       <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
@@ -425,46 +417,9 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
         </Button>
       </div>
 
-      <div className="border-b border-zinc-800 px-3 py-2">
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            type="button"
-            variant={panelTab === "guides" ? "default" : "secondary"}
-            onClick={() => setPanelTab("guides")}
-          >
-            Guides
-          </Button>
-          <Button
-            size="sm"
-            type="button"
-            variant={panelTab === "system" ? "default" : "secondary"}
-            onClick={() => setPanelTab("system")}
-          >
-            theSystem
-          </Button>
-          <Button
-            size="sm"
-            type="button"
-            variant={panelTab === "review" ? "default" : "secondary"}
-            onClick={() => setPanelTab("review")}
-          >
-            Review
-          </Button>
-          <Button
-            size="sm"
-            type="button"
-            variant={panelTab === "analytics" ? "default" : "secondary"}
-            onClick={() => setPanelTab("analytics")}
-          >
-            Analytics
-          </Button>
-        </div>
-      </div>
 
-      {panelTab === "guides" ? (
-        <>
-          <div className="space-y-4 overflow-y-auto p-3 text-sm">
+      <>
+        <div className="space-y-4 overflow-y-auto p-3 text-sm">
             <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -549,21 +504,8 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
             >
               Try connect tool
             </Button>
-          </div>
-        </>
-      ) : panelTab === "system" ? (
-        <div className="min-h-0 flex-1 p-3">
-          <TheSystemWorkbench />
         </div>
-      ) : panelTab === "review" ? (
-        <div className="min-h-0 flex-1 p-3">
-          <ReviewQueuePanel />
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 p-3">
-          <AnalyticsPanel />
-        </div>
-      )}
+      </>
     </aside>
   );
 }
