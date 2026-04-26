@@ -4,6 +4,7 @@ import type { Editor, TLGeoShape, TLEventInfo } from "@tldraw/editor";
 import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
+import { captureSceneAnalyticsSnapshot, diffSceneAnalyticsSnapshots } from "./analyticsSceneSnapshot";
 import { createGeoMemoryNode } from "./createMemoryShapes";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
@@ -42,10 +43,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
   const editorRef = useRef<Editor | null>(null);
   const lastWalkNodeIdRef = useRef<string | null>(null);
+  const lastSceneSnapshotRef = useRef<ReturnType<typeof captureSceneAnalyticsSnapshot> | null>(null);
 
   const onMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor;
+      lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
       setEditor(editor);
 
       const onEvent = (info: TLEventInfo) => {
@@ -130,7 +133,19 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       const unsubDraft = editor.store.listen(
         () => {
           if (usePalaceStore.getState().currentPalace?.id !== palaceId) return;
+          const nextSnapshot = captureSceneAnalyticsSnapshot(editor);
+          const analyticsDiff = diffSceneAnalyticsSnapshots(lastSceneSnapshotRef.current, nextSnapshot);
+          lastSceneSnapshotRef.current = nextSnapshot;
           queueDraftSave();
+          for (const event of analyticsDiff) {
+            void usePalaceStore.getState().recordAnalyticsEvent({
+              eventType: event.eventType,
+              eventGroup: "graph",
+              palaceId,
+              nodeId: event.nodeId ?? null,
+              payload: event.payload,
+            });
+          }
         },
         { source: "user", scope: "document" },
       );
@@ -140,6 +155,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         unsubSel();
         unsubDraft();
         setEditor(null);
+        lastSceneSnapshotRef.current = null;
         editorRef.current = null;
       };
     },

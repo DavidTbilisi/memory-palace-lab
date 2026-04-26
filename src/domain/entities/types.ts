@@ -65,6 +65,40 @@ export interface Locus {
   label: string;
 }
 
+export type AnalyticsEventGroup = "palace" | "graph" | "review" | "system";
+
+export type AnalyticsEventType =
+  | "palace_created"
+  | "palace_opened"
+  | "palace_saved"
+  | "draft_saved"
+  | "node_created"
+  | "node_updated"
+  | "edge_created"
+  | "edge_updated"
+  | "route_created"
+  | "locus_added"
+  | "locus_updated"
+  | "walk_started"
+  | "walk_stepped"
+  | "walk_recall_rated"
+  | "walk_closed"
+  | "system_run_materialized";
+
+export type RecallRating = "again" | "hard" | "good" | "easy";
+
+export interface AnalyticsEvent {
+  id: string;
+  sessionId?: string | null;
+  palaceId?: string | null;
+  routeId?: string | null;
+  nodeId?: string | null;
+  eventType: AnalyticsEventType;
+  eventGroup: AnalyticsEventGroup;
+  createdAt: string;
+  payloadJson: string;
+}
+
 export interface PalaceSnapshot {
   palace: Palace;
   canvasObjects: CanvasObject[];

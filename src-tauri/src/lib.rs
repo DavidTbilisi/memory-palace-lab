@@ -1,7 +1,10 @@
 mod commands;
 mod db;
 
-use commands::{db_ping, palace_create, palace_export_json, palace_import_json, palace_list, palace_load, palace_save, DbState};
+use commands::{
+    analytics_append, analytics_list, db_ping, palace_create, palace_export_json, palace_import_json,
+    palace_list, palace_load, palace_save, DbState,
+};
 use std::fs;
 use tauri::Manager;
 
@@ -20,6 +23,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            analytics_list,
+            analytics_append,
             palace_list,
             palace_create,
             palace_load,

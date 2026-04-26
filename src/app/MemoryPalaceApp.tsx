@@ -20,6 +20,8 @@ export function MemoryPalaceApp() {
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const draftRestored = usePalaceStore((s) => s.draftRestored);
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
+  const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
+  const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
@@ -55,6 +57,12 @@ export function MemoryPalaceApp() {
     }
     return "Local · SQLite · Saved checkpoint";
   }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
+
+  useEffect(() => {
+    if (!analyticsLoaded) {
+      void loadAnalyticsEvents();
+    }
+  }, [analyticsLoaded, loadAnalyticsEvents]);
 
   useEffect(() => {
     const flushDraft = () => {

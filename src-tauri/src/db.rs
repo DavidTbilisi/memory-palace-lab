@@ -74,6 +74,25 @@ pub struct LocusDto {
     pub label: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyticsEventDto {
+    pub id: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub palace_id: Option<String>,
+    #[serde(default)]
+    pub route_id: Option<String>,
+    #[serde(default)]
+    pub node_id: Option<String>,
+    pub event_type: String,
+    pub event_group: String,
+    pub created_at: String,
+    #[serde(default = "default_payload_json")]
+    pub payload_json: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PalaceSnapshot {
@@ -90,6 +109,10 @@ fn default_node_kind() -> String {
 }
 
 fn default_node_meta_json() -> String {
+    "{}".to_string()
+}
+
+fn default_payload_json() -> String {
     "{}".to_string()
 }
 
@@ -153,10 +176,26 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             label TEXT NOT NULL DEFAULT ''
         );
 
+        CREATE TABLE IF NOT EXISTS analytics_events (
+            id TEXT PRIMARY KEY NOT NULL,
+            session_id TEXT,
+            palace_id TEXT REFERENCES palaces(id) ON DELETE SET NULL,
+            route_id TEXT REFERENCES routes(id) ON DELETE SET NULL,
+            node_id TEXT REFERENCES nodes(id) ON DELETE SET NULL,
+            event_type TEXT NOT NULL,
+            event_group TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL DEFAULT '{}'
+        );
+
         CREATE INDEX IF NOT EXISTS idx_canvas_palace ON canvas_objects(palace_id);
         CREATE INDEX IF NOT EXISTS idx_nodes_object ON nodes(object_id);
         CREATE INDEX IF NOT EXISTS idx_routes_palace ON routes(palace_id);
         CREATE INDEX IF NOT EXISTS idx_loci_route ON loci(route_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON analytics_events(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(session_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_palace ON analytics_events(palace_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type);
         "#,
     )?;
     // Lightweight migration for existing DBs created before locus labels.
@@ -189,6 +228,43 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
+    if let Err(err) = conn.execute("ALTER TABLE analytics_events ADD COLUMN session_id TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("no such table") => {}
+            _ => return Err(err),
+        }
+    }
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS analytics_events (
+            id TEXT PRIMARY KEY NOT NULL,
+            session_id TEXT,
+            palace_id TEXT REFERENCES palaces(id) ON DELETE SET NULL,
+            route_id TEXT REFERENCES routes(id) ON DELETE SET NULL,
+            node_id TEXT REFERENCES nodes(id) ON DELETE SET NULL,
+            event_type TEXT NOT NULL,
+            event_group TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL DEFAULT '{}'
+        )",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON analytics_events(created_at DESC)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(session_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_analytics_palace ON analytics_events(palace_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type)",
+        [],
+    )?;
     Ok(())
 }
 
@@ -469,6 +545,101 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
         )?;
     }
 
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn list_analytics_events(
+    conn: &Connection,
+    limit: Option<usize>,
+) -> rusqlite::Result<Vec<AnalyticsEventDto>> {
+    let sql = if limit.unwrap_or(0) > 0 {
+        "SELECT id, session_id, palace_id, route_id, node_id, event_type, event_group, created_at, payload_json
+         FROM analytics_events
+         ORDER BY created_at DESC
+         LIMIT ?1"
+    } else {
+        "SELECT id, session_id, palace_id, route_id, node_id, event_type, event_group, created_at, payload_json
+         FROM analytics_events
+         ORDER BY created_at DESC"
+    };
+
+    let mut stmt = conn.prepare(sql)?;
+    let rows = if let Some(limit) = limit {
+        if limit > 0 {
+            stmt.query_map(params![limit as i64], |r| {
+                Ok(AnalyticsEventDto {
+                    id: r.get(0)?,
+                    session_id: r.get(1)?,
+                    palace_id: r.get(2)?,
+                    route_id: r.get(3)?,
+                    node_id: r.get(4)?,
+                    event_type: r.get(5)?,
+                    event_group: r.get(6)?,
+                    created_at: r.get(7)?,
+                    payload_json: r.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map([], |r| {
+                Ok(AnalyticsEventDto {
+                    id: r.get(0)?,
+                    session_id: r.get(1)?,
+                    palace_id: r.get(2)?,
+                    route_id: r.get(3)?,
+                    node_id: r.get(4)?,
+                    event_type: r.get(5)?,
+                    event_group: r.get(6)?,
+                    created_at: r.get(7)?,
+                    payload_json: r.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?
+        }
+    } else {
+        stmt.query_map([], |r| {
+            Ok(AnalyticsEventDto {
+                id: r.get(0)?,
+                session_id: r.get(1)?,
+                palace_id: r.get(2)?,
+                route_id: r.get(3)?,
+                node_id: r.get(4)?,
+                event_type: r.get(5)?,
+                event_group: r.get(6)?,
+                created_at: r.get(7)?,
+                payload_json: r.get(8)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?
+    };
+
+    Ok(rows)
+}
+
+pub fn append_analytics_events(
+    conn: &mut Connection,
+    events: &[AnalyticsEventDto],
+) -> rusqlite::Result<()> {
+    let tx = conn.transaction()?;
+    for event in events {
+        tx.execute(
+            "INSERT OR REPLACE INTO analytics_events
+             (id, session_id, palace_id, route_id, node_id, event_type, event_group, created_at, payload_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                event.id,
+                event.session_id,
+                event.palace_id,
+                event.route_id,
+                event.node_id,
+                event.event_type,
+                event.event_group,
+                event.created_at,
+                event.payload_json
+            ],
+        )?;
+    }
     tx.commit()?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { PalaceRepository } from "../../domain/repositories/palaceRepository";
-import type { Palace, PalaceSnapshot } from "../../domain/entities/types";
+import type { AnalyticsEvent, Palace, PalaceSnapshot } from "../../domain/entities/types";
 
 /** Raw JSON matches Rust serde camelCase + `type` for canvas rows. */
 type InvokePalaceSnapshot = {
@@ -47,6 +47,8 @@ type InvokePalaceSnapshot = {
     label?: string;
   }>;
 };
+
+type InvokeAnalyticsEvent = AnalyticsEvent;
 
 function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
   return {
@@ -163,6 +165,12 @@ export function createPalaceRepositoryTauri(): PalaceRepository {
     },
     async savePalace(snapshot: PalaceSnapshot) {
       await invoke("palace_save", { snapshot: toInvoke(snapshot) });
+    },
+    async listAnalyticsEvents(limit) {
+      return invoke<InvokeAnalyticsEvent[]>("analytics_list", { limit });
+    },
+    async appendAnalyticsEvents(events) {
+      await invoke("analytics_append", { events });
     },
     async exportJson(snapshot: PalaceSnapshot) {
       return invoke<string>("palace_export_json", { snapshot: toInvoke(snapshot) });

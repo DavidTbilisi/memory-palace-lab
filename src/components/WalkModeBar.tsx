@@ -12,6 +12,7 @@ type Props = {
 export function WalkModeBar({ onHoverHintChange }: Props) {
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
+  const rateWalkRecall = usePalaceStore((s) => s.rateWalkRecall);
   const walkNext = usePalaceStore((s) => s.walkNext);
   const walkPrev = usePalaceStore((s) => s.walkPrev);
   const routes = usePalaceStore((s) => s.routes);
@@ -83,7 +84,53 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
               <div className="h-full bg-violet-400 transition-all" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1 border-l border-zinc-800/80 pl-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2 border-l border-zinc-800/80 pl-2">
+            <div className="hidden items-center gap-1 lg:flex">
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="border-rose-800/70 bg-rose-950/30 text-rose-100 hover:bg-rose-900/40"
+                onClick={() => rateWalkRecall("again")}
+                onMouseEnter={() => onHoverHintChange?.("Rate recall as Again. Analytics stays local and tracks weak spots.")}
+                onMouseLeave={() => onHoverHintChange?.(null)}
+              >
+                Again
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="border-amber-800/70 bg-amber-950/30 text-amber-100 hover:bg-amber-900/40"
+                onClick={() => rateWalkRecall("hard")}
+                onMouseEnter={() => onHoverHintChange?.("Rate recall as Hard. This marks effortful retrieval without full failure.")}
+                onMouseLeave={() => onHoverHintChange?.(null)}
+              >
+                Hard
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="border-emerald-800/70 bg-emerald-950/30 text-emerald-100 hover:bg-emerald-900/40"
+                onClick={() => rateWalkRecall("good")}
+                onMouseEnter={() => onHoverHintChange?.("Rate recall as Good. Useful for review timing and strength analytics.")}
+                onMouseLeave={() => onHoverHintChange?.(null)}
+              >
+                Good
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="border-cyan-800/70 bg-cyan-950/30 text-cyan-100 hover:bg-cyan-900/40"
+                onClick={() => rateWalkRecall("easy")}
+                onMouseEnter={() => onHoverHintChange?.("Rate recall as Easy. Fast, stable recall should trend toward this.")}
+                onMouseLeave={() => onHoverHintChange?.(null)}
+              >
+                Easy
+              </Button>
+            </div>
             <Button
               size="sm"
               variant="ghost"
