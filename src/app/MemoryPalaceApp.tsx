@@ -486,7 +486,7 @@ export function MemoryPalaceApp() {
           ) : null}
 
           {currentPage === "insights" ? (
-            <div className="min-h-0 flex-1 overflow-hidden p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
                 <AnalyticsPanel />
               </div>
@@ -494,7 +494,7 @@ export function MemoryPalaceApp() {
           ) : null}
 
           {currentPage === "system" ? (
-            <div className="min-h-0 flex-1 overflow-hidden p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
                 <TheSystemWorkbench />
               </div>
