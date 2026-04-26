@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
 import { usePalaceStore } from "../store/palaceStore";
@@ -125,7 +125,7 @@ describe("TheSystemWorkbench - Page Overflow (#10)", () => {
 
       // The outer container can have overflow-hidden for the flex layout,
       // but inner scrollable sections should explicitly allow overflow-y-auto
-      const innerScrollable = container.querySelectorAll(".overflow-y-auto");
+      const innerScrollable = Array.from(container.querySelectorAll("[class*='overflow-y-auto']"));
       expect(innerScrollable.length).toBeGreaterThan(0);
     });
   });
