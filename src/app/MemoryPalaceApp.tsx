@@ -350,13 +350,13 @@ export function MemoryPalaceApp() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
-      <header className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-3">
           <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">{title}</h1>
           <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
         </div>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex justify-center items-center gap-1">
           {(["graph", "review", "insights", "system", "help"] as const).map((page) => {
             const icons: Record<typeof page, React.ReactNode> = {
               graph: <LayoutDashboard className="h-4 w-4" />,
@@ -390,7 +390,7 @@ export function MemoryPalaceApp() {
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           <Button
             size="sm"
             variant={viewMode === "balanced" ? "default" : "secondary"}
