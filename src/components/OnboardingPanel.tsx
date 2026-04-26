@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { Locus, MemoryRoute } from "../domain/entities/types";
 import { AnalyticsPanel } from "./AnalyticsPanel";
+import { MemoryStrengthDashboard } from "./MemoryStrengthDashboard";
 import { ReviewQueuePanel } from "./ReviewQueuePanel";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
 
@@ -99,7 +100,7 @@ const EXAMPLES: ExampleBlueprint[] = [
   },
 ];
 
-export type LearnPanelTab = "guides" | "system" | "analytics" | "review";
+export type LearnPanelTab = "guides" | "system" | "dashboard" | "analytics" | "review";
 
 type Props = {
   open: boolean;
@@ -446,6 +447,14 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
           <Button
             size="sm"
             type="button"
+            variant={panelTab === "dashboard" ? "default" : "secondary"}
+            onClick={() => setPanelTab("dashboard")}
+          >
+            Dashboard
+          </Button>
+          <Button
+            size="sm"
+            type="button"
             variant={panelTab === "review" ? "default" : "secondary"}
             onClick={() => setPanelTab("review")}
           >
@@ -554,6 +563,10 @@ export function OnboardingPanel({ open, onClose, preferredTab }: Props) {
       ) : panelTab === "system" ? (
         <div className="min-h-0 flex-1 p-3">
           <TheSystemWorkbench />
+        </div>
+      ) : panelTab === "dashboard" ? (
+        <div className="min-h-0 flex-1 p-3">
+          <MemoryStrengthDashboard />
         </div>
       ) : panelTab === "review" ? (
         <div className="min-h-0 flex-1 p-3">

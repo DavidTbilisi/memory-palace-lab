@@ -8,7 +8,7 @@ async function bootstrapPalace(page: import("@playwright/test").Page, name = "No
 }
 
 async function createNodeByDoubleClick(page: import("@playwright/test").Page) {
-  await page.locator(".tl-background").first().dblclick({ position: { x: 160, y: 180 } });
+  await page.getByRole("button", { name: /^Node$/ }).click();
 }
 
 async function createNodeByDoubleClickAt(page: import("@playwright/test").Page, x: number, y: number) {
@@ -111,11 +111,6 @@ test("node title/content persist after save and reopen palace", async ({ page })
 });
 
 test("inspector title matches clicked canvas node", async ({ page }) => {
-  test.fail(
-    true,
-    "Known regression: clicking a node can leave inspector bound to a different node selection.",
-  );
-
   await bootstrapPalace(page, "Selection Sync Palace");
 
   await createNodeByDoubleClickAt(page, 180, 160);
