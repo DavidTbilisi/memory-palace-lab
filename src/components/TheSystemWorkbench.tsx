@@ -159,25 +159,25 @@ export function TheSystemWorkbench() {
           <TheSystemLibrary preferredSlug={template.docsSlug} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-3 pt-3">
-          <section className="flex w-72 shrink-0 flex-col rounded-md border border-zinc-800 bg-zinc-900/40">
-            <div className="border-b border-zinc-800 p-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-                <Route className="h-4 w-4 text-violet-300" />
-                Pipelines
+        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-6xl px-3">
+              <div className="mb-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+                  <Route className="h-4 w-4 text-violet-300" />
+                  Pipelines Navigator
+                </div>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">
+                  Start with a fixed framework, then turn the run into graph structure.
+                </p>
               </div>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Start with a fixed framework, then turn the run into graph structure.
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              <div className="space-y-2">
+              <div className="grid gap-3 md:grid-cols-3">
                 {THE_SYSTEM_PIPELINES.map((candidate) => (
                   <button
                     key={candidate.id}
                     type="button"
                     onClick={() => setSelectedPipelineId(candidate.id)}
-                    className={`w-full rounded-md border p-3 text-left transition ${
+                    className={`rounded-md border p-3 text-left transition ${
                       candidate.id === template.id
                         ? "border-violet-500/60 bg-violet-900/20"
                         : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900"
@@ -191,9 +191,9 @@ export function TheSystemWorkbench() {
                 ))}
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="flex min-w-0 flex-1 flex-col rounded-md border border-zinc-800 bg-zinc-900/40">
+          <section className="flex min-h-0 flex-1 flex-col rounded-md border border-zinc-800 bg-zinc-900/40 mx-3">
             <div className="border-b border-zinc-800 px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-zinc-500">{template.category}</div>
               <h2 className="mt-1 text-lg font-semibold text-zinc-100">{template.title}</h2>
