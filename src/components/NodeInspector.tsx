@@ -311,16 +311,16 @@ export function NodeInspector() {
 
   const selectedPortalPalace = portalPalaceOptions.find((palace) => palace.id === portalPalaceId) ?? null;
   const selectedPortalRoute = portalRoutes.find((route) => route.id === portalRouteId) ?? null;
-  const portalDraft: PalacePortalRef | null =
-    nodeKind === "portal"
-      ? {
-          targetPalaceId: portalPalaceId || undefined,
-          targetPalaceName: selectedPortalPalace?.name,
-          targetAtlasPath: selectedPortalPalace?.atlasPath ?? null,
-          targetRouteId: portalRouteId || undefined,
-          targetRouteName: selectedPortalRoute?.name,
-        }
-      : null;
+  const portalDraft = useMemo<PalacePortalRef | null>(() => {
+    if (nodeKind !== "portal") return null;
+    return {
+      targetPalaceId: portalPalaceId || undefined,
+      targetPalaceName: selectedPortalPalace?.name,
+      targetAtlasPath: selectedPortalPalace?.atlasPath ?? null,
+      targetRouteId: portalRouteId || undefined,
+      targetRouteName: selectedPortalRoute?.name,
+    };
+  }, [nodeKind, portalPalaceId, portalRouteId, selectedPortalPalace?.atlasPath, selectedPortalPalace?.name, selectedPortalRoute?.name]);
 
   const nextReviewInfo = useMemo(() => {
     if (!selectedShapeId || !editorRef) return null;

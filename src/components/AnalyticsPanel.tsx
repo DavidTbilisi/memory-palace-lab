@@ -132,9 +132,10 @@ export function AnalyticsPanel() {
 
   const dueCount = useMemo(() => {
     const nowIso = new Date().toISOString();
+    const nowMs = Date.parse(nowIso);
     return loci
       .map((locus) => normalizeLocusSchedule(locus, nowIso))
-      .filter((locus) => Date.parse(locus.nextReviewAt ?? nowIso) <= Date.now()).length;
+      .filter((locus) => Date.parse(locus.nextReviewAt ?? nowIso) <= nowMs).length;
   }, [loci]);
 
   const averageInterval = useMemo(() => {
