@@ -55,6 +55,7 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkRecallMode: false,
     walkCueOnly: false,
     walkAnswerRevealed: true,
+    walkStepRated: false,
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
@@ -136,9 +137,28 @@ describe("walkNext", () => {
   });
 
   it("resets walkAnswerRevealed to false in recall mode", () => {
-    resetWalkState({ walkOpen: true, walkSessionId: "s1", walkRecallMode: true, walkAnswerRevealed: true });
+    resetWalkState({
+      walkOpen: true,
+      walkSessionId: "s1",
+      walkRecallMode: true,
+      walkAnswerRevealed: true,
+      walkStepRated: true,
+    });
     usePalaceStore.getState().walkNext();
     expect(usePalaceStore.getState().walkAnswerRevealed).toBe(false);
+  });
+
+  it("blocks advancing in recall mode until current step is rated", () => {
+    resetWalkState({
+      walkOpen: true,
+      walkSessionId: "s1",
+      walkRecallMode: true,
+      walkAnswerRevealed: true,
+      walkStepRated: false,
+      walkIndex: 0,
+    });
+    usePalaceStore.getState().walkNext();
+    expect(usePalaceStore.getState().walkIndex).toBe(0);
   });
 
   it("does nothing when no routes exist", () => {
@@ -323,6 +343,20 @@ describe("rateWalkRecall", () => {
       walkRevealLatencyMs: 500,
     });
     expect(() => usePalaceStore.getState().rateWalkRecall("easy")).not.toThrow();
+  });
+
+  it("auto-advances to the next step after a valid rating", () => {
+    resetWalkState({
+      walkOpen: true,
+      walkSessionId: "s1",
+      walkRouteId: "route-a",
+      walkRecallMode: true,
+      walkAnswerRevealed: true,
+      walkStepRated: false,
+      walkIndex: 0,
+    });
+    usePalaceStore.getState().rateWalkRecall("good");
+    expect(usePalaceStore.getState().walkIndex).toBe(1);
   });
 
   it("accepts all four valid ratings without error", () => {

@@ -71,6 +71,7 @@ export type PalaceStore = {
   walkRecallMode: boolean;
   walkCueOnly: boolean;
   walkAnswerRevealed: boolean;
+  walkStepRated: boolean;
   walkStepEnteredAt: string | null;
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
@@ -124,6 +125,13 @@ function safeElapsedMs(isoTimestamp: string | null, now: number): number | null 
   if (Number.isNaN(parsed)) return null;
   return Math.max(0, now - parsed);
 }
+
+const RECALL_RATING_VALUES: Record<RecallRating, number> = {
+  again: 1,
+  hard: 2,
+  good: 3,
+  easy: 4,
+};
 
 export const usePalaceStore = create<PalaceStore>((set, get) => {
   let draftTimer: ReturnType<typeof setTimeout> | null = null;
@@ -229,6 +237,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       walkStepEnteredAt: enteredAt,
       walkRevealedAt: null,
       walkRevealLatencyMs: null,
+      walkStepRated: false,
       walkAnswerRevealed: !state.walkRecallMode,
     }));
     const context = getWalkContext();
@@ -312,6 +321,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRecallMode: false,
     walkCueOnly: true,
     walkAnswerRevealed: true,
+    walkStepRated: false,
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
@@ -610,6 +620,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkOpen: false,
         walkSessionId: null,
         walkAnswerRevealed: !get().walkRecallMode,
+        walkStepRated: false,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -697,6 +708,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkIndex: 0,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: !state.walkRecallMode,
+        walkStepRated: false,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -745,6 +757,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
+        walkStepRated: false,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -766,7 +779,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             },
           });
         }
-        set({ walkStepEnteredAt: null, walkRevealedAt: null, walkRevealLatencyMs: null });
+        set({ walkStepEnteredAt: null, walkRevealedAt: null, walkRevealLatencyMs: null, walkStepRated: false });
         return;
       }
 
@@ -796,6 +809,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       set({
         walkRecallMode,
         walkAnswerRevealed: !walkRecallMode,
+        walkStepRated: false,
         walkStepEnteredAt: get().walkOpen ? enteredAt : null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -844,10 +858,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const now = Date.now();
       const timeToRevealMs = revealLatencyMs ?? safeElapsedMs(enteredAt, now);
       const timeFromRevealToRatingMs = safeElapsedMs(revealedAt, now);
+      const ratedAt = new Date(now).toISOString();
       set({
-        walkStepEnteredAt: new Date(now).toISOString(),
+        walkStepEnteredAt: ratedAt,
         walkRevealedAt: revealedAt,
         walkRevealLatencyMs: revealLatencyMs,
+        walkStepRated: true,
       });
       void recordAnalytics({
         eventType: "walk_recall_rated",
@@ -857,6 +873,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         nodeId: context.nodeId,
         payload: {
           rating,
+          ratingValue: RECALL_RATING_VALUES[rating],
+          ratedAt,
           stepIndex: context.stepIndex,
           routeLength: context.count,
           locusId: context.locus?.id ?? null,
@@ -866,14 +884,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           timeFromRevealToRatingMs,
         },
       });
+      get().walkNext();
     },
 
     walkNext() {
-      const { loci, routes, walkRouteId, walkIndex } = get();
+      const { loci, routes, walkRouteId, walkIndex, walkRecallMode, walkStepRated } = get();
+      if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
       const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
-      set({ walkIndex: nextWalkIndex(walkIndex, list.length) });
+      const nextIndex = nextWalkIndex(walkIndex, list.length);
+      if (nextIndex === walkIndex) return;
+      set({ walkIndex: nextIndex });
       noteWalkStepEntered("next");
     },
 
@@ -882,7 +904,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
       const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
-      set({ walkIndex: prevWalkIndex(walkIndex, list.length) });
+      const nextIndex = prevWalkIndex(walkIndex, list.length);
+      if (nextIndex === walkIndex) return;
+      set({ walkIndex: nextIndex });
       noteWalkStepEntered("prev");
     },
 
@@ -909,6 +933,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkOpen: false,
         walkSessionId: null,
         walkAnswerRevealed: !state.walkRecallMode,
+        walkStepRated: false,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,

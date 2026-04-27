@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight, Eye, Footprints } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 import { orderedLoci } from "../domain/services/walkService";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
+import type { RecallRating } from "../domain/entities/types";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -54,10 +55,10 @@ function RecallRatingButtons({
         type="button"
         className="border-rose-800/70 bg-rose-950/30 text-rose-100 hover:bg-rose-900/40"
         onClick={() => rateWalkRecall("again")}
-        onMouseEnter={() => onHoverHintChange?.("Rate recall as Fail. This marks a miss and keeps the weakness visible.")}
+        onMouseEnter={() => onHoverHintChange?.("Rate recall as Again. This marks a miss and keeps the weakness visible.")}
         onMouseLeave={() => onHoverHintChange?.(null)}
       >
-        Fail
+        1 Again
       </Button>
       <Button
         size="sm"
@@ -68,7 +69,7 @@ function RecallRatingButtons({
         onMouseEnter={() => onHoverHintChange?.("Rate recall as Hard. You got there, but with friction.")}
         onMouseLeave={() => onHoverHintChange?.(null)}
       >
-        Hard
+        2 Hard
       </Button>
       <Button
         size="sm"
@@ -79,7 +80,7 @@ function RecallRatingButtons({
         onMouseEnter={() => onHoverHintChange?.("Rate recall as Good. Stable retrieval with acceptable effort.")}
         onMouseLeave={() => onHoverHintChange?.(null)}
       >
-        Good
+        3 Good
       </Button>
       <Button
         size="sm"
@@ -90,7 +91,7 @@ function RecallRatingButtons({
         onMouseEnter={() => onHoverHintChange?.("Rate recall as Easy. Fast, clean retrieval with low effort.")}
         onMouseLeave={() => onHoverHintChange?.(null)}
       >
-        Easy
+        4 Easy
       </Button>
     </div>
   );
@@ -104,7 +105,9 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const walkCueOnly = usePalaceStore((s) => s.walkCueOnly);
   const setWalkCueOnly = usePalaceStore((s) => s.setWalkCueOnly);
   const walkAnswerRevealed = usePalaceStore((s) => s.walkAnswerRevealed);
+  const walkStepRated = usePalaceStore((s) => s.walkStepRated);
   const revealWalkAnswer = usePalaceStore((s) => s.revealWalkAnswer);
+  const rateWalkRecall = usePalaceStore((s) => s.rateWalkRecall);
   const walkNext = usePalaceStore((s) => s.walkNext);
   const walkPrev = usePalaceStore((s) => s.walkPrev);
   const routes = usePalaceStore((s) => s.routes);
@@ -136,6 +139,30 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     ? "Recall the explanation before you reveal it."
     : "Use the locus cue first, then reveal the full answer.";
   const progressPct = count > 0 ? Math.round(((walkIndex + 1) / count) * 100) : 0;
+  const waitingForRating = walkRecallMode && !walkStepRated;
+
+  useEffect(() => {
+    if (!walkOpen) return;
+    const ratingByKey: Record<string, RecallRating> = {
+      "1": "again",
+      "2": "hard",
+      "3": "good",
+      "4": "easy",
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable) return;
+      const tagName = target?.tagName;
+      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") return;
+      const rating = ratingByKey[event.key];
+      if (!rating) return;
+      if (walkRecallMode && !walkAnswerRevealed) return;
+      event.preventDefault();
+      rateWalkRecall(rating);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [rateWalkRecall, walkAnswerRevealed, walkOpen, walkRecallMode]);
 
   return (
     <div
@@ -261,7 +288,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
                 aria-label="Next step"
                 className="shrink-0"
                 onClick={() => walkNext()}
-                disabled={count === 0 || walkIndex >= count - 1}
+                disabled={count === 0 || walkIndex >= count - 1 || waitingForRating}
                 onMouseEnter={() => onHoverHintChange?.("Next locus in current route.")}
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
