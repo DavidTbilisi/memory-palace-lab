@@ -77,6 +77,11 @@ type CreateGeoMemoryNodeOptions = {
   portal?: PalacePortalRef | null;
 };
 
+export type ImportedMemoryNodeInput = {
+  title: string;
+  content: string;
+};
+
 export function createGeoMemoryNode(
   editor: Editor,
   palaceId: string,
@@ -127,6 +132,78 @@ export function createGeoMemoryNode(
   });
   editor.select(shapeId);
   return { shapeId, objectId, nodeId };
+}
+
+export function createImportedMemoryNodes(
+  editor: Editor,
+  palaceId: string,
+  items: ImportedMemoryNodeInput[],
+  options?: {
+    start?: { x: number; y: number };
+    columns?: number;
+    gapX?: number;
+    gapY?: number;
+  },
+) {
+  if (items.length === 0) return [];
+  const start = options?.start ?? { x: 200, y: 180 };
+  const columns = Math.max(1, options?.columns ?? 4);
+  const gapX = Math.max(100, options?.gapX ?? 240);
+  const gapY = Math.max(90, options?.gapY ?? 150);
+
+  const created = items.map((item, index) => {
+    const objectId = crypto.randomUUID();
+    const nodeId = crypto.randomUUID();
+    const shapeId = createShapeId();
+    const row = Math.floor(index / columns);
+    const column = index % columns;
+    const title = item.title.trim() || `Imported node ${index + 1}`;
+    const content = item.content ?? "";
+    const meta = applyPortalRefToMeta(
+      {
+        mpPalaceId: palaceId,
+        mpObjectId: objectId,
+        mpNodeId: nodeId,
+        mpTitle: title,
+        mpContent: content,
+      },
+      "memory",
+      null,
+    );
+    return {
+      shapeId,
+      objectId,
+      nodeId,
+      shape: {
+        id: shapeId,
+        type: "geo" as const,
+        x: start.x + column * gapX,
+        y: start.y + row * gapY,
+        meta,
+        props: {
+          geo: "rectangle" as const,
+          w: 180,
+          h: 100,
+          dash: "draw" as const,
+          growY: 0,
+          url: "",
+          scale: 1,
+          color: "violet" as const,
+          labelColor: "black" as const,
+          fill: "semi" as const,
+          size: "s" as const,
+          font: "draw" as const,
+          align: "middle" as const,
+          verticalAlign: "middle" as const,
+          richText: toRichText(title),
+        },
+      },
+    };
+  });
+
+  editor.createShapes(created.map((entry) => entry.shape));
+  editor.select(created[0]!.shapeId);
+  return created.map(({ shapeId, objectId, nodeId }) => ({ shapeId, objectId, nodeId }));
 }
 
 export function createMemoryArrow(

@@ -127,7 +127,7 @@ function AtlasBranch({
   );
 }
 
-export function PalaceSidebar() {
+export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const palaces = usePalaceStore((s) => s.palaces);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
@@ -218,6 +218,17 @@ export function PalaceSidebar() {
           >
             <Plus className="h-4 w-4" />
             Create palace
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full justify-center"
+            type="button"
+            onClick={() => onOpenImport?.()}
+            disabled={!currentPalace}
+            title={currentPalace ? "Import notes into current palace" : "Open a palace first to import notes"}
+          >
+            Import notes
           </Button>
         </div>
       </div>
