@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowRight, Command, Search } from "lucide-react";
 import { rankPaletteItems, type PaletteItem } from "../domain/services/commandPalette";
@@ -27,18 +27,23 @@ function groupResults(commands: PaletteCommand[]) {
 
 export function CommandPalette({ open, onOpenChange, commands, recentIds, onCommandRun }: Props) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const deferredQuery = useDeferredValue(query);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
   const ranked = useMemo(() => {
-    const matches = rankPaletteItems(commands, deferredQuery, recentIds);
+    const matches = rankPaletteItems(commands, debouncedQuery, recentIds);
     const rankedIds = new Set(matches.map((item) => item.id));
     return matches
       .map((item) => commands.find((command) => command.id === item.id))
       .filter((command): command is PaletteCommand => !!command && rankedIds.has(command.id))
       .slice(0, 30);
-  }, [commands, deferredQuery, recentIds]);
+  }, [commands, debouncedQuery, recentIds]);
 
   const grouped = useMemo(() => groupResults(ranked), [ranked]);
 
@@ -54,7 +59,7 @@ export function CommandPalette({ open, onOpenChange, commands, recentIds, onComm
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [deferredQuery]);
+  }, [debouncedQuery]);
 
   useEffect(() => {
     const target = buttonRefs.current[activeIndex];

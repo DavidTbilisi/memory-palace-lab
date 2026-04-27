@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
 import {
   BarChart2,
@@ -25,35 +25,57 @@ import { ContextualTipCard } from "../components/ContextualTipCard";
 import { GlossaryPanel } from "../components/GlossaryPanel";
 import { HelpCenterPage } from "../components/HelpCenterPage";
 import { AnalyticsPanel } from "../components/AnalyticsPanel";
-// Duplicate import removed
+import { ImportNodesDialog } from "../components/ImportNodesDialog";
 import { PalaceSidebar } from "../components/PalaceSidebar";
 import { PalaceToolbar } from "../components/PalaceToolbar";
 import { ReviewPage } from "../components/ReviewPage";
 import { RouteEditorPage } from "../components/RouteEditorPage";
 import { RoutePanel } from "../components/RoutePanel";
+import { SessionSummaryModal } from "../components/SessionSummaryModal";
 import { TheSystemWorkbench } from "../components/TheSystemWorkbench";
 import { WalkModeBar } from "../components/WalkModeBar";
 import { NodeInspector } from "../components/NodeInspector";
-// Duplicate import removed
 import { OnboardingPanel } from "../components/OnboardingPanel";
 import { Button } from "../components/ui/button";
-import { usePalaceStore } from "../store/palaceStore";
+import type { MemoryNode } from "../domain/entities/types";
 import { buildPrimaryContextHint } from "../domain/services/contextualTips";
+import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
+import { usePalaceStore } from "../store/palaceStore";
 
 type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "routes" | "help";
 
-const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
+type NodeSearchEntry = {
+  palaceId: string;
+  palaceName: string;
+  nodeId: string;
+  title: string;
+  subtitle: string;
+  keywords: string;
+  group: "Current Palace Nodes" | "Other Palaces";
+};
 
-function loadRecentCommandIds() {
+const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
+const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
+const palaceRepo = getPalaceRepository();
+
+function loadRecentIds(storageKey: string, max = 20) {
   if (typeof window === "undefined") return [] as string[];
   try {
-    const raw = window.localStorage.getItem(RECENT_COMMANDS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is string => typeof entry === "string").slice(0, max);
   } catch {
     return [];
   }
+}
+
+function toPlainText(value: string) {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function pageHint(page: AppPage) {
@@ -82,10 +104,12 @@ function GraphEmptyState({
   onCreateTutorialPalace,
   onOpenHelp,
   onOpenCommandPalette,
+  onOpenImport,
 }: {
   onCreateTutorialPalace: () => void;
   onOpenHelp: () => void;
   onOpenCommandPalette: () => void;
+  onOpenImport: () => void;
 }) {
   return (
     <div className="flex flex-1 items-center justify-center p-6">
@@ -109,6 +133,9 @@ function GraphEmptyState({
             <Search className="h-4 w-4" />
             Open command palette
           </Button>
+          <Button type="button" variant="outline" onClick={onOpenImport}>
+            Import notes
+          </Button>
         </div>
         <div className="mt-8 grid gap-3 md:grid-cols-3">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950/50 p-4">
@@ -129,41 +156,59 @@ function GraphEmptyState({
   );
 }
 
+function routeNamesByNodeId(
+  nodes: MemoryNode[],
+  routes: Array<{ id: string; name: string }>,
+  loci: Array<{ routeId: string; nodeId: string }>,
+) {
+  const routeNameMap = new Map(routes.map((route) => [route.id, route.name]));
+  const namesByNode = new Map<string, Set<string>>();
+  for (const locus of loci) {
+    const routeName = routeNameMap.get(locus.routeId);
+    if (!routeName) continue;
+    const set = namesByNode.get(locus.nodeId) ?? new Set<string>();
+    set.add(routeName);
+    namesByNode.set(locus.nodeId, set);
+  }
+
+  return nodes.map((node) => {
+    const routeNames = [...(namesByNode.get(node.id) ?? new Set<string>())];
+    return {
+      node,
+      routeSummary: routeNames.length === 0 ? "No route" : routeNames.join(", "),
+    };
+  });
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function MemoryPalaceApp() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<AppPage>("graph");
-  const [recentCommandIds] = useState<string[]>(loadRecentCommandIds);
+  const [recentCommandIds, setRecentCommandIds] = useState<string[]>(() => loadRecentIds(RECENT_COMMANDS_STORAGE_KEY));
+  const [recentNodeIds, setRecentNodeIds] = useState<string[]>(() => loadRecentIds(RECENT_NODE_IDS_STORAGE_KEY, 12));
+  const [nodeCommands, setNodeCommands] = useState<PaletteCommand[]>([]);
   const graphControls = true;
+
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
+  const nodes = usePalaceStore((s) => s.nodes);
   const routes = usePalaceStore((s) => s.routes);
   const loci = usePalaceStore((s) => s.loci);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const toolMode = usePalaceStore((s) => s.toolMode);
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const createPalace = usePalaceStore((s) => s.createPalace);
-  const trackCommandRun = () => {};
-  const startRouteReview = () => {};
-
-    const paletteCommands: PaletteCommand[] = useMemo(() => {
-      const baseCommands = [
-        { id: "action-glossary", group: "Actions" as const, title: "Open vocabulary glossary", onSelect: () => setGlossaryOpen(true) },
-        { id: "page-graph", group: "Pages" as const, title: "Graph workspace", subtitle: "Edit palette structure", onSelect: () => navigateToPage("graph") },
-        { id: "page-review", group: "Pages" as const, title: "Review queue", subtitle: "Spaced review scheduling", onSelect: () => navigateToPage("review") },
-        { id: "page-insights", group: "Pages" as const, title: "Insights dashboard", subtitle: "Memory strength telemetry", onSelect: () => navigateToPage("insights") },
-        { id: "page-system", group: "Pages" as const, title: "System workbench", subtitle: "Run frameworks as pipelines", onSelect: () => navigateToPage("system") },
-        { id: "page-atlas", group: "Pages" as const, title: "Atlas hierarchy", subtitle: "Organize palaces by geography", onSelect: () => navigateToPage("atlas") },
-        { id: "page-help", group: "Pages" as const, title: "Help center", subtitle: "Onboarding and guides", onSelect: () => navigateToPage("help") },
-
-        { id: "doc-walk-mode", group: "Docs" as const, title: "Walk Mode — recall-first review", subtitle: "Test before revealing answers", onSelect: () => navigateToPage("help") },
-        { id: "doc-cast-edges", group: "Docs" as const, title: "CAST Edges — connection types", subtitle: "Causal, Associative, Structural, Temporal", onSelect: () => navigateToPage("help") },
-        { id: "doc-spaced-review", group: "Docs" as const, title: "Spaced Repetition — scheduling", subtitle: "Review at the right time", onSelect: () => navigateToPage("review") },
-        { id: "doc-encoding", group: "Docs" as const, title: "Encoding — vivid memory cues", subtitle: "Transform dry facts into images", onSelect: () => navigateToPage("help") },
-        { id: "doc-loci", group: "Docs" as const, title: "Loci — anchor points in palaces", subtitle: "Physical and mental locations", onSelect: () => navigateToPage("help") },
-      ];
-      return baseCommands;
-    }, []);
+  const loadPalaces = usePalaceStore((s) => s.loadPalaces);
+  const openPalace = usePalaceStore((s) => s.openPalace);
+  const setWalkRoute = usePalaceStore((s) => s.setWalkRoute);
+  const setWalkRecallMode = usePalaceStore((s) => s.setWalkRecallMode);
+  const setWalkCueOnly = usePalaceStore((s) => s.setWalkCueOnly);
+  const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const palaces = usePalaceStore((s) => s.palaces);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
@@ -173,79 +218,67 @@ export function MemoryPalaceApp() {
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
+
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
   const [viewMode, setViewMode] = useState<"balanced" | "focus">("balanced");
   const [hoverHint, setHoverHint] = useState<string | null>(null);
 
-  const snap = currentPalace?.editorSnapshot;
-  const castOpen = !!pendingCast;
+  const navigateToPage = useCallback((page: AppPage) => {
+    setCurrentPage(page);
+  }, []);
 
-  const onCastConfirm = (cast: { ab: string; cd: string; ef: string; gh: string; label?: string }) => {
-    const pending = usePalaceStore.getState().pendingCast;
-    const editor = usePalaceStore.getState().editorRef;
-    const palace = usePalaceStore.getState().currentPalace;
-    if (!pending || !editor || !palace) return;
-    createMemoryArrow(
-      editor,
-      palace.id,
-      pending.fromShapeId,
-      pending.toShapeId,
-      pending.sourceNodeId,
-      pending.targetNodeId,
-      cast,
-    );
-    setPendingCast(null);
-  };
+  const trackCommandRun = useCallback((id: string) => {
+    setRecentCommandIds((current) => [id, ...current.filter((entry) => entry !== id)].slice(0, 20));
+  }, []);
 
-  // Remove redeclared variables (already defined later in the file)
+  const trackNodeVisit = useCallback((nodeId: string) => {
+    setRecentNodeIds((current) => [nodeId, ...current.filter((entry) => entry !== nodeId)].slice(0, 12));
+  }, []);
 
-  useEffect(() => {
-    if (!analyticsLoaded) {
-      void loadAnalyticsEvents();
+  const startRouteReview = useCallback(
+    (routeId: string) => {
+      setWalkRoute(routeId);
+      setWalkRecallMode(true);
+      setWalkCueOnly(true);
+      setWalkOpen(true);
+      setCurrentPage("graph");
+    },
+    [setWalkCueOnly, setWalkOpen, setWalkRecallMode, setWalkRoute],
+  );
+
+  const waitForNodeShape = useCallback(async (targetPalaceId: string, nodeId: string) => {
+    const started = Date.now();
+    while (Date.now() - started < 4500) {
+      const state = usePalaceStore.getState();
+      if (state.currentPalace?.id === targetPalaceId && state.editorRef) {
+        for (const shapeId of state.editorRef.getCurrentPageShapeIds()) {
+          const shape = state.editorRef.getShape(shapeId as TLShapeId);
+          const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
+          if (shape?.type === "geo" && meta.mpNodeId === nodeId) {
+            return { editor: state.editorRef, shapeId: shapeId as TLShapeId };
+          }
+        }
+      }
+      await sleep(70);
     }
-  }, [analyticsLoaded, loadAnalyticsEvents]);
-
-  useEffect(() => {
-    const flushDraft = () => {
-      void usePalaceStore.getState().flushDraftSave();
-    };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        flushDraft();
-      }
-    };
-
-    window.addEventListener("beforeunload", flushDraft);
-    window.addEventListener("pagehide", flushDraft);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.removeEventListener("beforeunload", flushDraft);
-      window.removeEventListener("pagehide", flushDraft);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    return null;
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen((open) => !open);
+  const focusNodeCommand = useCallback(
+    async (targetPalaceId: string, nodeId: string) => {
+      if (currentPalace?.id !== targetPalaceId) {
+        await openPalace(targetPalaceId);
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
-        event.preventDefault();
-        setGlossaryOpen((open) => !open);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(RECENT_COMMANDS_STORAGE_KEY, JSON.stringify(recentCommandIds.slice(0, 12)));
-  }, [recentCommandIds]);
+      setCurrentPage("graph");
+      const target = await waitForNodeShape(targetPalaceId, nodeId);
+      if (!target) return;
+      target.editor.setSelectedShapes([target.shapeId]);
+      target.editor.zoomToSelectionIfOffscreen(96, { animation: { duration: 260 } });
+    },
+    [currentPalace?.id, openPalace, waitForNodeShape],
+  );
 
   const sceneStats = useMemo(() => {
     if (!editorRef) {
@@ -295,22 +328,19 @@ export function MemoryPalaceApp() {
     }),
     [
       currentPalace,
-      loci.length,
-      persistenceState,
-      routes.length,
-      sceneStats.edgeCount,
       sceneStats.nodeCount,
+      sceneStats.edgeCount,
       sceneStats.selectedKind,
-      toolMode,
+      routes.length,
+      loci.length,
       walkOpen,
+      toolMode,
+      persistenceState,
     ],
   );
 
   const title = useMemo(() => currentPalace?.name ?? "Memory Palace Lab", [currentPalace?.name]);
-  const defaultHint = useMemo(
-    () => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext),
-    [contextualTipContext, currentPage],
-  );
+  const defaultHint = useMemo(() => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext), [contextualTipContext, currentPage]);
   const persistenceLabel = useMemo(() => {
     if (!currentPalace) return "Local | SQLite | tldraw";
     if (persistenceState === "dirty") return "Local | SQLite | Draft pending";
@@ -323,8 +353,21 @@ export function MemoryPalaceApp() {
     return "Local | SQLite | Saved checkpoint";
   }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
 
-  const navigateToPage = (page: AppPage) => {
-    setCurrentPage(page);
+  const onCastConfirm = (cast: { ab: string; cd: string; ef: string; gh: string; label?: string }) => {
+    const pending = usePalaceStore.getState().pendingCast;
+    const editor = usePalaceStore.getState().editorRef;
+    const palace = usePalaceStore.getState().currentPalace;
+    if (!pending || !editor || !palace) return;
+    createMemoryArrow(
+      editor,
+      palace.id,
+      pending.fromShapeId,
+      pending.toShapeId,
+      pending.sourceNodeId,
+      pending.targetNodeId,
+      cast,
+    );
+    setPendingCast(null);
   };
 
   const applyViewMode = (mode: "balanced" | "focus") => {
@@ -339,6 +382,310 @@ export function MemoryPalaceApp() {
     setShowOnboarding(true);
   };
 
+  useEffect(() => {
+    if (!analyticsLoaded) {
+      void loadAnalyticsEvents();
+    }
+  }, [analyticsLoaded, loadAnalyticsEvents]);
+
+  useEffect(() => {
+    void loadPalaces();
+  }, [loadPalaces]);
+
+  useEffect(() => {
+    const flushDraft = () => {
+      void usePalaceStore.getState().flushDraftSave();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushDraft();
+      }
+    };
+
+    window.addEventListener("beforeunload", flushDraft);
+    window.addEventListener("pagehide", flushDraft);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", flushDraft);
+      window.removeEventListener("pagehide", flushDraft);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        setGlossaryOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const onOpenInsights = () => setCurrentPage("insights");
+    const onOpenReview = () => setCurrentPage("review");
+    window.addEventListener("mp-open-insights", onOpenInsights as EventListener);
+    window.addEventListener("mp-open-review", onOpenReview as EventListener);
+    return () => {
+      window.removeEventListener("mp-open-insights", onOpenInsights as EventListener);
+      window.removeEventListener("mp-open-review", onOpenReview as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(RECENT_COMMANDS_STORAGE_KEY, JSON.stringify(recentCommandIds.slice(0, 20)));
+  }, [recentCommandIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(RECENT_NODE_IDS_STORAGE_KEY, JSON.stringify(recentNodeIds.slice(0, 12)));
+  }, [recentNodeIds]);
+
+  useEffect(() => {
+    if (!editorRef || !selectedShapeId) return;
+    const shape = editorRef.getShape(selectedShapeId as TLShapeId);
+    const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
+    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return;
+    trackNodeVisit(meta.mpNodeId);
+  }, [editorRef, selectedShapeId, trackNodeVisit]);
+
+  useEffect(() => {
+    if (!commandOpen) return;
+    let cancelled = false;
+
+    async function buildNodeCommands() {
+      const currentPalaceId = currentPalace?.id ?? null;
+      const currentNodes = nodes;
+      const currentRoutes = routes;
+      const currentLoci = loci;
+
+      const snapshots = await Promise.all(
+        palaces.map(async (palace) => {
+          if (palace.id === currentPalaceId) {
+            return {
+              palace,
+              nodes: currentNodes,
+              routes: currentRoutes,
+              loci: currentLoci,
+            };
+          }
+          const loaded = await palaceRepo.loadPalace(palace.id);
+          if (!loaded) return null;
+          return {
+            palace: loaded.palace,
+            nodes: loaded.nodes,
+            routes: loaded.routes,
+            loci: loaded.loci,
+          };
+        }),
+      );
+
+      if (cancelled) return;
+
+      const entries: NodeSearchEntry[] = [];
+      for (const snapshot of snapshots) {
+        if (!snapshot) continue;
+        const nodeRouteSummaries = routeNamesByNodeId(snapshot.nodes, snapshot.routes, snapshot.loci);
+        for (const entry of nodeRouteSummaries) {
+          const title = entry.node.title?.trim() || "Untitled node";
+          entries.push({
+            palaceId: snapshot.palace.id,
+            palaceName: snapshot.palace.name,
+            nodeId: entry.node.id,
+            title,
+            subtitle: `${snapshot.palace.name} | ${entry.routeSummary}`,
+            keywords: `${entry.node.alias ?? ""} ${toPlainText(entry.node.content ?? "")}`,
+            group: snapshot.palace.id === currentPalaceId ? "Current Palace Nodes" : "Other Palaces",
+          });
+        }
+      }
+
+      const entryByNodeId = new Map(entries.map((entry) => [entry.nodeId, entry]));
+      const recentNodeCommands: PaletteCommand[] = recentNodeIds
+        .map((nodeId) => entryByNodeId.get(nodeId))
+        .filter((entry): entry is NodeSearchEntry => !!entry)
+        .slice(0, 5)
+        .map((entry) => ({
+          id: `recent-node:${entry.palaceId}:${entry.nodeId}`,
+          group: "Recent nodes",
+          title: entry.title,
+          subtitle: entry.subtitle,
+          keywords: entry.keywords,
+          onSelect: () => {
+            trackNodeVisit(entry.nodeId);
+            void focusNodeCommand(entry.palaceId, entry.nodeId);
+          },
+        }));
+
+      const regularNodeCommands: PaletteCommand[] = entries.map((entry) => ({
+        id: `node:${entry.palaceId}:${entry.nodeId}`,
+        group: entry.group,
+        title: entry.title,
+        subtitle: entry.subtitle,
+        keywords: entry.keywords,
+        onSelect: () => {
+          trackNodeVisit(entry.nodeId);
+          void focusNodeCommand(entry.palaceId, entry.nodeId);
+        },
+      }));
+
+      setNodeCommands([...recentNodeCommands, ...regularNodeCommands]);
+    }
+
+    void buildNodeCommands();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [commandOpen, currentPalace?.id, focusNodeCommand, loci, nodes, palaces, recentNodeIds, routes, trackNodeVisit]);
+
+  const basePaletteCommands: PaletteCommand[] = useMemo(
+    () => [
+      {
+        id: "action-glossary",
+        group: "Actions",
+        title: "Open vocabulary glossary",
+        onSelect: () => setGlossaryOpen(true),
+      },
+      {
+        id: "action-import-notes",
+        group: "Actions",
+        title: "Import notes",
+        subtitle: "Markdown or CSV",
+        onSelect: () => setImportOpen(true),
+      },
+      {
+        id: "page-graph",
+        group: "Pages",
+        title: "Graph workspace",
+        subtitle: "Edit palace structure",
+        onSelect: () => navigateToPage("graph"),
+      },
+      {
+        id: "page-review",
+        group: "Pages",
+        title: "Review queue",
+        subtitle: "Spaced review scheduling",
+        onSelect: () => navigateToPage("review"),
+      },
+      {
+        id: "page-insights",
+        group: "Pages",
+        title: "Insights dashboard",
+        subtitle: "Memory strength telemetry",
+        onSelect: () => navigateToPage("insights"),
+      },
+      {
+        id: "page-system",
+        group: "Pages",
+        title: "System workbench",
+        subtitle: "Run frameworks as pipelines",
+        onSelect: () => navigateToPage("system"),
+      },
+      {
+        id: "page-atlas",
+        group: "Pages",
+        title: "Atlas hierarchy",
+        subtitle: "Organize palaces by geography",
+        onSelect: () => navigateToPage("atlas"),
+      },
+      {
+        id: "page-routes",
+        group: "Pages",
+        title: "Route editor",
+        subtitle: "Edit loci and route order",
+        onSelect: () => navigateToPage("routes"),
+      },
+      {
+        id: "page-help",
+        group: "Pages",
+        title: "Help center",
+        subtitle: "Onboarding and guides",
+        onSelect: () => navigateToPage("help"),
+      },
+      {
+        id: "doc-walk-mode",
+        group: "Docs",
+        title: "Walk Mode - recall-first review",
+        subtitle: "Test before revealing answers",
+        onSelect: () => navigateToPage("help"),
+      },
+      {
+        id: "doc-cast-edges",
+        group: "Docs",
+        title: "CAST edges - connection types",
+        subtitle: "Causal, Associative, Structural, Temporal",
+        onSelect: () => navigateToPage("help"),
+      },
+      {
+        id: "doc-spaced-review",
+        group: "Docs",
+        title: "Spaced repetition - scheduling",
+        subtitle: "Review at the right time",
+        onSelect: () => navigateToPage("review"),
+      },
+      {
+        id: "doc-encoding",
+        group: "Docs",
+        title: "Encoding - vivid memory cues",
+        subtitle: "Transform dry facts into images",
+        onSelect: () => navigateToPage("help"),
+      },
+      {
+        id: "doc-loci",
+        group: "Docs",
+        title: "Loci - anchor points in palaces",
+        subtitle: "Physical and mental locations",
+        onSelect: () => navigateToPage("help"),
+      },
+    ],
+    [navigateToPage],
+  );
+
+  const palacePaletteCommands = useMemo<PaletteCommand[]>(
+    () =>
+      palaces.map((palace) => ({
+        id: `palace:${palace.id}`,
+        group: "Palaces",
+        title: `Open palace: ${palace.name}`,
+        subtitle: palace.atlasPath?.trim() || "No atlas path",
+        keywords: `${palace.name} ${palace.alias ?? ""} ${palace.atlasPath ?? ""}`,
+        onSelect: () => {
+          void openPalace(palace.id);
+          navigateToPage("graph");
+        },
+      })),
+    [navigateToPage, openPalace, palaces],
+  );
+
+  const routePaletteCommands = useMemo<PaletteCommand[]>(
+    () =>
+      routes.map((route) => ({
+        id: `route:${route.id}`,
+        group: "Routes",
+        title: `Review route: ${route.name}`,
+        subtitle: currentPalace?.name ?? "Current palace",
+        keywords: route.name,
+        onSelect: () => startRouteReview(route.id),
+      })),
+    [currentPalace?.name, routes, startRouteReview],
+  );
+
+  const paletteCommands = useMemo(
+    () => [...basePaletteCommands, ...palacePaletteCommands, ...routePaletteCommands, ...nodeCommands],
+    [basePaletteCommands, nodeCommands, palacePaletteCommands, routePaletteCommands],
+  );
+
+  const snap = currentPalace?.editorSnapshot;
+  const castOpen = !!pendingCast;
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
@@ -347,9 +694,9 @@ export function MemoryPalaceApp() {
           <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
         </div>
 
-        <nav className="flex justify-center items-center gap-1">
+        <nav className="flex items-center justify-center gap-1">
           {(["graph", "review", "insights", "system", "atlas", "routes", "help"] as const).map((page) => {
-            const icons: Record<typeof page, React.ReactNode> = {
+            const icons: Record<typeof page, ReactNode> = {
               graph: <LayoutDashboard className="h-4 w-4" />,
               review: <BookOpen className="h-4 w-4" />,
               insights: <BarChart2 className="h-4 w-4" />,
@@ -374,7 +721,7 @@ export function MemoryPalaceApp() {
                 variant={currentPage === page ? "default" : "ghost"}
                 onClick={() => navigateToPage(page)}
                 title={`Open ${labels[page]}`}
-                onMouseEnter={() => setHoverHint(`${labels[page]} — ${pageHint(page) || "workspace area"}`)}
+                onMouseEnter={() => setHoverHint(`${labels[page]} - ${pageHint(page) || "workspace area"}`)}
                 onMouseLeave={() => setHoverHint(null)}
                 className="gap-1.5"
               >
@@ -392,7 +739,7 @@ export function MemoryPalaceApp() {
             type="button"
             onClick={() => applyViewMode("balanced")}
             title="Balanced layout"
-            onMouseEnter={() => setHoverHint("Balanced mode: keeps side panels visible for editing + navigation.")}
+            onMouseEnter={() => setHoverHint("Balanced mode: keeps side panels visible for editing and navigation.")}
             onMouseLeave={() => setHoverHint(null)}
           >
             <Columns3 className="h-4 w-4" />
@@ -414,7 +761,7 @@ export function MemoryPalaceApp() {
             type="button"
             onClick={() => setShowSidebar((v) => !v)}
             title="Toggle palace sidebar"
-            onMouseEnter={() => setHoverHint("Toggle palace sidebar: show/hide palace list and create controls.")}
+            onMouseEnter={() => setHoverHint("Toggle palace sidebar: show or hide palace list and create controls.")}
             onMouseLeave={() => setHoverHint(null)}
           >
             <PanelLeft className="h-4 w-4" />
@@ -425,7 +772,7 @@ export function MemoryPalaceApp() {
             type="button"
             onClick={() => setShowInspector((v) => !v)}
             title="Toggle inspector"
-            onMouseEnter={() => setHoverHint("Toggle inspector: show/hide node title and content editor.")}
+            onMouseEnter={() => setHoverHint("Toggle inspector: show or hide node title and content editor.")}
             onMouseLeave={() => setHoverHint(null)}
           >
             <PanelRightOpen className="h-4 w-4" />
@@ -435,9 +782,7 @@ export function MemoryPalaceApp() {
             variant="secondary"
             type="button"
             onClick={() => setShowOnboarding((v) => !v)}
-            onMouseEnter={() =>
-              setHoverHint("Learn panel: onboarding guides plus theSystem pipelines that can materialize into the graph.")
-            }
+            onMouseEnter={() => setHoverHint("Learn panel: onboarding guides plus theSystem pipelines.")}
             onMouseLeave={() => setHoverHint(null)}
           >
             <BookOpen className="h-4 w-4" />
@@ -448,7 +793,7 @@ export function MemoryPalaceApp() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {graphControls && showSidebar ? <PalaceSidebar /> : null}
+        {graphControls && showSidebar ? <PalaceSidebar onOpenImport={() => setImportOpen(true)} /> : null}
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <section className={currentPage === "graph" ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
@@ -467,6 +812,7 @@ export function MemoryPalaceApp() {
                 }}
                 onOpenHelp={() => navigateToPage("help")}
                 onOpenCommandPalette={() => setCommandOpen(true)}
+                onOpenImport={() => setImportOpen(true)}
               />
             )}
           </section>
@@ -494,13 +840,15 @@ export function MemoryPalaceApp() {
           {currentPage === "atlas" ? (
             <div className="min-h-0 flex-1 overflow-hidden p-5">
               <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
-                <AtlasEditorPage onOpenPalace={(palaceId) => {
-                  const palace = palaces.find(p => p.id === palaceId);
-                  if (palace) {
-                    void usePalaceStore.getState().openPalace(palace.id);
-                    navigateToPage("graph");
-                  }
-                }} />
+                <AtlasEditorPage
+                  onOpenPalace={(palaceId) => {
+                    const palace = palaces.find((entry) => entry.id === palaceId);
+                    if (palace) {
+                      void usePalaceStore.getState().openPalace(palace.id);
+                      navigateToPage("graph");
+                    }
+                  }}
+                />
               </div>
             </div>
           ) : null}
@@ -521,6 +869,7 @@ export function MemoryPalaceApp() {
             />
           ) : null}
         </main>
+
         <OnboardingPanel
           open={showOnboarding}
           onClose={() => {
@@ -544,6 +893,8 @@ export function MemoryPalaceApp() {
         onConfirm={onCastConfirm}
       />
 
+      <ImportNodesDialog open={importOpen} onOpenChange={setImportOpen} />
+
       <CommandPalette
         open={commandOpen}
         onOpenChange={setCommandOpen}
@@ -553,6 +904,7 @@ export function MemoryPalaceApp() {
       />
 
       <GlossaryPanel open={glossaryOpen} onOpenChange={setGlossaryOpen} />
+      <SessionSummaryModal onReviewAnother={() => setCurrentPage("review")} onBackToPalace={() => setCurrentPage("graph")} />
     </div>
   );
 }
