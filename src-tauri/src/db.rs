@@ -1,3 +1,4 @@
+use chrono::{Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -14,6 +15,10 @@ pub struct PalaceDto {
     pub atlas_path: Option<String>,
     #[serde(default)]
     pub editor_snapshot: Option<String>,
+    #[serde(default)]
+    pub deleted_at: Option<String>,
+    #[serde(default)]
+    pub purge_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -144,7 +149,9 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             created_at TEXT NOT NULL,
             alias TEXT,
             atlas_path TEXT,
-            editor_snapshot TEXT
+            editor_snapshot TEXT,
+            deleted_at TEXT,
+            purge_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS canvas_objects (
@@ -274,6 +281,18 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN deleted_at TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN purge_at TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
     if let Err(err) =
         conn.execute("ALTER TABLE nodes ADD COLUMN node_kind TEXT NOT NULL DEFAULT 'memory'", [])
     {
@@ -344,8 +363,12 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
 }
 
 pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
+    purge_expired_palaces(conn)?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, alias, atlas_path FROM palaces ORDER BY COALESCE(atlas_path, ''), created_at DESC",
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+         FROM palaces
+         WHERE deleted_at IS NULL
+         ORDER BY COALESCE(atlas_path, ''), created_at DESC",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -356,6 +379,33 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
                 alias: r.get(3)?,
                 atlas_path: r.get(4)?,
                 editor_snapshot: None,
+                deleted_at: r.get(5)?,
+                purge_at: r.get(6)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+pub fn list_trashed_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
+    purge_expired_palaces(conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+         FROM palaces
+         WHERE deleted_at IS NOT NULL
+         ORDER BY purge_at ASC, created_at DESC",
+    )?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(PalaceDto {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+                alias: r.get(3)?,
+                atlas_path: r.get(4)?,
+                editor_snapshot: None,
+                deleted_at: r.get(5)?,
+                purge_at: r.get(6)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -370,8 +420,8 @@ pub fn create_palace(
     created_at: &str,
 ) -> rusqlite::Result<PalaceDto> {
     conn.execute(
-        "INSERT INTO palaces (id, name, created_at, alias, atlas_path) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, name, created_at, Option::<&str>::None, atlas_path],
+        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, deleted_at, purge_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, name, created_at, Option::<&str>::None, atlas_path, Option::<&str>::None, Option::<&str>::None],
     )?;
     Ok(PalaceDto {
         id: id.to_string(),
@@ -380,13 +430,18 @@ pub fn create_palace(
         alias: None,
         atlas_path: atlas_path.map(|value| value.to_string()),
         editor_snapshot: None,
+        deleted_at: None,
+        purge_at: None,
     })
 }
 
 pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Option<PalaceSnapshot>> {
+    purge_expired_palaces(conn)?;
     let palace: Option<PalaceDto> = conn
         .query_row(
-            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot FROM palaces WHERE id = ?1",
+            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at
+             FROM palaces
+             WHERE id = ?1 AND deleted_at IS NULL",
             params![palace_id],
             |r| {
                 Ok(PalaceDto {
@@ -396,6 +451,8 @@ pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Optio
                     alias: r.get(3)?,
                     atlas_path: r.get(4)?,
                     editor_snapshot: r.get(5)?,
+                    deleted_at: r.get(6)?,
+                    purge_at: r.get(7)?,
                 })
             },
         )
@@ -533,6 +590,40 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+pub fn purge_expired_palaces(conn: &Connection) -> rusqlite::Result<()> {
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "DELETE FROM palaces WHERE deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?1",
+        params![now],
+    )?;
+    Ok(())
+}
+
+pub fn soft_delete_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<()> {
+    purge_expired_palaces(conn)?;
+    let deleted_at = Utc::now().to_rfc3339();
+    let purge_at = (Utc::now() + Duration::days(30)).to_rfc3339();
+    conn.execute(
+        "UPDATE palaces SET deleted_at = ?2, purge_at = ?3 WHERE id = ?1",
+        params![palace_id, deleted_at, purge_at],
+    )?;
+    Ok(())
+}
+
+pub fn restore_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<()> {
+    purge_expired_palaces(conn)?;
+    conn.execute(
+        "UPDATE palaces SET deleted_at = NULL, purge_at = NULL WHERE id = ?1",
+        params![palace_id],
+    )?;
+    Ok(())
+}
+
+pub fn purge_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM palaces WHERE id = ?1", params![palace_id])?;
+    Ok(())
 }
 
 pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::Result<()> {

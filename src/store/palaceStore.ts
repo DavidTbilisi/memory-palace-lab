@@ -66,6 +66,7 @@ type WalkSummary = {
 
 export type PalaceStore = {
   palaces: Palace[];
+  trashedPalaces: Palace[];
   currentPalace: Palace | null;
   nodes: MemoryNode[];
   edges: MemoryEdge[];
@@ -103,6 +104,9 @@ export type PalaceStore = {
   openPalace: (id: string) => Promise<void>;
   createPalace: (name: string, atlasPath?: string | null) => Promise<void>;
   saveCurrent: () => Promise<void>;
+  deletePalace: (id: string) => Promise<void>;
+  restorePalace: (id: string) => Promise<void>;
+  purgePalace: (id: string) => Promise<void>;
   queueDraftSave: () => void;
   flushDraftSave: () => Promise<void>;
   setCurrentPalaceMeta: (patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>) => void;
@@ -344,6 +348,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   return {
     palaces: [],
+    trashedPalaces: [],
     currentPalace: null,
     nodes: [],
     edges: [],
@@ -377,10 +382,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     pendingCast: null,
 
     async loadPalaces() {
-      const palaces = await repo.listPalaces();
+      const [palaces, trashedPalaces] = await Promise.all([repo.listPalaces(), repo.listTrashedPalaces()]);
       const currentPalace = get().currentPalace;
       set({
         palaces: currentPalace ? mergePalaceIntoList(palaces, currentPalace) : palaces,
+        trashedPalaces,
       });
     },
 
@@ -607,6 +613,70 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci } = get();
       set({ loci: normalizeLoci(moveRouteLocus(loci, locusId, direction)) });
       scheduleDraftSave();
+    },
+
+    async deletePalace(id: string) {
+      const state = get();
+      await state.flushDraftSave();
+      clearDraftTimer();
+      clearPalaceDraft(id);
+      await repo.softDeletePalace(id);
+      const wasCurrent = state.currentPalace?.id === id;
+      if (wasCurrent) {
+        set({
+          currentPalace: null,
+          nodes: [],
+          edges: [],
+          routes: [],
+          loci: [],
+          editorRef: null,
+          selectedShapeId: null,
+          routePanelOpen: false,
+          walkOpen: false,
+          walkRouteId: null,
+          walkIndex: 0,
+          walkSessionId: null,
+          walkAnswerRevealed: !state.walkRecallMode,
+          walkStepRated: false,
+          walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+          walkSummary: null,
+          walkStepEnteredAt: null,
+          walkRevealedAt: null,
+          walkRevealLatencyMs: null,
+          persistenceState: "clean",
+          lastDraftSavedAt: null,
+          draftRestored: false,
+        });
+      }
+      await get().loadPalaces();
+      await recordAnalytics({
+        eventType: "palace_deleted",
+        eventGroup: "palace",
+        palaceId: id,
+        payload: {
+          source: "trash",
+          retentionDays: 30,
+        },
+      });
+    },
+
+    async restorePalace(id: string) {
+      await repo.restorePalace(id);
+      await get().loadPalaces();
+      await recordAnalytics({
+        eventType: "palace_restored",
+        eventGroup: "palace",
+        palaceId: id,
+        payload: {
+          source: "trash",
+        },
+      });
+    },
+
+    async purgePalace(id: string) {
+      clearPalaceDraft(id);
+      await repo.purgePalace(id);
+      await get().loadPalaces();
     },
 
     deleteLocus(locusId) {

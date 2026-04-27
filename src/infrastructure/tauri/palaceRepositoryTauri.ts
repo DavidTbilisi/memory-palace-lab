@@ -177,6 +177,9 @@ export function createPalaceRepositoryTauri(): PalaceRepository {
     async listPalaces() {
       return invoke<Palace[]>("palace_list");
     },
+    async listTrashedPalaces() {
+      return invoke<Palace[]>("palace_list_trashed");
+    },
     async createPalace(name: string, atlasPath?: string | null) {
       return invoke<Palace>("palace_create", { name, atlasPath: atlasPath?.trim() || null });
     },
@@ -186,6 +189,15 @@ export function createPalaceRepositoryTauri(): PalaceRepository {
     },
     async savePalace(snapshot: PalaceSnapshot) {
       await invoke("palace_save", { snapshot: toInvoke(snapshot) });
+    },
+    async softDeletePalace(palaceId: string) {
+      await invoke("palace_soft_delete", { palaceId });
+    },
+    async restorePalace(palaceId: string) {
+      await invoke("palace_restore", { palaceId });
+    },
+    async purgePalace(palaceId: string) {
+      await invoke("palace_purge", { palaceId });
     },
     async listAnalyticsEvents(limit) {
       return invoke<InvokeAnalyticsEvent[]>("analytics_list", { limit });

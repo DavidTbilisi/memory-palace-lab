@@ -1,6 +1,7 @@
 use crate::db::{
-    append_analytics_events, create_palace, list_analytics_events, list_palaces, load_palace,
-    save_snapshot, AnalyticsEventDto, PalaceDto, PalaceSnapshot,
+    append_analytics_events, create_palace, list_analytics_events, list_palaces, list_trashed_palaces,
+    load_palace, purge_palace, restore_palace, save_snapshot, soft_delete_palace, AnalyticsEventDto,
+    PalaceDto, PalaceSnapshot,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,12 @@ pub fn palace_list(state: State<DbState>) -> Result<Vec<PalaceDto>, String> {
 }
 
 #[tauri::command]
+pub fn palace_list_trashed(state: State<DbState>) -> Result<Vec<PalaceDto>, String> {
+    let conn = open(&state)?;
+    list_trashed_palaces(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn palace_create(state: State<DbState>, name: String, atlas_path: Option<String>) -> Result<PalaceDto, String> {
     let conn = open(&state)?;
     let id = uuid::Uuid::new_v4().to_string();
@@ -39,6 +46,24 @@ pub fn palace_load(state: State<DbState>, palace_id: String) -> Result<Option<Pa
 pub fn palace_save(state: State<DbState>, snapshot: PalaceSnapshot) -> Result<(), String> {
     let mut conn = open(&state)?;
     save_snapshot(&mut conn, &snapshot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn palace_soft_delete(state: State<DbState>, palace_id: String) -> Result<(), String> {
+    let conn = open(&state)?;
+    soft_delete_palace(&conn, &palace_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn palace_restore(state: State<DbState>, palace_id: String) -> Result<(), String> {
+    let conn = open(&state)?;
+    restore_palace(&conn, &palace_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn palace_purge(state: State<DbState>, palace_id: String) -> Result<(), String> {
+    let conn = open(&state)?;
+    purge_palace(&conn, &palace_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

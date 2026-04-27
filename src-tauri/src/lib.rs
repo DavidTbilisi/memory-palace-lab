@@ -3,7 +3,8 @@ mod db;
 
 use commands::{
     analytics_append, analytics_list, db_ping, palace_create, palace_export_json, palace_import_json,
-    palace_list, palace_load, palace_save, DbState,
+    palace_list, palace_list_trashed, palace_load, palace_purge, palace_restore, palace_save,
+    palace_soft_delete, DbState,
 };
 use std::fs;
 use tauri::Manager;
@@ -26,9 +27,13 @@ pub fn run() {
             analytics_list,
             analytics_append,
             palace_list,
+            palace_list_trashed,
             palace_create,
             palace_load,
             palace_save,
+            palace_soft_delete,
+            palace_restore,
+            palace_purge,
             palace_export_json,
             palace_import_json,
             db_ping,

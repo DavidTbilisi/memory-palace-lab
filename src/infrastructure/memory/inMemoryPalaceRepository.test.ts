@@ -72,4 +72,38 @@ describe("createInMemoryPalaceRepository", () => {
     expect(events[0]?.eventType).toBe("palace_opened");
     window.localStorage.clear();
   });
+
+  it("supports soft delete, trash listing, and restore", async () => {
+    const r = createInMemoryPalaceRepository();
+    const p = await r.createPalace("Trash Me");
+
+    await r.softDeletePalace(p.id);
+
+    const active = await r.listPalaces();
+    const trashed = await r.listTrashedPalaces();
+    const loaded = await r.loadPalace(p.id);
+
+    expect(active).toHaveLength(0);
+    expect(trashed).toHaveLength(1);
+    expect(trashed[0]?.deletedAt).toBeTruthy();
+    expect(trashed[0]?.purgeAt).toBeTruthy();
+    expect(loaded).toBeNull();
+
+    await r.restorePalace(p.id);
+
+    const restored = await r.listPalaces();
+    const trashedAfterRestore = await r.listTrashedPalaces();
+    expect(restored).toHaveLength(1);
+    expect(trashedAfterRestore).toHaveLength(0);
+  });
+
+  it("purges trashed palaces permanently", async () => {
+    const r = createInMemoryPalaceRepository();
+    const p = await r.createPalace("Purge Me");
+    await r.softDeletePalace(p.id);
+    await r.purgePalace(p.id);
+
+    expect(await r.listPalaces()).toHaveLength(0);
+    expect(await r.listTrashedPalaces()).toHaveLength(0);
+  });
 });

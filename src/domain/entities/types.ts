@@ -7,6 +7,8 @@ export interface Palace {
   alias?: string | null;
   atlasPath?: string | null;
   editorSnapshot?: string | null;
+  deletedAt?: string | null;
+  purgeAt?: string | null;
 }
 
 export interface CanvasObject {
@@ -79,6 +81,8 @@ export type AnalyticsEventType =
   | "palace_created"
   | "palace_opened"
   | "palace_saved"
+  | "palace_deleted"
+  | "palace_restored"
   | "draft_saved"
   | "node_created"
   | "node_updated"
