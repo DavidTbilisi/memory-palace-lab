@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toRichText } from "@tldraw/tlschema";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { applyPortalRefToMeta, nodeKindProps, portalDescriptor, portalRefFromMeta } from "../canvas/palacePortal";
@@ -138,6 +138,8 @@ export function NodeInspector() {
   const [portalRoutes, setPortalRoutes] = useState<MemoryRoute[]>([]);
   const [loadingPortalRoutes, setLoadingPortalRoutes] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [showSavedIndicator, setShowSavedIndicator] = useState(false);
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (palaces.length === 0) {
@@ -291,6 +293,57 @@ export function NodeInspector() {
         }
       : null;
 
+  const flashSavedIndicator = useCallback(() => {
+    setShowSavedIndicator(true);
+    if (savedIndicatorTimerRef.current) {
+      clearTimeout(savedIndicatorTimerRef.current);
+    }
+    savedIndicatorTimerRef.current = setTimeout(() => {
+      setShowSavedIndicator(false);
+      savedIndicatorTimerRef.current = null;
+    }, 1200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (savedIndicatorTimerRef.current) {
+        clearTimeout(savedIndicatorTimerRef.current);
+      }
+    };
+  }, []);
+
+  const applyNodeChanges = useCallback(() => {
+    if (!editorRef || !selectedShapeId) return;
+    const shape = editorRef.getShape(selectedShapeId as TLShapeId);
+    if (!shape || shape.type !== "geo") return;
+    const prev = shape.meta as MemoryPalaceMeta;
+    const nextMeta = applyPortalRefToMeta(
+      { ...prev, mpTitle: title, mpAlias: alias, mpContent: content },
+      nodeKind,
+      portalDraft,
+    );
+    editorRef.updateShape({
+      id: selectedShapeId as TLShapeId,
+      type: "geo",
+      meta: nextMeta,
+      props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
+    });
+    flashSavedIndicator();
+  }, [alias, content, editorRef, flashSavedIndicator, nodeKind, portalDraft, selectedShapeId, title]);
+
+  const applyEdgeChanges = useCallback(() => {
+    if (!editorRef || !selectedShapeId) return;
+    const shape = editorRef.getShape(selectedShapeId as TLShapeId);
+    if (!shape || shape.type !== "arrow") return;
+    editorRef.updateShape({
+      id: selectedShapeId as TLShapeId,
+      type: "arrow",
+      meta: { ...(shape.meta as MemoryPalaceMeta), mpAlias: edgeAlias },
+      props: { ...shape.props, richText: toRichText(edgeLabel || " ") },
+    });
+    flashSavedIndicator();
+  }, [edgeAlias, edgeLabel, editorRef, flashSavedIndicator, selectedShapeId]);
+
   if (!editorRef || !selectedShapeId) {
     return (
       <div className="w-72 shrink-0 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
@@ -311,23 +364,6 @@ export function NodeInspector() {
   const meta = sh.meta as MemoryPalaceMeta;
 
   if (sh.type === "geo" && meta.mpNodeId) {
-    const apply = () => {
-      const shape = editorRef.getShape(selectedShapeId as TLShapeId);
-      if (!shape || shape.type !== "geo") return;
-      const prev = shape.meta as MemoryPalaceMeta;
-      const nextMeta = applyPortalRefToMeta(
-        { ...prev, mpTitle: title, mpAlias: alias, mpContent: content },
-        nodeKind,
-        portalDraft,
-      );
-      editorRef.updateShape({
-        id: selectedShapeId as TLShapeId,
-        type: "geo",
-        meta: nextMeta,
-        props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
-      });
-    };
-
     const openLinkedPalace = async () => {
       if (!portalPalaceId) return;
       setOpeningPortal(true);
@@ -344,14 +380,29 @@ export function NodeInspector() {
 
     return (
       <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3">
-        <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
+          {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+        </div>
         <div>
           <Label htmlFor="mp-title">Title</Label>
-          <Input id="mp-title" className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input
+            id="mp-title"
+            className="mt-1"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={applyNodeChanges}
+          />
         </div>
         <div>
           <Label htmlFor="mp-alias">Alias</Label>
-          <Input id="mp-alias" className="mt-1" value={alias} onChange={(e) => setAlias(e.target.value)} />
+          <Input
+            id="mp-alias"
+            className="mt-1"
+            value={alias}
+            onChange={(e) => setAlias(e.target.value)}
+            onBlur={applyNodeChanges}
+          />
         </div>
         <div>
           <Label htmlFor="mp-node-kind">Type</Label>
@@ -360,6 +411,7 @@ export function NodeInspector() {
             className="mt-1 block h-9 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100"
             value={nodeKind}
             onChange={(event) => setNodeKind(event.target.value as MemoryNodeKind)}
+            onBlur={applyNodeChanges}
           >
             <option value="memory">Memory node</option>
             <option value="portal">Palace portal</option>
@@ -367,7 +419,13 @@ export function NodeInspector() {
         </div>
         <div>
           <Label htmlFor="mp-content">Content</Label>
-          <Textarea id="mp-content" className="mt-1" value={content} onChange={(e) => setContent(e.target.value)} />
+          <Textarea
+            id="mp-content"
+            className="mt-1"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onBlur={applyNodeChanges}
+          />
         </div>
 
         {nodeKind === "portal" ? (
@@ -380,6 +438,7 @@ export function NodeInspector() {
                 className="mt-1 block h-9 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100"
                 value={portalPalaceId}
                 onChange={(event) => setPortalPalaceId(event.target.value)}
+                onBlur={applyNodeChanges}
               >
                 <option value="">Select palace</option>
                 {portalPalaceOptions.map((palace) => (
@@ -397,6 +456,7 @@ export function NodeInspector() {
                 value={portalRouteId}
                 onChange={(event) => setPortalRouteId(event.target.value)}
                 disabled={!portalPalaceId || loadingPortalRoutes}
+                onBlur={applyNodeChanges}
               >
                 <option value="">
                   {loadingPortalRoutes ? "Loading routes..." : portalPalaceId ? "Open palace root" : "Choose palace first"}
@@ -416,10 +476,6 @@ export function NodeInspector() {
             </Button>
           </div>
         ) : null}
-
-        <Button type="button" size="sm" onClick={apply}>
-          Apply
-        </Button>
       </div>
     );
   }
@@ -429,23 +485,21 @@ export function NodeInspector() {
     const source = resolveNodeSummary(editorRef, resolvedEdge.sourceNodeId, snapshotNodes);
     const target = resolveNodeSummary(editorRef, resolvedEdge.targetNodeId, snapshotNodes);
 
-    const apply = () => {
-      const shape = editorRef.getShape(selectedShapeId as TLShapeId);
-      if (!shape || shape.type !== "arrow") return;
-      editorRef.updateShape({
-        id: selectedShapeId as TLShapeId,
-        type: "arrow",
-        meta: { ...(shape.meta as MemoryPalaceMeta), mpAlias: edgeAlias },
-        props: { ...shape.props, richText: toRichText(edgeLabel || " ") },
-      });
-    };
-
     return (
       <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3">
-        <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Edge</div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Edge</div>
+          {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+        </div>
         <div>
           <Label htmlFor="mp-edge-label">Label</Label>
-          <Input id="mp-edge-label" className="mt-1" value={edgeLabel} onChange={(e) => setEdgeLabel(e.target.value)} />
+          <Input
+            id="mp-edge-label"
+            className="mt-1"
+            value={edgeLabel}
+            onChange={(e) => setEdgeLabel(e.target.value)}
+            onBlur={applyEdgeChanges}
+          />
         </div>
         {!resolvedEdge.hasGraphContext ? (
           <div className="rounded-md border border-amber-700/50 bg-amber-950/30 px-2 py-2 text-xs leading-5 text-amber-200">
@@ -454,7 +508,13 @@ export function NodeInspector() {
         ) : null}
         <div>
           <Label htmlFor="mp-edge-alias">Alias</Label>
-          <Input id="mp-edge-alias" className="mt-1" value={edgeAlias} onChange={(e) => setEdgeAlias(e.target.value)} />
+          <Input
+            id="mp-edge-alias"
+            className="mt-1"
+            value={edgeAlias}
+            onChange={(e) => setEdgeAlias(e.target.value)}
+            onBlur={applyEdgeChanges}
+          />
         </div>
         <ReadOnlyMetaField
           id="mp-edge-source"
@@ -472,9 +532,6 @@ export function NodeInspector() {
         <ReadOnlyMetaField id="mp-edge-a" label="A - Action" value={resolvedEdge.castCd || "None"} />
         <ReadOnlyMetaField id="mp-edge-s" label="S - Stream" value={resolvedEdge.castEf || "None"} />
         <ReadOnlyMetaField id="mp-edge-t" label="T - Time" value={resolvedEdge.castGh || "None"} />
-        <Button type="button" size="sm" onClick={apply}>
-          Apply
-        </Button>
       </div>
     );
   }
