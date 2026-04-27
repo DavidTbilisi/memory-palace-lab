@@ -179,7 +179,7 @@ export function buildReviewQueue(input: {
     .filter(
       (event) =>
         (event.eventType === "walk_started" || event.eventType === "walk_closed") &&
-        (!!event.routeId ? palaceRoutes.some((route) => route.id === event.routeId) : true),
+        (event.routeId ? palaceRoutes.some((route) => route.id === event.routeId) : true),
     )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 6)

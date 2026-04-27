@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
-import { usePalaceStore } from "../store/palaceStore";
+import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 // Mock the store
 vi.mock("../store/palaceStore");
@@ -13,7 +13,7 @@ vi.mock("./TheSystemLibrary", () => ({
 describe("TheSystemWorkbench - Page Overflow (#10)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (usePalaceStore as any).mockImplementation((selector: any) => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) => {
       const state = {
         currentPalace: null,
         editorRef: null,
@@ -21,7 +21,7 @@ describe("TheSystemWorkbench - Page Overflow (#10)", () => {
         replaceRoutesAndLoci: vi.fn(),
         recordAnalyticsEvent: vi.fn(),
       };
-      return selector(state);
+      return selector(state as unknown as PalaceStore);
     });
   });
 

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { AtlasEditorPage } from "./AtlasEditorPage";
-import { usePalaceStore } from "../store/palaceStore";
+import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 // Mock the store
 vi.mock("../store/palaceStore");
@@ -10,7 +9,7 @@ vi.mock("../store/palaceStore");
 describe("AtlasEditorPage - Atlas Hierarchy Editor (#12)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (usePalaceStore as any).mockImplementation((selector: any) => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) => {
       const state = {
         palaces: [
           { id: "p1", name: "Memory Master", atlasPath: "Earth/Europe/Spain" },
@@ -20,7 +19,7 @@ describe("AtlasEditorPage - Atlas Hierarchy Editor (#12)", () => {
         currentPalace: null,
         openPalace: vi.fn(),
       };
-      return selector(state);
+      return selector(state as unknown as PalaceStore);
     });
   });
 

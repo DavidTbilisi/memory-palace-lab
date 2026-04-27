@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryPalaceApp } from "./MemoryPalaceApp";
-import { usePalaceStore } from "../store/palaceStore";
+import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 // Mock the store
 vi.mock("../store/palaceStore");
@@ -25,7 +25,7 @@ vi.mock("../components/HelpCenterPage", () => ({
 describe("MemoryPalaceApp - Header Navigation (#11)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (usePalaceStore as any).mockImplementation((selector: any) => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) => {
       const state = {
         palaces: [],
         currentPalace: null,
@@ -48,7 +48,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
         saveCurrent: vi.fn(),
         flushDraftSave: vi.fn().mockResolvedValue(undefined),
       };
-      return selector(state);
+      return selector(state as unknown as PalaceStore);
     });
   });
 
@@ -92,10 +92,9 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
     });
 
     it("should maintain nav alignment when title is different length", () => {
-      const { container, rerender } = render(<MemoryPalaceApp />);
+      const { container } = render(<MemoryPalaceApp />);
 
       const nav1 = container.querySelector("nav");
-      const navRect1 = nav1?.getBoundingClientRect();
 
       // Even if title changes, nav should stay centered
       // (This is more of a visual test, but we check structure)

@@ -20,7 +20,7 @@ import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
 import { AtlasEditorPage } from "../components/AtlasEditorPage";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
-import { CommandPalette } from "../components/CommandPalette";
+import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
 import { ContextualTipCard } from "../components/ContextualTipCard";
 import { GlossaryPanel } from "../components/GlossaryPanel";
 import { HelpCenterPage } from "../components/HelpCenterPage";
@@ -145,7 +145,7 @@ export function MemoryPalaceApp() {
   const trackCommandRun = () => {};
   const startRouteReview = () => {};
 
-    const paletteCommands: any[] = useMemo(() => {
+    const paletteCommands: PaletteCommand[] = useMemo(() => {
       const baseCommands = [
         { id: "action-glossary", group: "Actions" as const, title: "Open vocabulary glossary", onSelect: () => setGlossaryOpen(true) },
         { id: "page-graph", group: "Pages" as const, title: "Graph workspace", subtitle: "Edit palette structure", onSelect: () => navigateToPage("graph") },

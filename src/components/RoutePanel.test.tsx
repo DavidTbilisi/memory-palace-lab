@@ -2,17 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RoutePanel } from "./RoutePanel";
-import { usePalaceStore } from "../store/palaceStore";
+import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 vi.mock("../store/palaceStore");
 vi.mock("../canvas/readShapeText", () => ({
-  resolveMemoryNodeTitle: (shape: any) => "Shape Title",
+  resolveMemoryNodeTitle: (_shape: unknown) => "Shape Title",
 }));
 
 describe("RoutePanel - Fully Editable Routes (#13)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (usePalaceStore as any).mockImplementation((selector: any) => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) => {
       const state = {
         routes: [
           { id: "r1", name: "Main journey" },
@@ -38,7 +38,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
         deleteLocus: vi.fn(),
         reassignLocusRoute: vi.fn(),
       };
-      return selector(state);
+      return selector(state as unknown as PalaceStore);
     });
   });
 
@@ -72,7 +72,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
     it("should call deleteLocus when delete button clicked", async () => {
       const user = userEvent.setup();
       const deleteLocus = vi.fn();
-      (usePalaceStore as any).mockImplementation((selector: any) => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) => {
         const state = {
           routes: [{ id: "r1", name: "Main journey" }],
           loci: [
@@ -93,7 +93,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
           deleteLocus,
           reassignLocusRoute: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as PalaceStore);
       });
 
       const { container, rerender } = render(<RoutePanel />);
@@ -142,7 +142,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
     it("should call moveLocus when up button clicked", async () => {
       const user = userEvent.setup();
       const moveLocus = vi.fn();
-      (usePalaceStore as any).mockImplementation((selector: any) => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) => {
         const state = {
           routes: [{ id: "r1", name: "Main journey" }],
           loci: [
@@ -163,7 +163,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
           deleteLocus: vi.fn(),
           reassignLocusRoute: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as PalaceStore);
       });
 
       const { container, rerender } = render(<RoutePanel />);
@@ -181,7 +181,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
     it("should call moveLocus when down button clicked", async () => {
       const user = userEvent.setup();
       const moveLocus = vi.fn();
-      (usePalaceStore as any).mockImplementation((selector: any) => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) => {
         const state = {
           routes: [{ id: "r1", name: "Main journey" }],
           loci: [
@@ -202,7 +202,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
           deleteLocus: vi.fn(),
           reassignLocusRoute: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as PalaceStore);
       });
 
       const { container, rerender } = render(<RoutePanel />);
@@ -238,7 +238,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
     it("should call reassignLocusRoute when route dropdown changed", async () => {
       const user = userEvent.setup();
       const reassignLocusRoute = vi.fn();
-      (usePalaceStore as any).mockImplementation((selector: any) => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) => {
         const state = {
           routes: [
             { id: "r1", name: "Route 1" },
@@ -259,7 +259,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
           deleteLocus: vi.fn(),
           reassignLocusRoute,
         };
-        return selector(state);
+        return selector(state as unknown as PalaceStore);
       });
 
       const { container, rerender } = render(<RoutePanel />);
@@ -284,7 +284,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
     it("should call updateLocusLabel when label changed", async () => {
       const user = userEvent.setup();
       const updateLocusLabel = vi.fn();
-      (usePalaceStore as any).mockImplementation((selector: any) => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) => {
         const state = {
           routes: [{ id: "r1", name: "Main journey" }],
           loci: [{ id: "l1", routeId: "r1", nodeId: "n1", label: "Old", orderIndex: 0 }],
@@ -302,7 +302,7 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
           deleteLocus: vi.fn(),
           reassignLocusRoute: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as PalaceStore);
       });
 
       const { container, rerender } = render(<RoutePanel />);

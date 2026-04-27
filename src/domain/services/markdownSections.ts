@@ -18,7 +18,7 @@ function labelFromHeading(heading: string) {
   const source = emphasizedParenthetical?.[1] ?? heading;
   return stripInlineMarkdown(source)
     .replace(/\s*\([^)]*\)\s*$/g, "")
-    .split(/[:\-]/)[0]
+    .split(/[:-]/)[0]
     .trim();
 }
 

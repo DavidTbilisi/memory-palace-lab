@@ -214,8 +214,7 @@ describe("CAST encoding (domain types)", () => {
 
   it("handles special characters in CAST fields", () => {
     const s = encEdge("A|B", "C & D", "E—F", "G (H)");
-    const decoded = decEdge(s);
-    // First field stops at first pipe, so "A" only if pipe is delimiter
+    void decEdge(s); // pipe splits on first delimiter; no assertion on ambiguous input
     // We just verify round-trip stability for normal values
     expect(encEdge("Hello world", "runs fast", "blue stream", "dawn")).toBe(
       "Hello world|runs fast|blue stream|dawn",
