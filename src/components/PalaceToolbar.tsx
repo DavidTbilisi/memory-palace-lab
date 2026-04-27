@@ -22,6 +22,8 @@ type Props = {
 export function PalaceToolbar({ onHoverHintChange }: Props) {
   const toolMode = usePalaceStore((s) => s.toolMode);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
+  const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
+  const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const editorRef = usePalaceStore((s) => s.editorRef);
@@ -107,6 +109,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               onMouseEnter={() => onHoverHintChange?.("Add Node: create a memory node at the center of current view.")}
               onMouseLeave={() => onHoverHintChange?.(null)}
               onClick={() => {
+                setRoutePanelOpen(false);
                 if (!editorRef || !currentPalace) return;
                 const vp = editorRef.getViewportPageBounds();
                 createGeoMemoryNode(editorRef, currentPalace.id, {
@@ -134,6 +137,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               }
               onMouseLeave={() => onHoverHintChange?.(null)}
               onClick={() => {
+                setRoutePanelOpen(false);
                 if (!editorRef || !currentPalace) return;
                 const vp = editorRef.getViewportPageBounds();
                 createGeoMemoryNode(
@@ -156,6 +160,33 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             </Button>
           );
         }
+        if (t.id === "route") {
+          return (
+            <Button
+              key={t.id}
+              size="sm"
+              variant={routePanelOpen ? "default" : "secondary"}
+              type="button"
+              title={routePanelOpen ? "Hide route panel" : "Show route panel"}
+              onClick={() => {
+                const nextOpen = !routePanelOpen;
+                setRoutePanelOpen(nextOpen);
+                setToolMode(nextOpen ? "route" : "select");
+              }}
+              onMouseEnter={() =>
+                onHoverHintChange?.(
+                  routePanelOpen
+                    ? "Route panel open: click to collapse and reclaim canvas space."
+                    : "Route panel collapsed: click to expand route and locus controls.",
+                )
+              }
+              onMouseLeave={() => onHoverHintChange?.(null)}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="hidden lg:inline">{t.label}</span>
+            </Button>
+          );
+        }
         const active = toolMode === t.id;
         return (
           <Button
@@ -164,7 +195,10 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             variant={active ? "default" : "ghost"}
             type="button"
             title={t.label}
-            onClick={() => setToolMode(t.id as ToolMode)}
+            onClick={() => {
+              setRoutePanelOpen(false);
+              setToolMode(t.id as ToolMode);
+            }}
             onMouseEnter={() =>
               onHoverHintChange?.(
                 t.id === "select"

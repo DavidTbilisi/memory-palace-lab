@@ -62,6 +62,7 @@ export type PalaceStore = {
   editorRef: Editor | null;
   selectedShapeId: string | null;
   toolMode: ToolMode;
+  routePanelOpen: boolean;
   connect: ConnectState;
   walkOpen: boolean;
   walkRouteId: string | null;
@@ -89,6 +90,7 @@ export type PalaceStore = {
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
+  setRoutePanelOpen: (open: boolean) => void;
   setConnectFrom: (id: string | null) => void;
   setPendingCast: (v: PalaceStore["pendingCast"]) => void;
   addRoute: (name: string) => void;
@@ -301,6 +303,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     editorRef: null,
     selectedShapeId: null,
     toolMode: "select",
+    routePanelOpen: false,
     connect: { fromShapeId: null },
     walkOpen: false,
     walkRouteId: null,
@@ -455,6 +458,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
     setSelectedShapeId: (selectedShapeId) => set({ selectedShapeId }),
     setToolMode: (toolMode) => set({ toolMode, connect: { fromShapeId: null } }),
+    setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
     setConnectFrom: (fromShapeId) => set({ connect: { fromShapeId } }),
     setPendingCast: (pendingCast) => set({ pendingCast }),
 
@@ -909,6 +913,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
         selectedShapeId: null,
+        routePanelOpen: false,
         persistenceState: options?.persistenceState ?? "clean",
         draftRestored: options?.draftRestored ?? false,
         lastDraftSavedAt: options?.lastDraftSavedAt ?? null,

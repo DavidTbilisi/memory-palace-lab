@@ -141,6 +141,7 @@ export function MemoryPalaceApp() {
   const loci = usePalaceStore((s) => s.loci);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const toolMode = usePalaceStore((s) => s.toolMode);
+  const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const createPalace = usePalaceStore((s) => s.createPalace);
   const trackCommandRun = () => {};
   const startRouteReview = () => {};
@@ -452,7 +453,7 @@ export function MemoryPalaceApp() {
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <section className={currentPage === "graph" ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
             <PalaceToolbar onHoverHintChange={setHoverHint} />
-            <RoutePanel onHoverHintChange={setHoverHint} />
+            {routePanelOpen ? <RoutePanel onHoverHintChange={setHoverHint} /> : null}
             <WalkModeBar onHoverHintChange={setHoverHint} />
             {currentPalace ? (
               <div className="flex min-h-0 flex-1">
