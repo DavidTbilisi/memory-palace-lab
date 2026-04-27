@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryPalaceRepository } from "./inMemoryPalaceRepository";
 import { createAnalyticsEvent } from "../../domain/services/analyticsService";
 
 describe("createInMemoryPalaceRepository", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("creates, loads, and saves a palace snapshot", async () => {
     const r = createInMemoryPalaceRepository();
     const p = await r.createPalace("Hall", "Georgia/Tbilisi");
@@ -52,7 +56,6 @@ describe("createInMemoryPalaceRepository", () => {
   });
 
   it("persists analytics events in browser storage fallback", async () => {
-    window.localStorage.clear();
     const first = createInMemoryPalaceRepository();
     await first.appendAnalyticsEvents([
       createAnalyticsEvent({
@@ -70,7 +73,36 @@ describe("createInMemoryPalaceRepository", () => {
     expect(events).toHaveLength(1);
     expect(events[0]?.sessionId).toBe("session-1");
     expect(events[0]?.eventType).toBe("palace_opened");
-    window.localStorage.clear();
+  });
+
+  it("persists palace snapshots across repository instances", async () => {
+    const first = createInMemoryPalaceRepository();
+    const palace = await first.createPalace("Persistent Palace", "Earth/Library");
+    const snapshot = await first.loadPalace(palace.id);
+    if (!snapshot) throw new Error("missing snapshot");
+
+    await first.savePalace({
+      ...snapshot,
+      palace: { ...snapshot.palace, name: "Persistent Palace v2" },
+      nodes: [
+        {
+          id: "n1",
+          objectId: "o1",
+          title: "Stored node",
+          content: "Survives reload",
+          kind: "memory",
+          portal: null,
+        },
+      ],
+    });
+
+    const second = createInMemoryPalaceRepository();
+    const palaces = await second.listPalaces();
+    const loaded = await second.loadPalace(palace.id);
+
+    expect(palaces).toHaveLength(1);
+    expect(palaces[0]?.name).toBe("Persistent Palace v2");
+    expect(loaded?.nodes[0]?.title).toBe("Stored node");
   });
 
   it("supports soft delete, trash listing, and restore", async () => {
