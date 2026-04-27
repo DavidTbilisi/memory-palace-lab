@@ -10,7 +10,21 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
+import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+
+const AI_KEY_STORAGE = "mp-ai-anthropic-key";
+
+function stripHtmlToText(value: string) {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeEditorHtml(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : "<p></p>";
+}
 
 const palaceRepo = getPalaceRepository();
 
@@ -121,6 +135,7 @@ export function NodeInspector() {
   const palaces = usePalaceStore((s) => s.palaces);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const routes = usePalaceStore((s) => s.routes);
+  const loci = usePalaceStore((s) => s.loci);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
   const snapshotNodes = usePalaceStore((s) => s.nodes);
@@ -140,6 +155,10 @@ export function NodeInspector() {
   const [openingPortal, setOpeningPortal] = useState(false);
   const [showSavedIndicator, setShowSavedIndicator] = useState(false);
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentEditorRef = useRef<HTMLDivElement | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     if (palaces.length === 0) {
@@ -157,6 +176,8 @@ export function NodeInspector() {
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
+      setAiSuggestion(null);
+      setAiError(null);
       return;
     }
 
@@ -170,6 +191,8 @@ export function NodeInspector() {
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
+      setAiSuggestion(null);
+      setAiError(null);
       return;
     }
 
@@ -180,12 +203,14 @@ export function NodeInspector() {
       const storedNode = snapshotNodes.find((node) => node.id === meta.mpNodeId);
       setTitle(resolvedTitle);
       setAlias(meta.mpAlias ?? storedNode?.alias ?? "");
-      setContent(meta.mpContent ?? "");
+      setContent(normalizeEditorHtml(meta.mpContent ?? ""));
       setEdgeLabel("");
       setEdgeAlias("");
       setNodeKind(resolvedPortal.kind);
       setPortalPalaceId(resolvedPortal.portal?.targetPalaceId ?? "");
       setPortalRouteId(resolvedPortal.portal?.targetRouteId ?? "");
+      setAiSuggestion(null);
+      setAiError(null);
       return;
     }
 
@@ -199,6 +224,8 @@ export function NodeInspector() {
       setNodeKind("memory");
       setPortalPalaceId("");
       setPortalRouteId("");
+      setAiSuggestion(null);
+      setAiError(null);
       return;
     }
 
@@ -210,6 +237,8 @@ export function NodeInspector() {
     setNodeKind("memory");
     setPortalPalaceId("");
     setPortalRouteId("");
+    setAiSuggestion(null);
+    setAiError(null);
   }, [editorRef, selectedShapeId, snapshotEdges, snapshotNodes]);
 
   useEffect(() => {
@@ -293,6 +322,26 @@ export function NodeInspector() {
         }
       : null;
 
+  const nextReviewInfo = useMemo(() => {
+    if (!selectedShapeId || !editorRef) return null;
+    const shape = editorRef.getShape(selectedShapeId as TLShapeId);
+    const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
+    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return null;
+    const nowIso = new Date().toISOString();
+    const nodeLoci = loci.filter((locus) => locus.nodeId === meta.mpNodeId).map((locus) => normalizeLocusSchedule(locus, nowIso));
+    if (nodeLoci.length === 0) return null;
+    const next = nodeLoci
+      .map((locus) => locus.nextReviewAt)
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .sort()[0];
+    if (!next) return null;
+    const routeId = nodeLoci.find((locus) => locus.nextReviewAt === next)?.routeId;
+    return {
+      nextReviewAt: next,
+      routeName: routes.find((route) => route.id === routeId)?.name ?? null,
+    };
+  }, [editorRef, loci, routes, selectedShapeId]);
+
   const flashSavedIndicator = useCallback(() => {
     setShowSavedIndicator(true);
     if (savedIndicatorTimerRef.current) {
@@ -311,6 +360,12 @@ export function NodeInspector() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!contentEditorRef.current) return;
+    if (contentEditorRef.current.innerHTML === content) return;
+    contentEditorRef.current.innerHTML = content;
+  }, [content]);
 
   const applyNodeChanges = useCallback(() => {
     if (!editorRef || !selectedShapeId) return;
@@ -343,6 +398,76 @@ export function NodeInspector() {
     });
     flashSavedIndicator();
   }, [edgeAlias, edgeLabel, editorRef, flashSavedIndicator, selectedShapeId]);
+
+  const runFormatCommand = (
+    command: "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "insertImage",
+    value?: string,
+  ) => {
+    if (!contentEditorRef.current) return;
+    contentEditorRef.current.focus();
+    document.execCommand(command, false, value);
+    setContent(normalizeEditorHtml(contentEditorRef.current.innerHTML));
+  };
+
+  const requestAiEncodingSuggestion = async () => {
+    const plainContent = stripHtmlToText(content);
+    if (!title.trim() && !plainContent.trim()) return;
+    setAiError(null);
+    setAiSuggestion(null);
+    const apiKey = typeof window !== "undefined" ? window.localStorage.getItem(AI_KEY_STORAGE)?.trim() : null;
+    if (!apiKey) {
+      setAiError("AI encoding requires an API key. Add it in Insights settings.");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-latest",
+          max_tokens: 280,
+          temperature: 0.7,
+          messages: [
+            {
+              role: "user",
+              content: `Create one vivid memory-palace encoding for:\nTitle: ${title || "(none)"}\nContent: ${plainContent || "(none)"}\n\nReturn 3-5 concise sentences with concrete imagery, action, emotion, and one absurd anchor.`,
+            },
+          ],
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(body || `Request failed (${response.status})`);
+      }
+      const parsed = (await response.json()) as { content?: Array<{ text?: string }> };
+      const suggestion = parsed.content?.map((entry) => entry.text ?? "").join("\n").trim();
+      if (!suggestion) {
+        throw new Error("No suggestion returned from AI service.");
+      }
+      setAiSuggestion(suggestion);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Failed to generate encoding suggestion.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    const encoded = `<p><strong>Encoding:</strong> ${aiSuggestion.replace(/\n/g, "<br/>")}</p>`;
+    const next = normalizeEditorHtml(`${content}${encoded}`);
+    setContent(next);
+    if (contentEditorRef.current) {
+      contentEditorRef.current.innerHTML = next;
+    }
+    setAiSuggestion(null);
+    applyNodeChanges();
+  };
 
   if (!editorRef || !selectedShapeId) {
     return (
@@ -419,14 +544,106 @@ export function NodeInspector() {
         </div>
         <div>
           <Label htmlFor="mp-content">Content</Label>
-          <Textarea
-            id="mp-content"
-            className="mt-1"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={applyNodeChanges}
-          />
+          <div className="mt-1 rounded-md border border-zinc-700 bg-zinc-900/70">
+            <div className="flex flex-wrap items-center gap-1 border-b border-zinc-800 px-2 py-1">
+              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("bold")}>
+                Bold
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("italic")}>
+                Italic
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("underline")}>
+                Underline
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertUnorderedList")}>
+                Bullets
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertOrderedList")}>
+                Numbered
+              </Button>
+            </div>
+            <div
+              id="mp-content"
+              ref={contentEditorRef}
+              contentEditable
+              suppressContentEditableWarning
+              className="min-h-[108px] px-2 py-2 text-sm text-zinc-100 focus:outline-none"
+              onInput={(event) => setContent(normalizeEditorHtml((event.currentTarget as HTMLDivElement).innerHTML))}
+              onBlur={applyNodeChanges}
+              onKeyDown={(event) => {
+                if (event.key.toLowerCase() === "b" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  runFormatCommand("bold");
+                  return;
+                }
+                if (event.key.toLowerCase() === "i" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  runFormatCommand("italic");
+                  return;
+                }
+                if (event.key === " " && stripHtmlToText(contentEditorRef.current?.innerHTML ?? "").endsWith("-")) {
+                  runFormatCommand("insertUnorderedList");
+                }
+              }}
+              onPaste={(event) => {
+                const items = Array.from(event.clipboardData?.items ?? []);
+                const imageItem = items.find((item) => item.type.startsWith("image/"));
+                const file = imageItem?.getAsFile();
+                if (!file) return;
+                event.preventDefault();
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const dataUrl = typeof reader.result === "string" ? reader.result : null;
+                  if (!dataUrl) return;
+                  runFormatCommand("insertImage", dataUrl);
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+          </div>
         </div>
+
+        {nextReviewInfo ? (
+          <ReadOnlyMetaField
+            id="mp-next-review"
+            label="Next review"
+            value={new Date(nextReviewInfo.nextReviewAt).toLocaleString()}
+            subvalue={nextReviewInfo.routeName ? `Route: ${nextReviewInfo.routeName}` : undefined}
+          />
+        ) : null}
+
+        {title.trim() || stripHtmlToText(content).trim() ? (
+          <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
+            <Button type="button" size="sm" variant="secondary" disabled={aiLoading} onClick={() => void requestAiEncodingSuggestion()}>
+              {aiLoading ? "Generating encoding..." : "Help me encode this"}
+            </Button>
+            {aiError ? (
+              <div className="mt-2 text-xs text-amber-300">
+                {aiError}{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => window.dispatchEvent(new CustomEvent("mp-open-insights"))}
+                >
+                  Open Settings
+                </button>
+              </div>
+            ) : null}
+            {aiSuggestion ? (
+              <div className="mt-2 rounded-md border border-violet-700/50 bg-violet-950/20 p-2 text-xs text-zinc-200">
+                <div className="whitespace-pre-wrap">{aiSuggestion}</div>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" size="sm" onClick={applyAiSuggestion}>
+                    Use this encoding
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setAiSuggestion(null)}>
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {nodeKind === "portal" ? (
           <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">

@@ -15,6 +15,10 @@ type NodeReviewState = {
   content: string;
 };
 
+function stripHtml(value: string) {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function resolveCurrentNodeReviewState(
   nodeId: string | null,
   editorRef: ReturnType<typeof usePalaceStore.getState>["editorRef"],
@@ -29,14 +33,14 @@ function resolveCurrentNodeReviewState(
       if (meta.mpNodeId !== nodeId) continue;
       return {
         title: resolveMemoryNodeTitle(shape),
-        content: meta.mpContent?.trim() || "",
+        content: stripHtml(meta.mpContent?.trim() || ""),
       };
     }
   }
   const snapshotNode = snapshotNodes.find((node) => node.id === nodeId);
   return {
     title: snapshotNode?.title || nodeId.slice(0, 8),
-    content: snapshotNode?.content?.trim() || "",
+    content: stripHtml(snapshotNode?.content?.trim() || ""),
   };
 }
 
