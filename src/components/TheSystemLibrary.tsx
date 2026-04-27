@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LibraryBig, Search } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   THE_SYSTEM_CATEGORIES,
   loadTheSystemDocs,
@@ -220,9 +222,9 @@ export function TheSystemLibrary({ preferredSlug }: Props) {
                   }
                 >
                   <h3 className="mb-3 text-base font-semibold text-zinc-100">{activeSection.title}</h3>
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-200">
-                    {activeSection.content}
-                  </pre>
+                  <div className="text-sm leading-6 text-zinc-200 [&_a]:text-violet-300 [&_a:hover]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-violet-500/40 [&_blockquote]:pl-3 [&_code]:text-violet-200 [&_h1]:mt-6 [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-zinc-100 [&_h2]:mt-5 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-zinc-100 [&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-zinc-100 [&_li]:ml-5 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-2 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-zinc-800 [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-800 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:bg-zinc-900 [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeSection.content}</ReactMarkdown>
+                  </div>
                 </section>
               ) : null}
             </div>
