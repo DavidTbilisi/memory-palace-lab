@@ -47,6 +47,11 @@ type InvokePalaceSnapshot = {
     nodeId: string;
     orderIndex: number;
     label?: string;
+    interval?: number;
+    easeFactor?: number;
+    nextReviewAt?: string;
+    repetitions?: number;
+    lastReviewedAt?: string | null;
   }>;
 };
 
@@ -104,6 +109,11 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       nodeId: l.nodeId,
       orderIndex: l.orderIndex,
       label: l.label ?? "",
+      interval: l.interval,
+      easeFactor: l.easeFactor,
+      nextReviewAt: l.nextReviewAt,
+      repetitions: l.repetitions,
+      lastReviewedAt: l.lastReviewedAt ?? null,
     })),
   };
 }
@@ -153,6 +163,11 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       nodeId: l.nodeId,
       orderIndex: l.orderIndex,
       label: l.label,
+      interval: l.interval,
+      easeFactor: l.easeFactor,
+      nextReviewAt: l.nextReviewAt,
+      repetitions: l.repetitions,
+      lastReviewedAt: l.lastReviewedAt ?? null,
     })),
   };
 }

@@ -66,6 +66,11 @@ export interface Locus {
   nodeId: string;
   orderIndex: number;
   label: string;
+  interval?: number;
+  easeFactor?: number;
+  nextReviewAt?: string;
+  repetitions?: number;
+  lastReviewedAt?: string | null;
 }
 
 export type AnalyticsEventGroup = "palace" | "graph" | "review" | "system";
@@ -87,6 +92,7 @@ export type AnalyticsEventType =
   | "walk_answer_revealed"
   | "walk_recall_rated"
   | "walk_closed"
+  | "walk_completed"
   | "system_run_materialized";
 
 export type RecallRating = "again" | "hard" | "good" | "easy";

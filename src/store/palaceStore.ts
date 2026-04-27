@@ -31,9 +31,12 @@ import {
   moveLocus as moveRouteLocus,
   reassignLocusRoute as reassignRouteLocus,
 } from "../domain/services/routeEditing";
+import { applySm2Schedule, defaultLocusSchedule, normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 
 const repo = getPalaceRepository();
 const DRAFT_SAVE_DELAY_MS = 900;
+const DAILY_REVIEW_GOAL_STORAGE_KEY = "mp-daily-review-goal";
+const DEFAULT_DAILY_REVIEW_GOAL = 10;
 
 export type ToolMode = "select" | "connect" | "route";
 export type PalacePersistenceState = "clean" | "dirty" | "draft";
@@ -47,6 +50,18 @@ type RecordAnalyticsInput = {
   routeId?: string | null;
   nodeId?: string | null;
   payload?: Record<string, unknown>;
+};
+
+type WalkRatingCounts = Record<RecallRating, number>;
+
+type WalkSummary = {
+  sessionId: string | null;
+  routeId: string | null;
+  routeName: string;
+  reviewedCount: number;
+  ratings: WalkRatingCounts;
+  completedAt: string;
+  nextReviewAt: string | null;
 };
 
 export type PalaceStore = {
@@ -72,9 +87,12 @@ export type PalaceStore = {
   walkCueOnly: boolean;
   walkAnswerRevealed: boolean;
   walkStepRated: boolean;
+  walkRatingCounts: WalkRatingCounts;
+  walkSummary: WalkSummary | null;
   walkStepEnteredAt: string | null;
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
+  dailyReviewGoal: number;
   persistenceState: PalacePersistenceState;
   lastDraftSavedAt: string | null;
   draftRestored: boolean;
@@ -108,6 +126,8 @@ export type PalaceStore = {
   setWalkOpen: (v: boolean) => void;
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
+  setDailyReviewGoal: (goal: number) => void;
+  dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
   walkNext: () => void;
@@ -132,6 +152,29 @@ const RECALL_RATING_VALUES: Record<RecallRating, number> = {
   good: 3,
   easy: 4,
 };
+
+const EMPTY_WALK_RATINGS: WalkRatingCounts = {
+  again: 0,
+  hard: 0,
+  good: 0,
+  easy: 0,
+};
+
+function normalizeLoci(loci: Locus[], nowIso = new Date().toISOString()) {
+  return loci.map((locus) => normalizeLocusSchedule(locus, nowIso));
+}
+
+function loadDailyReviewGoal() {
+  if (typeof window === "undefined") return DEFAULT_DAILY_REVIEW_GOAL;
+  try {
+    const raw = window.localStorage.getItem(DAILY_REVIEW_GOAL_STORAGE_KEY);
+    const parsed = raw ? Number(raw) : DEFAULT_DAILY_REVIEW_GOAL;
+    if (!Number.isFinite(parsed)) return DEFAULT_DAILY_REVIEW_GOAL;
+    return Math.max(1, Math.min(200, Math.round(parsed)));
+  } catch {
+    return DEFAULT_DAILY_REVIEW_GOAL;
+  }
+}
 
 export const usePalaceStore = create<PalaceStore>((set, get) => {
   let draftTimer: ReturnType<typeof setTimeout> | null = null;
@@ -159,7 +202,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
   const buildCurrentSnapshot = () => {
     const { editorRef, currentPalace, routes, loci } = get();
     if (!editorRef || !currentPalace) return null;
-    return buildPalaceSnapshot(editorRef, currentPalace, routes, loci);
+    return buildPalaceSnapshot(editorRef, currentPalace, routes, normalizeLoci(loci));
   };
 
   const appendAnalyticsEvents = async (events: AnalyticsEvent[]) => {
@@ -322,9 +365,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkCueOnly: true,
     walkAnswerRevealed: true,
     walkStepRated: false,
+    walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+    walkSummary: null,
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
+    dailyReviewGoal: loadDailyReviewGoal(),
     persistenceState: "clean",
     lastDraftSavedAt: null,
     draftRestored: false,
@@ -501,12 +547,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const routeId = walkRouteId ?? routes[0]?.id;
       if (!routeId) return;
       const max = loci.filter((l) => l.routeId === routeId).reduce((m, l) => Math.max(m, l.orderIndex), -1);
+      const schedule = defaultLocusSchedule();
       const l: Locus = {
         id: crypto.randomUUID(),
         routeId,
         nodeId,
         orderIndex: max + 1,
         label,
+        ...schedule,
       };
       set({ loci: [...loci, l] });
       scheduleDraftSave();
@@ -557,13 +605,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     moveLocus(locusId, direction) {
       const { loci } = get();
-      set({ loci: moveRouteLocus(loci, locusId, direction) });
+      set({ loci: normalizeLoci(moveRouteLocus(loci, locusId, direction)) });
       scheduleDraftSave();
     },
 
     deleteLocus(locusId) {
       const { loci, routes, walkRouteId, walkIndex } = get();
-      const nextLoci = deleteRouteLocus(loci, locusId);
+      const nextLoci = normalizeLoci(deleteRouteLocus(loci, locusId));
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       const nextRouteLength = effectiveRouteId
         ? nextLoci.filter((locus) => locus.routeId === effectiveRouteId).length
@@ -577,7 +625,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     reassignLocusRoute(locusId, routeId) {
       const { loci, routes, walkRouteId, walkIndex } = get();
-      const nextLoci = reassignRouteLocus(loci, locusId, routeId);
+      const nextLoci = normalizeLoci(reassignRouteLocus(loci, locusId, routeId));
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       const nextRouteLength = effectiveRouteId
         ? nextLoci.filter((locus) => locus.routeId === effectiveRouteId).length
@@ -604,7 +652,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     deleteRoute(routeId) {
       const { routes, loci, walkRouteId } = get();
       const nextRoutes = routes.filter((r) => r.id !== routeId);
-      const nextLoci = loci.filter((l) => l.routeId !== routeId);
+      const nextLoci = normalizeLoci(loci.filter((l) => l.routeId !== routeId));
       const nextWalkRouteId = walkRouteId === routeId ? (nextRoutes[0]?.id ?? null) : walkRouteId;
       set({ routes: nextRoutes, loci: nextLoci, walkRouteId: nextWalkRouteId });
       scheduleDraftSave();
@@ -612,15 +660,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     replaceRoutesAndLoci(routes, loci) {
       const { currentPalace, routes: prevRoutes, loci: prevLoci } = get();
+      const normalizedLoci = normalizeLoci(loci);
       set({
         routes,
-        loci,
+        loci: normalizedLoci,
         walkRouteId: routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
         walkSessionId: null,
         walkAnswerRevealed: !get().walkRecallMode,
         walkStepRated: false,
+        walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+        walkSummary: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -645,7 +696,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         );
       }
 
-      for (const locus of loci) {
+      for (const locus of normalizedLoci) {
         const previous = previousLociById.get(locus.id);
         if (!previous) {
           events.push(
@@ -709,6 +760,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepRated: false,
+        walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+        walkSummary: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -758,6 +811,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepRated: false,
+        walkRatingCounts: walkOpen && !wasOpen ? { ...EMPTY_WALK_RATINGS } : state.walkRatingCounts,
+        walkSummary: walkOpen && !wasOpen ? null : state.walkSummary,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -779,7 +834,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             },
           });
         }
-        set({ walkStepEnteredAt: null, walkRevealedAt: null, walkRevealLatencyMs: null, walkStepRated: false });
+        set({
+          walkStepEnteredAt: null,
+          walkRevealedAt: null,
+          walkRevealLatencyMs: null,
+          walkStepRated: false,
+          walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+        });
         return;
       }
 
@@ -818,6 +879,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     setWalkCueOnly(walkCueOnly) {
       set({ walkCueOnly });
+    },
+
+    setDailyReviewGoal(goal) {
+      const normalized = Math.max(1, Math.min(200, Math.round(goal || DEFAULT_DAILY_REVIEW_GOAL)));
+      set({ dailyReviewGoal: normalized });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(DAILY_REVIEW_GOAL_STORAGE_KEY, String(normalized));
+      }
+    },
+
+    dismissWalkSummary() {
+      set({ walkSummary: null });
     },
 
     revealWalkAnswer() {
@@ -859,12 +932,45 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const timeToRevealMs = revealLatencyMs ?? safeElapsedMs(enteredAt, now);
       const timeFromRevealToRatingMs = safeElapsedMs(revealedAt, now);
       const ratedAt = new Date(now).toISOString();
-      set({
-        walkStepEnteredAt: ratedAt,
-        walkRevealedAt: revealedAt,
-        walkRevealLatencyMs: revealLatencyMs,
-        walkStepRated: true,
+      const currentRatings = get().walkRatingCounts;
+      const updatedRatings: WalkRatingCounts = {
+        ...currentRatings,
+        [rating]: currentRatings[rating] + 1,
+      };
+      const isLastStep = context.count > 0 && context.stepIndex >= context.count - 1;
+
+      set((state) => {
+        const nextLoci = state.loci.map((locus) => {
+          if (locus.id !== context.locus?.id) return locus;
+          return applySm2Schedule(locus, rating, ratedAt);
+        });
+        const routeNextReviewAt = orderedLoci(nextLoci.filter((locus) => locus.routeId === context.routeId))
+          .map((locus) => locus.nextReviewAt)
+          .filter((value): value is string => typeof value === "string" && value.length > 0)
+          .sort()[0] ?? null;
+        return {
+          loci: nextLoci,
+          walkStepEnteredAt: ratedAt,
+          walkRevealedAt: revealedAt,
+          walkRevealLatencyMs: revealLatencyMs,
+          walkStepRated: true,
+          walkRatingCounts: updatedRatings,
+          walkOpen: isLastStep ? false : state.walkOpen,
+          walkSessionId: isLastStep ? null : state.walkSessionId,
+          walkSummary: isLastStep
+            ? {
+                sessionId: state.walkSessionId,
+                routeId: context.routeId,
+                routeName: context.routeName ?? "Route",
+                reviewedCount: context.count,
+                ratings: updatedRatings,
+                completedAt: ratedAt,
+                nextReviewAt: routeNextReviewAt,
+              }
+            : state.walkSummary,
+        };
       });
+      scheduleDraftSave();
       void recordAnalytics({
         eventType: "walk_recall_rated",
         eventGroup: "review",
@@ -884,6 +990,36 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           timeFromRevealToRatingMs,
         },
       });
+      if (isLastStep) {
+        void recordAnalytics({
+          eventType: "walk_closed",
+          eventGroup: "review",
+          sessionId: get().walkSummary?.sessionId ?? null,
+          routeId: context.routeId,
+          nodeId: context.nodeId,
+          payload: {
+            source: "completed",
+            stepIndex: context.stepIndex,
+            routeLength: context.count,
+            routeName: context.routeName,
+            nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
+          },
+        });
+        void recordAnalytics({
+          eventType: "walk_completed",
+          eventGroup: "review",
+          sessionId: get().walkSummary?.sessionId ?? null,
+          routeId: context.routeId,
+          nodeId: context.nodeId,
+          payload: {
+            routeName: context.routeName,
+            reviewedCount: context.count,
+            ratings: updatedRatings,
+            completedAt: ratedAt,
+          },
+        });
+        return;
+      }
       get().walkNext();
     },
 
@@ -921,19 +1057,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     hydrateFromSnapshot(s, options) {
       clearDraftTimer();
+      const normalizedLoci = normalizeLoci(s.loci);
       set((state) => ({
         currentPalace: s.palace,
         palaces: mergePalaceIntoList(state.palaces, s.palace),
         nodes: s.nodes,
         edges: s.edges,
         routes: s.routes,
-        loci: s.loci,
+        loci: normalizedLoci,
         walkRouteId: s.routes[0]?.id ?? null,
         walkIndex: 0,
         walkOpen: false,
         walkSessionId: null,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepRated: false,
+        walkRatingCounts: { ...EMPTY_WALK_RATINGS },
+        walkSummary: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,

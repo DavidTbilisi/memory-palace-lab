@@ -78,6 +78,16 @@ pub struct LocusDto {
     pub order_index: i64,
     #[serde(default)]
     pub label: String,
+    #[serde(default)]
+    pub interval: Option<i64>,
+    #[serde(default)]
+    pub ease_factor: Option<f64>,
+    #[serde(default)]
+    pub next_review_at: Option<String>,
+    #[serde(default)]
+    pub repetitions: Option<i64>,
+    #[serde(default)]
+    pub last_reviewed_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -182,7 +192,12 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             route_id TEXT NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
             node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
             order_index INTEGER NOT NULL,
-            label TEXT NOT NULL DEFAULT ''
+            label TEXT NOT NULL DEFAULT '',
+            interval INTEGER NOT NULL DEFAULT 1,
+            ease_factor REAL NOT NULL DEFAULT 2.5,
+            next_review_at TEXT,
+            repetitions INTEGER NOT NULL DEFAULT 0,
+            last_reviewed_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS analytics_events (
@@ -209,6 +224,39 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
     )?;
     // Lightweight migration for existing DBs created before locus labels.
     if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN label TEXT NOT NULL DEFAULT ''", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN interval INTEGER NOT NULL DEFAULT 1", [])
+    {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN ease_factor REAL NOT NULL DEFAULT 2.5", [])
+    {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN next_review_at TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN repetitions INTEGER NOT NULL DEFAULT 0", [])
+    {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN last_reviewed_at TEXT", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -462,7 +510,7 @@ fn load_routes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<Route
 
 fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDto>> {
     let mut stmt = conn.prepare(
-        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label
+        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor, l.next_review_at, l.repetitions, l.last_reviewed_at
          FROM loci l
          INNER JOIN routes r ON r.id = l.route_id
          WHERE r.palace_id = ?1
@@ -476,6 +524,11 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
                 node_id: r.get(2)?,
                 order_index: r.get(3)?,
                 label: r.get(4)?,
+                interval: r.get(5)?,
+                ease_factor: r.get(6)?,
+                next_review_at: r.get(7)?,
+                repetitions: r.get(8)?,
+                last_reviewed_at: r.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -575,8 +628,19 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
 
     for l in &snap.loci {
         tx.execute(
-            "INSERT INTO loci (id, route_id, node_id, order_index, label) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![l.id, l.route_id, l.node_id, l.order_index, l.label],
+            "INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                l.id,
+                l.route_id,
+                l.node_id,
+                l.order_index,
+                l.label,
+                l.interval.unwrap_or(1),
+                l.ease_factor.unwrap_or(2.5),
+                l.next_review_at.as_deref(),
+                l.repetitions.unwrap_or(0),
+                l.last_reviewed_at.as_deref()
+            ],
         )?;
     }
 
