@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AtlasGraphView } from "./AtlasGraphView";
 import { ChevronDown, ChevronRight, MapPin } from "lucide-react";
 import { usePalaceStore } from "../store/palaceStore";
 import { splitAtlasPath } from "../domain/services/atlasHierarchy";
@@ -193,8 +194,12 @@ export function AtlasEditorPage({ onOpenPalace }: Props) {
           )}
         </div>
       ) : (
-        <div data-graph-view className="flex-1 overflow-auto bg-zinc-900/20 rounded-md m-3 p-4 flex items-center justify-center text-sm text-zinc-500">
-          Graph view coming soon — interactive hierarchy visualization with drag-to-rearrange
+        <div data-graph-view className="flex-1 min-h-0 flex m-3 rounded-md overflow-hidden bg-zinc-900/20">
+          <AtlasGraphView
+            palaces={palaces}
+            currentPalaceId={currentPalace?.id ?? null}
+            onOpenPalace={onOpenPalace}
+          />
         </div>
       )}
     </div>
