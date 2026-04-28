@@ -106,6 +106,9 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
   const svgRef = useRef<SVGSVGElement>(null);
   const [dims, setDims] = useState({ w: 800, h: 600 });
 
+  const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
+  const didMoveRef = useRef(false);
+
   // Observe container size
   useEffect(() => {
     const svg = svgRef.current;
@@ -174,6 +177,38 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [palaces, nodes, dims.w, dims.h]);
 
+  const toSVGPoint = (e: React.MouseEvent): { x: number; y: number } => {
+    const svg = svgRef.current;
+    if (!svg) return { x: e.clientX, y: e.clientY };
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM()!.inverse());
+  };
+
+  const onNodeMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const { x, y } = toSVGPoint(e);
+    const node = gNodes.find((n) => n.id === id);
+    if (!node) return;
+    dragRef.current = { id, ox: x - node.x, oy: y - node.y };
+    didMoveRef.current = false;
+  };
+
+  const onSVGMouseMove = (e: React.MouseEvent) => {
+    if (!dragRef.current) return;
+    didMoveRef.current = true;
+    const { x, y } = toSVGPoint(e);
+    const { id, ox, oy } = dragRef.current;
+    setGNodes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, x: x - ox, y: y - oy } : n)),
+    );
+  };
+
+  const onSVGMouseUp = () => {
+    dragRef.current = null;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
@@ -198,6 +233,9 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
       className="flex-1 w-full h-full"
       viewBox={`0 0 ${dims.w} ${dims.h}`}
       style={{ background: "transparent" }}
+      onMouseMove={onSVGMouseMove}
+      onMouseUp={onSVGMouseUp}
+      onMouseLeave={onSVGMouseUp}
     >
       <defs>
         <marker
@@ -252,8 +290,9 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
           <g
             key={n.id}
             transform={`translate(${n.x},${n.y})`}
-            onClick={() => onOpenPalace(n.id)}
-            style={{ cursor: "pointer" }}
+            onMouseDown={(e) => onNodeMouseDown(e, n.id)}
+            onClick={() => { if (!didMoveRef.current) onOpenPalace(n.id); }}
+            style={{ cursor: dragRef.current?.id === n.id ? "grabbing" : "grab" }}
             role="button"
             aria-label={`Open palace ${n.label}`}
           >
