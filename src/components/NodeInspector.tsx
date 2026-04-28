@@ -504,7 +504,7 @@ export function NodeInspector() {
     };
 
     return (
-      <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3">
+      <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
           {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
@@ -703,7 +703,7 @@ export function NodeInspector() {
     const target = resolveNodeSummary(editorRef, resolvedEdge.targetNodeId, snapshotNodes);
 
     return (
-      <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3">
+      <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Edge</div>
           {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}

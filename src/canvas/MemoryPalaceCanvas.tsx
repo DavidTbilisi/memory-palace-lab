@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { Tldraw } from "tldraw";
 import type { Editor, TLGeoShape, TLEditorSnapshot, TLEventInfo } from "@tldraw/editor";
 import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
@@ -12,6 +13,15 @@ import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 type Props = {
   palaceId: string;
   editorSnapshot: string | null | undefined;
+};
+
+type PortalBadge = {
+  shapeId: TLShapeId;
+  x: number;
+  y: number;
+  linked: boolean;
+  targetPalaceId: string | null;
+  targetRouteId: string | null;
 };
 
 function parseEditorSnapshot(
@@ -52,12 +62,63 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const editorRef = useRef<Editor | null>(null);
   const lastWalkNodeIdRef = useRef<string | null>(null);
   const lastSceneSnapshotRef = useRef<ReturnType<typeof captureSceneAnalyticsSnapshot> | null>(null);
+  const badgeFrameRef = useRef<number | null>(null);
+  const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
+
+  const recomputePortalBadges = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setPortalBadges([]);
+      return;
+    }
+
+    const badges: PortalBadge[] = [];
+    for (const shapeId of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(shapeId);
+      if (!shape || shape.type !== "geo") continue;
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      if (nodeKindFromMeta(meta) !== "portal") continue;
+      const bounds = editor.getShapePageBounds(shape.id);
+      if (!bounds) continue;
+      const point = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y });
+      const portal = portalRefFromMeta(meta);
+      badges.push({
+        shapeId: shape.id,
+        x: point.x - 12,
+        y: point.y - 12,
+        linked: !!portal?.targetPalaceId,
+        targetPalaceId: portal?.targetPalaceId ?? null,
+        targetRouteId: portal?.targetRouteId ?? null,
+      });
+    }
+
+    setPortalBadges(badges);
+  }, []);
+
+  const queueBadgeRefresh = useCallback(() => {
+    if (badgeFrameRef.current !== null) return;
+    badgeFrameRef.current = window.requestAnimationFrame(() => {
+      badgeFrameRef.current = null;
+      recomputePortalBadges();
+    });
+  }, [recomputePortalBadges]);
+
+  const openPortalDestination = useCallback(async (meta: MemoryPalaceMeta) => {
+    const portal = portalRefFromMeta(meta);
+    if (!portal?.targetPalaceId) return;
+    await usePalaceStore.getState().openPalace(portal.targetPalaceId);
+    if (portal.targetRouteId) {
+      usePalaceStore.getState().setWalkRoute(portal.targetRouteId);
+      usePalaceStore.getState().setWalkOpen(true);
+    }
+  }, []);
 
   const onMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor;
       lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
       setEditor(editor);
+      queueBadgeRefresh();
 
       const onEvent = (info: TLEventInfo) => {
         if ((info as { name?: string }).name === "double_click") {
@@ -76,15 +137,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           const hitMeta = (hitShape.meta ?? {}) as MemoryPalaceMeta;
           const hitKind = nodeKindFromMeta(hitMeta);
           if (hitKind === "portal") {
-            const portal = portalRefFromMeta(hitMeta);
-            if (portal?.targetPalaceId) {
-              void usePalaceStore.getState().openPalace(portal.targetPalaceId).then(() => {
-                if (portal.targetRouteId) {
-                  usePalaceStore.getState().setWalkRoute(portal.targetRouteId);
-                  usePalaceStore.getState().setWalkOpen(true);
-                }
-              });
-            }
+            void openPortalDestination(hitMeta);
           }
         }
 
@@ -134,6 +187,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         () => {
           const ids = editor.getSelectedShapeIds();
           setSelectedShapeId(ids.length === 1 ? ids[0] : null);
+          queueBadgeRefresh();
         },
         { source: "all", scope: "session" },
       );
@@ -154,20 +208,30 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
               payload: event.payload,
             });
           }
+          queueBadgeRefresh();
         },
         { source: "user", scope: "document" },
+      );
+
+      const unsubViewport = editor.store.listen(
+        () => {
+          queueBadgeRefresh();
+        },
+        { source: "all", scope: "all" },
       );
 
       return () => {
         editor.off("event", onEvent);
         unsubSel();
         unsubDraft();
+        unsubViewport();
         setEditor(null);
         lastSceneSnapshotRef.current = null;
         editorRef.current = null;
+        setPortalBadges([]);
       };
     },
-    [palaceId, queueDraftSave, setEditor, setSelectedShapeId],
+    [openPortalDestination, palaceId, queueBadgeRefresh, queueDraftSave, setEditor, setSelectedShapeId],
   );
 
   useEffect(() => {
@@ -212,9 +276,47 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci]);
 
+  useEffect(() => {
+    return () => {
+      if (badgeFrameRef.current !== null) {
+        window.cancelAnimationFrame(badgeFrameRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
       <Tldraw snapshot={initialSnapshot} onMount={onMount} />
+      <div className="pointer-events-none absolute inset-0 z-20">
+        {portalBadges.map((badge) => (
+          <button
+            key={badge.shapeId}
+            type="button"
+            aria-label={badge.linked ? "Open linked palace" : "Portal is not linked yet"}
+            className={`pointer-events-auto absolute inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition ${
+              badge.linked
+                ? "border-amber-300/90 bg-amber-300 text-zinc-950 hover:bg-amber-200"
+                : "border-zinc-600 bg-zinc-900/95 text-zinc-300 hover:bg-zinc-800"
+            }`}
+            style={{ left: badge.x, top: badge.y }}
+            title={badge.linked ? "Open linked palace" : "Portal is not linked yet"}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const editor = editorRef.current;
+              if (!editor) return;
+              editor.setSelectedShapes([badge.shapeId]);
+              setSelectedShapeId(badge.shapeId);
+              if (!badge.linked) return;
+              const shape = editor.getShape(badge.shapeId);
+              const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
+              void openPortalDestination(meta);
+            }}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
