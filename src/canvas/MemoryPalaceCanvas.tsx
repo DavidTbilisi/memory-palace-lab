@@ -268,14 +268,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     if (activeShapeId) {
       editor.setHintingShapes([activeShapeId]);
       if (lastWalkNodeIdRef.current !== nodeId) {
-        const bounds = editor.getShapePageBounds(activeShapeId);
-        if (bounds) {
-          editor.zoomToBounds(bounds, {
-            targetZoom: 1,
-            inset: 220,
-            animation: { duration: 320 },
-          });
-        }
+        editor.stopCameraAnimation();
+        editor.setSelectedShapes([activeShapeId]);
+        editor.zoomToSelection({ animation: { duration: 320 } });
         lastWalkNodeIdRef.current = nodeId;
       }
       if (walkRecallMode && !walkAnswerRevealed) {
