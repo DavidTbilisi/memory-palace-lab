@@ -1,5 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  ArrowRight,
+  Circle,
+  CircleDot,
   MousePointer2,
   Link2,
   ListOrdered,
@@ -10,6 +13,7 @@ import {
   ExternalLink,
   HardDrive,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
@@ -90,6 +94,8 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
+  const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
+  const setConnectFrom = usePalaceStore((s) => s.setConnectFrom);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const draftRestored = usePalaceStore((s) => s.draftRestored);
@@ -140,6 +146,10 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
         ? "bg-amber-300"
         : "bg-zinc-500"
       : "bg-emerald-300";
+  const connectStepLabel = connectFromShapeId ? "Step 2: pick target" : "Step 1: pick source";
+  const connectStepDetail = connectFromShapeId
+    ? "Source locked. Click the destination node to open the edge dialog, or cancel to choose a different source."
+    : "Connect mode is armed. Click the node that starts the relationship.";
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
@@ -314,6 +324,79 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             );
           }
           const active = toolMode === t.id;
+          if (t.id === "connect") {
+            return (
+              <div key={t.id} className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={active ? "default" : "ghost"}
+                  type="button"
+                  title={t.label}
+                  onClick={() => {
+                    setRoutePanelOpen(false);
+                    setToolMode(t.id as ToolMode);
+                  }}
+                  onMouseEnter={() =>
+                    onHoverHintChange?.(
+                      active
+                        ? connectStepDetail
+                        : "Connect: arm edge mode, click a source node, then click a target node.",
+                    )
+                  }
+                  onMouseLeave={() => onHoverHintChange?.(null)}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden lg:inline">{t.label}</span>
+                </Button>
+                {active ? (
+                  <div
+                    className="flex h-8 items-center gap-1 rounded-md border border-violet-500/35 bg-violet-500/10 px-2 text-[11px] text-violet-100"
+                    onMouseEnter={() => onHoverHintChange?.(connectStepDetail)}
+                    onMouseLeave={() => onHoverHintChange?.(null)}
+                  >
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full border",
+                        connectFromShapeId
+                          ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-100"
+                          : "border-violet-300/60 bg-violet-500/25 text-violet-50",
+                      )}
+                      aria-hidden="true"
+                    >
+                      <CircleDot className="h-3 w-3" />
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-violet-300/80" aria-hidden="true" />
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full border",
+                        connectFromShapeId
+                          ? "border-amber-300/70 bg-amber-400/20 text-amber-100"
+                          : "border-zinc-700 text-zinc-500",
+                      )}
+                      aria-hidden="true"
+                    >
+                      <Circle className="h-3 w-3" />
+                    </span>
+                    <span className="hidden md:inline">{connectStepLabel}</span>
+                    {connectFromShapeId ? (
+                      <button
+                        type="button"
+                        aria-label="Pick a different source node"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-violet-200 transition hover:bg-violet-400/20 hover:text-white"
+                        onClick={() => setConnectFrom(null)}
+                        onMouseEnter={() =>
+                          onHoverHintChange?.("Cancel the current source selection and pick a different node.")
+                        }
+                        onMouseLeave={() => onHoverHintChange?.(null)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
           return (
             <Button
               key={t.id}
@@ -329,9 +412,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
                 onHoverHintChange?.(
                   t.id === "select"
                     ? "Select: move/edit shapes and nodes."
-                    : t.id === "connect"
-                      ? "Connect: click source node then target node to open CAST edge menu."
-                      : "Route tool: build ordered memory paths with route controls.",
+                    : "Route tool: build ordered memory paths with route controls.",
                 )
               }
               onMouseLeave={() => onHoverHintChange?.(null)}

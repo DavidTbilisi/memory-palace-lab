@@ -9,8 +9,13 @@ vi.mock("../store/palaceStore", () => ({
       setToolMode: vi.fn(),
       routePanelOpen: false,
       setRoutePanelOpen: vi.fn(),
+      connect: { fromShapeId: null },
+      setConnectFrom: vi.fn(),
       saveCurrent: vi.fn(),
       persistenceState: "clean",
+      draftRestored: false,
+      lastDraftSavedAt: null,
+      lastCheckpointSavedAt: null,
       editorRef: null,
       currentPalace: null,
     }),
@@ -27,8 +32,13 @@ describe("PalaceToolbar", () => {
         setToolMode: vi.fn(),
         routePanelOpen: false,
         setRoutePanelOpen: vi.fn(),
+        connect: { fromShapeId: null },
+        setConnectFrom: vi.fn(),
         saveCurrent: vi.fn(),
         persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
         editorRef: null,
         currentPalace: null,
       } as never),
@@ -47,8 +57,13 @@ describe("PalaceToolbar", () => {
         setToolMode: vi.fn(),
         routePanelOpen: false,
         setRoutePanelOpen: vi.fn(),
+        connect: { fromShapeId: null },
+        setConnectFrom: vi.fn(),
         saveCurrent: vi.fn(),
         persistenceState: "draft",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
         editorRef: null,
         currentPalace: { id: "p1", name: "Palace", createdAt: "2026-04-28T00:00:00.000Z" },
       } as never),
@@ -59,5 +74,30 @@ describe("PalaceToolbar", () => {
     const button = screen.getByRole("button", { name: /checkpoint now/i });
     expect(button.className).toContain("bg-amber-400");
     expect(button.className).toContain("shadow-[0_0_0_1px");
+  });
+
+  it("shows the compact connect workflow state when connect mode is active", () => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) =>
+      selector({
+        toolMode: "connect",
+        setToolMode: vi.fn(),
+        routePanelOpen: false,
+        setRoutePanelOpen: vi.fn(),
+        connect: { fromShapeId: "shape-1" },
+        setConnectFrom: vi.fn(),
+        saveCurrent: vi.fn(),
+        persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
+        editorRef: null,
+        currentPalace: { id: "p1", name: "Palace", createdAt: "2026-04-28T00:00:00.000Z" },
+      } as never),
+    );
+
+    render(<PalaceToolbar />);
+
+    expect(screen.getByText("Step 2: pick target")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pick a different source node/i })).toBeInTheDocument();
   });
 });

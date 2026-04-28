@@ -160,6 +160,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           const meta = sh.meta as MemoryPalaceMeta;
           if (!meta.mpNodeId) return;
           if (!st.connect.fromShapeId) {
+            editor.select(hitId);
             st.setConnectFrom(hitId);
             return;
           }
@@ -177,6 +178,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             sourceNodeId: ma.mpNodeId,
             targetNodeId: mb.mpNodeId,
           });
+          editor.select(hitId);
           st.setConnectFrom(null);
         }
       };

@@ -37,6 +37,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
         draftRestored: false,
         lastDraftSavedAt: null,
         lastCheckpointSavedAt: null,
+        connect: { fromShapeId: null },
         analyticsLoaded: false,
         analyticsEvents: [],
         editorRef: null,
@@ -48,6 +49,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
         openPalace: vi.fn(),
         saveCurrent: vi.fn(),
         flushDraftSave: vi.fn().mockResolvedValue(undefined),
+        setConnectFrom: vi.fn(),
       };
       return selector(state as unknown as PalaceStore);
     });

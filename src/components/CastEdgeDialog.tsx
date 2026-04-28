@@ -95,6 +95,11 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
     "Temporary/unstable relation",
   ] as const;
 
+  const cGloss = ["hub/controller", "peer/mutual", "helper/dependency", "reactive/triggered"] as const;
+  const aGloss = ["controls", "feeds", "influences", "transforms or breaks"] as const;
+  const sGloss = ["data or structure", "resources or energy", "signals or information", "events or triggers"] as const;
+  const tGloss = ["permanent", "normally active", "conditional", "temporary or unstable"] as const;
+
   const slotDescriptions = {
     c: "C - Character: source role (Giant, Mermaid, Mage, Dragon).",
     a: "A - Action: effect style (Crushing, Flowing, Spreading, Exploding).",
@@ -104,8 +109,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
 
   const selectedTier1Verbs = React.useMemo(() => parseTier1Verbs(tier1Verb), [tier1Verb]);
   const tier1LabelPreview = React.useMemo(() => {
-    return selectedTier1Verbs.length > 0 ? selectedTier1Verbs.join(" · ") : DEFAULT_TIER1_VERB;
+    return selectedTier1Verbs.length > 0 ? selectedTier1Verbs.join(" / ") : DEFAULT_TIER1_VERB;
   }, [selectedTier1Verbs]);
+  const tier2MeaningPreview = `${ab} means ${cGloss[(CAST_WHO as readonly string[]).indexOf(ab)] ?? cGloss[0]}. ${cd} means ${
+    aGloss[(CAST_HOW as readonly string[]).indexOf(cd)] ?? aGloss[0]
+  }. ${ef} means ${sGloss[(CAST_WHAT as readonly string[]).indexOf(ef)] ?? sGloss[0]}. ${gh} means ${
+    tGloss[(CAST_WHEN as readonly string[]).indexOf(gh)] ?? tGloss[0]
+  }.`;
 
   const toggleTier1Suggestion = (verb: string) => {
     const normalizedVerb = normalizeTier1Verb(verb);
@@ -133,7 +143,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
         cd: CAST_HOW[2],
         ef: CAST_WHAT[2],
         gh: CAST_WHEN[1],
-        label: verbs.length > 0 ? verbs.join(" · ") : DEFAULT_TIER1_VERB,
+        label: verbs.length > 0 ? verbs.join(" / ") : DEFAULT_TIER1_VERB,
       };
     }
     return { ab, cd, ef, gh };
@@ -143,15 +153,15 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 p-4 shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(440px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 p-4 shadow-xl">
           <div className="flex items-center justify-between gap-2">
-            <Dialog.Title className="text-lg font-semibold text-zinc-100">CAST edge</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-zinc-100">Connect nodes</Dialog.Title>
             <Button variant="secondary" size="sm" type="button" onClick={() => setHelpOpen(true)}>
               ?
             </Button>
           </div>
           <Dialog.Description className="mt-1 text-sm text-zinc-400">
-            Tier 1 supports one or more verb labels. Tier 2 CAST is for similar-looking edges.
+            Tier 1 is the fast path. Tier 2 decodes source role, effect, payload, and timing when edges need more precision.
           </Dialog.Description>
           <div className="mt-3 flex gap-2">
             <Button
@@ -163,7 +173,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 setActiveHint("Tier 1: use one or more concise verbs. Upgrade to Tier 2 only if collisions appear.");
               }}
             >
-              Tier 1 (Verb)
+              Tier 1 (Quick verb)
             </Button>
             <Button
               type="button"
@@ -171,10 +181,10 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
               variant={tier === "tier2" ? "default" : "secondary"}
               onClick={() => {
                 setTier("tier2");
-                setActiveHint("Tier 2 CAST: hover C/A/S/T for slot meaning and bit mapping.");
+                setActiveHint("Tier 2 CAST: each mnemonic shows its plain-language meaning directly in the picker.");
               }}
             >
-              Tier 2 (CAST)
+              Tier 2 (Decoded CAST)
             </Button>
           </div>
           <div className="mt-2 rounded-md border border-zinc-700/70 bg-zinc-950/70 px-2 py-1.5 text-xs text-zinc-300">
@@ -240,13 +250,36 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                   <option value="one-way">A -&gt; B (one-way)</option>
                   <option value="two-way">A &lt;-&gt; B (two-way)</option>
                 </select>
-                <div className="mt-1 text-[11px] text-zinc-500">
-                  Tier 1 direction maps to edge arrows immediately.
-                </div>
+                <div className="mt-1 text-[11px] text-zinc-500">Tier 1 direction maps to edge arrows immediately.</div>
               </div>
             </div>
           ) : (
             <div className="mt-4 grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-md border border-zinc-700/70 bg-zinc-950/60 p-2">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-400">C = source role</div>
+                  <div className="mt-1 text-sm text-zinc-100">Giant, Mermaid, Mage, Dragon</div>
+                  <div className="mt-1 text-[11px] text-zinc-500">Who is acting in the relationship.</div>
+                </div>
+                <div className="rounded-md border border-zinc-700/70 bg-zinc-950/60 p-2">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-400">A = effect style</div>
+                  <div className="mt-1 text-sm text-zinc-100">Crushing, Flowing, Spreading, Exploding</div>
+                  <div className="mt-1 text-[11px] text-zinc-500">How the source affects the target.</div>
+                </div>
+                <div className="rounded-md border border-zinc-700/70 bg-zinc-950/60 p-2">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-400">S = payload</div>
+                  <div className="mt-1 text-sm text-zinc-100">Rock, Water, Cloud, Lightning</div>
+                  <div className="mt-1 text-[11px] text-zinc-500">What is moving across the edge.</div>
+                </div>
+                <div className="rounded-md border border-zinc-700/70 bg-zinc-950/60 p-2">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-400">T = timing</div>
+                  <div className="mt-1 text-sm text-zinc-100">Red cave, Blue ocean, Green sky, Purple storm</div>
+                  <div className="mt-1 text-[11px] text-zinc-500">When or how stable the relation is.</div>
+                </div>
+              </div>
+              <div className="rounded-md border border-violet-500/25 bg-violet-950/20 px-3 py-2 text-xs leading-5 text-violet-100">
+                {tier2MeaningPreview}
+              </div>
               <div
                 onMouseEnter={() => setActiveHint(`${slotDescriptions.c} 00/01/10/11 from top to bottom.`)}
                 onFocusCapture={() => setActiveHint(`${slotDescriptions.c} 00/01/10/11 from top to bottom.`)}
@@ -260,12 +293,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 >
                   {CAST_WHO.map((x, i) => (
                     <option key={x} value={x}>
-                      {x} ({bits[i]})
+                      {x} - {cGloss[i]} ({bits[i]})
                     </option>
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-zinc-500">C bits: {bitOf(CAST_WHO, ab)}</div>
                 <div className="text-[11px] text-zinc-500">
+                  {ab} means {cGloss[(CAST_WHO as readonly string[]).indexOf(ab)] ?? cGloss[0]}. {" "}
                   {cProfiles[(CAST_WHO as readonly string[]).indexOf(ab)] ?? cProfiles[0]}
                 </div>
               </div>
@@ -282,12 +316,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 >
                   {CAST_HOW.map((x, i) => (
                     <option key={x} value={x}>
-                      {x} ({bits[i]})
+                      {x} - {aGloss[i]} ({bits[i]})
                     </option>
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-zinc-500">A bits: {bitOf(CAST_HOW, cd)}</div>
                 <div className="text-[11px] text-zinc-500">
+                  {cd} means {aGloss[(CAST_HOW as readonly string[]).indexOf(cd)] ?? aGloss[0]}. {" "}
                   {aProfiles[(CAST_HOW as readonly string[]).indexOf(cd)] ?? aProfiles[0]}
                 </div>
               </div>
@@ -304,12 +339,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 >
                   {CAST_WHAT.map((x, i) => (
                     <option key={x} value={x}>
-                      {x} ({bits[i]})
+                      {x} - {sGloss[i]} ({bits[i]})
                     </option>
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-zinc-500">S bits: {bitOf(CAST_WHAT, ef)}</div>
                 <div className="text-[11px] text-zinc-500">
+                  {ef} means {sGloss[(CAST_WHAT as readonly string[]).indexOf(ef)] ?? sGloss[0]}. {" "}
                   {sProfiles[(CAST_WHAT as readonly string[]).indexOf(ef)] ?? sProfiles[0]}
                 </div>
               </div>
@@ -326,12 +362,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 >
                   {CAST_WHEN.map((x, i) => (
                     <option key={x} value={x}>
-                      {x} ({bits[i]})
+                      {x} - {tGloss[i]} ({bits[i]})
                     </option>
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-zinc-500">T bits: {bitOf(CAST_WHEN, gh)}</div>
                 <div className="text-[11px] text-zinc-500">
+                  {gh} means {tGloss[(CAST_WHEN as readonly string[]).indexOf(gh)] ?? tGloss[0]}. {" "}
                   {tProfiles[(CAST_WHEN as readonly string[]).indexOf(gh)] ?? tProfiles[0]}
                 </div>
               </div>
@@ -360,8 +397,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
           <Dialog.Content className="fixed left-1/2 top-1/2 z-56 flex max-h-[90vh] w-[min(620px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 p-4 shadow-xl">
             <Dialog.Title className="text-lg font-semibold text-zinc-100">CAST quick reference</Dialog.Title>
             <Dialog.Description className="mt-1 text-sm text-zinc-400">
-              Tier 1: one or more verb labels. Tier 2: C/A/S/T (WHO -&gt; HOW -&gt; WHAT -&gt; WHEN) with 2-bit
-              slots.
+              Tier 1: one or more verb labels. Tier 2: C/A/S/T means source role, effect style, payload, and timing.
             </Dialog.Description>
 
             <div className="mt-3 grid gap-3 text-sm text-zinc-200">
@@ -371,8 +407,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                   Giant=hub/controller, Mermaid=peer/mutual, Mage=helper/dependency, Dragon=reactive/triggered.
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHO[0]} ({cProfiles[0]}) - 01 {CAST_WHO[1]} ({cProfiles[1]}) - 10 {CAST_WHO[2]} (
-                  {cProfiles[2]}) - 11 {CAST_WHO[3]} ({cProfiles[3]})
+                  00 {CAST_WHO[0]} ({cProfiles[0]}) - 01 {CAST_WHO[1]} ({cProfiles[1]}) - 10 {CAST_WHO[2]} ({cProfiles[2]}) - 11 {CAST_WHO[3]} ({cProfiles[3]})
                 </div>
               </div>
               <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
@@ -381,16 +416,14 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                   Crushing=controls, Flowing=feeds, Spreading=influences, Exploding=transforms/breaks.
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_HOW[0]} ({aProfiles[0]}) - 01 {CAST_HOW[1]} ({aProfiles[1]}) - 10 {CAST_HOW[2]} (
-                  {aProfiles[2]}) - 11 {CAST_HOW[3]} ({aProfiles[3]})
+                  00 {CAST_HOW[0]} ({aProfiles[0]}) - 01 {CAST_HOW[1]} ({aProfiles[1]}) - 10 {CAST_HOW[2]} ({aProfiles[2]}) - 11 {CAST_HOW[3]} ({aProfiles[3]})
                 </div>
               </div>
               <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
                 <div className="text-xs uppercase tracking-wide text-zinc-400">S - Stream (what moves)</div>
                 <div className="mt-1 text-zinc-300">Rock=data, Water=resources/energy, Cloud=signals, Lightning=events.</div>
                 <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHAT[0]} ({sProfiles[0]}) - 01 {CAST_WHAT[1]} ({sProfiles[1]}) - 10 {CAST_WHAT[2]} (
-                  {sProfiles[2]}) - 11 {CAST_WHAT[3]} ({sProfiles[3]})
+                  00 {CAST_WHAT[0]} ({sProfiles[0]}) - 01 {CAST_WHAT[1]} ({sProfiles[1]}) - 10 {CAST_WHAT[2]} ({sProfiles[2]}) - 11 {CAST_WHAT[3]} ({sProfiles[3]})
                 </div>
               </div>
               <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
@@ -399,8 +432,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                   Red cave=permanent, Blue ocean=normally active, Green sky=conditional, Purple storm=temporary.
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHEN[0]} ({tProfiles[0]}) - 01 {CAST_WHEN[1]} ({tProfiles[1]}) - 10 {CAST_WHEN[2]} (
-                  {tProfiles[2]}) - 11 {CAST_WHEN[3]} ({tProfiles[3]})
+                  00 {CAST_WHEN[0]} ({tProfiles[0]}) - 01 {CAST_WHEN[1]} ({tProfiles[1]}) - 10 {CAST_WHEN[2]} ({tProfiles[2]}) - 11 {CAST_WHEN[3]} ({tProfiles[3]})
                 </div>
               </div>
             </div>
