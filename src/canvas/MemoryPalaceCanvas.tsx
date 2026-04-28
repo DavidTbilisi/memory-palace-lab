@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Link2Off } from "lucide-react";
 import { Tldraw } from "tldraw";
 import type { Editor, TLGeoShape, TLEditorSnapshot, TLEventInfo } from "@tldraw/editor";
 import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
@@ -296,7 +296,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             className={`pointer-events-auto absolute inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition ${
               badge.linked
                 ? "border-amber-300/90 bg-amber-300 text-zinc-950 hover:bg-amber-200"
-                : "border-zinc-600 bg-zinc-900/95 text-zinc-300 hover:bg-zinc-800"
+                : "border-rose-400/70 bg-rose-950/95 text-rose-100 hover:bg-rose-900"
             }`}
             style={{ left: badge.x, top: badge.y }}
             title={badge.linked ? "Open linked palace" : "Portal is not linked yet"}
@@ -313,7 +313,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
               void openPortalDestination(meta);
             }}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            {badge.linked ? <ExternalLink className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
           </button>
         ))}
       </div>
