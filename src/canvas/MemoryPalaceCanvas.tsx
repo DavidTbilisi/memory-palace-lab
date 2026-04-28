@@ -267,15 +267,16 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
     if (activeShapeId) {
       editor.setHintingShapes([activeShapeId]);
+      if (lastWalkNodeIdRef.current !== nodeId) {
+        editor.setSelectedShapes([activeShapeId]);
+        editor.zoomToSelectionIfOffscreen(96, { animation: { duration: 260 } });
+        lastWalkNodeIdRef.current = nodeId;
+      }
       if (walkRecallMode && !walkAnswerRevealed) {
         editor.setSelectedShapes([]);
         usePalaceStore.getState().setSelectedShapeId(null);
       } else {
         editor.setSelectedShapes([activeShapeId]);
-      }
-      if (lastWalkNodeIdRef.current !== nodeId) {
-        editor.zoomToSelectionIfOffscreen(96, { animation: { duration: 260 } });
-        lastWalkNodeIdRef.current = nodeId;
       }
     }
   }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci]);
