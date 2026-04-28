@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Tldraw } from "tldraw";
-import type { Editor, TLGeoShape, TLEventInfo } from "@tldraw/editor";
+import type { Editor, TLGeoShape, TLEditorSnapshot, TLEventInfo } from "@tldraw/editor";
 import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
@@ -13,6 +13,17 @@ type Props = {
   palaceId: string;
   editorSnapshot: string | null | undefined;
 };
+
+function parseEditorSnapshot(
+  editorSnapshot: string | null | undefined,
+): TLEditorSnapshot | TLStoreSnapshot | undefined {
+  if (!editorSnapshot) return undefined;
+  try {
+    return JSON.parse(editorSnapshot) as TLEditorSnapshot | TLStoreSnapshot;
+  } catch {
+    return undefined;
+  }
+}
 
 function isGeoMemory(shape: unknown): shape is TLGeoShape {
   return (
@@ -34,14 +45,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
 
-  const snapshot = useMemo((): TLStoreSnapshot | undefined => {
-    if (!editorSnapshot) return undefined;
-    try {
-      return JSON.parse(editorSnapshot) as TLStoreSnapshot;
-    } catch {
-      return undefined;
-    }
-  }, [editorSnapshot]);
+  // A mounted editor should keep its live state. Re-loading from a fresh snapshot on every
+  // draft/manual save can wipe the visible canvas in the browser build.
+  const [initialSnapshot] = useState(() => parseEditorSnapshot(editorSnapshot));
 
   const editorRef = useRef<Editor | null>(null);
   const lastWalkNodeIdRef = useRef<string | null>(null);
@@ -208,7 +214,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
-      <Tldraw snapshot={snapshot} onMount={onMount} />
+      <Tldraw snapshot={initialSnapshot} onMount={onMount} />
     </div>
   );
 }
