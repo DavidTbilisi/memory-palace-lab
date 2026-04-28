@@ -54,6 +54,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
+  const toolMode = usePalaceStore((s) => s.toolMode);
+  const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
 
   // A mounted editor should keep its live state. Re-loading from a fresh snapshot on every
   // draft/manual save can wipe the visible canvas in the browser build.
@@ -277,6 +279,41 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       }
     }
   }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || walkOpen || toolMode !== "connect") {
+      if (editor && !walkOpen) {
+        editor.setHintingShapes([]);
+        for (const id of editor.getCurrentPageShapeIds()) {
+          const s = editor.getShape(id);
+          if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
+            editor.updateShape({ id, type: "geo", opacity: 1 });
+          }
+        }
+      }
+      return;
+    }
+
+    const memoryIds: TLShapeId[] = [];
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (!s || s.type !== "geo") continue;
+      const m = s.meta as MemoryPalaceMeta;
+      if (!m.mpNodeId) continue;
+      memoryIds.push(id);
+      editor.updateShape({ id, type: "geo", opacity: 1 });
+    }
+
+    if (!connectFromShapeId) {
+      // Step 1 — hint every node to show they're all pickable as source
+      editor.setHintingShapes(memoryIds);
+    } else {
+      // Step 2 — source locked: selection ring distinguishes it from target candidates
+      editor.setHintingShapes(memoryIds);
+      editor.setSelectedShapes([connectFromShapeId as TLShapeId]);
+    }
+  }, [toolMode, connectFromShapeId, walkOpen]);
 
   useEffect(() => {
     return () => {
