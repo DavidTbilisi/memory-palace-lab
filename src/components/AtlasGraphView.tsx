@@ -125,6 +125,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
 
   const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
   const didMoveRef = useRef(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   // Observe container size
   useEffect(() => {
@@ -196,7 +197,6 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
       setGEdges(rawEdges);
       setLoading(false);
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [palaces, nodes, dims.w, dims.h]);
 
   const toSVGPoint = (e: React.MouseEvent): { x: number; y: number } => {
@@ -215,6 +215,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
     if (!node) return;
     dragRef.current = { id, ox: x - node.x, oy: y - node.y };
     didMoveRef.current = false;
+    setDraggingId(id);
   };
 
   const onSVGMouseMove = (e: React.MouseEvent) => {
@@ -230,6 +231,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
   const onSVGMouseUp = () => {
     if (dragRef.current) savePositions(gNodes);
     dragRef.current = null;
+    setDraggingId(null);
   };
 
   if (loading) {
@@ -315,7 +317,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
             transform={`translate(${n.x},${n.y})`}
             onMouseDown={(e) => onNodeMouseDown(e, n.id)}
             onClick={() => { if (!didMoveRef.current) onOpenPalace(n.id); }}
-            style={{ cursor: dragRef.current?.id === n.id ? "grabbing" : "grab" }}
+            style={{ cursor: draggingId === n.id ? "grabbing" : "grab" }}
             role="button"
             aria-label={`Open palace ${n.label}`}
           >
