@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, RotateCcw, Save, Trash2 } from "lucide-react";
-import type { Palace } from "../domain/entities/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import type { Palace, PalaceSnapshot } from "../domain/entities/types";
+import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { composeAtlasPath, DEFAULT_ATLAS_LEVEL_LABELS, splitAtlasPath } from "../domain/services/atlasHierarchy";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+
+const repo = getPalaceRepository();
+
+type BackupFile = { version: number; exportedAt: string; palaces: PalaceSnapshot[] };
 
 type AtlasTreeNode = {
   key: string;
@@ -151,6 +156,8 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const [currentAtlasPath, setCurrentAtlasPath] = useState("");
   const [levelLabels, setLevelLabels] = useState(DEFAULT_ATLAS_LEVEL_LABELS);
   const [hierarchySegments, setHierarchySegments] = useState<string[]>([]);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void loadPalaces();
@@ -182,6 +189,46 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
 
   const groupedPalaces = useMemo(() => buildAtlasTree(palaces), [palaces]);
   const hierarchyRowCount = Math.max(levelLabels.length, hierarchySegments.length + 1, DEFAULT_ATLAS_LEVEL_LABELS.length);
+
+  const handleExportBackup = async () => {
+    setBackupBusy(true);
+    try {
+      const snapshots = await Promise.all(palaces.map((p) => repo.loadPalace(p.id)));
+      const valid = snapshots.filter((s): s is PalaceSnapshot => s !== null);
+      const backup: BackupFile = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        palaces: valid,
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `memory-palace-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleImportBackup = async (file: File) => {
+    setBackupBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as BackupFile;
+      if (!Array.isArray(parsed.palaces)) throw new Error("Invalid backup file");
+      for (const snapshot of parsed.palaces) {
+        await repo.savePalace(snapshot);
+      }
+      await loadPalaces();
+    } catch (err) {
+      window.alert(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBackupBusy(false);
+      if (importFileRef.current) importFileRef.current.value = "";
+    }
+  };
 
   const updateLevelLabel = (index: number, value: string) => {
     setLevelLabels((current) => {
@@ -239,6 +286,42 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
           >
             Import notes
           </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="justify-center"
+              type="button"
+              disabled={backupBusy || palaces.length === 0}
+              onClick={() => void handleExportBackup()}
+              title="Download all palaces as a JSON backup"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Backup
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="justify-center"
+              type="button"
+              disabled={backupBusy}
+              onClick={() => importFileRef.current?.click()}
+              title="Restore palaces from a JSON backup file"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Restore
+            </Button>
+          </div>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleImportBackup(file);
+            }}
+          />
         </div>
       </div>
 
