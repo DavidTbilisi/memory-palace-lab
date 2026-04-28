@@ -14,6 +14,8 @@ const { usePalaceStoreMock } = vi.hoisted(() => ({
       walkIndex: 0,
       walkRouteId: null,
       loci: [],
+      toolMode: "select",
+      connect: { fromShapeId: null },
     }),
   ),
 }));

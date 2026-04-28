@@ -6,9 +6,7 @@ import {
   MousePointer2,
   Link2,
   ListOrdered,
-  ImageIcon,
   Save,
-  SquarePlus,
   LocateFixed,
   ExternalLink,
   HardDrive,
@@ -21,14 +19,12 @@ import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
 import { cn } from "../utils/cn";
 
-const tools: { id: ToolMode | "save" | "bg" | "node" | "portal" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
+const tools: { id: ToolMode | "save" | "portal" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "Select", icon: MousePointer2 },
-  { id: "node", label: "Add Node", icon: SquarePlus },
   { id: "portal", label: "Portal", icon: ExternalLink },
   { id: "connect", label: "Connect", icon: Link2 },
   { id: "route", label: "Route", icon: ListOrdered },
   { id: "reset", label: "Reset View", icon: LocateFixed },
-  { id: "bg", label: "Background", icon: ImageIcon },
   { id: "save", label: "Save", icon: Save },
 ];
 
@@ -190,28 +186,6 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               </Button>
             );
           }
-          if (t.id === "bg") {
-            return (
-              <Button
-                key={t.id}
-                size="sm"
-                variant="outline"
-                type="button"
-                title="Background image"
-                disabled={!editorRef || !currentPalace}
-                onMouseEnter={() => onHoverHintChange?.("Background image: place a map/room image as world layer.")}
-                onMouseLeave={() => onHoverHintChange?.(null)}
-                onClick={() => {
-                  if (!editorRef || !currentPalace) return;
-                  void import("../canvas/backgroundImageImport").then(({ insertBackgroundImageFromFile }) =>
-                    insertBackgroundImageFromFile(editorRef, currentPalace.id),
-                  );
-                }}
-              >
-                <Icon className="h-4 w-4" />
-              </Button>
-            );
-          }
           if (t.id === "reset") {
             return (
               <Button
@@ -230,32 +204,6 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               >
                 <Icon className="h-4 w-4" />
                 <span className="hidden lg:inline">Reset</span>
-              </Button>
-            );
-          }
-          if (t.id === "node") {
-            return (
-              <Button
-                key={t.id}
-                size="sm"
-                variant="outline"
-                type="button"
-                title="Add memory node at viewport center"
-                disabled={!editorRef || !currentPalace}
-                onMouseEnter={() => onHoverHintChange?.("Add Node: create a memory node at the center of current view.")}
-                onMouseLeave={() => onHoverHintChange?.(null)}
-                onClick={() => {
-                  setRoutePanelOpen(false);
-                  if (!editorRef || !currentPalace) return;
-                  const vp = editorRef.getViewportPageBounds();
-                  createGeoMemoryNode(editorRef, currentPalace.id, {
-                    x: vp.x + vp.w / 2,
-                    y: vp.y + vp.h / 2,
-                  });
-                }}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="hidden lg:inline">Node</span>
               </Button>
             );
           }
