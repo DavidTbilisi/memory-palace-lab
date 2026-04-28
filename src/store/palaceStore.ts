@@ -96,6 +96,7 @@ export type PalaceStore = {
   dailyReviewGoal: number;
   persistenceState: PalacePersistenceState;
   lastDraftSavedAt: string | null;
+  lastCheckpointSavedAt: string | null;
   draftRestored: boolean;
   pendingCast: null | { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string };
   loadPalaces: () => Promise<void>;
@@ -378,6 +379,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     dailyReviewGoal: loadDailyReviewGoal(),
     persistenceState: "clean",
     lastDraftSavedAt: null,
+    lastCheckpointSavedAt: null,
     draftRestored: false,
     pendingCast: null,
 
@@ -459,6 +461,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       clearDraftTimer();
       const snap = buildCurrentSnapshot();
       if (!snap) return;
+      const savedAt = new Date().toISOString();
       await repo.savePalace(snap);
       clearPalaceDraft(snap.palace.id);
       set((state) => ({
@@ -468,6 +471,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         edges: snap.edges,
         persistenceState: "clean",
         lastDraftSavedAt: null,
+        lastCheckpointSavedAt: savedAt,
         draftRestored: false,
       }));
       await get().loadPalaces();
@@ -645,6 +649,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkRevealLatencyMs: null,
           persistenceState: "clean",
           lastDraftSavedAt: null,
+          lastCheckpointSavedAt: null,
           draftRestored: false,
         });
       }
@@ -1151,6 +1156,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         persistenceState: options?.persistenceState ?? "clean",
         draftRestored: options?.draftRestored ?? false,
         lastDraftSavedAt: options?.lastDraftSavedAt ?? null,
+        lastCheckpointSavedAt: null,
       }));
     },
   };

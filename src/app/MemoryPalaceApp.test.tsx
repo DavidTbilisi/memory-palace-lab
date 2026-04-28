@@ -36,6 +36,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
         persistenceState: "clean" as const,
         draftRestored: false,
         lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
         analyticsLoaded: false,
         analyticsEvents: [],
         editorRef: null,
@@ -159,6 +160,12 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       if (!headerClass.includes("grid")) {
         expect(headerClass).not.toMatch(/justify-between\s*$/);
       }
+    });
+
+    it("should show auto-save and checkpoint status explicitly", () => {
+      render(<MemoryPalaceApp />);
+      expect(screen.getByText("Auto-save: idle")).toBeInTheDocument();
+      expect(screen.getByText("Checkpoint: none")).toBeInTheDocument();
     });
   });
 

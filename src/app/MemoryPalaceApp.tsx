@@ -57,6 +57,7 @@ type NodeSearchEntry = {
 const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
 const palaceRepo = getPalaceRepository();
+const IS_TAURI_RUNTIME = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 function loadRecentIds(storageKey: string, max = 20) {
   if (typeof window === "undefined") return [] as string[];
@@ -184,6 +185,13 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function formatStatusTime(isoTimestamp: string) {
+  return new Date(isoTimestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function MemoryPalaceApp() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
@@ -216,6 +224,7 @@ export function MemoryPalaceApp() {
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const draftRestored = usePalaceStore((s) => s.draftRestored);
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
+  const lastCheckpointSavedAt = usePalaceStore((s) => s.lastCheckpointSavedAt);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
 
@@ -340,18 +349,30 @@ export function MemoryPalaceApp() {
   );
 
   const title = useMemo(() => currentPalace?.name ?? "Memory Palace Lab", [currentPalace?.name]);
-  const defaultHint = useMemo(() => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext), [contextualTipContext, currentPage]);
-  const persistenceLabel = useMemo(() => {
-    if (!currentPalace) return "Local | SQLite | tldraw";
-    if (persistenceState === "dirty") return "Local | SQLite | Draft pending";
-    if (persistenceState === "draft" && draftRestored) return "Local | SQLite | Draft restored";
+  const defaultHint = useMemo(
+    () => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext),
+    [contextualTipContext, currentPage],
+  );
+  const persistenceTargetLabel = useMemo(
+    () => (IS_TAURI_RUNTIME ? "Desktop storage: SQLite" : "Browser storage: local storage"),
+    [],
+  );
+  const autoSaveLabel = useMemo(() => {
+    if (!currentPalace) return "Auto-save: idle";
+    if (persistenceState === "dirty") return "Auto-save: pending";
+    if (persistenceState === "draft" && draftRestored) return "Auto-save: restored from recovery draft";
     if (persistenceState === "draft") {
-      return lastDraftSavedAt
-        ? `Local | SQLite | Draft saved ${new Date(lastDraftSavedAt).toLocaleTimeString()}`
-        : "Local | SQLite | Draft saved";
+      return lastDraftSavedAt ? `Auto-save: saved ${formatStatusTime(lastDraftSavedAt)}` : "Auto-save: saved";
     }
-    return "Local | SQLite | Saved checkpoint";
+    return "Auto-save: synced";
   }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
+  const checkpointLabel = useMemo(() => {
+    if (!currentPalace) return "Checkpoint: none";
+    if (lastCheckpointSavedAt) {
+      return `Checkpoint: saved ${formatStatusTime(lastCheckpointSavedAt)}`;
+    }
+    return "Checkpoint: save intentionally";
+  }, [currentPalace, lastCheckpointSavedAt]);
 
   const onCastConfirm = (cast: { ab: string; cd: string; ef: string; gh: string; label?: string }) => {
     const pending = usePalaceStore.getState().pendingCast;
@@ -788,7 +809,13 @@ export function MemoryPalaceApp() {
             <BookOpen className="h-4 w-4" />
             Learn
           </Button>
-          <span className="text-xs text-zinc-500">{persistenceLabel}</span>
+          <span className="hidden text-xs text-zinc-500 xl:inline">{persistenceTargetLabel}</span>
+          <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] text-zinc-300">
+            {autoSaveLabel}
+          </span>
+          <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] text-zinc-300">
+            {checkpointLabel}
+          </span>
         </div>
       </header>
 

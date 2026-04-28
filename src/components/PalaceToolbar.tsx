@@ -40,17 +40,17 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
               size="sm"
               variant={persistenceState === "clean" ? "secondary" : "default"}
               type="button"
-              title="Save checkpoint (SQLite)"
+              title="Save checkpoint intentionally"
               onClick={() => void saveCurrent()}
               onMouseEnter={() =>
                 onHoverHintChange?.(
-                  "Save checkpoint: commit the current draft to SQLite and clear the temporary recovery draft.",
+                  "Save Checkpoint is intentional. Auto-save already runs in the background for recovery drafts.",
                 )
               }
               onMouseLeave={() => onHoverHintChange?.(null)}
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">Save</span>
+              <span className="hidden sm:inline">Save Checkpoint</span>
             </Button>
           );
         }

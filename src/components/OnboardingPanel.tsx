@@ -25,7 +25,7 @@ const LESSONS: Lesson[] = [
       "Create a palace from the left sidebar.",
       "Double-click empty canvas to summon node creatures.",
       "Select a node and edit title/content in the inspector.",
-      "Press Save to persist into SQLite.",
+      "Let auto-save protect drafts, then press Save Checkpoint when you want an intentional durable save.",
     ],
   },
   {
@@ -36,7 +36,7 @@ const LESSONS: Lesson[] = [
       "Switch to Connect tool in the top toolbar.",
       "Click source node, then target node.",
       "Pick WHO / HOW / WHAT / WHEN in the CAST dialog.",
-      "Save to store edge and CAST slots.",
+      "Use Save Checkpoint after the edge means what you want, not after every tiny move.",
     ],
   },
   {
