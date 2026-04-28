@@ -27,6 +27,23 @@ type GEdge = {
 
 const repo = getPalaceRepository();
 
+const POSITIONS_KEY = "mp-atlas-graph-positions";
+
+function loadSavedPositions(): Record<string, { x: number; y: number }> {
+  try {
+    const raw = window.localStorage.getItem(POSITIONS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, { x: number; y: number }>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePositions(nodes: GNode[]) {
+  const out: Record<string, { x: number; y: number }> = {};
+  for (const n of nodes) out[n.id] = { x: n.x, y: n.y };
+  window.localStorage.setItem(POSITIONS_KEY, JSON.stringify(out));
+}
+
 const NODE_R = 36;
 const REPULSION = 4000;
 const SPRING = 0.04;
@@ -170,7 +187,12 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
 
       const cx = dims.w / 2;
       const cy = dims.h / 2;
-      setGNodes(computeLayout(rawNodes, rawEdges, cx, cy));
+      const saved = loadSavedPositions();
+      const positioned = rawNodes.map((n) =>
+        saved[n.id] ? { ...n, x: saved[n.id].x, y: saved[n.id].y } : n,
+      );
+      const needsLayout = positioned.some((n) => n.x === 0 && n.y === 0);
+      setGNodes(needsLayout ? computeLayout(positioned, rawEdges, cx, cy) : positioned);
       setGEdges(rawEdges);
       setLoading(false);
     })();
@@ -206,6 +228,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
   };
 
   const onSVGMouseUp = () => {
+    if (dragRef.current) savePositions(gNodes);
     dragRef.current = null;
   };
 
