@@ -137,6 +137,7 @@ export type PalaceStore = {
   rateWalkRecall: (rating: RecallRating) => void;
   walkNext: () => void;
   walkPrev: () => void;
+  setWalkIndex: (index: number) => void;
   currentWalkNodeId: () => string | null;
   hydrateFromSnapshot: (
     s: PalaceSnapshot,
@@ -1119,6 +1120,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       if (nextIndex === walkIndex) return;
       set({ walkIndex: nextIndex });
       noteWalkStepEntered("prev");
+    },
+
+    setWalkIndex(index) {
+      const { loci, routes, walkRouteId, walkIndex, walkRecallMode, walkStepRated } = get();
+      if (walkRecallMode && !walkStepRated) return;
+      const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
+      if (!effectiveRouteId) return;
+      const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
+      const clamped = clampWalkIndex(index, list.length);
+      if (clamped === walkIndex) return;
+      set({ walkIndex: clamped });
+      noteWalkStepEntered(clamped > walkIndex ? "next" : "prev");
     },
 
     currentWalkNodeId() {

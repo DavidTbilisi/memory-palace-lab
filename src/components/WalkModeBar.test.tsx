@@ -12,6 +12,7 @@ const mockFns = {
   rateWalkRecall: vi.fn(),
   walkNext: vi.fn(),
   walkPrev: vi.fn(),
+  setWalkIndex: vi.fn(),
 };
 
 const BASE_LOCUS = {
@@ -65,6 +66,7 @@ function buildState(overrides: Record<string, unknown> = {}) {
     rateWalkRecall: mockFns.rateWalkRecall,
     walkNext: mockFns.walkNext,
     walkPrev: mockFns.walkPrev,
+    setWalkIndex: mockFns.setWalkIndex,
     routes: [{ id: "route-1", name: "Biology Route", palaceId: "palace-1", orderIndex: 0, objectId: "r-obj" }],
     walkRouteId: "route-1",
     loci: [BASE_LOCUS, { ...BASE_LOCUS, id: "locus-2", objectId: "obj-2", nodeId: "node-2", label: "Kitchen", orderIndex: 1 }],
@@ -314,6 +316,127 @@ describe("WalkModeBar — keyboard shortcuts", () => {
     render(<WalkModeBar />);
     fireEvent.keyDown(window, { key: "3" });
     expect(mockFns.rateWalkRecall).toHaveBeenCalledWith("good");
+  });
+});
+
+describe("WalkModeBar — extended keyboard shortcuts", () => {
+  it("fires revealWalkAnswer on Space when in recall mode and answer not revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: " " });
+    expect(mockFns.revealWalkAnswer).toHaveBeenCalled();
+  });
+
+  it("does not fire revealWalkAnswer on Space when answer already revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: true });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: " " });
+    expect(mockFns.revealWalkAnswer).not.toHaveBeenCalled();
+  });
+
+  it("fires walkNext on ArrowRight when walk is open", () => {
+    mockState = buildState({ walkOpen: true });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(mockFns.walkNext).toHaveBeenCalled();
+  });
+
+  it("fires walkPrev on ArrowLeft when walk is open", () => {
+    mockState = buildState({ walkOpen: true, walkIndex: 1 });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(mockFns.walkPrev).toHaveBeenCalled();
+  });
+
+  it("calls setWalkOpen(false) on Escape when walk is open", () => {
+    mockState = buildState({ walkOpen: true });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(mockFns.setWalkOpen).toHaveBeenCalledWith(false);
+  });
+
+  it("does not fire navigation shortcuts when walk is closed", () => {
+    mockState = buildState({ walkOpen: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    fireEvent.keyDown(window, { key: " " });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(mockFns.walkNext).not.toHaveBeenCalled();
+    expect(mockFns.walkPrev).not.toHaveBeenCalled();
+    expect(mockFns.revealWalkAnswer).not.toHaveBeenCalled();
+    expect(mockFns.setWalkOpen).not.toHaveBeenCalled();
+  });
+
+  it("ignores extended shortcuts when focus is in an input", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(
+      <>
+        <WalkModeBar />
+        <input data-testid="text-input" />
+      </>,
+    );
+    const input = screen.getByTestId("text-input");
+    fireEvent.keyDown(input, { key: " ", target: input });
+    fireEvent.keyDown(input, { key: "ArrowRight", target: input });
+    expect(mockFns.revealWalkAnswer).not.toHaveBeenCalled();
+    expect(mockFns.walkNext).not.toHaveBeenCalled();
+  });
+});
+
+describe("WalkModeBar — visual progress dots", () => {
+  it("renders one progress dot per locus in current route", () => {
+    mockState = buildState({ walkOpen: true });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    const dots = screen.getAllByTestId(/walk-progress-dot-/);
+    expect(dots).toHaveLength(2);
+  });
+
+  it("marks the active dot with data-active=true", () => {
+    mockState = buildState({ walkOpen: true, walkIndex: 1 });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    const activeDot = screen.getByTestId("walk-progress-dot-1");
+    expect(activeDot.getAttribute("data-active")).toBe("true");
+  });
+
+  it("clicking a dot jumps to that step (only allowed when not waiting for rating)", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    fireEvent.click(screen.getByTestId("walk-progress-dot-1"));
+    expect(mockFns.setWalkIndex).toHaveBeenCalledWith(1);
+  });
+
+  it("does not render dots when route has no loci", () => {
+    mockState = buildState({ walkOpen: true, loci: [] });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    expect(screen.queryAllByTestId(/walk-progress-dot-/)).toHaveLength(0);
+  });
+});
+
+describe("WalkModeBar — keyboard hint legend", () => {
+  it("shows shortcut hint when walk is open", () => {
+    mockState = buildState({ walkOpen: true });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    expect(screen.getByTestId("walk-shortcut-hint")).toBeInTheDocument();
+  });
+
+  it("does not show shortcut hint when walk is closed", () => {
+    mockState = buildState({ walkOpen: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    expect(screen.queryByTestId("walk-shortcut-hint")).toBeNull();
   });
 });
 

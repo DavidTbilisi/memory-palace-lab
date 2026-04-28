@@ -114,6 +114,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const rateWalkRecall = usePalaceStore((s) => s.rateWalkRecall);
   const walkNext = usePalaceStore((s) => s.walkNext);
   const walkPrev = usePalaceStore((s) => s.walkPrev);
+  const setWalkIndex = usePalaceStore((s) => s.setWalkIndex);
   const routes = usePalaceStore((s) => s.routes);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
@@ -158,6 +159,30 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
       if (target?.isContentEditable) return;
       const tagName = target?.tagName;
       if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setWalkOpen(false);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        walkNext();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        walkPrev();
+        return;
+      }
+      if (event.key === " ") {
+        if (walkRecallMode && !walkAnswerRevealed) {
+          event.preventDefault();
+          revealWalkAnswer();
+        }
+        return;
+      }
+
       const rating = ratingByKey[event.key];
       if (!rating) return;
       if (walkRecallMode && !walkAnswerRevealed) return;
@@ -166,7 +191,16 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [rateWalkRecall, walkAnswerRevealed, walkOpen, walkRecallMode]);
+  }, [
+    rateWalkRecall,
+    revealWalkAnswer,
+    setWalkOpen,
+    walkAnswerRevealed,
+    walkNext,
+    walkOpen,
+    walkPrev,
+    walkRecallMode,
+  ]);
 
   return (
     <div
@@ -231,6 +265,33 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
                   Locus: {currentLocus.label}
                 </span>
               ) : null}
+              {count > 0 ? (
+                <div className="ml-1 flex items-center gap-1" aria-label="Walk progress">
+                  {currentRouteLoci.map((locus, idx) => {
+                    const active = idx === walkIndex;
+                    const visited = idx < walkIndex;
+                    return (
+                      <button
+                        key={locus.id}
+                        type="button"
+                        data-testid={`walk-progress-dot-${idx}`}
+                        data-active={active}
+                        aria-label={`Jump to step ${idx + 1}${locus.label ? `: ${locus.label}` : ""}`}
+                        title={`Step ${idx + 1}${locus.label ? `: ${locus.label}` : ""}`}
+                        disabled={waitingForRating}
+                        onClick={() => setWalkIndex(idx)}
+                        className={`h-2 w-2 rounded-full transition-all ${
+                          active
+                            ? "bg-violet-300 ring-2 ring-violet-400/60 scale-125"
+                            : visited
+                              ? "bg-violet-600"
+                              : "bg-zinc-700 hover:bg-zinc-600"
+                        } ${waitingForRating ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex min-w-0 items-start gap-2 overflow-hidden">
@@ -280,7 +341,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
                 className="shrink-0"
                 onClick={() => walkPrev()}
                 disabled={walkIndex <= 0}
-                onMouseEnter={() => onHoverHintChange?.("Previous locus in current route.")}
+                onMouseEnter={() => onHoverHintChange?.("Previous locus in current route. (←)")}
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -293,12 +354,22 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
                 className="shrink-0"
                 onClick={() => walkNext()}
                 disabled={count === 0 || walkIndex >= count - 1 || waitingForRating}
-                onMouseEnter={() => onHoverHintChange?.("Next locus in current route.")}
+                onMouseEnter={() => onHoverHintChange?.("Next locus in current route. (→)")}
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          <div
+            data-testid="walk-shortcut-hint"
+            className="ml-1 hidden shrink-0 items-center gap-2 border-l border-zinc-800/60 pl-2 text-[10px] text-zinc-500 xl:flex"
+            aria-label="Walk mode keyboard shortcuts"
+          >
+            <span><kbd className="rounded bg-zinc-800 px-1 text-zinc-300">Space</kbd> Reveal</span>
+            <span><kbd className="rounded bg-zinc-800 px-1 text-zinc-300">1-4</kbd> Rate</span>
+            <span><kbd className="rounded bg-zinc-800 px-1 text-zinc-300">←/→</kbd> Nav</span>
+            <span><kbd className="rounded bg-zinc-800 px-1 text-zinc-300">Esc</kbd> Close</span>
           </div>
         </>
       ) : null}
