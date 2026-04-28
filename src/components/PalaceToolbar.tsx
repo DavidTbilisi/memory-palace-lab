@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
+import { cn } from "../utils/cn";
 
 const tools: { id: ToolMode | "save" | "bg" | "node" | "portal" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "Select", icon: MousePointer2 },
@@ -28,6 +29,7 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
+  const needsCheckpoint = persistenceState === "dirty" || persistenceState === "draft";
 
   return (
     <div className="flex items-center gap-1 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
@@ -38,19 +40,32 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             <Button
               key={t.id}
               size="sm"
-              variant={persistenceState === "clean" ? "secondary" : "default"}
+              variant={needsCheckpoint ? "default" : "secondary"}
               type="button"
-              title="Save checkpoint intentionally"
+              title={needsCheckpoint ? "Checkpoint recommended" : "Save checkpoint intentionally"}
+              className={cn(
+                "relative",
+                needsCheckpoint &&
+                  "border border-amber-300/70 bg-amber-400 text-zinc-950 shadow-[0_0_0_1px_rgba(251,191,36,0.25),0_10px_24px_rgba(251,191,36,0.18)] hover:bg-amber-300",
+              )}
               onClick={() => void saveCurrent()}
               onMouseEnter={() =>
                 onHoverHintChange?.(
-                  "Save Checkpoint is intentional. Auto-save already runs in the background for recovery drafts.",
+                  needsCheckpoint
+                    ? "Auto-save protected the draft. Save Checkpoint now if this state is worth keeping intentionally."
+                    : "Save Checkpoint is intentional. Auto-save already runs in the background for recovery drafts.",
                 )
               }
               onMouseLeave={() => onHoverHintChange?.(null)}
             >
+              {needsCheckpoint ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-200 ring-2 ring-zinc-950"
+                />
+              ) : null}
               <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">Save Checkpoint</span>
+              <span className="hidden sm:inline">{needsCheckpoint ? "Checkpoint Now" : "Save Checkpoint"}</span>
             </Button>
           );
         }
