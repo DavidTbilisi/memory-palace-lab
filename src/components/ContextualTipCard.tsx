@@ -13,6 +13,17 @@ import { Button } from "./ui/button";
 const DEFAULT_IDLE_DELAY_MS = 60000;
 const IDLE_DELAY_STORAGE_KEY = "mp-idle-tip-delay-ms";
 const DISMISSED_TIPS_STORAGE_KEY = "mp-dismissed-tip-ids";
+const TIPS_DISABLED_KEY = "mp-tips-disabled";
+
+function areTipsGloballyDisabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(TIPS_DISABLED_KEY) === "true";
+}
+
+function disableAllTipsPermanently() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(TIPS_DISABLED_KEY, "true");
+}
 
 type Props = {
   context: ContextualTipContext;
@@ -39,12 +50,6 @@ function loadDismissedTipIds(): Set<string> {
   }
 }
 
-function dismissTipPermanently(tipId: string) {
-  if (typeof window === "undefined") return;
-  const dismissed = loadDismissedTipIds();
-  dismissed.add(tipId);
-  window.localStorage.setItem(DISMISSED_TIPS_STORAGE_KEY, JSON.stringify(Array.from(dismissed)));
-}
 
 export function ContextualTipCard({ context, onOpenHelp }: Props) {
   const editorRef = usePalaceStore((s) => s.editorRef);
@@ -53,7 +58,8 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const [currentTip, setCurrentTip] = useState<ContextualTip | null>(null);
   const [lastTipId, setLastTipId] = useState<string | null>(null);
-  const [dismissedTipIds, setDismissedTipIds] = useState<Set<string>>(() => loadDismissedTipIds());
+  const [dismissedTipIds] = useState<Set<string>>(() => loadDismissedTipIds());
+  const [tipsDisabled, setTipsDisabled] = useState(() => areTipsGloballyDisabled());
 
   const allEligibleTips = useMemo(() => buildEligibleContextTips(context), [context]);
   const eligibleTips = useMemo(() => allEligibleTips.filter((tip) => !dismissedTipIds.has(tip.id)), [allEligibleTips, dismissedTipIds]);
@@ -65,6 +71,7 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
 
   useEffect(() => {
     if (currentTip) return;
+    if (tipsDisabled) return;
 
     const idleDelayMs = resolveIdleDelayMs();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -101,7 +108,7 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
       window.removeEventListener("wheel", handleActivity);
       window.removeEventListener("touchstart", handleActivity);
     };
-  }, [currentTip, eligibleTips, lastTipId]);
+  }, [currentTip, eligibleTips, lastTipId, tipsDisabled]);
 
   const runTipAction = () => {
     if (!currentTip?.action) return;
@@ -139,9 +146,8 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
   };
 
   const dismissTipForever = () => {
-    if (!currentTip) return;
-    dismissTipPermanently(currentTip.id);
-    setDismissedTipIds((prev) => new Set([...prev, currentTip.id]));
+    disableAllTipsPermanently();
+    setTipsDisabled(true);
     setCurrentTip(null);
   };
 
