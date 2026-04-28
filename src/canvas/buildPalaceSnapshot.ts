@@ -52,6 +52,7 @@ export function buildPalaceSnapshot(
           content: m.mpContent ?? "",
           kind: nodeKindFromMeta(m),
           portal: portalRefFromMeta(m),
+          tags: m.mpTags ?? [],
         });
       }
     }

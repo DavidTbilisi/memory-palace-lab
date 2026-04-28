@@ -42,6 +42,7 @@ export interface MemoryNode {
   content: string;
   kind: MemoryNodeKind;
   portal: PalacePortalRef | null;
+  tags?: string[];
 }
 
 export interface MemoryEdge {
