@@ -162,9 +162,17 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       }
     });
 
-    it("should show auto-save and checkpoint status explicitly", () => {
+    it("should show compact status icons and reveal details on click", async () => {
+      const user = userEvent.setup();
       render(<MemoryPalaceApp />);
+
+      await user.click(screen.getByRole("button", { name: "Storage details" }));
+      expect(screen.getByText("Browser storage: local storage")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Auto-save details" }));
       expect(screen.getByText("Auto-save: idle")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Checkpoint details" }));
       expect(screen.getByText("Checkpoint: none")).toBeInTheDocument();
     });
   });

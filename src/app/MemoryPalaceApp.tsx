@@ -57,8 +57,6 @@ type NodeSearchEntry = {
 const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
 const palaceRepo = getPalaceRepository();
-const IS_TAURI_RUNTIME = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
 function loadRecentIds(storageKey: string, max = 20) {
   if (typeof window === "undefined") return [] as string[];
   try {
@@ -185,13 +183,6 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function formatStatusTime(isoTimestamp: string) {
-  return new Date(isoTimestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function MemoryPalaceApp() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
@@ -222,9 +213,6 @@ export function MemoryPalaceApp() {
   const pendingCast = usePalaceStore((s) => s.pendingCast);
   const setPendingCast = usePalaceStore((s) => s.setPendingCast);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
-  const draftRestored = usePalaceStore((s) => s.draftRestored);
-  const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
-  const lastCheckpointSavedAt = usePalaceStore((s) => s.lastCheckpointSavedAt);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
 
@@ -353,26 +341,6 @@ export function MemoryPalaceApp() {
     () => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext),
     [contextualTipContext, currentPage],
   );
-  const persistenceTargetLabel = useMemo(
-    () => (IS_TAURI_RUNTIME ? "Desktop storage: SQLite" : "Browser storage: local storage"),
-    [],
-  );
-  const autoSaveLabel = useMemo(() => {
-    if (!currentPalace) return "Auto-save: idle";
-    if (persistenceState === "dirty") return "Auto-save: pending";
-    if (persistenceState === "draft" && draftRestored) return "Auto-save: restored from recovery draft";
-    if (persistenceState === "draft") {
-      return lastDraftSavedAt ? `Auto-save: saved ${formatStatusTime(lastDraftSavedAt)}` : "Auto-save: saved";
-    }
-    return "Auto-save: synced";
-  }, [currentPalace, draftRestored, lastDraftSavedAt, persistenceState]);
-  const checkpointLabel = useMemo(() => {
-    if (!currentPalace) return "Checkpoint: none";
-    if (lastCheckpointSavedAt) {
-      return `Checkpoint: saved ${formatStatusTime(lastCheckpointSavedAt)}`;
-    }
-    return "Checkpoint: save intentionally";
-  }, [currentPalace, lastCheckpointSavedAt]);
 
   const onCastConfirm = (cast: { ab: string; cd: string; ef: string; gh: string; label?: string }) => {
     const pending = usePalaceStore.getState().pendingCast;
@@ -710,113 +678,106 @@ export function MemoryPalaceApp() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">{title}</h1>
-          <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
-        </div>
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">{title}</h1>
+            <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
+          </div>
 
-        <nav className="flex items-center justify-center gap-1">
-          {(["graph", "review", "insights", "system", "atlas", "routes", "help"] as const).map((page) => {
-            const icons: Record<typeof page, ReactNode> = {
-              graph: <LayoutDashboard className="h-4 w-4" />,
-              review: <BookOpen className="h-4 w-4" />,
-              insights: <BarChart2 className="h-4 w-4" />,
-              system: <Cpu className="h-4 w-4" />,
-              atlas: <Globe className="h-4 w-4" />,
-              routes: <ListOrdered className="h-4 w-4" />,
-              help: <HelpCircle className="h-4 w-4" />,
-            };
-            const labels: Record<typeof page, string> = {
-              graph: "Graph",
-              review: "Review",
-              insights: "Insights",
-              system: "System",
-              atlas: "Atlas",
-              routes: "Routes",
-              help: "Help",
-            };
-            return (
-              <Button
-                key={page}
-                size="sm"
-                variant={currentPage === page ? "default" : "ghost"}
-                onClick={() => navigateToPage(page)}
-                title={`Open ${labels[page]}`}
-                onMouseEnter={() => setHoverHint(`${labels[page]} - ${pageHint(page) || "workspace area"}`)}
-                onMouseLeave={() => setHoverHint(null)}
-                className="gap-1.5"
-              >
-                {icons[page]}
-                <span className="hidden sm:inline">{labels[page]}</span>
-              </Button>
-            );
-          })}
-        </nav>
+          <nav className="flex items-center justify-center gap-1">
+            {(["graph", "review", "insights", "system", "atlas", "routes", "help"] as const).map((page) => {
+              const icons: Record<typeof page, ReactNode> = {
+                graph: <LayoutDashboard className="h-4 w-4" />,
+                review: <BookOpen className="h-4 w-4" />,
+                insights: <BarChart2 className="h-4 w-4" />,
+                system: <Cpu className="h-4 w-4" />,
+                atlas: <Globe className="h-4 w-4" />,
+                routes: <ListOrdered className="h-4 w-4" />,
+                help: <HelpCircle className="h-4 w-4" />,
+              };
+              const labels: Record<typeof page, string> = {
+                graph: "Graph",
+                review: "Review",
+                insights: "Insights",
+                system: "System",
+                atlas: "Atlas",
+                routes: "Routes",
+                help: "Help",
+              };
+              return (
+                <Button
+                  key={page}
+                  size="sm"
+                  variant={currentPage === page ? "default" : "ghost"}
+                  onClick={() => navigateToPage(page)}
+                  title={`Open ${labels[page]}`}
+                  onMouseEnter={() => setHoverHint(`${labels[page]} - ${pageHint(page) || "workspace area"}`)}
+                  onMouseLeave={() => setHoverHint(null)}
+                  className="gap-1.5"
+                >
+                  {icons[page]}
+                  <span className="hidden sm:inline">{labels[page]}</span>
+                </Button>
+              );
+            })}
+          </nav>
 
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            size="sm"
-            variant={viewMode === "balanced" ? "default" : "secondary"}
-            type="button"
-            onClick={() => applyViewMode("balanced")}
-            title="Balanced layout"
-            onMouseEnter={() => setHoverHint("Balanced mode: keeps side panels visible for editing and navigation.")}
-            onMouseLeave={() => setHoverHint(null)}
-          >
-            <Columns3 className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "focus" ? "default" : "secondary"}
-            type="button"
-            onClick={() => applyViewMode("focus")}
-            title="Focus mode"
-            onMouseEnter={() => setHoverHint("Focus mode: hides panels and maximizes canvas space.")}
-            onMouseLeave={() => setHoverHint(null)}
-          >
-            <Focus className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            type="button"
-            onClick={() => setShowSidebar((v) => !v)}
-            title="Toggle palace sidebar"
-            onMouseEnter={() => setHoverHint("Toggle palace sidebar: show or hide palace list and create controls.")}
-            onMouseLeave={() => setHoverHint(null)}
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            type="button"
-            onClick={() => setShowInspector((v) => !v)}
-            title="Toggle inspector"
-            onMouseEnter={() => setHoverHint("Toggle inspector: show or hide node title and content editor.")}
-            onMouseLeave={() => setHoverHint(null)}
-          >
-            <PanelRightOpen className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            type="button"
-            onClick={() => setShowOnboarding((v) => !v)}
-            onMouseEnter={() => setHoverHint("Learn panel: onboarding guides plus theSystem pipelines.")}
-            onMouseLeave={() => setHoverHint(null)}
-          >
-            <BookOpen className="h-4 w-4" />
-            Learn
-          </Button>
-          <span className="hidden text-xs text-zinc-500 xl:inline">{persistenceTargetLabel}</span>
-          <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] text-zinc-300">
-            {autoSaveLabel}
-          </span>
-          <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] text-zinc-300">
-            {checkpointLabel}
-          </span>
-        </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant={viewMode === "balanced" ? "default" : "secondary"}
+              type="button"
+              onClick={() => applyViewMode("balanced")}
+              title="Balanced layout"
+              onMouseEnter={() => setHoverHint("Balanced mode: keeps side panels visible for editing and navigation.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              <Columns3 className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "focus" ? "default" : "secondary"}
+              type="button"
+              onClick={() => applyViewMode("focus")}
+              title="Focus mode"
+              onMouseEnter={() => setHoverHint("Focus mode: hides panels and maximizes canvas space.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              <Focus className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              onClick={() => setShowSidebar((v) => !v)}
+              title="Toggle palace sidebar"
+              onMouseEnter={() => setHoverHint("Toggle palace sidebar: show or hide palace list and create controls.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              onClick={() => setShowInspector((v) => !v)}
+              title="Toggle inspector"
+              onMouseEnter={() => setHoverHint("Toggle inspector: show or hide node title and content editor.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              <PanelRightOpen className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              onClick={() => setShowOnboarding((v) => !v)}
+              onMouseEnter={() => setHoverHint("Learn panel: onboarding guides plus theSystem pipelines.")}
+              onMouseLeave={() => setHoverHint(null)}
+            >
+              <BookOpen className="h-4 w-4" />
+              Learn
+            </Button>
+          </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
