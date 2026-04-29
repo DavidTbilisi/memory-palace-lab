@@ -223,10 +223,6 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_nodes_object ON nodes(object_id);
         CREATE INDEX IF NOT EXISTS idx_routes_palace ON routes(palace_id);
         CREATE INDEX IF NOT EXISTS idx_loci_route ON loci(route_id);
-        CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON analytics_events(created_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(session_id);
-        CREATE INDEX IF NOT EXISTS idx_analytics_palace ON analytics_events(palace_id);
-        CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type);
         "#,
     )?;
     // Lightweight migration for existing DBs created before locus labels.
