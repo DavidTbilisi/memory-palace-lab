@@ -32,6 +32,9 @@ import {
   reassignLocusRoute as reassignRouteLocus,
 } from "../domain/services/routeEditing";
 import { applySm2Schedule, defaultLocusSchedule, normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
+import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
+import type { DslApplyResult, DslSnapshot } from "../domain/services/palaceDsl/types";
 
 const repo = getPalaceRepository();
 const DRAFT_SAVE_DELAY_MS = 900;
@@ -99,6 +102,9 @@ export type PalaceStore = {
   lastCheckpointSavedAt: string | null;
   draftRestored: boolean;
   pendingCast: null | { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string };
+  dslPaneOpen: boolean;
+  setDslPaneOpen: (open: boolean) => void;
+  applyDslSnapshot: (intent: DslSnapshot) => DslApplyResult;
   loadPalaces: () => Promise<void>;
   loadAnalyticsEvents: (limit?: number) => Promise<void>;
   recordAnalyticsEvent: (input: RecordAnalyticsInput) => Promise<AnalyticsEvent>;
@@ -383,6 +389,52 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     lastCheckpointSavedAt: null,
     draftRestored: false,
     pendingCast: null,
+    dslPaneOpen: false,
+
+    setDslPaneOpen(open: boolean) {
+      set({ dslPaneOpen: open });
+    },
+
+    applyDslSnapshot(intent: DslSnapshot): DslApplyResult {
+      const { editorRef, currentPalace, routes, loci } = get();
+      const empty: DslApplyResult = {
+        added: { nodes: 0, edges: 0, routes: 0, loci: 0 },
+        updated: { nodes: 0, edges: 0, routes: 0, loci: 0 },
+        deleted: { nodes: 0, edges: 0, routes: 0, loci: 0 },
+        errors: [],
+      };
+      if (!editorRef || !currentPalace) return empty;
+
+      const canvasResult = applyDslToCanvas(editorRef, currentPalace.id, intent);
+
+      const titleToNodeId = new Map<string, string>();
+      for (const shapeId of editorRef.getCurrentPageShapeIds()) {
+        const shape = editorRef.getShape(shapeId);
+        if (!shape || shape.type !== "geo") continue;
+        const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+        if (meta.mpPalaceId !== currentPalace.id) continue;
+        if (meta.mpTitle && meta.mpNodeId) {
+          titleToNodeId.set(meta.mpTitle, meta.mpNodeId);
+        }
+      }
+
+      const reconciled = reconcileRoutes({
+        palaceId: currentPalace.id,
+        currentRoutes: routes,
+        currentLoci: loci,
+        intent: intent.routes,
+        titleToNodeId,
+      });
+
+      get().replaceRoutesAndLoci(reconciled.routes, reconciled.loci);
+
+      return {
+        added: { ...canvasResult.added, ...reconciled.added },
+        updated: canvasResult.updated,
+        deleted: { ...canvasResult.deleted, ...reconciled.deleted },
+        errors: [...canvasResult.errors, ...reconciled.errors],
+      };
+    },
 
     async loadPalaces() {
       const [palaces, trashedPalaces] = await Promise.all([repo.listPalaces(), repo.listTrashedPalaces()]);
