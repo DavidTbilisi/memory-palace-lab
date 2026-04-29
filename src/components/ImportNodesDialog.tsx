@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Upload, X } from "lucide-react";
 import { createImportedMemoryNodes } from "../canvas/createMemoryShapes";
 import { parseCsvNodeImport, parseMarkdownNodeImport } from "../domain/services/nodeImport";
+import { parseDsl } from "../domain/services/palaceDsl/parser";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
@@ -14,10 +15,17 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-type ImportMode = "markdown" | "csv";
+type ImportMode = "markdown" | "csv" | "dsl";
 
 function parseRows(mode: ImportMode, input: string) {
-  return mode === "markdown" ? parseMarkdownNodeImport(input) : parseCsvNodeImport(input);
+  if (mode === "markdown") return parseMarkdownNodeImport(input);
+  if (mode === "csv") return parseCsvNodeImport(input);
+  const { snapshot, diagnostics } = parseDsl(input);
+  const firstError = diagnostics.find((d) => d.severity === "error");
+  return {
+    rows: snapshot.nodes.map((n) => ({ title: n.title, content: n.content })),
+    error: firstError ? `${firstError.code}: ${firstError.message}` : null,
+  };
 }
 
 export function ImportNodesDialog({ open, onOpenChange }: Props) {
@@ -55,11 +63,16 @@ export function ImportNodesDialog({ open, onOpenChange }: Props) {
     if (!canImport || !editorRef || !currentPalace) return;
     setImporting(true);
     try {
-      const normalized = selectedRows.map((row) => ({
-        title: row.title.trim() || "Imported node",
-        content: row.content,
-      }));
-      createImportedMemoryNodes(editorRef, currentPalace.id, normalized);
+      if (mode === "dsl") {
+        const { snapshot } = parseDsl(rawInput);
+        usePalaceStore.getState().applyDslSnapshot(snapshot);
+      } else {
+        const normalized = selectedRows.map((row) => ({
+          title: row.title.trim() || "Imported node",
+          content: row.content,
+        }));
+        createImportedMemoryNodes(editorRef, currentPalace.id, normalized);
+      }
       await saveCurrent();
       onOpenChange(false);
     } finally {
@@ -96,6 +109,9 @@ export function ImportNodesDialog({ open, onOpenChange }: Props) {
           <Button size="sm" variant={mode === "csv" ? "default" : "secondary"} type="button" onClick={() => setMode("csv")}>
             CSV
           </Button>
+          <Button size="sm" variant={mode === "dsl" ? "default" : "secondary"} type="button" onClick={() => setMode("dsl")}>
+            DSL
+          </Button>
           <Label htmlFor="import-csv-file" className="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200">
             <Upload className="h-3.5 w-3.5" />
             Upload CSV
@@ -124,7 +140,9 @@ export function ImportNodesDialog({ open, onOpenChange }: Props) {
               placeholder={
                 mode === "markdown"
                   ? "- Hippocampus\n- Mitochondria\n- Krebs cycle"
-                  : "title,content\nHippocampus,Memory formation\nATP,Energy currency"
+                  : mode === "csv"
+                    ? "title,content\nHippocampus,Memory formation\nATP,Energy currency"
+                    : "# Palace: Demo\n\n== Hippocampus\n  > Memory formation\n  -> ATP  ::1010\n\n== ATP\n  > Energy currency"
               }
             />
             {parsed.error ? <div className="mt-2 text-xs text-amber-300">{parsed.error}</div> : null}
