@@ -9,7 +9,7 @@ function fixture(name: string) {
   return readFileSync(resolve(__dirname, "fixtures", name), "utf8");
 }
 
-const FIXTURES = ["empty.dsl", "mechanics.dsl", "portals.dsl"];
+const FIXTURES = ["empty.dsl", "mechanics.dsl", "portals.dsl", "solid-citadel.dsl"];
 
 describe("DSL round-trip", () => {
   for (const name of FIXTURES) {
@@ -30,7 +30,7 @@ describe("DSL round-trip", () => {
   }
 
   it("byte-for-byte round-trip holds for fixtures authored against the canonical format", () => {
-    for (const name of ["empty.dsl", "mechanics.dsl", "portals.dsl"]) {
+    for (const name of FIXTURES) {
       const text = fixture(name);
       const { snapshot } = parseDsl(text);
       const reEmitted = serializeDsl(dslToPalaceSnapshot(snapshot));

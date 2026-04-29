@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
 import { serializeDsl } from "../domain/services/palaceDsl/serializer";
 import { usePalaceStore } from "../store/palaceStore";
+import { palaceDslHighlight } from "./palaceDslHighlight";
 import { useDslSync } from "./useDslSync";
 
 interface PalaceDslEditorProps {
@@ -33,6 +34,7 @@ export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorPr
     () => diagnostics.filter((d) => d.severity === "warning").length,
     [diagnostics],
   );
+  const firstDiagnostic = diagnostics[0] ?? null;
 
   // Initial value: if not provided, derive from current canvas state once.
   const computedInitial = useMemo(() => {
@@ -71,9 +73,47 @@ export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorPr
           ...historyKeymap,
         ]),
         EditorView.theme({
-          "&": { height: "100%", fontSize: "13px" },
+          "&": {
+            height: "100%",
+            fontSize: "13px",
+            color: "#f4f4f5",
+            backgroundColor: "#09090b",
+            caretColor: "#22c55e",
+          },
           ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, monospace" },
+          ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, monospace" },
+          ".cm-focused": {
+            outline: "none",
+          },
+          ".cm-gutters": {
+            backgroundColor: "#09090b",
+            color: "#71717a",
+            borderRight: "1px solid #27272a",
+          },
+          ".cm-activeLineGutter": {
+            backgroundColor: "rgba(34, 197, 94, 0.16)",
+            color: "#fafafa",
+          },
+          ".cm-activeLine": {
+            backgroundColor: "rgba(34, 197, 94, 0.14)",
+            boxShadow: "inset 3px 0 0 #22c55e",
+          },
+          ".cm-cursorLayer": {
+            pointerEvents: "none",
+          },
+          ".cm-cursorLayer .cm-cursor, .cm-dropCursor": {
+            borderLeftColor: "#22c55e",
+            borderLeftWidth: "2px",
+            borderLeftStyle: "solid",
+          },
+          "&.cm-focused .cm-cursorLayer .cm-cursor": {
+            borderLeftColor: "#22c55e",
+          },
+          "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+            backgroundColor: "rgba(34, 197, 94, 0.22)",
+          },
         }),
+        palaceDslHighlight,
         updateListener,
       ],
     });
@@ -132,15 +172,20 @@ export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorPr
     <div
       data-testid="palace-dsl-editor"
       data-focused={focused ? "true" : "false"}
-      className="flex h-full flex-col bg-background"
+      className="flex h-full flex-col bg-zinc-950 text-zinc-100"
     >
       <div ref={hostRef} className="min-h-0 flex-1 overflow-auto" />
       <div
         data-testid="palace-dsl-status"
-        className="flex h-6 items-center gap-3 border-t border-border px-2 text-xs text-muted-foreground"
+        className="flex min-h-6 items-center gap-3 border-t border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-400"
       >
         <span>{errorCount} errors</span>
         <span>{warningCount} warnings</span>
+        {firstDiagnostic ? (
+          <span className="truncate">
+            {`line ${firstDiagnostic.line}: ${firstDiagnostic.message}`}
+          </span>
+        ) : null}
         <span className="ml-auto">last applied {lastAppliedLabel}</span>
       </div>
     </div>

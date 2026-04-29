@@ -120,6 +120,23 @@ describe("parseDsl — diagnostics", () => {
     expect(bad[0]!.severity).toBe("error");
     expect(bad[0]!.line).toBe(4);
   });
+
+  it("emits misplaced-line when node attributes are not indented", () => {
+    const text = "# Palace: P\n== A\n> body\n#tag\n-> B\n";
+    const { diagnostics } = parseDsl(text);
+    const misplaced = diagnostics.filter((d) => d.code === "misplaced-line");
+    expect(misplaced).toHaveLength(3);
+    expect(misplaced.every((d) => d.severity === "error")).toBe(true);
+    expect(misplaced.map((d) => d.line)).toEqual([3, 4, 5]);
+  });
+
+  it("emits misplaced-line when route loci are not indented under a route", () => {
+    const text = '# Palace: P\n:: Route "Walk"\n1. A\n';
+    const { diagnostics } = parseDsl(text);
+    const misplaced = diagnostics.filter((d) => d.code === "misplaced-line");
+    expect(misplaced).toHaveLength(1);
+    expect(misplaced[0]!.line).toBe(3);
+  });
 });
 
 describe("parseDsl — portal targets", () => {

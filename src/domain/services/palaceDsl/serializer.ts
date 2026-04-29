@@ -16,7 +16,7 @@ function formatPortalTarget(p: PalacePortalRef): string | null {
 
 export function serializeDsl(snapshot: PalaceSnapshot): string {
   const lines: string[] = [];
-  lines.push(`# Palace: ${snapshot.palace.name}`);
+  lines.push(`@Palace ${snapshot.palace.name}`);
   if (snapshot.palace.atlasPath) {
     lines.push(`@atlas ${snapshot.palace.atlasPath}`);
   }
@@ -33,17 +33,17 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
 
   for (const node of snapshot.nodes) {
     lines.push("");
-    lines.push(`== ${node.title}`);
+    lines.push(node.title);
 
     if (node.content) {
       for (const piece of node.content.split("\n")) {
-        lines.push(`  > ${piece}`);
+        lines.push(`  : ${piece}`);
       }
     }
 
     if (node.kind === "portal" && node.portal) {
       const target = formatPortalTarget(node.portal);
-      if (target) lines.push(`  ~portal ${target}`);
+      if (target) lines.push(`  @portal ${target}`);
     }
 
     if (node.tags && node.tags.length > 0) {
@@ -66,7 +66,7 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
           ef: edge.castEf,
           gh: edge.castGh,
         });
-        lines.push(`  -> ${target.padEnd(maxLen)}  ::${cast}`);
+        lines.push(`  > ${target.padEnd(maxLen)}  ::${cast}`);
       }
     }
   }
@@ -80,7 +80,7 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
 
   for (const route of snapshot.routes) {
     lines.push("");
-    lines.push(`:: Route "${route.name}"`);
+    lines.push(`/Route "${route.name}"`);
     const ordered = (lociByRoute.get(route.id) ?? []).slice().sort(
       (a, b) => a.orderIndex - b.orderIndex,
     );

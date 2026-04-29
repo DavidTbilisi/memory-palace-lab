@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DslApplyResult, DslSnapshot } from "../domain/services/palaceDsl/types";
@@ -9,6 +11,13 @@ const EMPTY_RESULT: DslApplyResult = {
   deleted: { nodes: 0, edges: 0, routes: 0, loci: 0 },
   errors: [],
 };
+
+function fixture(name: string) {
+  return readFileSync(
+    resolve(__dirname, "../domain/services/palaceDsl/fixtures", name),
+    "utf8",
+  );
+}
 
 describe("useDslSync", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -65,5 +74,53 @@ describe("useDslSync", () => {
 
     expect(apply).not.toHaveBeenCalled();
     expect(result.current.diagnostics.some((d) => d.code === "missing-palace-header")).toBe(true);
+  });
+
+  it("applies the SOLID fixture with no diagnostics and preserves its full structure", () => {
+    const apply = vi.fn<(s: DslSnapshot) => DslApplyResult>(() => EMPTY_RESULT);
+    const { result } = renderHook(() => useDslSync(apply));
+
+    act(() => result.current.onChange(fixture("solid-citadel.dsl")));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(result.current.diagnostics).toEqual([]);
+
+    const snapshot = apply.mock.calls[0]![0];
+    expect(snapshot.palaceName).toBe("SOLID Citadel");
+    expect(snapshot.nodes).toHaveLength(14);
+    expect(snapshot.routes.map((route) => route.name)).toEqual([
+      "SOLID Main Route",
+      "Violation Route",
+    ]);
+    expect(snapshot.routes.map((route) => route.loci.length)).toEqual([7, 5]);
+    expect(snapshot.nodes.find((node) => node.title === "Gate of SOLID")?.edges).toHaveLength(5);
+    expect(snapshot.nodes.find((node) => node.title === "Dependency Tower")?.edges).toHaveLength(2);
+  });
+
+  it("rejects a malformed SOLID paste with misplaced lines instead of partially applying it", () => {
+    const apply = vi.fn<(s: DslSnapshot) => DslApplyResult>(() => EMPTY_RESULT);
+    const { result } = renderHook(() => useDslSync(apply));
+    const malformed = [
+      "# Palace: SOLID Citadel",
+      "",
+      "== Gate of SOLID",
+      "> Central fortress connecting five engineering districts.",
+      "#solid architecture",
+      "-> Single Responsibility Forge  ::0001",
+      "",
+      ":: Route \"SOLID Main Route\"",
+      "1. Gate of SOLID",
+    ].join("\n");
+
+    act(() => result.current.onChange(malformed));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(apply).not.toHaveBeenCalled();
+    expect(result.current.diagnostics.some((d) => d.code === "misplaced-line")).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ export type DslDiagnosticCode =
   | "malformed-route-locus"
   | "missing-palace-header"
   | "invalid-portal-target"
+  | "misplaced-line"
   | "tag-syntax";
 
 export interface DslDiagnostic {

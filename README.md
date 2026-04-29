@@ -159,3 +159,4 @@ Optional environment variables:
 
 - Ranked ROI backlog: [docs/backlog/README.md](docs/backlog/README.md)
 - Process notes: [docs/backlog/DELIVERY_PROCESS.md](docs/backlog/DELIVERY_PROCESS.md)
+- Palace DSL reference: [docs/palace-dsl.md](docs/palace-dsl.md)
