@@ -1,7 +1,9 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, insertNewline } from "@codemirror/commands";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
+import { serializeDsl } from "../domain/services/palaceDsl/serializer";
 import { usePalaceStore } from "../store/palaceStore";
 import { useDslSync } from "./useDslSync";
 
@@ -10,12 +12,18 @@ interface PalaceDslEditorProps {
   onViewReady?: (view: EditorView) => void;
 }
 
-export function PalaceDslEditor({ initialValue = "", onViewReady }: PalaceDslEditorProps) {
+const CANVAS_TO_DSL_DEBOUNCE_MS = 150;
+const KEYSTROKE_QUIESCENCE_MS = 500;
+
+export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorProps) {
   const applyDslSnapshot = usePalaceStore((s) => s.applyDslSnapshot);
   const { onChange, diagnostics, lastAppliedAt } = useDslSync(applyDslSnapshot);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [focused, setFocused] = useState(false);
+  const focusedRef = useRef(false);
+  const lastKeystrokeAtRef = useRef(0);
+  const isApplyingFromCanvasRef = useRef(false);
 
   const errorCount = useMemo(
     () => diagnostics.filter((d) => d.severity === "error").length,
@@ -26,20 +34,42 @@ export function PalaceDslEditor({ initialValue = "", onViewReady }: PalaceDslEdi
     [diagnostics],
   );
 
+  // Initial value: if not provided, derive from current canvas state once.
+  const computedInitial = useMemo(() => {
+    if (initialValue !== undefined) return initialValue;
+    const { editorRef, currentPalace, routes, loci } = usePalaceStore.getState();
+    if (!editorRef || !currentPalace) return "";
+    try {
+      return serializeDsl(buildPalaceSnapshot(editorRef, currentPalace, routes, loci));
+    } catch {
+      return "";
+    }
+  }, [initialValue]);
+
   useEffect(() => {
     if (!hostRef.current || viewRef.current) return;
 
     const updateListener = EditorView.updateListener.of((u) => {
-      if (u.docChanged) onChange(u.state.doc.toString());
-      if (u.focusChanged) setFocused(u.view.hasFocus);
+      if (u.docChanged && !isApplyingFromCanvasRef.current) {
+        lastKeystrokeAtRef.current = Date.now();
+        onChange(u.state.doc.toString());
+      }
+      if (u.focusChanged) {
+        focusedRef.current = u.view.hasFocus;
+        setFocused(u.view.hasFocus);
+      }
     });
 
     const state = EditorState.create({
-      doc: initialValue,
+      doc: computedInitial,
       extensions: [
         lineNumbers(),
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([
+          { key: "Enter", run: insertNewline },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
         EditorView.theme({
           "&": { height: "100%", fontSize: "13px" },
           ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, monospace" },
@@ -54,7 +84,45 @@ export function PalaceDslEditor({ initialValue = "", onViewReady }: PalaceDslEdi
       viewRef.current?.destroy();
       viewRef.current = null;
     };
-  }, [initialValue, onChange, onViewReady]);
+  }, [computedInitial, onChange, onViewReady]);
+
+  // Canvas → DSL sync: subscribe to store changes and re-serialize.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const flush = () => {
+      const view = viewRef.current;
+      if (!view) return;
+      if (focusedRef.current) return;
+      if (Date.now() - lastKeystrokeAtRef.current < KEYSTROKE_QUIESCENCE_MS) return;
+
+      const { editorRef, currentPalace, routes, loci } = usePalaceStore.getState();
+      if (!editorRef || !currentPalace) return;
+      let next: string;
+      try {
+        next = serializeDsl(buildPalaceSnapshot(editorRef, currentPalace, routes, loci));
+      } catch {
+        return;
+      }
+      const current = view.state.doc.toString();
+      if (current === next) return;
+
+      isApplyingFromCanvasRef.current = true;
+      view.dispatch({ changes: { from: 0, to: current.length, insert: next } });
+      isApplyingFromCanvasRef.current = false;
+    };
+
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, CANVAS_TO_DSL_DEBOUNCE_MS);
+    };
+
+    const unsubscribe = usePalaceStore.subscribe(schedule);
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   const lastAppliedLabel = lastAppliedAt
     ? new Date(lastAppliedAt).toLocaleTimeString([], { hour12: false })
