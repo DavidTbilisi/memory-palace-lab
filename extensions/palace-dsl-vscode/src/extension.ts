@@ -1,5 +1,3 @@
-import * as vscode from 'vscode';
-
 const KEYWORD_SNIPPETS = [
   { label: "@", detail: "Palace header", insertText: "@${1:PalaceName}" },
   { label: "Node", detail: "Node title", insertText: "${1:NodeName}" },
