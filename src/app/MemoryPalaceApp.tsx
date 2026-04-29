@@ -36,6 +36,7 @@ import { TheSystemWorkbench } from "../components/TheSystemWorkbench";
 import { WalkModeBar } from "../components/WalkModeBar";
 import { NodeInspector } from "../components/NodeInspector";
 import { OnboardingPanel } from "../components/OnboardingPanel";
+import { PalaceDslEditor } from "../components/PalaceDslEditor";
 import { Button } from "../components/ui/button";
 import type { MemoryNode } from "../domain/entities/types";
 import { buildPrimaryContextHint } from "../domain/services/contextualTips";
@@ -56,6 +57,14 @@ type NodeSearchEntry = {
 
 const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
+const DSL_SPLIT_RATIO_STORAGE_KEY = "mp-dsl-split-ratio";
+
+function loadSplitRatio(): number {
+  if (typeof window === "undefined") return 0.4;
+  const raw = window.localStorage.getItem(DSL_SPLIT_RATIO_STORAGE_KEY);
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0.1 && parsed < 0.9 ? parsed : 0.4;
+}
 const palaceRepo = getPalaceRepository();
 function loadRecentIds(storageKey: string, max = 20) {
   if (typeof window === "undefined") return [] as string[];
@@ -215,6 +224,9 @@ export function MemoryPalaceApp() {
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
+  const dslPaneOpen = usePalaceStore((s) => s.dslPaneOpen);
+  const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
+  const [dslSplitRatio, setDslSplitRatio] = useState<number>(() => loadSplitRatio());
 
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -411,10 +423,19 @@ export function MemoryPalaceApp() {
         event.preventDefault();
         setGlossaryOpen((open) => !open);
       }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "e") {
+        event.preventDefault();
+        setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [setDslPaneOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(DSL_SPLIT_RATIO_STORAGE_KEY, String(dslSplitRatio));
+  }, [dslSplitRatio]);
 
   useEffect(() => {
     const onOpenInsights = () => setCurrentPage("insights");
@@ -790,7 +811,41 @@ export function MemoryPalaceApp() {
             <WalkModeBar onHoverHintChange={setHoverHint} />
             {currentPalace ? (
               <div className="flex min-h-0 flex-1">
-                <MemoryPalaceCanvas key={currentPalace.id} palaceId={currentPalace.id} editorSnapshot={snap} />
+                {dslPaneOpen ? (
+                  <>
+                    <div
+                      className="flex min-h-0 shrink-0 flex-col border-r border-zinc-800"
+                      style={{ width: `${dslSplitRatio * 100}%` }}
+                    >
+                      <PalaceDslEditor />
+                    </div>
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const startRatio = dslSplitRatio;
+                        const containerWidth = e.currentTarget.parentElement?.clientWidth ?? 1;
+                        const onMove = (ev: MouseEvent) => {
+                          const dx = ev.clientX - startX;
+                          const next = startRatio + dx / containerWidth;
+                          setDslSplitRatio(Math.min(0.85, Math.max(0.15, next)));
+                        };
+                        const onUp = () => {
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                      className="w-1.5 cursor-col-resize bg-zinc-800 hover:bg-violet-500/40"
+                    />
+                  </>
+                ) : null}
+                <div className="flex min-h-0 min-w-0 flex-1">
+                  <MemoryPalaceCanvas key={currentPalace.id} palaceId={currentPalace.id} editorSnapshot={snap} />
+                </div>
                 {showInspector ? <NodeInspector /> : null}
               </div>
             ) : (
