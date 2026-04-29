@@ -79,6 +79,10 @@ jobs:
             | Windows  | `.msi` or `.exe` |
             | macOS    | `.dmg` (universal — Intel + Apple Silicon) |
             | Linux    | `.AppImage` or `.deb` |
+
+            ### Windows SmartScreen warning
+            Windows may show an "unrecognized app" warning because the installer is not yet code-signed.
+            Click **More info → Run anyway** to proceed. The app is fully open-source.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

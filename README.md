@@ -68,6 +68,17 @@ docs/
 tests/ui/           Playwright end-to-end coverage
 ```
 
+## Installing on Windows
+
+When you download and run the `.msi` or `.exe` installer, Windows Defender SmartScreen may show a warning that the app is unrecognized. This happens because the app is not yet code-signed with a commercial certificate.
+
+To install anyway:
+
+1. Click **More info** on the SmartScreen dialog.
+2. Click **Run anyway**.
+
+The app is open-source — you can review the full source code in this repository before installing.
+
 ## Getting Started
 
 ### Prerequisites
