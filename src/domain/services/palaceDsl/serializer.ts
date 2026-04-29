@@ -16,7 +16,7 @@ function formatPortalTarget(p: PalacePortalRef): string | null {
 
 export function serializeDsl(snapshot: PalaceSnapshot): string {
   const lines: string[] = [];
-  lines.push(`@Palace ${snapshot.palace.name}`);
+  lines.push(`@${snapshot.palace.name}`);
   if (snapshot.palace.atlasPath) {
     lines.push(`@atlas ${snapshot.palace.atlasPath}`);
   }
@@ -37,37 +37,30 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
 
     if (node.content) {
       for (const piece of node.content.split("\n")) {
-        lines.push(`  : ${piece}`);
+        lines.push(`: ${piece}`);
       }
     }
 
     if (node.kind === "portal" && node.portal) {
       const target = formatPortalTarget(node.portal);
-      if (target) lines.push(`  @portal ${target}`);
+      if (target) lines.push(`@portal ${target}`);
     }
 
     if (node.tags && node.tags.length > 0) {
       const sorted = [...new Set(node.tags)].sort();
-      lines.push(`  ${sorted.map((t) => `#${t}`).join(" ")}`);
+      lines.push(sorted.map((t) => `#${t}`).join(" "));
     }
 
     const outgoing = edgesBySource.get(node.id) ?? [];
-    if (outgoing.length > 0) {
-      const targets = outgoing.map(
-        (e) => idToTitle.get(e.targetNodeId) ?? "<unknown>",
-      );
-      const maxLen = Math.max(...targets.map((t) => t.length));
-      for (let i = 0; i < outgoing.length; i += 1) {
-        const edge = outgoing[i]!;
-        const target = targets[i]!;
-        const cast = formatCastCompact({
-          ab: edge.castAb,
-          cd: edge.castCd,
-          ef: edge.castEf,
-          gh: edge.castGh,
-        });
-        lines.push(`  > ${target.padEnd(maxLen)}  ::${cast}`);
-      }
+    for (const edge of outgoing) {
+      const target = idToTitle.get(edge.targetNodeId) ?? "<unknown>";
+      const cast = formatCastCompact({
+        ab: edge.castAb,
+        cd: edge.castCd,
+        ef: edge.castEf,
+        gh: edge.castGh,
+      });
+      lines.push(cast === "0000" ? `>${target}` : `>${target} ${cast}`);
     }
   }
 
@@ -80,13 +73,13 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
 
   for (const route of snapshot.routes) {
     lines.push("");
-    lines.push(`/Route "${route.name}"`);
-    const ordered = (lociByRoute.get(route.id) ?? []).slice().sort(
-      (a, b) => a.orderIndex - b.orderIndex,
-    );
+    lines.push(`/${route.name}`);
+    const ordered = (lociByRoute.get(route.id) ?? [])
+      .slice()
+      .sort((a, b) => a.orderIndex - b.orderIndex);
     for (let i = 0; i < ordered.length; i += 1) {
       const title = idToTitle.get(ordered[i]!.nodeId) ?? "<unknown>";
-      lines.push(`  ${i + 1}. ${title}`);
+      lines.push(`${i + 1} ${title}`);
     }
   }
 

@@ -9,9 +9,12 @@ import type {
   DslSnapshot,
 } from "./types";
 
+// ---------------------------------------------------------------------------
+// Pre-processing
+// ---------------------------------------------------------------------------
+
 interface Line {
   num: number;
-  indent: number;
   body: string;
 }
 
@@ -19,17 +22,69 @@ function preprocess(text: string): Line[] {
   const lines: Line[] = [];
   const split = text.replace(/\r\n?/g, "\n").split("\n");
   for (let i = 0; i < split.length; i += 1) {
-    const raw = split[i]!;
-    const trimmed = raw.trim();
-    if (trimmed === "") continue;
-    if (trimmed.startsWith("--")) continue;
-    let indent = 0;
-    while (indent < raw.length && raw[indent] === " ") indent += 1;
-    const body = raw.slice(indent).replace(/\s+$/, "");
-    lines.push({ num: i + 1, indent, body });
+    const trimmed = split[i]!.trim();
+    if (trimmed === "" || trimmed.startsWith("--")) continue;
+    lines.push({ num: i + 1, body: trimmed });
   }
   return lines;
 }
+
+// ---------------------------------------------------------------------------
+// Lexer — deterministic line classification
+//
+// Prefix table (first non-whitespace char):
+//   @        → palace header OR atlas/portal directive
+//   :        → body content
+//   #        → tag line
+//   >        → edge
+//   /        → route header
+//   \d+ ' '  → route step
+//   (other)  → node title
+// ---------------------------------------------------------------------------
+
+type ClassifiedLine =
+  | { type: "palace"; name: string }
+  | { type: "atlas"; path: string }
+  | { type: "portal"; target: string }
+  | { type: "body"; text: string }
+  | { type: "tags" }
+  | { type: "edge"; rest: string }
+  | { type: "route-hdr"; name: string }
+  | { type: "route-step"; title: string }
+  | { type: "node"; title: string };
+
+function classify(body: string): ClassifiedLine {
+  if (body.startsWith("@atlas")) {
+    return { type: "atlas", path: body.slice("@atlas".length).trim() };
+  }
+  if (body.startsWith("@portal")) {
+    return { type: "portal", target: body.slice("@portal".length).trim() };
+  }
+  if (body.startsWith("@")) {
+    return { type: "palace", name: body.slice(1).trim() };
+  }
+  if (body.startsWith(":")) {
+    return { type: "body", text: body.slice(1).trim() };
+  }
+  if (body.startsWith("#")) {
+    return { type: "tags" };
+  }
+  if (body.startsWith(">")) {
+    return { type: "edge", rest: body.slice(1).trim() };
+  }
+  if (body.startsWith("/")) {
+    return { type: "route-hdr", name: body.slice(1).trim() };
+  }
+  const stepMatch = body.match(/^(\d+)\s+(.+)$/);
+  if (stepMatch) {
+    return { type: "route-step", title: stepMatch[2]!.trim() };
+  }
+  return { type: "node", title: body };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function diag(
   diagnostics: DslDiagnostic[],
@@ -52,79 +107,39 @@ function parsePortalTarget(s: string): PalacePortalRef | null {
   return ref;
 }
 
-interface TagParseResult {
-  tags: string[];
-  invalid: { token: string; offset: number }[];
-}
-
-function parseTagsLine(body: string): TagParseResult {
-  const after = body.replace(/^#\s*/, "");
-  const offsetStart = body.length - after.length;
+function parseTagsLine(
+  body: string,
+): { tags: string[]; invalid: { token: string; offset: number }[] } {
   const tags: string[] = [];
   const invalid: { token: string; offset: number }[] = [];
   const tokenRe = /\S+/g;
   let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(after)) !== null) {
-    const stripped = m[0].replace(/^#/, "");
+  while ((m = tokenRe.exec(body)) !== null) {
+    const token = m[0];
+    const stripped = token.replace(/^#/, "");
     if (/^[A-Za-z0-9_-]+$/.test(stripped)) {
       const lower = stripped.toLowerCase();
       if (!tags.includes(lower)) tags.push(lower);
-    } else {
-      invalid.push({ token: m[0], offset: offsetStart + m.index });
+    } else if (token !== "#") {
+      invalid.push({ token, offset: m.index });
     }
   }
   return { tags, invalid };
 }
 
-function splitEdge(body: string): { target: string; castToken: string | null } {
-  const after = body.replace(/^(?:->|>)\s*/, "");
-  const idx = after.indexOf("::");
-  if (idx < 0) return { target: after.trim(), castToken: null };
-  return {
-    target: after.slice(0, idx).trim(),
-    castToken: after.slice(idx + 2).trim(),
-  };
-}
-
-function parseLocus(body: string): { title: string } | null {
-  const m = body.match(/^\d+\.\s+(.+)$/);
-  if (!m) return null;
-  return { title: m[1]!.trim() };
-}
-
-function misplacedLineKind(body: string): string | null {
-  if (body.startsWith(":")) return "body lines";
-  if (body.startsWith("~portal") || body.startsWith("@portal")) return "portal lines";
-  if (body.startsWith("#")) return "tag lines";
-  if (body.startsWith(">") || body.startsWith("->")) return "edge lines";
-  if (/^\d+\.\s+/.test(body)) return "route loci";
-  return null;
-}
-
-function parseRouteHeader(body: string): string | null {
-  const next = body.match(/^\/Route\s+"([^"]*)"\s*$/);
-  if (next) return next[1]!;
-  const legacy = body.match(/^::\s*Route\s+"([^"]*)"\s*$/);
-  if (legacy) return legacy[1]!;
-  return null;
-}
-
-function isNodeHeader(body: string): boolean {
-  if (body.startsWith("==")) return true;
-  if (
-    body.startsWith("# Palace:") ||
-    body.startsWith("@Palace") ||
-    body.startsWith("@atlas") ||
-    parseRouteHeader(body) !== null
-  ) {
-    return false;
-  }
-  return !/^(?:~portal|@portal|:|>|->|#|\d+\.\s+)/.test(body);
+function parseEdgeRest(rest: string): { target: string; castToken: string | null } {
+  const m = rest.match(/^(.*\S)\s+([0-9]{4})$/);
+  if (m) return { target: m[1]!.trim(), castToken: m[2]! };
+  return { target: rest.trim(), castToken: null };
 }
 
 function emptySnapshot(): DslSnapshot {
   return { palaceName: "", atlasPath: null, nodes: [], routes: [] };
 }
+
+// ---------------------------------------------------------------------------
+// Parser — finite state machine
+// ---------------------------------------------------------------------------
 
 export function parseDsl(text: string): DslParseResult {
   const lines = preprocess(text);
@@ -146,26 +161,23 @@ export function parseDsl(text: string): DslParseResult {
     currentRoute = null;
   }
 
-  for (const line of lines) {
-    const { body, num, indent } = line;
+  for (const { body, num } of lines) {
+    const cl = classify(body);
 
-    if (indent === 0) {
-      if (body.startsWith("# Palace:") || body.startsWith("@Palace")) {
+    switch (cl.type) {
+      case "palace":
         flush();
         sawHeader = true;
-        snapshot.palaceName = body.startsWith("# Palace:")
-          ? body.slice("# Palace:".length).trim()
-          : body.slice("@Palace".length).trim();
-        continue;
-      }
-      if (body.startsWith("@atlas")) {
-        const path = body.slice("@atlas".length).trim();
-        snapshot.atlasPath = path === "" ? null : path;
-        continue;
-      }
-      if (isNodeHeader(body)) {
+        snapshot.palaceName = cl.name;
+        break;
+
+      case "atlas":
+        snapshot.atlasPath = cl.path || null;
+        break;
+
+      case "node": {
         flush();
-        const title = body.startsWith("==") ? body.slice(2).trim() : body.trim();
+        const { title } = cl;
         if (seenTitles.has(title)) {
           diag(
             diagnostics,
@@ -188,131 +200,148 @@ export function parseDsl(text: string): DslParseResult {
           edges: [],
           sourceLine: num,
         };
-        continue;
+        break;
       }
-      const routeName = parseRouteHeader(body);
-      if (routeName !== null) {
-        flush();
-        currentRoute = { name: routeName, loci: [], sourceLine: num };
-        continue;
-      }
-      const misplacedKind = misplacedLineKind(body);
-      if (misplacedKind) {
-        diag(
-          diagnostics,
-          "error",
-          "misplaced-line",
-          num,
-          1,
-          body.length,
-          `${misplacedKind} must be indented under a node or route block`,
-        );
-        continue;
-      }
-      continue;
-    }
 
-    if (currentNode) {
-      if (body.startsWith(":")) {
-        const piece = body.slice(1).trim();
-        currentNode.content = currentNode.content === ""
-          ? piece
-          : `${currentNode.content}\n${piece}`;
-        continue;
-      }
-      if (body.startsWith("~portal") || body.startsWith("@portal")) {
-        const target = body.startsWith("~portal")
-          ? body.slice("~portal".length).trim()
-          : body.slice("@portal".length).trim();
-        const portal = parsePortalTarget(target);
-        if (!portal) {
+      case "route-hdr":
+        flush();
+        currentRoute = { name: cl.name, loci: [], sourceLine: num };
+        break;
+
+      case "body":
+        if (!currentNode) {
           diag(
             diagnostics,
             "error",
-            "invalid-portal-target",
+            "misplaced-line",
             num,
             1,
             body.length,
-            `Invalid portal target "${target}"`,
+            "content lines must appear under a node",
           );
-          continue;
+          break;
         }
-        currentNode.kind = "portal";
-        currentNode.portal = portal;
-        continue;
-      }
-      if (body.startsWith("#")) {
-        const result = parseTagsLine(body);
-        for (const tag of result.tags) {
-          if (!currentNode.tags.includes(tag)) currentNode.tags.push(tag);
-        }
-        for (const inv of result.invalid) {
+        currentNode.content =
+          currentNode.content === ""
+            ? cl.text
+            : `${currentNode.content}\n${cl.text}`;
+        break;
+
+      case "tags":
+        if (!currentNode) {
           diag(
             diagnostics,
-            "warning",
-            "tag-syntax",
+            "error",
+            "misplaced-line",
             num,
-            indent + inv.offset + 1,
-            inv.token.length,
-            `Invalid tag token "${inv.token}"`,
+            1,
+            body.length,
+            "tag lines must appear under a node",
           );
+          break;
         }
-        continue;
-      }
-      if (body.startsWith(">") || body.startsWith("->")) {
-        const { target, castToken } = splitEdge(body);
-        let cast = { ab: "", cd: "", ef: "", gh: "" };
-        if (castToken !== null) {
-          const parsed = parseCast(castToken);
-          if (parsed === null) {
+        {
+          const { tags, invalid } = parseTagsLine(body);
+          for (const tag of tags) {
+            if (!currentNode.tags.includes(tag)) currentNode.tags.push(tag);
+          }
+          for (const inv of invalid) {
+            diag(
+              diagnostics,
+              "warning",
+              "tag-syntax",
+              num,
+              inv.offset + 1,
+              inv.token.length,
+              `Invalid tag token "${inv.token}"`,
+            );
+          }
+        }
+        break;
+
+      case "edge":
+        if (!currentNode) {
+          diag(
+            diagnostics,
+            "error",
+            "misplaced-line",
+            num,
+            1,
+            body.length,
+            "edge lines must appear under a node",
+          );
+          break;
+        }
+        {
+          const { target, castToken } = parseEdgeRest(cl.rest);
+          let cast = { ab: "", cd: "", ef: "", gh: "" };
+          if (castToken !== null) {
+            const parsed = parseCast(castToken);
+            if (parsed === null) {
+              diag(
+                diagnostics,
+                "error",
+                "malformed-cast",
+                num,
+                1,
+                body.length,
+                `Malformed CAST shorthand "${castToken}"`,
+              );
+            } else {
+              cast = parsed;
+            }
+          }
+          currentNode.edges.push({ targetTitle: target, cast, sourceLine: num });
+        }
+        break;
+
+      case "portal":
+        if (!currentNode) {
+          diag(
+            diagnostics,
+            "error",
+            "misplaced-line",
+            num,
+            1,
+            body.length,
+            "portal lines must appear under a node",
+          );
+          break;
+        }
+        {
+          const portal = parsePortalTarget(cl.target);
+          if (!portal) {
             diag(
               diagnostics,
               "error",
-              "malformed-cast",
+              "invalid-portal-target",
               num,
               1,
               body.length,
-              `Malformed CAST shorthand "${castToken}"`,
+              `Invalid portal target "${cl.target}"`,
             );
           } else {
-            cast = parsed;
+            currentNode.kind = "portal";
+            currentNode.portal = portal;
           }
         }
-        currentNode.edges.push({ targetTitle: target, cast, sourceLine: num });
-        continue;
-      }
-      continue;
-    }
+        break;
 
-    if (currentRoute) {
-      const locus = parseLocus(body);
-      if (locus) {
-        currentRoute.loci.push(locus.title);
-      } else {
-        diag(
-          diagnostics,
-          "error",
-          "malformed-route-locus",
-          num,
-          1,
-          body.length,
-          "Malformed route locus",
-        );
-      }
-      continue;
-    }
-
-    const misplacedKind = misplacedLineKind(body);
-    if (misplacedKind) {
-      diag(
-        diagnostics,
-        "error",
-        "misplaced-line",
-        num,
-        1,
-        body.length,
-        `${misplacedKind} appear before a matching node or route block`,
-      );
+      case "route-step":
+        if (!currentRoute) {
+          diag(
+            diagnostics,
+            "error",
+            "misplaced-line",
+            num,
+            1,
+            body.length,
+            "route loci must appear under a route block",
+          );
+          break;
+        }
+        currentRoute.loci.push(cl.title);
+        break;
     }
   }
 
@@ -326,7 +355,7 @@ export function parseDsl(text: string): DslParseResult {
       1,
       1,
       1,
-      'Missing "@Palace <name>" header',
+      'Missing "@<name>" header',
     );
   }
 
@@ -336,7 +365,7 @@ export function parseDsl(text: string): DslParseResult {
       if (!titleSet.has(edge.targetTitle)) {
         diag(
           diagnostics,
-          "error",
+          "warning",
           "unknown-target",
           edge.sourceLine,
           1,
@@ -351,7 +380,7 @@ export function parseDsl(text: string): DslParseResult {
       if (!titleSet.has(locusTitle)) {
         diag(
           diagnostics,
-          "error",
+          "warning",
           "unknown-target",
           route.sourceLine,
           1,

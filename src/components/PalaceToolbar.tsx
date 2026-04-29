@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as Popover from "@radix-ui/react-popover";
 import {
   ArrowRight,
   Circle,
@@ -11,6 +12,7 @@ import {
   ExternalLink,
   HardDrive,
   RefreshCw,
+  Tag,
   X,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -90,6 +92,10 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
+  const availableTags = usePalaceStore((s) => s.availableTags);
+  const activeTags = usePalaceStore((s) => s.activeTags);
+  const toggleActiveTag = usePalaceStore((s) => s.toggleActiveTag);
+  const clearActiveTags = usePalaceStore((s) => s.clearActiveTags);
   const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
   const setConnectFrom = usePalaceStore((s) => s.setConnectFrom);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
@@ -371,6 +377,63 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
           );
         })}
       </div>
+      {(availableTags?.length ?? 0) > 0 && (
+        <Popover.Root>
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              title="Filter nodes by tag"
+              className={`ml-2 inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition ${
+                activeTags.length > 0
+                  ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
+                  : "border-zinc-700 bg-transparent text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              <Tag className="h-3 w-3" />
+              {activeTags.length > 0
+                ? <span>{activeTags.length === 1 ? `#${activeTags[0]}` : `${activeTags.length} tags`}</span>
+                : <span className="hidden sm:inline">Tags</span>}
+              {activeTags.length > 0 && (
+                <span
+                  role="button"
+                  aria-label="Clear tag filter"
+                  tabIndex={0}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-400/20"
+                  onClick={(e) => { e.stopPropagation(); clearActiveTags(); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); clearActiveTags(); } }}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </span>
+              )}
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="bottom"
+              align="start"
+              sideOffset={6}
+              avoidCollisions
+              collisionPadding={12}
+              className="z-[400] flex max-h-[40vh] w-[min(320px,90vw)] flex-wrap content-start gap-1.5 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+            >
+              {availableTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleActiveTag(tag)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all ${
+                    activeTags.includes(tag)
+                      ? "bg-violet-500 text-white shadow-[0_0_8px_rgba(139,92,246,0.4)]"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      )}
       <div className="ml-auto flex items-center gap-1.5 border-l border-zinc-800 pl-2">
         <ToolbarStatusPopover
           buttonLabel="Storage details"

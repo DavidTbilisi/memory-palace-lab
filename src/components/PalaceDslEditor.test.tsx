@@ -35,7 +35,7 @@ describe("PalaceDslEditor", () => {
   });
 
   it("renders an editor host and a status footer", () => {
-    render(<PalaceDslEditor initialValue={"# Palace: Demo\n"} />);
+    render(<PalaceDslEditor initialValue={"@Demo\n"} />);
     expect(screen.getByTestId("palace-dsl-editor")).toBeInTheDocument();
     const status = screen.getByTestId("palace-dsl-status");
     expect(status).toHaveTextContent(/0 errors/);
@@ -57,7 +57,7 @@ describe("PalaceDslEditor", () => {
     );
     expect(view).not.toBeNull();
     view!.dispatch({
-      changes: { from: 0, to: 0, insert: "# Palace: Hello\n" },
+      changes: { from: 0, to: 0, insert: "@Hello\n" },
     });
 
     vi.advanceTimersByTime(250);
@@ -119,13 +119,13 @@ describe("PalaceDslEditor", () => {
     expect(view).not.toBeNull();
     act(() => {
       view!.dispatch({
-        changes: { from: 0, to: 0, insert: "# Palace: Demo\n== A\n> body\n" },
+        changes: { from: 0, to: 0, insert: "@Demo\n: body before node\n" },
       });
       vi.advanceTimersByTime(250);
     });
 
     expect(screen.getByTestId("palace-dsl-status")).toHaveTextContent(
-      /line 3: content lines must be indented under a node or route block/i,
+      /line 2: content lines must appear under a node/i,
     );
   });
 
@@ -149,7 +149,7 @@ describe("PalaceDslEditor", () => {
         changes: {
           from: 0,
           to: 0,
-          insert: "# Palace: SOLID Citadel\n== Gate of SOLID\n> Central fortress\n#solid\n-> Single Responsibility Forge  ::0001\n",
+          insert: "@SOLID Citadel\n: content before node\n#orphan\n>Orphan Edge\n",
         },
       });
       vi.advanceTimersByTime(250);
@@ -157,7 +157,7 @@ describe("PalaceDslEditor", () => {
 
     expect(apply).not.toHaveBeenCalled();
     expect(screen.getByTestId("palace-dsl-status")).toHaveTextContent(
-      /content lines must be indented under a node or route block/i,
+      /content lines must appear under a node/i,
     );
     expect(screen.getByTestId("palace-dsl-status")).toHaveTextContent(/1 errors|2 errors|3 errors/);
   });

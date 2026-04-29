@@ -66,6 +66,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const lastSceneSnapshotRef = useRef<ReturnType<typeof captureSceneAnalyticsSnapshot> | null>(null);
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
+  const setAvailableTags = usePalaceStore((s) => s.setAvailableTags);
+  const activeTags = usePalaceStore((s) => s.activeTags);
+  const clearActiveTags = usePalaceStore((s) => s.clearActiveTags);
 
   const recomputePortalBadges = useCallback(() => {
     const editor = editorRef.current;
@@ -105,6 +108,23 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     });
   }, [recomputePortalBadges]);
 
+  const recomputeAvailableTags = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) { setAvailableTags([]); return; }
+    const seen = new Set<string>();
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (!s || s.type !== "geo") continue;
+      const tags = (s.meta as MemoryPalaceMeta).mpTags;
+      if (tags) for (const t of tags) seen.add(t);
+    }
+    const next = [...seen].sort();
+    const prev = usePalaceStore.getState().availableTags;
+    if (next.join(",") !== (prev ?? []).join(",")) {
+      setAvailableTags(next);
+    }
+  }, []);
+
   const openPortalDestination = useCallback(async (meta: MemoryPalaceMeta) => {
     const portal = portalRefFromMeta(meta);
     if (!portal?.targetPalaceId) return;
@@ -121,6 +141,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
       setEditor(editor);
       queueBadgeRefresh();
+      recomputeAvailableTags();
 
       const onEvent = (info: TLEventInfo) => {
         if ((info as { name?: string }).name === "double_click") {
@@ -213,6 +234,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             });
           }
           queueBadgeRefresh();
+          recomputeAvailableTags();
         },
         { source: "user", scope: "document" },
       );
@@ -235,13 +257,14 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         setPortalBadges([]);
       };
     },
-    [openPortalDestination, palaceId, queueBadgeRefresh, queueDraftSave, setEditor, setSelectedShapeId],
+    [openPortalDestination, palaceId, queueBadgeRefresh, queueDraftSave, recomputeAvailableTags, setEditor, setSelectedShapeId],
   );
 
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
     const nodeId = usePalaceStore.getState().currentWalkNodeId();
+    if (walkOpen) clearActiveTags();
     if (!walkOpen || !nodeId) {
       lastWalkNodeIdRef.current = null;
       editor.setHintingShapes([]);
@@ -316,6 +339,19 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.setSelectedShapes([connectFromShapeId as TLShapeId]);
     }
   }, [toolMode, connectFromShapeId, walkOpen]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || walkOpen) return;
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (!s || s.type !== "geo") continue;
+      const m = s.meta as MemoryPalaceMeta;
+      if (!m.mpNodeId) continue;
+      const match = activeTags.length === 0 || (m.mpTags ?? []).some((t) => activeTags.includes(t));
+      editor.updateShape({ id, type: "geo", opacity: match ? 1 : 0.2 });
+    }
+  }, [activeTags, walkOpen]);
 
   useEffect(() => {
     return () => {

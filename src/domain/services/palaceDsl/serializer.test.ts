@@ -25,7 +25,7 @@ describe("serializeDsl", () => {
       routes: [],
       loci: [],
     };
-    expect(serializeDsl(empty)).toBe("# Palace: Empty\n");
+    expect(serializeDsl(empty)).toBe("@Empty\n");
   });
 
   it("includes @atlas when atlasPath is set", () => {
@@ -42,7 +42,7 @@ describe("serializeDsl", () => {
       routes: [],
       loci: [],
     };
-    expect(serializeDsl(snap)).toBe("# Palace: P\n@atlas /a/b\n");
+    expect(serializeDsl(snap)).toBe("@P\n@atlas /a/b\n");
   });
 
   it("round-trips the canonical fixture byte-for-byte", () => {
@@ -77,10 +77,10 @@ describe("serializeDsl", () => {
       loci: [],
     };
     const out = serializeDsl(snap);
-    expect(out).toContain("\n  #alpha #mango #zebra\n");
+    expect(out).toContain("\n#alpha #mango #zebra\n");
   });
 
-  it("emits CAST in compact form regardless of input axis names", () => {
+  it("emits CAST in compact form omitting zero axes", () => {
     const snap: PalaceSnapshot = {
       palace: {
         id: "p",
@@ -123,7 +123,40 @@ describe("serializeDsl", () => {
       loci: [],
     };
     const out = serializeDsl(snap);
-    expect(out).toContain("-> B  ::2202");
+    expect(out).toContain(">B 2202");
+  });
+
+  it("emits edge without CAST suffix when all axes are empty", () => {
+    const snap: PalaceSnapshot = {
+      palace: {
+        id: "p",
+        name: "P",
+        createdAt: "2024-01-01T00:00:00Z",
+        atlasPath: null,
+      },
+      canvasObjects: [],
+      nodes: [
+        { id: "n-0", objectId: "o-0", title: "A", content: "", kind: "memory", portal: null },
+        { id: "n-1", objectId: "o-1", title: "B", content: "", kind: "memory", portal: null },
+      ],
+      edges: [
+        {
+          id: "e-0",
+          objectId: "eo-0",
+          sourceNodeId: "n-0",
+          targetNodeId: "n-1",
+          castAb: "",
+          castCd: "",
+          castEf: "",
+          castGh: "",
+        },
+      ],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(">B\n");
+    expect(out).not.toContain(">B 0000");
   });
 
   it("emits a route block with ordered loci", () => {
@@ -147,6 +180,6 @@ describe("serializeDsl", () => {
       ],
     };
     const out = serializeDsl(snap);
-    expect(out).toContain(':: Route "Walk"\n  1. A\n  2. B\n');
+    expect(out).toContain("/Walk\n1 A\n2 B\n");
   });
 });

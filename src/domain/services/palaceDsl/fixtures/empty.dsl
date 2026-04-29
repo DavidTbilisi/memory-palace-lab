@@ -1,1 +1,1 @@
-# Palace: Empty
+@Empty

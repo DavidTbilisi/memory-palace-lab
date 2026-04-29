@@ -12,7 +12,7 @@ describe("ImportNodesDialog DSL tab", () => {
 
     const textarea = screen.getByLabelText(/source/i);
     await user.click(textarea);
-    await user.paste("# Palace: Demo\n\n== Alpha\n  > a body\n\n== Beta\n  > b body\n");
+    await user.paste("@Demo\n\nAlpha\n: a body\n\nBeta\n: b body\n");
 
     expect(await screen.findByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();

@@ -82,6 +82,8 @@ export type PalaceStore = {
   selectedShapeId: string | null;
   toolMode: ToolMode;
   routePanelOpen: boolean;
+  availableTags: string[];
+  activeTags: string[];
   connect: ConnectState;
   walkOpen: boolean;
   walkRouteId: string | null;
@@ -121,6 +123,9 @@ export type PalaceStore = {
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
   setRoutePanelOpen: (open: boolean) => void;
+  setAvailableTags: (tags: string[]) => void;
+  toggleActiveTag: (tag: string) => void;
+  clearActiveTags: () => void;
   setConnectFrom: (id: string | null) => void;
   setPendingCast: (v: PalaceStore["pendingCast"]) => void;
   addRoute: (name: string) => void;
@@ -369,6 +374,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     selectedShapeId: null,
     toolMode: "select",
     routePanelOpen: false,
+    availableTags: [],
+    activeTags: [],
     connect: { fromShapeId: null },
     walkOpen: false,
     walkRouteId: null,
@@ -578,6 +585,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     setSelectedShapeId: (selectedShapeId) => set({ selectedShapeId }),
     setToolMode: (toolMode) => set({ toolMode, connect: { fromShapeId: null } }),
     setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
+    setAvailableTags: (availableTags) => set({ availableTags }),
+    toggleActiveTag: (tag) => set((s) => ({
+      activeTags: s.activeTags.includes(tag)
+        ? s.activeTags.filter((t) => t !== tag)
+        : [...s.activeTags, tag],
+    })),
+    clearActiveTags: () => set({ activeTags: [] }),
     setConnectFrom: (fromShapeId) => set({ connect: { fromShapeId } }),
     setPendingCast: (pendingCast) => set({ pendingCast }),
 

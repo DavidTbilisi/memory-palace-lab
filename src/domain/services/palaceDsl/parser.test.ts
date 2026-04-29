@@ -28,7 +28,7 @@ describe("parseDsl — empty input", () => {
 
 describe("parseDsl — palace header", () => {
   it("emits missing-palace-header when there is content but no header", () => {
-    const { diagnostics } = parseDsl("== Foo\n  > bar\n");
+    const { diagnostics } = parseDsl("Foo\n: bar\n");
     const errors = diagnostics.filter((d) => d.severity === "error");
     expect(errors).toHaveLength(1);
     expect(errors[0]!.code).toBe("missing-palace-header");
@@ -36,9 +36,14 @@ describe("parseDsl — palace header", () => {
   });
 
   it("captures palace name and atlas path", () => {
-    const { snapshot } = parseDsl("# Palace: Test\n@atlas /a/b\n");
+    const { snapshot } = parseDsl("@Test\n@atlas /a/b\n");
     expect(snapshot.palaceName).toBe("Test");
     expect(snapshot.atlasPath).toBe("/a/b");
+  });
+
+  it("supports multi-word palace names", () => {
+    const { snapshot } = parseDsl("@SOLID Citadel\n");
+    expect(snapshot.palaceName).toBe("SOLID Citadel");
   });
 });
 
@@ -90,8 +95,8 @@ describe("parseDsl — canonical fixture", () => {
 });
 
 describe("parseDsl — diagnostics", () => {
-  it("emits duplicate-title at the second header line", () => {
-    const text = "# Palace: P\n\n== Foo\n  > a\n\n== Foo\n  > b\n";
+  it("emits duplicate-title at the second occurrence", () => {
+    const text = "@P\n\nFoo\n: a\n\nFoo\n: b\n";
     const { diagnostics } = parseDsl(text);
     const dup = diagnostics.filter((d) => d.code === "duplicate-title");
     expect(dup).toHaveLength(1);
@@ -100,11 +105,11 @@ describe("parseDsl — diagnostics", () => {
   });
 
   it("emits unknown-target for an edge to a non-existent node and continues parsing", () => {
-    const text =
-      "# Palace: P\n\n== A\n  -> Nonexistent\n  -> B\n\n== B\n  > b\n";
+    const text = "@P\n\nA\n>Nonexistent\n>B\n\nB\n";
     const { snapshot, diagnostics } = parseDsl(text);
     const unknown = diagnostics.filter((d) => d.code === "unknown-target");
     expect(unknown).toHaveLength(1);
+    expect(unknown[0]!.severity).toBe("warning");
     expect(unknown[0]!.line).toBe(4);
     expect(snapshot.nodes[0]!.edges.map((e) => e.targetTitle)).toEqual([
       "Nonexistent",
@@ -113,7 +118,7 @@ describe("parseDsl — diagnostics", () => {
   });
 
   it("emits malformed-cast for invalid compact tokens", () => {
-    const text = "# Palace: P\n\n== A\n  -> B  ::129X\n\n== B\n  > b\n";
+    const text = "@P\n\nA\n>B 5678\n\nB\n";
     const { diagnostics } = parseDsl(text);
     const bad = diagnostics.filter((d) => d.code === "malformed-cast");
     expect(bad).toHaveLength(1);
@@ -121,27 +126,27 @@ describe("parseDsl — diagnostics", () => {
     expect(bad[0]!.line).toBe(4);
   });
 
-  it("emits misplaced-line when node attributes are not indented", () => {
-    const text = "# Palace: P\n== A\n> body\n#tag\n-> B\n";
+  it("emits misplaced-line for content/edge/tag before any node", () => {
+    const text = "@P\n: body\n#tag\n>B\n";
     const { diagnostics } = parseDsl(text);
     const misplaced = diagnostics.filter((d) => d.code === "misplaced-line");
     expect(misplaced).toHaveLength(3);
     expect(misplaced.every((d) => d.severity === "error")).toBe(true);
-    expect(misplaced.map((d) => d.line)).toEqual([3, 4, 5]);
+    expect(misplaced.map((d) => d.line)).toEqual([2, 3, 4]);
   });
 
-  it("emits misplaced-line when route loci are not indented under a route", () => {
-    const text = '# Palace: P\n:: Route "Walk"\n1. A\n';
+  it("emits misplaced-line for a route step before any route", () => {
+    const text = "@P\n1 A\n";
     const { diagnostics } = parseDsl(text);
     const misplaced = diagnostics.filter((d) => d.code === "misplaced-line");
     expect(misplaced).toHaveLength(1);
-    expect(misplaced[0]!.line).toBe(3);
+    expect(misplaced[0]!.line).toBe(2);
   });
 });
 
 describe("parseDsl — portal targets", () => {
   it("parses /palaces/<name>#<route>@<node> into all three fields", () => {
-    const text = "# Palace: P\n\n== A\n  ~portal /palaces/foo#routeA@nodeB\n";
+    const text = "@P\n\nA\n@portal /palaces/foo#routeA@nodeB\n";
     const { snapshot } = parseDsl(text);
     expect(snapshot.nodes[0]!.kind).toBe("portal");
     expect(snapshot.nodes[0]!.portal).toEqual({
@@ -152,7 +157,7 @@ describe("parseDsl — portal targets", () => {
   });
 
   it("emits invalid-portal-target for malformed target", () => {
-    const text = "# Palace: P\n\n== A\n  ~portal not-a-path\n";
+    const text = "@P\n\nA\n@portal not-a-path\n";
     const { diagnostics } = parseDsl(text);
     expect(diagnostics.some((d) => d.code === "invalid-portal-target")).toBe(true);
   });
@@ -160,7 +165,7 @@ describe("parseDsl — portal targets", () => {
 
 describe("parseDsl — tags and comments", () => {
   it("emits tag-syntax warning for invalid tokens but keeps valid tags", () => {
-    const text = "# Palace: P\n\n== A\n  #good_tag bad-tag $$$\n";
+    const text = "@P\n\nA\n#good_tag bad-tag $$$\n";
     const { snapshot, diagnostics } = parseDsl(text);
     expect(snapshot.nodes[0]!.tags).toEqual(["good_tag", "bad-tag"]);
     const warnings = diagnostics.filter((d) => d.code === "tag-syntax");
@@ -168,11 +173,61 @@ describe("parseDsl — tags and comments", () => {
     expect(warnings[0]!.severity).toBe("warning");
   });
 
-  it("ignores -- comment lines", () => {
-    const text =
-      "# Palace: P\n-- this is a comment\n== A\n  -- comments work indented too\n  > body\n";
+  it("ignores -- comment lines anywhere", () => {
+    const text = "@P\n-- this is a comment\nA\n-- indented or not\n: body\n";
     const { snapshot, diagnostics } = parseDsl(text);
     expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(snapshot.nodes[0]!.content).toBe("body");
+  });
+});
+
+describe("parseDsl — edges", () => {
+  it("parses edge with 4-digit CAST inline", () => {
+    const text = "@P\n\nA\n>B 1000\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.edges[0]).toEqual({
+      targetTitle: "B",
+      cast: { ab: "Giant", cd: "", ef: "", gh: "" },
+      sourceLine: 4,
+    });
+  });
+
+  it("parses edge with no CAST as all-empty cast", () => {
+    const text = "@P\n\nA\n>B\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.edges[0]!.cast).toEqual({
+      ab: "",
+      cd: "",
+      ef: "",
+      gh: "",
+    });
+  });
+
+  it("parses multi-word target with CAST", () => {
+    const text = "@P\n\nNewton's Laws\n\nF = ma\n>Newton's Laws 0010\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[1]!.edges[0]!.targetTitle).toBe("Newton's Laws");
+    expect(snapshot.nodes[1]!.edges[0]!.cast).toEqual({
+      ab: "",
+      cd: "",
+      ef: "Rock",
+      gh: "",
+    });
+  });
+});
+
+describe("parseDsl — routes", () => {
+  it("parses a route with ordered loci", () => {
+    const text = "@P\n\nA\n\nB\n\n/Main\n1 A\n2 B\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes).toEqual([
+      { name: "Main", loci: ["A", "B"], sourceLine: 7 },
+    ]);
+  });
+
+  it("supports route names with spaces", () => {
+    const text = "@P\n\nA\n\n/First Walk\n1 A\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.name).toBe("First Walk");
   });
 });

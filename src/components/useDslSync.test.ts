@@ -27,7 +27,7 @@ describe("useDslSync", () => {
     const apply = vi.fn<(s: DslSnapshot) => DslApplyResult>(() => EMPTY_RESULT);
     const { result } = renderHook(() => useDslSync(apply));
 
-    act(() => result.current.onChange("# Palace: Demo\n"));
+    act(() => result.current.onChange("@Demo\n"));
     expect(apply).not.toHaveBeenCalled();
 
     act(() => {
@@ -46,15 +46,15 @@ describe("useDslSync", () => {
     const apply = vi.fn<(s: DslSnapshot) => DslApplyResult>(() => EMPTY_RESULT);
     const { result } = renderHook(() => useDslSync(apply));
 
-    act(() => result.current.onChange("# Palace: A\n"));
+    act(() => result.current.onChange("@A\n"));
     act(() => {
       vi.advanceTimersByTime(100);
     });
-    act(() => result.current.onChange("# Palace: B\n"));
+    act(() => result.current.onChange("@B\n"));
     act(() => {
       vi.advanceTimersByTime(100);
     });
-    act(() => result.current.onChange("# Palace: C\n"));
+    act(() => result.current.onChange("@C\n"));
     act(() => {
       vi.advanceTimersByTime(200);
     });
@@ -95,6 +95,7 @@ describe("useDslSync", () => {
       "SOLID Main Route",
       "Violation Route",
     ]);
+
     expect(snapshot.routes.map((route) => route.loci.length)).toEqual([7, 5]);
     expect(snapshot.nodes.find((node) => node.title === "Gate of SOLID")?.edges).toHaveLength(5);
     expect(snapshot.nodes.find((node) => node.title === "Dependency Tower")?.edges).toHaveLength(2);
@@ -104,15 +105,11 @@ describe("useDslSync", () => {
     const apply = vi.fn<(s: DslSnapshot) => DslApplyResult>(() => EMPTY_RESULT);
     const { result } = renderHook(() => useDslSync(apply));
     const malformed = [
-      "# Palace: SOLID Citadel",
+      "@SOLID Citadel",
       "",
-      "== Gate of SOLID",
-      "> Central fortress connecting five engineering districts.",
-      "#solid architecture",
-      "-> Single Responsibility Forge  ::0001",
-      "",
-      ":: Route \"SOLID Main Route\"",
-      "1. Gate of SOLID",
+      ": content before any node",
+      "#orphan-tag",
+      ">Orphan Edge",
     ].join("\n");
 
     act(() => result.current.onChange(malformed));

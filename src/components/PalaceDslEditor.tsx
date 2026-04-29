@@ -6,6 +6,7 @@ import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
 import { serializeDsl } from "../domain/services/palaceDsl/serializer";
 import { usePalaceStore } from "../store/palaceStore";
 import { palaceDslHighlight } from "./palaceDslHighlight";
+import { palaceDslTooltip } from "./palaceDslTooltip";
 import { useDslSync } from "./useDslSync";
 
 interface PalaceDslEditorProps {
@@ -114,6 +115,7 @@ export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorPr
           },
         }),
         palaceDslHighlight,
+        palaceDslTooltip,
         updateListener,
       ],
     });
