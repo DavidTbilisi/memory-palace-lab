@@ -572,6 +572,14 @@ export function MemoryPalaceApp() {
         onSelect: () => setImportOpen(true),
       },
       {
+        id: "dsl.toggle",
+        group: "Actions",
+        title: "Toggle DSL editor",
+        subtitle: "Cmd/Ctrl+E - split-pane palace DSL",
+        keywords: "dsl text editor split pane palace",
+        onSelect: () => setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen),
+      },
+      {
         id: "page-graph",
         group: "Pages",
         title: "Graph workspace",
@@ -656,7 +664,7 @@ export function MemoryPalaceApp() {
         onSelect: () => navigateToPage("help"),
       },
     ],
-    [navigateToPage],
+    [navigateToPage, setDslPaneOpen],
   );
 
   const palacePaletteCommands = useMemo<PaletteCommand[]>(
