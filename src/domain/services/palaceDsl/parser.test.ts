@@ -231,3 +231,118 @@ describe("parseDsl — routes", () => {
     expect(snapshot.routes[0]!.name).toBe("First Walk");
   });
 });
+
+describe("parseDsl — stable node identifiers (Feature 1)", () => {
+  it("parses explicit [id] Title syntax and stores id and implicitId", () => {
+    const { snapshot } = parseDsl("@P\n\n[auth] Authentication\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.id).toBe("auth");
+    expect(node.implicitId).toBe("auth");
+    expect(node.title).toBe("Authentication");
+  });
+
+  it("normalizes uppercase id to lowercase", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\n[AUTH] Authentication\n");
+    expect(snapshot.nodes[0]!.id).toBe("auth");
+    expect(diagnostics.filter((d) => d.code === "malformed-node-id")).toHaveLength(0);
+  });
+
+  it("derives implicitId from title when no id declared", () => {
+    const { snapshot } = parseDsl("@P\n\nJSON Web Token\n");
+    expect(snapshot.nodes[0]!.id).toBeNull();
+    expect(snapshot.nodes[0]!.implicitId).toBe("json-web-token");
+  });
+
+  it("derives collision-safe implicitId with numeric suffix", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n\nAuth\n");
+    // second is duplicate title (error) but implicitId still assigned
+    expect(snapshot.nodes[0]!.implicitId).toBe("auth");
+  });
+
+  it("emits duplicate-node-id for two nodes with the same explicit id", () => {
+    const { diagnostics } = parseDsl("@P\n\n[auth] Authentication\n\n[auth] Auth Module\n");
+    const dups = diagnostics.filter((d) => d.code === "duplicate-node-id");
+    expect(dups).toHaveLength(1);
+    expect(dups[0]!.severity).toBe("error");
+    expect(dups[0]!.line).toBe(5);
+  });
+
+  it("emits malformed-node-id for an empty id []", () => {
+    const { diagnostics } = parseDsl("@P\n\n[] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "malformed-node-id")).toBe(true);
+  });
+
+  it("emits reserved-node-id for reserved keyword ids", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "reserved-node-id")).toBe(true);
+  });
+
+  it("emits malformed-node-id for id starting with digit", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "malformed-node-id")).toBe(true);
+  });
+
+  it("does not affect edge resolution — edges can target by title regardless of id", () => {
+    const text = "@P\n\n[auth] Authentication\n>[auth] Authentication 0010\n\n[auth] Authentication\n";
+    const { snapshot } = parseDsl(text);
+    // edge target is stored as-is; resolution is by title
+    expect(snapshot.nodes[0]!.edges[0]!.targetTitle).toBe("[auth] Authentication");
+  });
+
+  it("plain title nodes (no id) produce null id and derived implicitId", () => {
+    const { snapshot } = parseDsl("@P\n\nPassword Hashing\n");
+    expect(snapshot.nodes[0]!.id).toBeNull();
+    expect(snapshot.nodes[0]!.implicitId).toBe("password-hashing");
+  });
+});
+
+describe("parseDsl — structured tags (Feature 5)", () => {
+  it("parses #key:value into structuredTags", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.structuredTags).toEqual([{ key: "domain", value: "security", raw: "#domain:security" }]);
+  });
+
+  it("stores structured tag as key:value in flat tags for backward compat", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security\n");
+    expect(snapshot.nodes[0]!.tags).toContain("domain:security");
+  });
+
+  it("parses multiple structured tags on one line", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security #difficulty:advanced\n");
+    const { structuredTags } = snapshot.nodes[0]!;
+    expect(structuredTags).toHaveLength(2);
+    expect(structuredTags[0]).toMatchObject({ key: "domain", value: "security" });
+    expect(structuredTags[1]).toMatchObject({ key: "difficulty", value: "advanced" });
+  });
+
+  it("parses plain tags alongside structured tags on the same line", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#security #domain:auth\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.tags).toContain("security");
+    expect(node.tags).toContain("domain:auth");
+    expect(node.structuredTags).toHaveLength(1);
+    expect(node.structuredTags[0]).toMatchObject({ key: "domain", value: "auth" });
+  });
+
+  it("normalizes structured tag keys to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#Domain:Security\n");
+    expect(snapshot.nodes[0]!.structuredTags[0]).toMatchObject({ key: "domain", value: "Security" });
+  });
+
+  it("handles empty value in structured tag #key:", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#status:\n");
+    expect(snapshot.nodes[0]!.structuredTags[0]).toMatchObject({ key: "status", value: null });
+  });
+
+  it("merges structured tags from multiple tag lines on the same node", () => {
+    const text = "@P\n\nAuth\n#domain:security\n#difficulty:advanced\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.structuredTags).toHaveLength(2);
+  });
+
+  it("does not emit diagnostics for valid structured tags", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n#domain:security #difficulty:beginner\n");
+    expect(diagnostics.filter((d) => d.code === "tag-syntax")).toHaveLength(0);
+  });
+});

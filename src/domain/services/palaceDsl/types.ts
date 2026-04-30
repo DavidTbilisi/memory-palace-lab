@@ -8,7 +8,11 @@ export type DslDiagnosticCode =
   | "missing-palace-header"
   | "invalid-portal-target"
   | "misplaced-line"
-  | "tag-syntax";
+  | "tag-syntax"
+  // Feature 1 — stable node identifiers
+  | "duplicate-node-id"
+  | "malformed-node-id"
+  | "reserved-node-id";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -19,6 +23,13 @@ export interface DslDiagnostic {
   code: DslDiagnosticCode;
 }
 
+// Feature 5 — structured tag (#key:value)
+export interface DslStructuredTag {
+  key: string;
+  value: string | null;
+  raw: string;
+}
+
 export interface DslEdgeIntent {
   targetTitle: string;
   cast: { ab: string; cd: string; ef: string; gh: string };
@@ -27,10 +38,16 @@ export interface DslEdgeIntent {
 
 export interface DslNode {
   title: string;
+  /** Explicit stable identifier declared as `[id] Title`. Null if not declared. */
+  id: string | null;
+  /** Always-set identifier: explicit id if declared, otherwise derived from title. */
+  implicitId: string;
   content: string;
   kind: MemoryNodeKind;
   portal: PalacePortalRef | null;
   tags: string[];
+  /** Structured #key:value tags parsed from tag lines. */
+  structuredTags: DslStructuredTag[];
   edges: DslEdgeIntent[];
   sourceLine: number;
 }

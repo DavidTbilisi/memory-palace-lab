@@ -7,6 +7,7 @@ import type {
   DslParseResult,
   DslRoute,
   DslSnapshot,
+  DslStructuredTag,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ type ClassifiedLine =
   | { type: "edge"; rest: string }
   | { type: "route-hdr"; name: string }
   | { type: "route-step"; title: string }
-  | { type: "node"; title: string };
+  | { type: "node"; title: string; id: string | null };
 
 function classify(body: string): ClassifiedLine {
   if (body.startsWith("@atlas")) {
@@ -79,7 +80,16 @@ function classify(body: string): ClassifiedLine {
   if (stepMatch) {
     return { type: "route-step", title: stepMatch[2]!.trim() };
   }
-  return { type: "node", title: body };
+  // Feature 1 — stable node identifier: [id] Title
+  if (body.startsWith("[")) {
+    const idMatch = body.match(/^\[([^\]]*)\]\s*(.*)/);
+    if (idMatch) {
+      const rawId = idMatch[1]!;
+      const title = idMatch[2]!.trim();
+      return { type: "node", title, id: rawId };
+    }
+  }
+  return { type: "node", title: body, id: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -107,24 +117,75 @@ function parsePortalTarget(s: string): PalacePortalRef | null {
   return ref;
 }
 
-function parseTagsLine(
-  body: string,
-): { tags: string[]; invalid: { token: string; offset: number }[] } {
+// ---------------------------------------------------------------------------
+// Feature 1 — stable node identifier helpers
+// ---------------------------------------------------------------------------
+
+const RESERVED_NODE_IDS = new Set(["palace", "import", "route"]);
+const NODE_ID_RE = /^[a-z_][a-z0-9_-]*$/;
+
+/** Validates a raw (already-lowercased) node id token. Returns error string or null. */
+function validateNodeId(id: string): string | null {
+  if (id.length === 0) return "Node identifier must not be empty";
+  if (id.length > 64) return `Node identifier "${id}" exceeds 64-character limit`;
+  if (RESERVED_NODE_IDS.has(id)) return `"${id}" is a reserved identifier`;
+  if (!NODE_ID_RE.test(id)) return `Node identifier "${id}" contains invalid characters`;
+  return null;
+}
+
+/** Derives a stable implicit id from a title. Collisions resolved by caller via usedIds. */
+function deriveImplicitId(title: string, usedIds: Set<string>): string {
+  let base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  if (base === "") base = "node";
+  if (!usedIds.has(base)) return base;
+  let n = 2;
+  while (usedIds.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+// ---------------------------------------------------------------------------
+// Feature 5 — structured tag helpers
+// ---------------------------------------------------------------------------
+
+function parseTagsLine(body: string): {
+  tags: string[];
+  structuredTags: DslStructuredTag[];
+  invalid: { token: string; offset: number }[];
+} {
   const tags: string[] = [];
+  const structuredTags: DslStructuredTag[] = [];
   const invalid: { token: string; offset: number }[] = [];
   const tokenRe = /\S+/g;
   let m: RegExpExecArray | null;
   while ((m = tokenRe.exec(body)) !== null) {
-    const token = m[0];
+    const token = m[0]!;
     const stripped = token.replace(/^#/, "");
-    if (/^[A-Za-z0-9_-]+$/.test(stripped)) {
+    const colonIdx = stripped.indexOf(":");
+    if (colonIdx > 0) {
+      // Structured tag: #key:value
+      const key = stripped.slice(0, colonIdx).toLowerCase();
+      const value = stripped.slice(colonIdx + 1);
+      if (/^[a-z][a-z0-9_-]*$/.test(key)) {
+        structuredTags.push({ key, value: value || null, raw: token });
+        // Also keep in flat tags as "key:value" for backward-compat consumers
+        const flat = `${key}:${value}`;
+        if (!tags.includes(flat)) tags.push(flat);
+      } else {
+        invalid.push({ token, offset: m.index });
+      }
+    } else if (/^[A-Za-z0-9_-]+$/.test(stripped)) {
+      // Plain tag
       const lower = stripped.toLowerCase();
       if (!tags.includes(lower)) tags.push(lower);
     } else if (token !== "#") {
       invalid.push({ token, offset: m.index });
     }
   }
-  return { tags, invalid };
+  return { tags, structuredTags, invalid };
 }
 
 function parseEdgeRest(rest: string): { target: string; castToken: string | null } {
@@ -150,6 +211,7 @@ export function parseDsl(text: string): DslParseResult {
   const diagnostics: DslDiagnostic[] = [];
   const snapshot = emptySnapshot();
   const seenTitles = new Set<string>();
+  const seenIds = new Set<string>();
   let sawHeader = false;
   let currentNode: DslNode | null = null;
   let currentRoute: DslRoute | null = null;
@@ -177,7 +239,7 @@ export function parseDsl(text: string): DslParseResult {
 
       case "node": {
         flush();
-        const { title } = cl;
+        const { title, id: rawId } = cl;
         if (seenTitles.has(title)) {
           diag(
             diagnostics,
@@ -191,12 +253,52 @@ export function parseDsl(text: string): DslParseResult {
         } else {
           seenTitles.add(title);
         }
+
+        // Feature 1 — resolve stable id
+        let resolvedId: string | null = null;
+        if (rawId !== null) {
+          const normalizedId = rawId.toLowerCase();
+          const idErr = validateNodeId(normalizedId);
+          if (idErr) {
+            diag(
+              diagnostics,
+              "error",
+              normalizedId === "" || !NODE_ID_RE.test(normalizedId)
+                ? "malformed-node-id"
+                : "reserved-node-id",
+              num,
+              1,
+              body.length,
+              idErr,
+            );
+          } else if (seenIds.has(normalizedId)) {
+            diag(
+              diagnostics,
+              "error",
+              "duplicate-node-id",
+              num,
+              1,
+              body.length,
+              `Duplicate node identifier "${normalizedId}"`,
+            );
+          } else {
+            resolvedId = normalizedId;
+            seenIds.add(normalizedId);
+          }
+        }
+
+        const implicitId = resolvedId ?? deriveImplicitId(title, seenIds);
+        if (!resolvedId) seenIds.add(implicitId);
+
         currentNode = {
           title,
+          id: resolvedId,
+          implicitId,
           content: "",
           kind: "memory",
           portal: null,
           tags: [],
+          structuredTags: [],
           edges: [],
           sourceLine: num,
         };
@@ -241,9 +343,12 @@ export function parseDsl(text: string): DslParseResult {
           break;
         }
         {
-          const { tags, invalid } = parseTagsLine(body);
+          const { tags, structuredTags, invalid } = parseTagsLine(body);
           for (const tag of tags) {
             if (!currentNode.tags.includes(tag)) currentNode.tags.push(tag);
+          }
+          for (const st of structuredTags) {
+            currentNode.structuredTags.push(st);
           }
           for (const inv of invalid) {
             diag(
