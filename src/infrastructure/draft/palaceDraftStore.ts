@@ -31,8 +31,12 @@ export function savePalaceDraft(snapshot: PalaceSnapshot, savedAt = new Date().t
     savedAt,
     snapshot,
   };
-  storage.setItem(draftKey(snapshot.palace.id), JSON.stringify(record));
-  return savedAt;
+  try {
+    storage.setItem(draftKey(snapshot.palace.id), JSON.stringify(record));
+    return savedAt;
+  } catch {
+    return null;
+  }
 }
 
 export function loadPalaceDraft(palaceId: string): PalaceDraftRecord | null {

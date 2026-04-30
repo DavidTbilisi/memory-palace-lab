@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearPalaceDraft, loadPalaceDraft, savePalaceDraft } from "./palaceDraftStore";
 import type { PalaceSnapshot } from "../../domain/entities/types";
 
@@ -51,5 +51,18 @@ describe("palaceDraftStore", () => {
     clearPalaceDraft(snapshot.palace.id);
 
     expect(loadPalaceDraft(snapshot.palace.id)).toBeNull();
+  });
+
+  it("does not throw when browser draft storage is full", () => {
+    const snapshot = makeSnapshot();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded.", "QuotaExceededError");
+    });
+
+    try {
+      expect(savePalaceDraft(snapshot, "2026-04-26T01:02:03.000Z")).toBeNull();
+    } finally {
+      setItem.mockRestore();
+    }
   });
 });
