@@ -141,6 +141,16 @@ function validateNodeId(id: string): string | null {
   return null;
 }
 
+/** Normalizes a route name to a lowercase-hyphenated slug. */
+function normalizeRouteName(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return slug || "route";
+}
+
 /** Derives a stable implicit id from a title. Collisions resolved by caller via usedIds. */
 function deriveImplicitId(title: string, usedIds: Set<string>): string {
   let base = title
@@ -402,12 +412,14 @@ export function parseDsl(text: string): DslParseResult {
   let sawHeader = false;
   let currentNode: DslNode | null = null;
   let currentRoute: DslRoute | null = null;
+  let routeHasMembers = false;
 
   function flush() {
     if (currentNode) snapshot.nodes.push(currentNode);
     if (currentRoute) snapshot.routes.push(currentRoute);
     currentNode = null;
     currentRoute = null;
+    routeHasMembers = false;
   }
 
   for (const { body, num } of lines) {
@@ -495,7 +507,7 @@ export function parseDsl(text: string): DslParseResult {
 
       case "route-hdr":
         flush();
-        currentRoute = { name: cl.name, loci: [], sourceLine: num };
+        currentRoute = { name: cl.name, normalizedName: normalizeRouteName(cl.name), metadata: [], loci: [], sourceLine: num };
         break;
 
       case "body":
@@ -528,19 +540,7 @@ export function parseDsl(text: string): DslParseResult {
         break;
 
       case "tags":
-        if (!currentNode) {
-          diag(
-            diagnostics,
-            "error",
-            "misplaced-line",
-            num,
-            1,
-            body.length,
-            "tag lines must appear under a node",
-          );
-          break;
-        }
-        {
+        if (currentNode) {
           const { tags, structuredTags, invalid } = parseTagsLine(body);
           for (const tag of tags) {
             if (!currentNode.tags.includes(tag)) currentNode.tags.push(tag);
@@ -559,6 +559,31 @@ export function parseDsl(text: string): DslParseResult {
               `Invalid tag token "${inv.token}"`,
             );
           }
+        } else if (currentRoute && !routeHasMembers) {
+          // Feature 7 — route metadata: tags before first locus belong to the route
+          const { structuredTags, invalid } = parseTagsLine(body);
+          for (const st of structuredTags) currentRoute.metadata.push(st);
+          for (const inv of invalid) {
+            diag(
+              diagnostics,
+              "warning",
+              "tag-syntax",
+              num,
+              inv.offset + 1,
+              inv.token.length,
+              `Invalid tag token "${inv.token}"`,
+            );
+          }
+        } else {
+          diag(
+            diagnostics,
+            "error",
+            "misplaced-line",
+            num,
+            1,
+            body.length,
+            "tag lines must appear under a node",
+          );
         }
         break;
 
@@ -677,6 +702,7 @@ export function parseDsl(text: string): DslParseResult {
           );
           break;
         }
+        routeHasMembers = true;
         currentRoute.loci.push(cl.title);
         break;
     }
@@ -724,6 +750,20 @@ export function parseDsl(text: string): DslParseResult {
           1,
           `Route locus "${locusTitle}" does not match any node`,
         );
+      }
+    }
+  }
+
+  // Feature 7 — validate route prereq metadata tags
+  const routeNames = new Set(snapshot.routes.map((r) => r.name));
+  const routeNormNames = new Set(snapshot.routes.map((r) => r.normalizedName));
+  for (const route of snapshot.routes) {
+    for (const tag of route.metadata) {
+      if (tag.key === "prereq" && tag.value !== null) {
+        if (!routeNames.has(tag.value) && !routeNormNames.has(tag.value)) {
+          diag(diagnostics, "warning", "route-prereq-unresolved", route.sourceLine, 1, 1,
+            `Unresolved route prereq "${tag.value}"`);
+        }
       }
     }
   }

@@ -90,6 +90,8 @@ describe("parseDsl — canonical fixture", () => {
     expect(snapshot.routes).toEqual([
       {
         name: "First Walk",
+        normalizedName: "first-walk",
+        metadata: [],
         loci: ["Newton's Laws", "F = ma", "Gravity"],
         sourceLine: 17,
       },
@@ -225,7 +227,7 @@ describe("parseDsl — routes", () => {
     const text = "@P\n\nA\n\nB\n\n/Main\n1 A\n2 B\n";
     const { snapshot } = parseDsl(text);
     expect(snapshot.routes).toEqual([
-      { name: "Main", loci: ["A", "B"], sourceLine: 7 },
+      { name: "Main", normalizedName: "main", metadata: [], loci: ["A", "B"], sourceLine: 7 },
     ]);
   });
 
@@ -297,6 +299,75 @@ describe("parseDsl — stable node identifiers (Feature 1)", () => {
     const { snapshot } = parseDsl("@P\n\nPassword Hashing\n");
     expect(snapshot.nodes[0]!.id).toBeNull();
     expect(snapshot.nodes[0]!.implicitId).toBe("password-hashing");
+  });
+});
+
+describe("parseDsl — route metadata (Feature 7)", () => {
+  it("routes have normalizedName derived from route name", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Beginner Security\n1 A\n");
+    expect(snapshot.routes[0]!.normalizedName).toBe("beginner-security");
+  });
+
+  it("routes without metadata have empty metadata array", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Main\n1 A\n");
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+  });
+
+  it("structured tags before first locus are route metadata", () => {
+    const text = "@P\n\nA\n\n/Beginner\n#difficulty:beginner #duration:45m\n1 A\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "misplaced-line")).toHaveLength(0);
+    expect(snapshot.routes[0]!.metadata).toHaveLength(2);
+    expect(snapshot.routes[0]!.metadata[0]).toMatchObject({ key: "difficulty", value: "beginner" });
+    expect(snapshot.routes[0]!.metadata[1]).toMatchObject({ key: "duration", value: "45m" });
+  });
+
+  it("metadata tags from multiple tag lines are merged", () => {
+    const text = "@P\n\nA\n\n/Main\n#difficulty:beginner\n#mode:linear\n1 A\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata).toHaveLength(2);
+  });
+
+  it("tag lines after first locus are NOT route metadata", () => {
+    const text = "@P\n\nA\n\nB\n\n/Main\n1 A\n#mode:linear\n2 B\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+    // tag after first member is misplaced
+    expect(diagnostics.some((d) => d.code === "misplaced-line")).toBe(true);
+  });
+
+  it("loci are still collected after metadata tags", () => {
+    const text = "@P\n\nA\n\nB\n\n/Main\n#difficulty:beginner\n1 A\n2 B\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.loci).toEqual(["A", "B"]);
+  });
+
+  it("emits route-prereq-unresolved warning for unknown prereq", () => {
+    const text = "@P\n\nA\n\n/Main\n#prereq:Missing Route\n1 A\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.some((d) => d.code === "route-prereq-unresolved")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "route-prereq-unresolved")!.severity).toBe("warning");
+  });
+
+  it("does not emit route-prereq-unresolved for a valid prereq", () => {
+    const text = "@P\n\nA\n\n/Intro\n1 A\n\n/Advanced\n#prereq:Intro\n1 A\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+  });
+
+  it("plain tags in route metadata are ignored (only structured tags stored)", () => {
+    const text = "@P\n\nA\n\n/Main\n#plaintag #difficulty:beginner\n1 A\n";
+    const { snapshot } = parseDsl(text);
+    // Only structured tag is in metadata
+    expect(snapshot.routes[0]!.metadata).toHaveLength(1);
+    expect(snapshot.routes[0]!.metadata[0]).toMatchObject({ key: "difficulty" });
+  });
+
+  it("routes without metadata parse identically to before", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n\n/Main\n1 A\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(snapshot.routes[0]!.loci).toEqual(["A"]);
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
   });
 });
 

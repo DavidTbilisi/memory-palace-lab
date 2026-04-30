@@ -24,7 +24,9 @@ export type DslDiagnosticCode =
   | "inline-ref-unresolved-id"
   | "inline-ref-unresolved-title"
   | "inline-ref-unresolved-alias"
-  | "inline-ref-self";
+  | "inline-ref-self"
+  // Feature 7 — route metadata
+  | "route-prereq-unresolved";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -100,6 +102,10 @@ export interface DslNode {
 
 export interface DslRoute {
   name: string;
+  /** Route name normalized to lowercase-hyphenated form. */
+  normalizedName: string;
+  /** Structured tags appearing after the route header but before the first locus. */
+  metadata: DslStructuredTag[];
   loci: string[];
   sourceLine: number;
 }
