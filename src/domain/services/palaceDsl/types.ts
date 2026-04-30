@@ -18,7 +18,13 @@ export type DslDiagnosticCode =
   | "alias-invalid-cast"
   | "alias-duplicate"
   | "alias-cast-conflict"
-  | "alias-unresolved";
+  | "alias-unresolved"
+  // Feature 2 — inline node references
+  | "inline-ref-unclosed"
+  | "inline-ref-unresolved-id"
+  | "inline-ref-unresolved-title"
+  | "inline-ref-unresolved-alias"
+  | "inline-ref-self";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -35,6 +41,22 @@ export interface DslStructuredTag {
   value: string | null;
   raw: string;
 }
+
+// Feature 2 — inline node references in body text
+export interface DslPlainText {
+  kind: "plain";
+  text: string;
+}
+
+export interface DslInlineRef {
+  kind: "ref";
+  refType: "id" | "title" | "alias";
+  value: string;
+  /** implicitId of the resolved node, cast token for alias refs, null if unresolved. */
+  resolved: string | null;
+}
+
+export type DslBodySegment = DslPlainText | DslInlineRef;
 
 // Feature 3 — edge semantic aliases
 export interface DslAliasDeclaration {
@@ -65,6 +87,8 @@ export interface DslNode {
   /** Always-set identifier: explicit id if declared, otherwise derived from title. */
   implicitId: string;
   content: string;
+  /** Body text parsed into segments with inline references resolved. */
+  bodySegments: DslBodySegment[];
   kind: MemoryNodeKind;
   portal: PalacePortalRef | null;
   tags: string[];

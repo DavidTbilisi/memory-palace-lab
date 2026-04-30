@@ -300,6 +300,102 @@ describe("parseDsl — stable node identifiers (Feature 1)", () => {
   });
 });
 
+describe("parseDsl — inline node references (Feature 2)", () => {
+  it("body with no refs produces single plain segment", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: simple body\n");
+    expect(snapshot.nodes[0]!.bodySegments).toEqual([{ kind: "plain", text: "simple body" }]);
+  });
+
+  it("parses @id ref and resolves against node implicitId", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n: delegates to @auth for identity\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-id")).toHaveLength(0);
+    const segs = snapshot.nodes[1]!.bodySegments;
+    const ref = segs.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "id", value: "auth", resolved: "auth" });
+  });
+
+  it("parses [[Title]] ref and resolves against node title", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n: see [[Auth]] for details\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-title")).toHaveLength(0);
+    const segs = snapshot.nodes[1]!.bodySegments;
+    const ref = segs.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "title", value: "Auth", resolved: "auth" });
+  });
+
+  it("parses &alias ref and resolves to cast token", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n~dep:1000\n\nA\n: see &dep concept\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-alias")).toHaveLength(0);
+    const ref = snapshot.nodes[0]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "alias", value: "dep", resolved: "1000" });
+  });
+
+  it("emits inline-ref-unresolved-id error for unknown @id", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see @unknown node\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-id")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-id")!.severity).toBe("error");
+  });
+
+  it("emits inline-ref-unresolved-title warning for unknown [[Title]]", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see [[Missing Node]] here\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-title")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-title")!.severity).toBe("warning");
+  });
+
+  it("emits inline-ref-unresolved-alias warning for unknown &alias", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: via &nope thing\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-alias")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-alias")!.severity).toBe("warning");
+  });
+
+  it("emits inline-ref-unclosed error for [[without closing", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see [[Unclosed here\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unclosed")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unclosed")!.severity).toBe("error");
+    expect(diagnostics.find((d) => d.code === "inline-ref-unclosed")!.line).toBe(4);
+  });
+
+  it("emits inline-ref-self warning for self-referencing @id", () => {
+    const { diagnostics } = parseDsl("@P\n\nauth\n: @auth is the authentication module\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-self")).toBe(true);
+  });
+
+  it("handles escape sequences \\@ \\& \\[[ as literals", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: write \\@user and \\[[Title]] and \\&alias\n");
+    const segs = snapshot.nodes[0]!.bodySegments;
+    expect(segs.every((s) => s.kind === "plain")).toBe(true);
+    const joined = segs.map((s) => (s as { text: string }).text).join("");
+    expect(joined).toContain("@user");
+    expect(joined).toContain("[[Title]]");
+    expect(joined).toContain("&alias");
+  });
+
+  it("resolves @id to lowercase — @Auth resolves same as @auth", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n\nLogin\n: delegates to @Auth for identity\n");
+    const ref = snapshot.nodes[1]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ value: "auth", resolved: "auth" });
+  });
+
+  it("multi-line body accumulates segments with \\n between lines", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: line one\n: line two\n");
+    const segs = snapshot.nodes[0]!.bodySegments;
+    const texts = segs.map((s) => (s as { text: string }).text);
+    expect(texts).toContain("\n");
+    expect(texts).toContain("line one");
+    expect(texts).toContain("line two");
+  });
+
+  it("existing body text without refs produces no diagnostics and empty refs", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n: plain text body no special chars\n");
+    expect(diagnostics).toHaveLength(0);
+    expect(snapshot.nodes[0]!.bodySegments.every((s) => s.kind === "plain")).toBe(true);
+  });
+
+  it("content field remains unchanged alongside bodySegments", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: verifies @id identity\n");
+    expect(snapshot.nodes[0]!.content).toBe("verifies @id identity");
+  });
+});
+
 describe("parseDsl — edge semantic aliases (Feature 3)", () => {
   it("parses ~alias:cast declaration into snapshot.aliases", () => {
     const text = "@P\n~dep:0001 depends on\n\nA\n";

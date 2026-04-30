@@ -2,9 +2,11 @@ import type { PalacePortalRef } from "../../entities/types";
 import { parseCast } from "./cast";
 import type {
   DslAliasDeclaration,
+  DslBodySegment,
   DslDiagnostic,
   DslDiagnosticCode,
   DslEdgeSemantic,
+  DslInlineRef,
   DslNode,
   DslParseResult,
   DslRoute,
@@ -192,6 +194,95 @@ function parseTagsLine(body: string): {
     }
   }
   return { tags, structuredTags, invalid };
+}
+
+// ---------------------------------------------------------------------------
+// Feature 2 — inline body reference scanner
+// ---------------------------------------------------------------------------
+
+function scanBodySegments(text: string): {
+  segments: DslBodySegment[];
+  unclosed: boolean;
+} {
+  const segments: DslBodySegment[] = [];
+  let i = 0;
+  let plainStart = 0;
+
+  function flushPlain(end: number) {
+    if (end > plainStart) segments.push({ kind: "plain", text: text.slice(plainStart, end) });
+  }
+
+  while (i < text.length) {
+    const ch = text[i]!;
+
+    // Escape sequences: \@ \& \[[
+    if (ch === "\\" && i + 1 < text.length) {
+      const next = text[i + 1]!;
+      if (next === "@" || next === "&") {
+        flushPlain(i);
+        segments.push({ kind: "plain", text: next });
+        i += 2;
+        plainStart = i;
+        continue;
+      }
+      if (next === "[" && text[i + 2] === "[") {
+        flushPlain(i);
+        segments.push({ kind: "plain", text: "[[" });
+        i += 3;
+        plainStart = i;
+        continue;
+      }
+    }
+
+    // @id reference
+    if (ch === "@") {
+      let j = i + 1;
+      while (j < text.length && /[a-z0-9_-]/i.test(text[j]!)) j++;
+      const value = text.slice(i + 1, j).toLowerCase();
+      if (value.length > 0) {
+        flushPlain(i);
+        segments.push({ kind: "ref", refType: "id", value, resolved: null });
+        i = j;
+        plainStart = i;
+        continue;
+      }
+    }
+
+    // [[Title]] reference
+    if (ch === "[" && text[i + 1] === "[") {
+      const closeIdx = text.indexOf("]]", i + 2);
+      if (closeIdx === -1) {
+        flushPlain(i);
+        segments.push({ kind: "plain", text: text.slice(i) });
+        return { segments, unclosed: true };
+      }
+      flushPlain(i);
+      const value = text.slice(i + 2, closeIdx);
+      segments.push({ kind: "ref", refType: "title", value, resolved: null });
+      i = closeIdx + 2;
+      plainStart = i;
+      continue;
+    }
+
+    // &alias reference
+    if (ch === "&") {
+      let j = i + 1;
+      while (j < text.length && /[a-z0-9_-]/i.test(text[j]!)) j++;
+      const value = text.slice(i + 1, j).toLowerCase();
+      if (value.length > 0) {
+        flushPlain(i);
+        segments.push({ kind: "ref", refType: "alias", value, resolved: null });
+        i = j;
+        plainStart = i;
+        continue;
+      }
+    }
+
+    i++;
+  }
+
+  flushPlain(text.length);
+  return { segments, unclosed: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +482,7 @@ export function parseDsl(text: string): DslParseResult {
           id: resolvedId,
           implicitId,
           content: "",
+          bodySegments: [],
           kind: "memory",
           portal: null,
           tags: [],
@@ -419,10 +511,20 @@ export function parseDsl(text: string): DslParseResult {
           );
           break;
         }
-        currentNode.content =
-          currentNode.content === ""
-            ? cl.text
-            : `${currentNode.content}\n${cl.text}`;
+        {
+          const { segments, unclosed } = scanBodySegments(cl.text);
+          if (unclosed) {
+            diag(diagnostics, "error", "inline-ref-unclosed", num, 1, body.length, "Unclosed inline title reference [[");
+          }
+          if (currentNode.bodySegments.length > 0) {
+            currentNode.bodySegments.push({ kind: "plain", text: "\n" });
+          }
+          for (const seg of segments) currentNode.bodySegments.push(seg);
+          currentNode.content =
+            currentNode.content === ""
+              ? cl.text
+              : `${currentNode.content}\n${cl.text}`;
+        }
         break;
 
       case "tags":
@@ -622,6 +724,42 @@ export function parseDsl(text: string): DslParseResult {
           1,
           `Route locus "${locusTitle}" does not match any node`,
         );
+      }
+    }
+  }
+
+  // Feature 2 — resolve inline refs now that all nodes are known
+  const implicitIdMap = new Map(snapshot.nodes.map((n) => [n.implicitId, n]));
+  const titleMap2 = new Map(snapshot.nodes.map((n) => [n.title, n]));
+  for (const node of snapshot.nodes) {
+    for (const seg of node.bodySegments) {
+      if (seg.kind !== "ref") continue;
+      const ref = seg as DslInlineRef;
+      let resolvedNode: DslNode | undefined;
+      if (ref.refType === "id") {
+        resolvedNode = implicitIdMap.get(ref.value);
+        if (!resolvedNode) {
+          diag(diagnostics, "error", "inline-ref-unresolved-id", node.sourceLine, 1, 1, `Unresolved node id reference "@${ref.value}"`);
+        } else {
+          ref.resolved = resolvedNode.implicitId;
+        }
+      } else if (ref.refType === "title") {
+        resolvedNode = titleMap2.get(ref.value);
+        if (!resolvedNode) {
+          diag(diagnostics, "warning", "inline-ref-unresolved-title", node.sourceLine, 1, 1, `Unresolved title reference "[[${ref.value}]]"`);
+        } else {
+          ref.resolved = resolvedNode.implicitId;
+        }
+      } else {
+        const castToken = aliasTable.get(ref.value);
+        if (!castToken) {
+          diag(diagnostics, "warning", "inline-ref-unresolved-alias", node.sourceLine, 1, 1, `Unresolved alias reference "&${ref.value}"`);
+        } else {
+          ref.resolved = castToken;
+        }
+      }
+      if (resolvedNode === node) {
+        diag(diagnostics, "warning", "inline-ref-self", node.sourceLine, 1, 1, "Self-referencing inline reference");
       }
     }
   }
