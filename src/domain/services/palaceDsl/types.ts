@@ -36,13 +36,26 @@ export type DslDiagnosticCode =
   | "query-unresolved-node"
   | "query-unresolved-route";
 
+export interface SuggestedFix {
+  description: string;
+  /** Text to replace the offending span with. */
+  replacement: string;
+  position: { line: number; column: number; length: number };
+}
+
 export interface DslDiagnostic {
-  severity: "error" | "warning";
+  code: DslDiagnosticCode;
+  /** Numeric identifier from the formal registry, e.g. "E001" or "W007". */
+  numericCode: string;
+  severity: "error" | "warning" | "info" | "hint";
   line: number;
   column: number;
   length: number;
   message: string;
-  code: DslDiagnosticCode;
+  /** Source positions of related constructs (e.g. first occurrence for duplicate errors). */
+  related: { line: number; column: number; length: number }[];
+  /** Machine-applicable fix for auto-correctable issues. */
+  fix: SuggestedFix | null;
 }
 
 // Feature 5 — structured tag (#key:value)

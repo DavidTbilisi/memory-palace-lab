@@ -824,3 +824,102 @@ describe("parseDsl — query/traversal language (Feature 8)", () => {
     expect(snapshot.queries.map((q) => q.verb)).toEqual(["node", "route", "all"]);
   });
 });
+
+describe("parseDsl — formal diagnostic system (Feature 6)", () => {
+  it("every diagnostic has a numericCode string", () => {
+    const { diagnostics } = parseDsl("Foo\n: bar\n");
+    expect(diagnostics.length).toBeGreaterThan(0);
+    for (const d of diagnostics) {
+      expect(typeof d.numericCode).toBe("string");
+      expect(d.numericCode.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("missing-palace-header maps to E001", () => {
+    const { diagnostics } = parseDsl("Foo\n");
+    const d = diagnostics.find((x) => x.code === "missing-palace-header");
+    expect(d?.numericCode).toBe("E001");
+  });
+
+  it("duplicate-title maps to E002", () => {
+    const { diagnostics } = parseDsl("@P\n\nFoo\n\nFoo\n");
+    const d = diagnostics.find((x) => x.code === "duplicate-title");
+    expect(d?.numericCode).toBe("E002");
+  });
+
+  it("unknown-target maps to W007", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n>Missing\n");
+    const d = diagnostics.find((x) => x.code === "unknown-target");
+    expect(d?.numericCode).toBe("W007");
+  });
+
+  it("malformed-node-id maps to E101", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Auth\n");
+    const d = diagnostics.find((x) => x.code === "malformed-node-id");
+    expect(d?.numericCode).toBe("E101");
+  });
+
+  it("duplicate-node-id maps to E102", () => {
+    const { diagnostics } = parseDsl("@P\n\n[auth] Auth\n\n[auth] Auth2\n");
+    const d = diagnostics.find((x) => x.code === "duplicate-node-id");
+    expect(d?.numericCode).toBe("E102");
+  });
+
+  it("reserved-node-id maps to E103", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Auth\n");
+    const d = diagnostics.find((x) => x.code === "reserved-node-id");
+    expect(d?.numericCode).toBe("E103");
+  });
+
+  it("query-verb-unknown maps to E801", () => {
+    const { diagnostics } = parseDsl("@P\n?bad\n");
+    const d = diagnostics.find((x) => x.code === "query-verb-unknown");
+    expect(d?.numericCode).toBe("E801");
+  });
+
+  it("every diagnostic has related array (empty by default)", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n>Missing\n");
+    for (const d of diagnostics) {
+      expect(Array.isArray(d.related)).toBe(true);
+    }
+  });
+
+  it("duplicate-title related points to the first occurrence line", () => {
+    const text = "@P\n\nFoo\n: first\n\nFoo\n: second\n";
+    const { diagnostics } = parseDsl(text);
+    const d = diagnostics.find((x) => x.code === "duplicate-title");
+    expect(d?.related).toHaveLength(1);
+    expect(d?.related[0]!.line).toBe(3);
+  });
+
+  it("duplicate-node-id related points to first occurrence line", () => {
+    const text = "@P\n\n[auth] Authentication\n\n[auth] Auth Module\n";
+    const { diagnostics } = parseDsl(text);
+    const d = diagnostics.find((x) => x.code === "duplicate-node-id");
+    expect(d?.related).toHaveLength(1);
+    expect(d?.related[0]!.line).toBe(3);
+  });
+
+  it("reserved-node-id has a SuggestedFix with replacement equal to the title", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Authentication\n");
+    const d = diagnostics.find((x) => x.code === "reserved-node-id");
+    expect(d?.fix).not.toBeNull();
+    expect(d?.fix?.replacement).toBe("Authentication");
+    expect(typeof d?.fix?.description).toBe("string");
+  });
+
+  it("non-auto-correctable errors have null fix", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Auth\n");
+    const d = diagnostics.find((x) => x.code === "malformed-node-id");
+    expect(d?.fix).toBeNull();
+  });
+
+  it("every diagnostic has fix field (null or object)", () => {
+    const text = "@P\n\nFoo\n\nFoo\n>Missing\n\n[palace] X\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.length).toBeGreaterThan(0);
+    for (const d of diagnostics) {
+      expect(d.fix === null || typeof d.fix === "object").toBe(true);
+    }
+  });
+});

@@ -1,5 +1,6 @@
 import type { PalacePortalRef } from "../../entities/types";
 import { parseCast } from "./cast";
+import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
 import type {
   DslAliasDeclaration,
   DslBodySegment,
@@ -15,6 +16,7 @@ import type {
   DslRoute,
   DslSnapshot,
   DslStructuredTag,
+  SuggestedFix,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -121,14 +123,26 @@ function classify(body: string): ClassifiedLine {
 
 function diag(
   diagnostics: DslDiagnostic[],
-  severity: "error" | "warning",
+  severity: "error" | "warning" | "info" | "hint",
   code: DslDiagnosticCode,
   line: number,
   column: number,
   length: number,
   message: string,
+  related?: { line: number; column: number; length: number }[],
+  fix?: SuggestedFix,
 ) {
-  diagnostics.push({ severity, code, line, column, length, message });
+  diagnostics.push({
+    code,
+    numericCode: DIAGNOSTIC_CODES[code],
+    severity,
+    line,
+    column,
+    length,
+    message,
+    related: related ?? [],
+    fix: fix ?? null,
+  });
 }
 
 function parsePortalTarget(s: string): PalacePortalRef | null {
@@ -447,8 +461,11 @@ export function parseDsl(text: string): DslParseResult {
   const diagnostics: DslDiagnostic[] = [...aliasDiagnostics];
   const snapshot = emptySnapshot();
   snapshot.aliases = aliasDeclarations;
-  const seenTitles = new Set<string>();
+  /** title → source line of first occurrence, for related positions on duplicate-title */
+  const seenTitles = new Map<string, number>();
   const seenIds = new Set<string>();
+  /** explicit id → source line of first occurrence, for related on duplicate-node-id */
+  const seenIdLines = new Map<string, number>();
   let sawHeader = false;
   let currentNode: DslNode | null = null;
   let currentRoute: DslRoute | null = null;
@@ -481,6 +498,7 @@ export function parseDsl(text: string): DslParseResult {
         flush();
         const { title, id: rawId } = cl;
         if (seenTitles.has(title)) {
+          const firstLine = seenTitles.get(title)!;
           diag(
             diagnostics,
             "error",
@@ -489,9 +507,10 @@ export function parseDsl(text: string): DslParseResult {
             1,
             body.length,
             `Duplicate node title "${title}"`,
+            [{ line: firstLine, column: 1, length: title.length }],
           );
         } else {
-          seenTitles.add(title);
+          seenTitles.set(title, num);
         }
 
         // Feature 1 — resolve stable id
@@ -500,18 +519,26 @@ export function parseDsl(text: string): DslParseResult {
           const normalizedId = rawId.toLowerCase();
           const idErr = validateNodeId(normalizedId);
           if (idErr) {
+            const isReserved = RESERVED_NODE_IDS.has(normalizedId);
             diag(
               diagnostics,
               "error",
-              normalizedId === "" || !NODE_ID_RE.test(normalizedId)
-                ? "malformed-node-id"
-                : "reserved-node-id",
+              isReserved ? "reserved-node-id" : "malformed-node-id",
               num,
               1,
               body.length,
               idErr,
+              undefined,
+              isReserved
+                ? {
+                    description: `Remove reserved identifier "[${rawId}]"`,
+                    replacement: title,
+                    position: { line: num, column: 1, length: body.length },
+                  }
+                : undefined,
             );
           } else if (seenIds.has(normalizedId)) {
+            const firstLine = seenIdLines.get(normalizedId)!;
             diag(
               diagnostics,
               "error",
@@ -520,10 +547,12 @@ export function parseDsl(text: string): DslParseResult {
               1,
               body.length,
               `Duplicate node identifier "${normalizedId}"`,
+              [{ line: firstLine, column: 1, length: 1 }],
             );
           } else {
             resolvedId = normalizedId;
             seenIds.add(normalizedId);
+            seenIdLines.set(normalizedId, num);
           }
         }
 

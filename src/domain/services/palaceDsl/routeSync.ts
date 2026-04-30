@@ -55,12 +55,15 @@ export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResu
       const nodeId = titleToNodeId.get(title);
       if (!nodeId) {
         errors.push({
-          severity: "error",
           code: "unknown-target",
+          numericCode: "W007",
+          severity: "error",
           line: intentRoute.sourceLine,
           column: 1,
           length: 1,
           message: `Locus "${title}" maps to no node on the canvas`,
+          related: [],
+          fix: null,
         });
         return;
       }
