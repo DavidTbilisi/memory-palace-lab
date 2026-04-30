@@ -1,8 +1,10 @@
 import type { PalacePortalRef } from "../../entities/types";
 import { parseCast } from "./cast";
 import type {
+  DslAliasDeclaration,
   DslDiagnostic,
   DslDiagnosticCode,
+  DslEdgeSemantic,
   DslNode,
   DslParseResult,
   DslRoute,
@@ -52,9 +54,13 @@ type ClassifiedLine =
   | { type: "edge"; rest: string }
   | { type: "route-hdr"; name: string }
   | { type: "route-step"; title: string }
-  | { type: "node"; title: string; id: string | null };
+  | { type: "node"; title: string; id: string | null }
+  | { type: "alias-decl"; rest: string };
 
 function classify(body: string): ClassifiedLine {
+  if (body.startsWith("~")) {
+    return { type: "alias-decl", rest: body.slice(1).trim() };
+  }
   if (body.startsWith("@atlas")) {
     return { type: "atlas", path: body.slice("@atlas".length).trim() };
   }
@@ -188,14 +194,96 @@ function parseTagsLine(body: string): {
   return { tags, structuredTags, invalid };
 }
 
-function parseEdgeRest(rest: string): { target: string; castToken: string | null } {
-  const m = rest.match(/^(.*\S)\s+([0-9]{4})$/);
-  if (m) return { target: m[1]!.trim(), castToken: m[2]! };
-  return { target: rest.trim(), castToken: null };
+// ---------------------------------------------------------------------------
+// Feature 3 — alias pre-pass
+// ---------------------------------------------------------------------------
+
+function buildAliasTable(lines: Line[]): {
+  table: Map<string, string>;
+  declarations: DslAliasDeclaration[];
+  diagnostics: DslDiagnostic[];
+} {
+  const table = new Map<string, string>();
+  const declarations: DslAliasDeclaration[] = [];
+  const diagnostics: DslDiagnostic[] = [];
+  const seenAliases = new Set<string>();
+
+  for (const { body, num } of lines) {
+    if (!body.startsWith("~")) continue;
+    const rest = body.slice(1).trim();
+    const m = rest.match(/^([a-zA-Z][a-zA-Z0-9_-]*):([0-9]{4})(?:\s+(.+))?$/);
+    if (!m) {
+      diag(diagnostics, "error", "alias-malformed", num, 1, body.length, "Malformed alias declaration");
+      continue;
+    }
+    const alias = m[1]!.toLowerCase();
+    const cast = m[2]!;
+    const description = m[3] ?? null;
+
+    if (parseCast(cast) === null) {
+      diag(diagnostics, "error", "alias-invalid-cast", num, 1, body.length, `Invalid CAST token "${cast}"`);
+      continue;
+    }
+    if (seenAliases.has(alias)) {
+      diag(diagnostics, "error", "alias-duplicate", num, 1, body.length, `Duplicate alias declaration "${alias}"`);
+      continue;
+    }
+    seenAliases.add(alias);
+    table.set(alias, cast);
+    declarations.push({ alias, cast, description, sourceLine: num });
+  }
+
+  return { table, declarations, diagnostics };
+}
+
+function parseEdgeRest(
+  rest: string,
+  aliasTable: Map<string, string>,
+): { target: string; castToken: string | null; semantic: DslEdgeSemantic } {
+  const noSemantic: DslEdgeSemantic = { cast: null, alias: null, form: "cast", resolvedCast: null };
+  const lastSpaceIdx = rest.lastIndexOf(" ");
+  if (lastSpaceIdx === -1) {
+    return { target: rest.trim(), castToken: null, semantic: noSemantic };
+  }
+  const prefix = rest.slice(0, lastSpaceIdx).trim();
+  const lastToken = rest.slice(lastSpaceIdx + 1);
+
+  // Hybrid: CAST:alias
+  const hybridM = lastToken.match(/^([0-9]{4}):([a-zA-Z][a-zA-Z0-9_-]*)$/);
+  if (hybridM) {
+    const castToken = hybridM[1]!;
+    const alias = hybridM[2]!.toLowerCase();
+    return { target: prefix, castToken, semantic: { cast: castToken, alias, form: "hybrid", resolvedCast: castToken } };
+  }
+
+  // CAST: 4-digit token
+  if (/^[0-9]{4}$/.test(lastToken)) {
+    return { target: prefix, castToken: lastToken, semantic: { cast: lastToken, alias: null, form: "cast", resolvedCast: lastToken } };
+  }
+
+  // Bracketed alias: [alias]
+  const bracketM = lastToken.match(/^\[([^\]]+)\]$/);
+  if (bracketM) {
+    const alias = bracketM[1]!.toLowerCase();
+    const resolvedCast = aliasTable.get(alias) ?? null;
+    return { target: prefix, castToken: resolvedCast, semantic: { cast: null, alias, form: "bracketed", resolvedCast } };
+  }
+
+  // Word alias: last token is in alias table
+  if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(lastToken)) {
+    const alias = lastToken.toLowerCase();
+    if (aliasTable.has(alias)) {
+      const resolvedCast = aliasTable.get(alias)!;
+      return { target: prefix, castToken: resolvedCast, semantic: { cast: null, alias, form: "alias", resolvedCast } };
+    }
+  }
+
+  // No semantic: entire rest is target
+  return { target: rest.trim(), castToken: null, semantic: noSemantic };
 }
 
 function emptySnapshot(): DslSnapshot {
-  return { palaceName: "", atlasPath: null, nodes: [], routes: [] };
+  return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,8 +296,16 @@ export function parseDsl(text: string): DslParseResult {
     return { snapshot: emptySnapshot(), diagnostics: [] };
   }
 
-  const diagnostics: DslDiagnostic[] = [];
+  // Feature 3 — alias pre-pass: build table before FSM so all alias forms resolve
+  const {
+    table: aliasTable,
+    declarations: aliasDeclarations,
+    diagnostics: aliasDiagnostics,
+  } = buildAliasTable(lines);
+
+  const diagnostics: DslDiagnostic[] = [...aliasDiagnostics];
   const snapshot = emptySnapshot();
+  snapshot.aliases = aliasDeclarations;
   const seenTitles = new Set<string>();
   const seenIds = new Set<string>();
   let sawHeader = false;
@@ -364,6 +460,10 @@ export function parseDsl(text: string): DslParseResult {
         }
         break;
 
+      case "alias-decl":
+        // handled in pre-pass; FSM skips
+        break;
+
       case "edge":
         if (!currentNode) {
           diag(
@@ -378,7 +478,37 @@ export function parseDsl(text: string): DslParseResult {
           break;
         }
         {
-          const { target, castToken } = parseEdgeRest(cl.rest);
+          const { target, castToken, semantic } = parseEdgeRest(cl.rest, aliasTable);
+
+          // Hybrid conflict: alias maps to a different CAST than stated
+          if (semantic.form === "hybrid" && semantic.alias) {
+            const aliasResolved = aliasTable.get(semantic.alias);
+            if (aliasResolved && aliasResolved !== semantic.cast) {
+              diag(
+                diagnostics,
+                "error",
+                "alias-cast-conflict",
+                num,
+                1,
+                body.length,
+                `Hybrid edge conflict: alias "${semantic.alias}" maps to ${aliasResolved}, not ${semantic.cast}`,
+              );
+            }
+          }
+
+          // Unresolved alias
+          if ((semantic.form === "alias" || semantic.form === "bracketed") && semantic.resolvedCast === null) {
+            diag(
+              diagnostics,
+              "warning",
+              "alias-unresolved",
+              num,
+              1,
+              body.length,
+              `Unresolved edge alias "${semantic.alias}"`,
+            );
+          }
+
           let cast = { ab: "", cd: "", ef: "", gh: "" };
           if (castToken !== null) {
             const parsed = parseCast(castToken);
@@ -396,7 +526,7 @@ export function parseDsl(text: string): DslParseResult {
               cast = parsed;
             }
           }
-          currentNode.edges.push({ targetTitle: target, cast, sourceLine: num });
+          currentNode.edges.push({ targetTitle: target, cast, semantic, sourceLine: num });
         }
         break;
 

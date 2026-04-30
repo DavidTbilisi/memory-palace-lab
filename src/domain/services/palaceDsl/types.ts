@@ -12,7 +12,13 @@ export type DslDiagnosticCode =
   // Feature 1 — stable node identifiers
   | "duplicate-node-id"
   | "malformed-node-id"
-  | "reserved-node-id";
+  | "reserved-node-id"
+  // Feature 3 — edge semantic aliases
+  | "alias-malformed"
+  | "alias-invalid-cast"
+  | "alias-duplicate"
+  | "alias-cast-conflict"
+  | "alias-unresolved";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -30,9 +36,25 @@ export interface DslStructuredTag {
   raw: string;
 }
 
+// Feature 3 — edge semantic aliases
+export interface DslAliasDeclaration {
+  alias: string;
+  cast: string;
+  description: string | null;
+  sourceLine: number;
+}
+
+export interface DslEdgeSemantic {
+  cast: string | null;
+  alias: string | null;
+  form: "cast" | "alias" | "hybrid" | "bracketed";
+  resolvedCast: string | null;
+}
+
 export interface DslEdgeIntent {
   targetTitle: string;
   cast: { ab: string; cd: string; ef: string; gh: string };
+  semantic: DslEdgeSemantic;
   sourceLine: number;
 }
 
@@ -63,6 +85,7 @@ export interface DslSnapshot {
   atlasPath: string | null;
   nodes: DslNode[];
   routes: DslRoute[];
+  aliases: DslAliasDeclaration[];
 }
 
 export interface DslParseResult {

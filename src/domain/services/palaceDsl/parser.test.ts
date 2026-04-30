@@ -16,6 +16,7 @@ describe("parseDsl — empty input", () => {
       atlasPath: null,
       nodes: [],
       routes: [],
+      aliases: [],
     });
   });
 
@@ -75,11 +76,13 @@ describe("parseDsl — canonical fixture", () => {
       {
         targetTitle: "Newton's Laws",
         cast: { ab: "", cd: "", ef: "Rock", gh: "" },
+        semantic: { cast: "0010", alias: null, form: "cast", resolvedCast: "0010" },
         sourceLine: 11,
       },
       {
         targetTitle: "Gravity",
         cast: { ab: "Giant", cd: "Crushing", ef: "Rock", gh: "" },
+        semantic: { cast: "1110", alias: null, form: "cast", resolvedCast: "1110" },
         sourceLine: 12,
       },
     ]);
@@ -188,6 +191,7 @@ describe("parseDsl — edges", () => {
     expect(snapshot.nodes[0]!.edges[0]).toEqual({
       targetTitle: "B",
       cast: { ab: "Giant", cd: "", ef: "", gh: "" },
+      semantic: { cast: "1000", alias: null, form: "cast", resolvedCast: "1000" },
       sourceLine: 4,
     });
   });
@@ -293,6 +297,108 @@ describe("parseDsl — stable node identifiers (Feature 1)", () => {
     const { snapshot } = parseDsl("@P\n\nPassword Hashing\n");
     expect(snapshot.nodes[0]!.id).toBeNull();
     expect(snapshot.nodes[0]!.implicitId).toBe("password-hashing");
+  });
+});
+
+describe("parseDsl — edge semantic aliases (Feature 3)", () => {
+  it("parses ~alias:cast declaration into snapshot.aliases", () => {
+    const text = "@P\n~dep:0001 depends on\n\nA\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.aliases).toEqual([
+      { alias: "dep", cast: "0001", description: "depends on", sourceLine: 2 },
+    ]);
+  });
+
+  it("parses alias declaration without description", () => {
+    const { snapshot } = parseDsl("@P\n~uses:0020\n\nA\n");
+    expect(snapshot.aliases[0]).toMatchObject({ alias: "uses", cast: "0020", description: null });
+  });
+
+  it("normalizes alias to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n~DEP:0001 depends on\n\nA\n");
+    expect(snapshot.aliases[0]!.alias).toBe("dep");
+  });
+
+  it("resolves alias form edge — sets cast and semantic", () => {
+    const text = "@P\n~dep:1000 depends on\n\nA\n>B dep\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.targetTitle).toBe("B");
+    expect(edge.cast).toEqual({ ab: "Giant", cd: "", ef: "", gh: "" });
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "alias", resolvedCast: "1000" });
+  });
+
+  it("resolves bracketed alias form [alias]", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B [dep]\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "bracketed", resolvedCast: "0001" });
+  });
+
+  it("resolves hybrid form CAST:alias — no conflict", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B 0001:dep\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ cast: "0001", alias: "dep", form: "hybrid", resolvedCast: "0001" });
+    expect(diagnostics.filter((d) => d.code === "alias-cast-conflict")).toHaveLength(0);
+  });
+
+  it("emits alias-cast-conflict for hybrid edge where alias maps to different CAST", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B 0010:dep\n\nB\n";
+    const { diagnostics } = parseDsl(text);
+    const conflicts = diagnostics.filter((d) => d.code === "alias-cast-conflict");
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.severity).toBe("error");
+    expect(conflicts[0]!.line).toBe(5);
+  });
+
+  it("emits alias-unresolved warning for unknown bracketed alias", () => {
+    const text = "@P\n\nA\n>B [unknown]\n\nB\n";
+    const { diagnostics } = parseDsl(text);
+    const unresolved = diagnostics.filter((d) => d.code === "alias-unresolved");
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]!.severity).toBe("warning");
+  });
+
+  it("emits alias-unresolved warning for unknown word alias", () => {
+    const text = "@P\n\nA\n>B notanalias\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    // "notanalias" is not in alias table — entire rest is target
+    expect(diagnostics.filter((d) => d.code === "alias-unresolved")).toHaveLength(0);
+    expect(snapshot.nodes[0]!.edges[0]!.targetTitle).toBe("B notanalias");
+  });
+
+  it("emits alias-duplicate for two declarations with the same alias", () => {
+    const text = "@P\n~dep:0001\n~dep:0010\n\nA\n";
+    const { diagnostics } = parseDsl(text);
+    const dups = diagnostics.filter((d) => d.code === "alias-duplicate");
+    expect(dups).toHaveLength(1);
+    expect(dups[0]!.severity).toBe("error");
+    expect(dups[0]!.line).toBe(3);
+  });
+
+  it("emits alias-malformed for unparseable ~ line", () => {
+    const text = "@P\n~bad declaration!!!\n\nA\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.some((d) => d.code === "alias-malformed")).toBe(true);
+  });
+
+  it("two-pass: alias declared after usage still resolves", () => {
+    const text = "@P\n\nA\n>B dep\n\nB\n~dep:0001\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "alias-unresolved")).toHaveLength(0);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "alias", resolvedCast: "0001" });
+  });
+
+  it("existing 4-digit CAST edges are unchanged", () => {
+    const text = "@P\n\nA\n>B 1000\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.cast).toEqual({ ab: "Giant", cd: "", ef: "", gh: "" });
+    expect(edge.semantic).toMatchObject({ form: "cast", cast: "1000", alias: null });
   });
 });
 
