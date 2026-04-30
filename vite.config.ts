@@ -4,9 +4,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
+const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM);
 const githubRepository = process.env.GITHUB_REPOSITORY?.split("/")[1];
 const githubPagesBase =
   process.env.GITHUB_ACTIONS && githubRepository ? `/${githubRepository}/` : "/";
+const appBase = isTauriBuild ? "./" : githubPagesBase;
 
 function sanitizeChunkName(value: string) {
   return value.replace(/^@/, "").replace(/[\\/]/g, "-").replace(/[^a-zA-Z0-9-_]/g, "-");
@@ -44,7 +46,7 @@ function vendorChunkName(id: string) {
 }
 
 export default defineConfig(async () => ({
-  base: githubPagesBase,
+  base: appBase,
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
