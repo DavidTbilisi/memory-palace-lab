@@ -18,6 +18,7 @@ describe("parseDsl — empty input", () => {
       routes: [],
       aliases: [],
       imports: [],
+      queries: [],
     });
   });
 
@@ -693,5 +694,133 @@ describe("parseDsl — structured tags (Feature 5)", () => {
   it("does not emit diagnostics for valid structured tags", () => {
     const { diagnostics } = parseDsl("@P\n\nAuth\n#domain:security #difficulty:beginner\n");
     expect(diagnostics.filter((d) => d.code === "tag-syntax")).toHaveLength(0);
+  });
+});
+
+describe("parseDsl — query/traversal language (Feature 8)", () => {
+  it("empty snapshot has queries array", () => {
+    const { snapshot } = parseDsl("");
+    expect(snapshot.queries).toEqual([]);
+  });
+
+  it("parses ?all into snapshot.queries with palace scope", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n?all\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.queries).toHaveLength(1);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "all", args: "", scope: "palace", sourceLine: 2 });
+  });
+
+  it("parses ?node with node id arg", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n?node auth\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "node", args: "auth", scope: "palace" });
+  });
+
+  it("parses ?tag with structured tag args", () => {
+    const { snapshot } = parseDsl("@P\n?tag #domain:security\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "tag", args: "#domain:security", pathArgs: null });
+  });
+
+  it("parses ?neighbors with node id arg", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n?neighbors auth\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "neighbors", args: "auth" });
+  });
+
+  it("parses ?route with route name arg", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Intro\n1 A\n?route Intro\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "route", args: "Intro" });
+  });
+
+  it("parses ?depends with node id", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n?depends a\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "depends", args: "a" });
+  });
+
+  it("parses ?path with two node refs and stores pathArgs", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n?path auth login\n");
+    expect(diagnostics.filter((d) => d.code === "query-path-missing-arg")).toHaveLength(0);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "path", pathArgs: ["auth", "login"] });
+  });
+
+  it("parses ?filter with expression args", () => {
+    const { snapshot } = parseDsl("@P\n?filter #domain:security and #difficulty:beginner\n");
+    expect(snapshot.queries[0]).toMatchObject({
+      verb: "filter",
+      args: "#domain:security and #difficulty:beginner",
+      pathArgs: null,
+    });
+  });
+
+  it("emits query-verb-unknown E801 for unknown verb", () => {
+    const { diagnostics } = parseDsl("@P\n?unknown args\n");
+    const errs = diagnostics.filter((d) => d.code === "query-verb-unknown");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]!.severity).toBe("error");
+    expect(errs[0]!.line).toBe(2);
+  });
+
+  it("does not store unknown-verb queries in snapshot", () => {
+    const { snapshot } = parseDsl("@P\n?unknown args\n");
+    expect(snapshot.queries).toHaveLength(0);
+  });
+
+  it("emits query-path-missing-arg E802 for ?path with one arg", () => {
+    const { diagnostics } = parseDsl("@P\n?path auth\n");
+    const errs = diagnostics.filter((d) => d.code === "query-path-missing-arg");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]!.severity).toBe("error");
+    expect(errs[0]!.line).toBe(2);
+  });
+
+  it("emits query-path-missing-arg E802 for ?path with no args", () => {
+    const { diagnostics } = parseDsl("@P\n?path\n");
+    expect(diagnostics.some((d) => d.code === "query-path-missing-arg")).toBe(true);
+  });
+
+  it("?path with same node twice is valid (path of length 0)", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n?path auth auth\n");
+    expect(diagnostics.filter((d) => d.code === "query-path-missing-arg")).toHaveLength(0);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "path", pathArgs: ["auth", "auth"] });
+  });
+
+  it("emits query-unresolved-node W803 for ?node with unknown id", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n?node unknown\n");
+    const warns = diagnostics.filter((d) => d.code === "query-unresolved-node");
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.severity).toBe("warning");
+  });
+
+  it("does not emit query-unresolved-node when node exists by implicitId", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n?node auth\n");
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+  });
+
+  it("emits query-unresolved-route W804 for ?route with unknown route name", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n?route NonExistent\n");
+    const warns = diagnostics.filter((d) => d.code === "query-unresolved-route");
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.severity).toBe("warning");
+  });
+
+  it("does not emit query-unresolved-route for a valid route name", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n\n/Intro\n1 A\n?route Intro\n");
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-route")).toHaveLength(0);
+  });
+
+  it("query before palace header has document scope", () => {
+    const { snapshot } = parseDsl("?all\n@P\n");
+    expect(snapshot.queries[0]!.scope).toBe("document");
+  });
+
+  it("query after palace header has palace scope", () => {
+    const { snapshot } = parseDsl("@P\n?all\n");
+    expect(snapshot.queries[0]!.scope).toBe("palace");
+  });
+
+  it("multiple queries are all stored in order", () => {
+    const text = "@P\n\nAuth\n\n/Intro\n1 Auth\n?node auth\n?route Intro\n?all\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(snapshot.queries).toHaveLength(3);
+    expect(snapshot.queries.map((q) => q.verb)).toEqual(["node", "route", "all"]);
   });
 });

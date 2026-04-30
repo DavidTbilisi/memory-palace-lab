@@ -83,5 +83,6 @@ export function stripSourceLines(dsl: DslSnapshot): DslSnapshot {
     routes: dsl.routes.map((r) => ({ ...r, sourceLine: 0 })),
     aliases: dsl.aliases.map((a) => ({ ...a, sourceLine: 0 })),
     imports: dsl.imports.map((i) => ({ ...i, sourceLine: 0 })),
+    queries: dsl.queries.map((q) => ({ ...q, sourceLine: 0 })),
   };
 }

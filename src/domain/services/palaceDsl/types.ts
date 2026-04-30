@@ -29,7 +29,12 @@ export type DslDiagnosticCode =
   | "route-prereq-unresolved"
   // Feature 4 — imports
   | "import-malformed"
-  | "import-namespace-collision";
+  | "import-namespace-collision"
+  // Feature 8 — query/traversal language
+  | "query-verb-unknown"
+  | "query-path-missing-arg"
+  | "query-unresolved-node"
+  | "query-unresolved-route";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -121,6 +126,28 @@ export interface DslRoute {
   sourceLine: number;
 }
 
+// Feature 8 — query/traversal language
+export type DslQueryVerb =
+  | "tag"
+  | "node"
+  | "neighbors"
+  | "route"
+  | "depends"
+  | "path"
+  | "filter"
+  | "all";
+
+export interface DslQueryDeclaration {
+  verb: DslQueryVerb;
+  /** Raw argument string following the verb. */
+  args: string;
+  /** For the ?path verb only: the two parsed node references. Null when E802 fires. */
+  pathArgs: [string, string] | null;
+  /** "palace" when the query appears after the @<name> header; "document" otherwise. */
+  scope: "document" | "palace";
+  sourceLine: number;
+}
+
 export interface DslSnapshot {
   palaceName: string;
   atlasPath: string | null;
@@ -128,6 +155,7 @@ export interface DslSnapshot {
   routes: DslRoute[];
   aliases: DslAliasDeclaration[];
   imports: DslImportDeclaration[];
+  queries: DslQueryDeclaration[];
 }
 
 export interface DslParseResult {

@@ -10,6 +10,8 @@ import type {
   DslInlineRef,
   DslNode,
   DslParseResult,
+  DslQueryDeclaration,
+  DslQueryVerb,
   DslRoute,
   DslSnapshot,
   DslStructuredTag,
@@ -59,11 +61,19 @@ type ClassifiedLine =
   | { type: "route-step"; title: string }
   | { type: "node"; title: string; id: string | null }
   | { type: "alias-decl"; rest: string }
-  | { type: "import-decl"; rest: string };
+  | { type: "import-decl"; rest: string }
+  | { type: "query-decl"; verb: string; args: string };
 
 function classify(body: string): ClassifiedLine {
   if (body.startsWith("!import")) {
     return { type: "import-decl", rest: body.slice("!import".length).trim() };
+  }
+  if (body.startsWith("?")) {
+    const rest = body.slice(1).trim();
+    const spaceIdx = rest.search(/\s/);
+    const verb = spaceIdx === -1 ? rest : rest.slice(0, spaceIdx);
+    const args = spaceIdx === -1 ? "" : rest.slice(spaceIdx + 1).trim();
+    return { type: "query-decl", verb, args };
   }
   if (body.startsWith("~")) {
     return { type: "alias-decl", rest: body.slice(1).trim() };
@@ -411,8 +421,10 @@ function parseEdgeRest(
   return { target: rest.trim(), castToken: null, semantic: noSemantic };
 }
 
+const QUERY_VERBS = new Set<string>(["tag", "node", "neighbors", "route", "depends", "path", "filter", "all"]);
+
 function emptySnapshot(): DslSnapshot {
-  return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [], imports: [] };
+  return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [], imports: [], queries: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -735,6 +747,28 @@ export function parseDsl(text: string): DslParseResult {
         }
         break;
 
+      case "query-decl": {
+        const { verb, args } = cl;
+        if (!QUERY_VERBS.has(verb)) {
+          diag(diagnostics, "error", "query-verb-unknown", num, 1, body.length,
+            `Unknown query verb "${verb}"`);
+          break;
+        }
+        let pathArgs: [string, string] | null = null;
+        if (verb === "path") {
+          const parts = args.trim().split(/\s+/).filter(Boolean);
+          if (parts.length < 2) {
+            diag(diagnostics, "error", "query-path-missing-arg", num, 1, body.length,
+              "?path requires two node references");
+          } else {
+            pathArgs = [parts[0]!, parts[1]!];
+          }
+        }
+        const scope: "document" | "palace" = sawHeader ? "palace" : "document";
+        snapshot.queries.push({ verb: verb as DslQueryVerb, args, pathArgs, scope, sourceLine: num } satisfies DslQueryDeclaration);
+        break;
+      }
+
       case "route-step":
         if (!currentRoute) {
           diag(
@@ -846,6 +880,30 @@ export function parseDsl(text: string): DslParseResult {
       }
       if (resolvedNode === node) {
         diag(diagnostics, "warning", "inline-ref-self", node.sourceLine, 1, 1, "Self-referencing inline reference");
+      }
+    }
+  }
+
+  // Feature 8 — validate query node/route references
+  for (const query of snapshot.queries) {
+    if (query.verb === "node" || query.verb === "neighbors" || query.verb === "depends") {
+      const ref = query.args.trim();
+      if (ref && !implicitIdMap.has(ref) && !titleMap2.has(ref)) {
+        diag(diagnostics, "warning", "query-unresolved-node", query.sourceLine, 1, 1,
+          `Query references unresolved node "${ref}"`);
+      }
+    } else if (query.verb === "path" && query.pathArgs) {
+      for (const ref of query.pathArgs) {
+        if (!implicitIdMap.has(ref) && !titleMap2.has(ref)) {
+          diag(diagnostics, "warning", "query-unresolved-node", query.sourceLine, 1, 1,
+            `Query references unresolved node "${ref}"`);
+        }
+      }
+    } else if (query.verb === "route") {
+      const ref = query.args.trim();
+      if (ref && !routeNames.has(ref) && !routeNormNames.has(ref)) {
+        diag(diagnostics, "warning", "query-unresolved-route", query.sourceLine, 1, 1,
+          `Query references unresolved route "${ref}"`);
       }
     }
   }
