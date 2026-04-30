@@ -17,6 +17,7 @@ describe("parseDsl — empty input", () => {
       nodes: [],
       routes: [],
       aliases: [],
+      imports: [],
     });
   });
 
@@ -299,6 +300,81 @@ describe("parseDsl — stable node identifiers (Feature 1)", () => {
     const { snapshot } = parseDsl("@P\n\nPassword Hashing\n");
     expect(snapshot.nodes[0]!.id).toBeNull();
     expect(snapshot.nodes[0]!.implicitId).toBe("password-hashing");
+  });
+});
+
+describe("parseDsl — import system (Feature 4)", () => {
+  it("parses !import path into snapshot.imports", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n!import security/primitives.dsl\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.imports).toEqual([
+      { path: "security/primitives.dsl", namespace: "primitives", sourceLine: 2 },
+    ]);
+  });
+
+  it("derives namespace from filename stem", () => {
+    const { snapshot } = parseDsl("@P\n!import math/foundations.dsl\n");
+    expect(snapshot.imports[0]!.namespace).toBe("foundations");
+  });
+
+  it("derives namespace from relative path stem", () => {
+    const { snapshot } = parseDsl("@P\n!import ../shared/common.dsl\n");
+    expect(snapshot.imports[0]!.namespace).toBe("common");
+  });
+
+  it("parses !import path as namespace form", () => {
+    const { snapshot } = parseDsl("@P\n!import math/foundations.dsl as math\n");
+    expect(snapshot.imports[0]).toMatchObject({ path: "math/foundations.dsl", namespace: "math" });
+  });
+
+  it("normalizes explicit namespace to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n!import foo.dsl as Foo\n");
+    expect(snapshot.imports[0]!.namespace).toBe("foo");
+  });
+
+  it("parses multiple imports with distinct namespaces", () => {
+    const text = "@P\n!import a.dsl as auth\n!import b.dsl as math\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.imports).toHaveLength(2);
+    expect(snapshot.imports[0]!.namespace).toBe("auth");
+    expect(snapshot.imports[1]!.namespace).toBe("math");
+  });
+
+  it("emits import-namespace-collision for duplicate namespace", () => {
+    const text = "@P\n!import a.dsl as auth\n!import b.dsl as auth\n";
+    const { diagnostics } = parseDsl(text);
+    const collisions = diagnostics.filter((d) => d.code === "import-namespace-collision");
+    expect(collisions).toHaveLength(1);
+    expect(collisions[0]!.severity).toBe("error");
+    expect(collisions[0]!.line).toBe(3);
+  });
+
+  it("emits import-malformed for empty import path", () => {
+    const { diagnostics } = parseDsl("@P\n!import\n");
+    expect(diagnostics.some((d) => d.code === "import-malformed")).toBe(true);
+  });
+
+  it("emits import-malformed for path with spaces and no as clause", () => {
+    const { diagnostics } = parseDsl("@P\n!import some path with spaces\n");
+    expect(diagnostics.some((d) => d.code === "import-malformed")).toBe(true);
+  });
+
+  it("files without imports have empty imports array", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n");
+    expect(snapshot.imports).toEqual([]);
+  });
+
+  it("@ns::localid qualified ref captured as single id ref in body", () => {
+    const { snapshot } = parseDsl("@P\n!import sec.dsl as sec\n\nA\n: depends on @sec::auth for identity\n");
+    const ref = snapshot.nodes[0]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "id", value: "sec::auth" });
+  });
+
+  it("unqualified @id still works alongside imports", () => {
+    const { snapshot } = parseDsl("@P\n!import sec.dsl as sec\n\nAuth\n\nLogin\n: see @auth node\n");
+    const ref = snapshot.nodes[1]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ refType: "id", value: "auth" });
   });
 });
 

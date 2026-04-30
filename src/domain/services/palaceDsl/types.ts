@@ -26,7 +26,10 @@ export type DslDiagnosticCode =
   | "inline-ref-unresolved-alias"
   | "inline-ref-self"
   // Feature 7 — route metadata
-  | "route-prereq-unresolved";
+  | "route-prereq-unresolved"
+  // Feature 4 — imports
+  | "import-malformed"
+  | "import-namespace-collision";
 
 export interface DslDiagnostic {
   severity: "error" | "warning";
@@ -42,6 +45,14 @@ export interface DslStructuredTag {
   key: string;
   value: string | null;
   raw: string;
+}
+
+// Feature 4 — modularization / import system
+export interface DslImportDeclaration {
+  path: string;
+  /** Namespace prefix used to qualify refs from this import. */
+  namespace: string;
+  sourceLine: number;
 }
 
 // Feature 2 — inline node references in body text
@@ -116,6 +127,7 @@ export interface DslSnapshot {
   nodes: DslNode[];
   routes: DslRoute[];
   aliases: DslAliasDeclaration[];
+  imports: DslImportDeclaration[];
 }
 
 export interface DslParseResult {

@@ -6,6 +6,7 @@ import type {
   DslDiagnostic,
   DslDiagnosticCode,
   DslEdgeSemantic,
+  DslImportDeclaration,
   DslInlineRef,
   DslNode,
   DslParseResult,
@@ -57,9 +58,13 @@ type ClassifiedLine =
   | { type: "route-hdr"; name: string }
   | { type: "route-step"; title: string }
   | { type: "node"; title: string; id: string | null }
-  | { type: "alias-decl"; rest: string };
+  | { type: "alias-decl"; rest: string }
+  | { type: "import-decl"; rest: string };
 
 function classify(body: string): ClassifiedLine {
+  if (body.startsWith("!import")) {
+    return { type: "import-decl", rest: body.slice("!import".length).trim() };
+  }
   if (body.startsWith("~")) {
     return { type: "alias-decl", rest: body.slice(1).trim() };
   }
@@ -207,6 +212,24 @@ function parseTagsLine(body: string): {
 }
 
 // ---------------------------------------------------------------------------
+// Feature 4 — import declaration helpers
+// ---------------------------------------------------------------------------
+
+function stemFromPath(path: string): string {
+  const base = path.split("/").pop() ?? path;
+  const stem = base.replace(/\.[^.]+$/, "");
+  return stem.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "module";
+}
+
+function parseImportDecl(rest: string): { path: string; namespace: string } | null {
+  if (!rest) return null;
+  const asMatch = rest.match(/^(\S+)\s+as\s+([a-zA-Z][a-zA-Z0-9_-]*)$/);
+  if (asMatch) return { path: asMatch[1]!, namespace: asMatch[2]!.toLowerCase() };
+  if (/^\S+$/.test(rest)) return { path: rest, namespace: stemFromPath(rest) };
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Feature 2 — inline body reference scanner
 // ---------------------------------------------------------------------------
 
@@ -244,10 +267,15 @@ function scanBodySegments(text: string): {
       }
     }
 
-    // @id reference
+    // @id reference — including qualified @ns::localid form
     if (ch === "@") {
       let j = i + 1;
       while (j < text.length && /[a-z0-9_-]/i.test(text[j]!)) j++;
+      // Qualified form: namespace::localid
+      if (text[j] === ":" && text[j + 1] === ":") {
+        j += 2;
+        while (j < text.length && /[a-z0-9_-]/i.test(text[j]!)) j++;
+      }
       const value = text.slice(i + 1, j).toLowerCase();
       if (value.length > 0) {
         flushPlain(i);
@@ -384,7 +412,7 @@ function parseEdgeRest(
 }
 
 function emptySnapshot(): DslSnapshot {
-  return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [] };
+  return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [], imports: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +441,7 @@ export function parseDsl(text: string): DslParseResult {
   let currentNode: DslNode | null = null;
   let currentRoute: DslRoute | null = null;
   let routeHasMembers = false;
+  const seenNamespaces = new Set<string>();
 
   function flush() {
     if (currentNode) snapshot.nodes.push(currentNode);
@@ -590,6 +619,23 @@ export function parseDsl(text: string): DslParseResult {
       case "alias-decl":
         // handled in pre-pass; FSM skips
         break;
+
+      case "import-decl": {
+        const parsed = parseImportDecl(cl.rest);
+        if (!parsed) {
+          diag(diagnostics, "error", "import-malformed", num, 1, body.length, "Malformed import declaration");
+          break;
+        }
+        const { path, namespace } = parsed;
+        if (seenNamespaces.has(namespace)) {
+          diag(diagnostics, "error", "import-namespace-collision", num, 1, body.length,
+            `Namespace collision: "${namespace}" already declared`);
+          break;
+        }
+        seenNamespaces.add(namespace);
+        snapshot.imports.push({ path, namespace, sourceLine: num } satisfies DslImportDeclaration);
+        break;
+      }
 
       case "edge":
         if (!currentNode) {
