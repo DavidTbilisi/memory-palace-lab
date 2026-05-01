@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import { Download, Image, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import type { Palace, PalaceSnapshot } from "../domain/entities/types";
+import { insertBackgroundImageFromFile } from "../canvas/backgroundImageImport";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { composeAtlasPath, DEFAULT_ATLAS_LEVEL_LABELS, splitAtlasPath } from "../domain/services/atlasHierarchy";
 import { usePalaceStore } from "../store/palaceStore";
@@ -149,6 +150,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
   const setCurrentPalaceMeta = usePalaceStore((s) => s.setCurrentPalaceMeta);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
+  const editorRef = usePalaceStore((s) => s.editorRef);
   const [name, setName] = useState("My palace");
   const [atlasPath, setAtlasPath] = useState("");
   const [currentName, setCurrentName] = useState("");
@@ -362,6 +364,20 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
             >
               <Save className="h-4 w-4" />
               Save details
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full justify-center"
+              type="button"
+              disabled={!editorRef || !currentPalace}
+              onClick={() => {
+                if (!editorRef || !currentPalace) return;
+                void insertBackgroundImageFromFile(editorRef, currentPalace.id);
+              }}
+            >
+              <Image className="h-4 w-4" />
+              Set background
             </Button>
             <Button
               size="sm"

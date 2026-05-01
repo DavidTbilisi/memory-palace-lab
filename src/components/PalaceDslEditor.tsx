@@ -81,7 +81,7 @@ export function PalaceDslEditor({ initialValue, onViewReady }: PalaceDslEditorPr
             backgroundColor: "#09090b",
             caretColor: "#22c55e",
           },
-          ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, monospace" },
+          ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, monospace", caretColor: "#22c55e" },
           ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, monospace" },
           ".cm-focused": {
             outline: "none",
