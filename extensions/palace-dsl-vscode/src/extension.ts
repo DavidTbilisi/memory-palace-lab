@@ -22,14 +22,14 @@ const KEYWORD_SNIPPETS = [
   { label: ">", detail: "Edge", insertText: ">${1:Target} ${2:0000}" },
 ];
 
-function isDslDocument(document: vscode.TextDocument) {
+export function isDslDocument(document: vscode.TextDocument) {
   return (
     document.languageId === LANGUAGE_ID ||
     document.fileName.toLowerCase().endsWith(".palace")
   );
 }
 
-function keywordSnippetsForContext(
+export function keywordSnippetsForContext(
   document: vscode.TextDocument,
   position: vscode.Position,
 ): vscode.CompletionItem[] {
@@ -138,7 +138,7 @@ function nextRouteIndex(
   return maxIndex + 1;
 }
 
-function normalizedRouteLocusLine(lineText: string): string | null {
+export function normalizedRouteLocusLine(lineText: string): string | null {
   const match = lineText.match(/^(\s*)0*(\d+)(\s+.*)$/);
 
   if (!match) return null;
@@ -146,7 +146,7 @@ function normalizedRouteLocusLine(lineText: string): string | null {
   return `${match[1]!}${Number.parseInt(match[2]!, 10)}${match[3]!}`;
 }
 
-function castCompletionItems() {
+export function castCompletionItems() {
   const compact = [
     "0000",
     "0001",

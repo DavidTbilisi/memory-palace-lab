@@ -30,13 +30,6 @@ async function getIpcCalls(page: Page): Promise<IpcCall[]> {
   });
 }
 
-async function getStoreState<T>(page: Page, selector: (state: unknown) => T): Promise<T> {
-  return page.evaluate((fn) => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing store hook");
-    return (new Function("state", `return (${fn})(state)`) as (s: unknown) => T)(store.getState());
-  }, selector.toString());
-}
 
 async function waitForEditorReady(page: Page) {
   await expect

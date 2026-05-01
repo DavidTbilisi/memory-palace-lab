@@ -174,8 +174,8 @@ test.describe("rating: Good", () => {
 
 test.describe("rating: Easy", () => {
   test("after Easy: interval is larger than after Good", async ({ page }) => {
-    let goodInterval = 0;
-    let easyInterval = 0;
+    let goodInterval: number;
+    let easyInterval: number;
 
     // Good run
     {
@@ -220,8 +220,8 @@ test.describe("rating: Easy", () => {
 
 test.describe("rating: Hard", () => {
   test("after Hard: interval > 1 but smaller than Good", async ({ page }) => {
-    let hardInterval = 0;
-    let goodInterval = 0;
+    let hardInterval: number;
+    let goodInterval: number;
 
     // Hard run
     {

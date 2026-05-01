@@ -134,16 +134,6 @@ async function openDslEditor(page: import("@playwright/test").Page) {
   await expect(page.getByTestId("palace-dsl-editor")).toBeVisible();
 }
 
-async function typeDsl(page: import("@playwright/test").Page, dsl: string) {
-  const cm = page.locator(".cm-content").first();
-  await cm.click();
-  await page.keyboard.press("Control+A");
-  await page.keyboard.press("Delete");
-  await cm.pressSequentially(dsl, { delay: 2 });
-  await page.locator("body").click();
-  await page.waitForTimeout(700);
-}
-
 // ── MULTI-NODE CREATION ───────────────────────────────────────────────────────
 
 test.describe("multi-node canvas creation", () => {

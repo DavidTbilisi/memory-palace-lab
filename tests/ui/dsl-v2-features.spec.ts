@@ -138,7 +138,7 @@ async function typeDsl(page: import("@playwright/test").Page, dsl: string) {
   await page.waitForTimeout(700);
 }
 
-async function bootstrapPalace(page: import("@playwright/test").Page, name = "DSL Test Palace") {
+async function bootstrapPalace(page: import("@playwright/test").Page, _name = "DSL Test Palace") {
   await page.goto("/");
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
@@ -263,7 +263,7 @@ test.describe("DSL v2 — max-complexity palace syncs to canvas", () => {
       .poll(() => readSceneCounts(page), { timeout: 12000 })
       .toMatchObject({ routes: 2, loci: 7 });
 
-    const { routes, loci } = await readStoreRoutes(page);
+    const { loci } = await readStoreRoutes(page);
     const routeNames = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
       if (!store) throw new Error("missing store hook");
