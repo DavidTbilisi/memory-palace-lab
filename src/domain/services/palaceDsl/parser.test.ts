@@ -16,6 +16,9 @@ describe("parseDsl — empty input", () => {
       atlasPath: null,
       nodes: [],
       routes: [],
+      aliases: [],
+      imports: [],
+      queries: [],
     });
   });
 
@@ -75,11 +78,13 @@ describe("parseDsl — canonical fixture", () => {
       {
         targetTitle: "Newton's Laws",
         cast: { ab: "", cd: "", ef: "Rock", gh: "" },
+        semantic: { cast: "0010", alias: null, form: "cast", resolvedCast: "0010" },
         sourceLine: 11,
       },
       {
         targetTitle: "Gravity",
         cast: { ab: "Giant", cd: "Crushing", ef: "Rock", gh: "" },
+        semantic: { cast: "1110", alias: null, form: "cast", resolvedCast: "1110" },
         sourceLine: 12,
       },
     ]);
@@ -87,6 +92,8 @@ describe("parseDsl — canonical fixture", () => {
     expect(snapshot.routes).toEqual([
       {
         name: "First Walk",
+        normalizedName: "first-walk",
+        metadata: [],
         loci: ["Newton's Laws", "F = ma", "Gravity"],
         sourceLine: 17,
       },
@@ -188,6 +195,7 @@ describe("parseDsl — edges", () => {
     expect(snapshot.nodes[0]!.edges[0]).toEqual({
       targetTitle: "B",
       cast: { ab: "Giant", cd: "", ef: "", gh: "" },
+      semantic: { cast: "1000", alias: null, form: "cast", resolvedCast: "1000" },
       sourceLine: 4,
     });
   });
@@ -221,7 +229,7 @@ describe("parseDsl — routes", () => {
     const text = "@P\n\nA\n\nB\n\n/Main\n1 A\n2 B\n";
     const { snapshot } = parseDsl(text);
     expect(snapshot.routes).toEqual([
-      { name: "Main", loci: ["A", "B"], sourceLine: 7 },
+      { name: "Main", normalizedName: "main", metadata: [], loci: ["A", "B"], sourceLine: 7 },
     ]);
   });
 
@@ -229,5 +237,689 @@ describe("parseDsl — routes", () => {
     const text = "@P\n\nA\n\n/First Walk\n1 A\n";
     const { snapshot } = parseDsl(text);
     expect(snapshot.routes[0]!.name).toBe("First Walk");
+  });
+});
+
+describe("parseDsl — stable node identifiers (Feature 1)", () => {
+  it("parses explicit [id] Title syntax and stores id and implicitId", () => {
+    const { snapshot } = parseDsl("@P\n\n[auth] Authentication\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.id).toBe("auth");
+    expect(node.implicitId).toBe("auth");
+    expect(node.title).toBe("Authentication");
+  });
+
+  it("normalizes uppercase id to lowercase", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\n[AUTH] Authentication\n");
+    expect(snapshot.nodes[0]!.id).toBe("auth");
+    expect(diagnostics.filter((d) => d.code === "malformed-node-id")).toHaveLength(0);
+  });
+
+  it("derives implicitId from title when no id declared", () => {
+    const { snapshot } = parseDsl("@P\n\nJSON Web Token\n");
+    expect(snapshot.nodes[0]!.id).toBeNull();
+    expect(snapshot.nodes[0]!.implicitId).toBe("json-web-token");
+  });
+
+  it("derives collision-safe implicitId with numeric suffix", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n\nAuth\n");
+    // second is duplicate title (error) but implicitId still assigned
+    expect(snapshot.nodes[0]!.implicitId).toBe("auth");
+  });
+
+  it("emits duplicate-node-id for two nodes with the same explicit id", () => {
+    const { diagnostics } = parseDsl("@P\n\n[auth] Authentication\n\n[auth] Auth Module\n");
+    const dups = diagnostics.filter((d) => d.code === "duplicate-node-id");
+    expect(dups).toHaveLength(1);
+    expect(dups[0]!.severity).toBe("error");
+    expect(dups[0]!.line).toBe(5);
+  });
+
+  it("emits malformed-node-id for an empty id []", () => {
+    const { diagnostics } = parseDsl("@P\n\n[] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "malformed-node-id")).toBe(true);
+  });
+
+  it("emits reserved-node-id for reserved keyword ids", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "reserved-node-id")).toBe(true);
+  });
+
+  it("emits malformed-node-id for id starting with digit", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Authentication\n");
+    expect(diagnostics.some((d) => d.code === "malformed-node-id")).toBe(true);
+  });
+
+  it("does not affect edge resolution — edges can target by title regardless of id", () => {
+    const text = "@P\n\n[auth] Authentication\n>[auth] Authentication 0010\n\n[auth] Authentication\n";
+    const { snapshot } = parseDsl(text);
+    // edge target is stored as-is; resolution is by title
+    expect(snapshot.nodes[0]!.edges[0]!.targetTitle).toBe("[auth] Authentication");
+  });
+
+  it("plain title nodes (no id) produce null id and derived implicitId", () => {
+    const { snapshot } = parseDsl("@P\n\nPassword Hashing\n");
+    expect(snapshot.nodes[0]!.id).toBeNull();
+    expect(snapshot.nodes[0]!.implicitId).toBe("password-hashing");
+  });
+});
+
+describe("parseDsl — import system (Feature 4)", () => {
+  it("parses !import path into snapshot.imports", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n!import security/primitives.dsl\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.imports).toEqual([
+      { path: "security/primitives.dsl", namespace: "primitives", sourceLine: 2 },
+    ]);
+  });
+
+  it("derives namespace from filename stem", () => {
+    const { snapshot } = parseDsl("@P\n!import math/foundations.dsl\n");
+    expect(snapshot.imports[0]!.namespace).toBe("foundations");
+  });
+
+  it("derives namespace from relative path stem", () => {
+    const { snapshot } = parseDsl("@P\n!import ../shared/common.dsl\n");
+    expect(snapshot.imports[0]!.namespace).toBe("common");
+  });
+
+  it("parses !import path as namespace form", () => {
+    const { snapshot } = parseDsl("@P\n!import math/foundations.dsl as math\n");
+    expect(snapshot.imports[0]).toMatchObject({ path: "math/foundations.dsl", namespace: "math" });
+  });
+
+  it("normalizes explicit namespace to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n!import foo.dsl as Foo\n");
+    expect(snapshot.imports[0]!.namespace).toBe("foo");
+  });
+
+  it("parses multiple imports with distinct namespaces", () => {
+    const text = "@P\n!import a.dsl as auth\n!import b.dsl as math\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.imports).toHaveLength(2);
+    expect(snapshot.imports[0]!.namespace).toBe("auth");
+    expect(snapshot.imports[1]!.namespace).toBe("math");
+  });
+
+  it("emits import-namespace-collision for duplicate namespace", () => {
+    const text = "@P\n!import a.dsl as auth\n!import b.dsl as auth\n";
+    const { diagnostics } = parseDsl(text);
+    const collisions = diagnostics.filter((d) => d.code === "import-namespace-collision");
+    expect(collisions).toHaveLength(1);
+    expect(collisions[0]!.severity).toBe("error");
+    expect(collisions[0]!.line).toBe(3);
+  });
+
+  it("emits import-malformed for empty import path", () => {
+    const { diagnostics } = parseDsl("@P\n!import\n");
+    expect(diagnostics.some((d) => d.code === "import-malformed")).toBe(true);
+  });
+
+  it("emits import-malformed for path with spaces and no as clause", () => {
+    const { diagnostics } = parseDsl("@P\n!import some path with spaces\n");
+    expect(diagnostics.some((d) => d.code === "import-malformed")).toBe(true);
+  });
+
+  it("files without imports have empty imports array", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n");
+    expect(snapshot.imports).toEqual([]);
+  });
+
+  it("@ns::localid qualified ref captured as single id ref in body", () => {
+    const { snapshot } = parseDsl("@P\n!import sec.dsl as sec\n\nA\n: depends on @sec::auth for identity\n");
+    const ref = snapshot.nodes[0]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "id", value: "sec::auth" });
+  });
+
+  it("unqualified @id still works alongside imports", () => {
+    const { snapshot } = parseDsl("@P\n!import sec.dsl as sec\n\nAuth\n\nLogin\n: see @auth node\n");
+    const ref = snapshot.nodes[1]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ refType: "id", value: "auth" });
+  });
+});
+
+describe("parseDsl — route metadata (Feature 7)", () => {
+  it("routes have normalizedName derived from route name", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Beginner Security\n1 A\n");
+    expect(snapshot.routes[0]!.normalizedName).toBe("beginner-security");
+  });
+
+  it("routes without metadata have empty metadata array", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Main\n1 A\n");
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+  });
+
+  it("structured tags before first locus are route metadata", () => {
+    const text = "@P\n\nA\n\n/Beginner\n#difficulty:beginner #duration:45m\n1 A\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "misplaced-line")).toHaveLength(0);
+    expect(snapshot.routes[0]!.metadata).toHaveLength(2);
+    expect(snapshot.routes[0]!.metadata[0]).toMatchObject({ key: "difficulty", value: "beginner" });
+    expect(snapshot.routes[0]!.metadata[1]).toMatchObject({ key: "duration", value: "45m" });
+  });
+
+  it("metadata tags from multiple tag lines are merged", () => {
+    const text = "@P\n\nA\n\n/Main\n#difficulty:beginner\n#mode:linear\n1 A\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata).toHaveLength(2);
+  });
+
+  it("tag lines after first locus are NOT route metadata", () => {
+    const text = "@P\n\nA\n\nB\n\n/Main\n1 A\n#mode:linear\n2 B\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+    // tag after first member is misplaced
+    expect(diagnostics.some((d) => d.code === "misplaced-line")).toBe(true);
+  });
+
+  it("loci are still collected after metadata tags", () => {
+    const text = "@P\n\nA\n\nB\n\n/Main\n#difficulty:beginner\n1 A\n2 B\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.loci).toEqual(["A", "B"]);
+  });
+
+  it("emits route-prereq-unresolved warning for unknown prereq", () => {
+    const text = "@P\n\nA\n\n/Main\n#prereq:Missing Route\n1 A\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.some((d) => d.code === "route-prereq-unresolved")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "route-prereq-unresolved")!.severity).toBe("warning");
+  });
+
+  it("does not emit route-prereq-unresolved for a valid prereq", () => {
+    const text = "@P\n\nA\n\n/Intro\n1 A\n\n/Advanced\n#prereq:Intro\n1 A\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+  });
+
+  it("plain tags in route metadata are ignored (only structured tags stored)", () => {
+    const text = "@P\n\nA\n\n/Main\n#plaintag #difficulty:beginner\n1 A\n";
+    const { snapshot } = parseDsl(text);
+    // Only structured tag is in metadata
+    expect(snapshot.routes[0]!.metadata).toHaveLength(1);
+    expect(snapshot.routes[0]!.metadata[0]).toMatchObject({ key: "difficulty" });
+  });
+
+  it("routes without metadata parse identically to before", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n\n/Main\n1 A\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(snapshot.routes[0]!.loci).toEqual(["A"]);
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+  });
+});
+
+describe("parseDsl — inline node references (Feature 2)", () => {
+  it("body with no refs produces single plain segment", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: simple body\n");
+    expect(snapshot.nodes[0]!.bodySegments).toEqual([{ kind: "plain", text: "simple body" }]);
+  });
+
+  it("parses @id ref and resolves against node implicitId", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n: delegates to @auth for identity\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-id")).toHaveLength(0);
+    const segs = snapshot.nodes[1]!.bodySegments;
+    const ref = segs.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "id", value: "auth", resolved: "auth" });
+  });
+
+  it("parses [[Title]] ref and resolves against node title", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n: see [[Auth]] for details\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-title")).toHaveLength(0);
+    const segs = snapshot.nodes[1]!.bodySegments;
+    const ref = segs.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "title", value: "Auth", resolved: "auth" });
+  });
+
+  it("parses &alias ref and resolves to cast token", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n~dep:1000\n\nA\n: see &dep concept\n");
+    expect(diagnostics.filter((d) => d.code === "inline-ref-unresolved-alias")).toHaveLength(0);
+    const ref = snapshot.nodes[0]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ kind: "ref", refType: "alias", value: "dep", resolved: "1000" });
+  });
+
+  it("emits inline-ref-unresolved-id error for unknown @id", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see @unknown node\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-id")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-id")!.severity).toBe("error");
+  });
+
+  it("emits inline-ref-unresolved-title warning for unknown [[Title]]", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see [[Missing Node]] here\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-title")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-title")!.severity).toBe("warning");
+  });
+
+  it("emits inline-ref-unresolved-alias warning for unknown &alias", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: via &nope thing\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unresolved-alias")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unresolved-alias")!.severity).toBe("warning");
+  });
+
+  it("emits inline-ref-unclosed error for [[without closing", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n: see [[Unclosed here\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-unclosed")).toBe(true);
+    expect(diagnostics.find((d) => d.code === "inline-ref-unclosed")!.severity).toBe("error");
+    expect(diagnostics.find((d) => d.code === "inline-ref-unclosed")!.line).toBe(4);
+  });
+
+  it("emits inline-ref-self warning for self-referencing @id", () => {
+    const { diagnostics } = parseDsl("@P\n\nauth\n: @auth is the authentication module\n");
+    expect(diagnostics.some((d) => d.code === "inline-ref-self")).toBe(true);
+  });
+
+  it("handles escape sequences \\@ \\& \\[[ as literals", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: write \\@user and \\[[Title]] and \\&alias\n");
+    const segs = snapshot.nodes[0]!.bodySegments;
+    expect(segs.every((s) => s.kind === "plain")).toBe(true);
+    const joined = segs.map((s) => (s as { text: string }).text).join("");
+    expect(joined).toContain("@user");
+    expect(joined).toContain("[[Title]]");
+    expect(joined).toContain("&alias");
+  });
+
+  it("resolves @id to lowercase — @Auth resolves same as @auth", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n\nLogin\n: delegates to @Auth for identity\n");
+    const ref = snapshot.nodes[1]!.bodySegments.find((s) => s.kind === "ref");
+    expect(ref).toMatchObject({ value: "auth", resolved: "auth" });
+  });
+
+  it("multi-line body accumulates segments with \\n between lines", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: line one\n: line two\n");
+    const segs = snapshot.nodes[0]!.bodySegments;
+    const texts = segs.map((s) => (s as { text: string }).text);
+    expect(texts).toContain("\n");
+    expect(texts).toContain("line one");
+    expect(texts).toContain("line two");
+  });
+
+  it("existing body text without refs produces no diagnostics and empty refs", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n: plain text body no special chars\n");
+    expect(diagnostics).toHaveLength(0);
+    expect(snapshot.nodes[0]!.bodySegments.every((s) => s.kind === "plain")).toBe(true);
+  });
+
+  it("content field remains unchanged alongside bodySegments", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n: verifies @id identity\n");
+    expect(snapshot.nodes[0]!.content).toBe("verifies @id identity");
+  });
+});
+
+describe("parseDsl — edge semantic aliases (Feature 3)", () => {
+  it("parses ~alias:cast declaration into snapshot.aliases", () => {
+    const text = "@P\n~dep:0001 depends on\n\nA\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.aliases).toEqual([
+      { alias: "dep", cast: "0001", description: "depends on", sourceLine: 2 },
+    ]);
+  });
+
+  it("parses alias declaration without description", () => {
+    const { snapshot } = parseDsl("@P\n~uses:0020\n\nA\n");
+    expect(snapshot.aliases[0]).toMatchObject({ alias: "uses", cast: "0020", description: null });
+  });
+
+  it("normalizes alias to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n~DEP:0001 depends on\n\nA\n");
+    expect(snapshot.aliases[0]!.alias).toBe("dep");
+  });
+
+  it("resolves alias form edge — sets cast and semantic", () => {
+    const text = "@P\n~dep:1000 depends on\n\nA\n>B dep\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.targetTitle).toBe("B");
+    expect(edge.cast).toEqual({ ab: "Giant", cd: "", ef: "", gh: "" });
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "alias", resolvedCast: "1000" });
+  });
+
+  it("resolves bracketed alias form [alias]", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B [dep]\n\nB\n";
+    const { snapshot } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "bracketed", resolvedCast: "0001" });
+  });
+
+  it("resolves hybrid form CAST:alias — no conflict", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B 0001:dep\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ cast: "0001", alias: "dep", form: "hybrid", resolvedCast: "0001" });
+    expect(diagnostics.filter((d) => d.code === "alias-cast-conflict")).toHaveLength(0);
+  });
+
+  it("emits alias-cast-conflict for hybrid edge where alias maps to different CAST", () => {
+    const text = "@P\n~dep:0001\n\nA\n>B 0010:dep\n\nB\n";
+    const { diagnostics } = parseDsl(text);
+    const conflicts = diagnostics.filter((d) => d.code === "alias-cast-conflict");
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.severity).toBe("error");
+    expect(conflicts[0]!.line).toBe(5);
+  });
+
+  it("emits alias-unresolved warning for unknown bracketed alias", () => {
+    const text = "@P\n\nA\n>B [unknown]\n\nB\n";
+    const { diagnostics } = parseDsl(text);
+    const unresolved = diagnostics.filter((d) => d.code === "alias-unresolved");
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]!.severity).toBe("warning");
+  });
+
+  it("emits alias-unresolved warning for unknown word alias", () => {
+    const text = "@P\n\nA\n>B notanalias\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    // "notanalias" is not in alias table — entire rest is target
+    expect(diagnostics.filter((d) => d.code === "alias-unresolved")).toHaveLength(0);
+    expect(snapshot.nodes[0]!.edges[0]!.targetTitle).toBe("B notanalias");
+  });
+
+  it("emits alias-duplicate for two declarations with the same alias", () => {
+    const text = "@P\n~dep:0001\n~dep:0010\n\nA\n";
+    const { diagnostics } = parseDsl(text);
+    const dups = diagnostics.filter((d) => d.code === "alias-duplicate");
+    expect(dups).toHaveLength(1);
+    expect(dups[0]!.severity).toBe("error");
+    expect(dups[0]!.line).toBe(3);
+  });
+
+  it("emits alias-malformed for unparseable ~ line", () => {
+    const text = "@P\n~bad declaration!!!\n\nA\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.some((d) => d.code === "alias-malformed")).toBe(true);
+  });
+
+  it("two-pass: alias declared after usage still resolves", () => {
+    const text = "@P\n\nA\n>B dep\n\nB\n~dep:0001\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "alias-unresolved")).toHaveLength(0);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.semantic).toMatchObject({ alias: "dep", form: "alias", resolvedCast: "0001" });
+  });
+
+  it("existing 4-digit CAST edges are unchanged", () => {
+    const text = "@P\n\nA\n>B 1000\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const edge = snapshot.nodes[0]!.edges[0]!;
+    expect(edge.cast).toEqual({ ab: "Giant", cd: "", ef: "", gh: "" });
+    expect(edge.semantic).toMatchObject({ form: "cast", cast: "1000", alias: null });
+  });
+});
+
+describe("parseDsl — structured tags (Feature 5)", () => {
+  it("parses #key:value into structuredTags", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.structuredTags).toEqual([{ key: "domain", value: "security", raw: "#domain:security" }]);
+  });
+
+  it("stores structured tag as key:value in flat tags for backward compat", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security\n");
+    expect(snapshot.nodes[0]!.tags).toContain("domain:security");
+  });
+
+  it("parses multiple structured tags on one line", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#domain:security #difficulty:advanced\n");
+    const { structuredTags } = snapshot.nodes[0]!;
+    expect(structuredTags).toHaveLength(2);
+    expect(structuredTags[0]).toMatchObject({ key: "domain", value: "security" });
+    expect(structuredTags[1]).toMatchObject({ key: "difficulty", value: "advanced" });
+  });
+
+  it("parses plain tags alongside structured tags on the same line", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#security #domain:auth\n");
+    const node = snapshot.nodes[0]!;
+    expect(node.tags).toContain("security");
+    expect(node.tags).toContain("domain:auth");
+    expect(node.structuredTags).toHaveLength(1);
+    expect(node.structuredTags[0]).toMatchObject({ key: "domain", value: "auth" });
+  });
+
+  it("normalizes structured tag keys to lowercase", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#Domain:Security\n");
+    expect(snapshot.nodes[0]!.structuredTags[0]).toMatchObject({ key: "domain", value: "Security" });
+  });
+
+  it("handles empty value in structured tag #key:", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n#status:\n");
+    expect(snapshot.nodes[0]!.structuredTags[0]).toMatchObject({ key: "status", value: null });
+  });
+
+  it("merges structured tags from multiple tag lines on the same node", () => {
+    const text = "@P\n\nAuth\n#domain:security\n#difficulty:advanced\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.structuredTags).toHaveLength(2);
+  });
+
+  it("does not emit diagnostics for valid structured tags", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n#domain:security #difficulty:beginner\n");
+    expect(diagnostics.filter((d) => d.code === "tag-syntax")).toHaveLength(0);
+  });
+});
+
+describe("parseDsl — query/traversal language (Feature 8)", () => {
+  it("empty snapshot has queries array", () => {
+    const { snapshot } = parseDsl("");
+    expect(snapshot.queries).toEqual([]);
+  });
+
+  it("parses ?all into snapshot.queries with palace scope", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n?all\n");
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.queries).toHaveLength(1);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "all", args: "", scope: "palace", sourceLine: 2 });
+  });
+
+  it("parses ?node with node id arg", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n?node auth\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "node", args: "auth", scope: "palace" });
+  });
+
+  it("parses ?tag with structured tag args", () => {
+    const { snapshot } = parseDsl("@P\n?tag #domain:security\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "tag", args: "#domain:security", pathArgs: null });
+  });
+
+  it("parses ?neighbors with node id arg", () => {
+    const { snapshot } = parseDsl("@P\n\nAuth\n?neighbors auth\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "neighbors", args: "auth" });
+  });
+
+  it("parses ?route with route name arg", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n\n/Intro\n1 A\n?route Intro\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "route", args: "Intro" });
+  });
+
+  it("parses ?depends with node id", () => {
+    const { snapshot } = parseDsl("@P\n\nA\n?depends a\n");
+    expect(snapshot.queries[0]).toMatchObject({ verb: "depends", args: "a" });
+  });
+
+  it("parses ?path with two node refs and stores pathArgs", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n\nLogin\n?path auth login\n");
+    expect(diagnostics.filter((d) => d.code === "query-path-missing-arg")).toHaveLength(0);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "path", pathArgs: ["auth", "login"] });
+  });
+
+  it("parses ?filter with expression args", () => {
+    const { snapshot } = parseDsl("@P\n?filter #domain:security and #difficulty:beginner\n");
+    expect(snapshot.queries[0]).toMatchObject({
+      verb: "filter",
+      args: "#domain:security and #difficulty:beginner",
+      pathArgs: null,
+    });
+  });
+
+  it("emits query-verb-unknown E801 for unknown verb", () => {
+    const { diagnostics } = parseDsl("@P\n?unknown args\n");
+    const errs = diagnostics.filter((d) => d.code === "query-verb-unknown");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]!.severity).toBe("error");
+    expect(errs[0]!.line).toBe(2);
+  });
+
+  it("does not store unknown-verb queries in snapshot", () => {
+    const { snapshot } = parseDsl("@P\n?unknown args\n");
+    expect(snapshot.queries).toHaveLength(0);
+  });
+
+  it("emits query-path-missing-arg E802 for ?path with one arg", () => {
+    const { diagnostics } = parseDsl("@P\n?path auth\n");
+    const errs = diagnostics.filter((d) => d.code === "query-path-missing-arg");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]!.severity).toBe("error");
+    expect(errs[0]!.line).toBe(2);
+  });
+
+  it("emits query-path-missing-arg E802 for ?path with no args", () => {
+    const { diagnostics } = parseDsl("@P\n?path\n");
+    expect(diagnostics.some((d) => d.code === "query-path-missing-arg")).toBe(true);
+  });
+
+  it("?path with same node twice is valid (path of length 0)", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAuth\n?path auth auth\n");
+    expect(diagnostics.filter((d) => d.code === "query-path-missing-arg")).toHaveLength(0);
+    expect(snapshot.queries[0]).toMatchObject({ verb: "path", pathArgs: ["auth", "auth"] });
+  });
+
+  it("emits query-unresolved-node W803 for ?node with unknown id", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n?node unknown\n");
+    const warns = diagnostics.filter((d) => d.code === "query-unresolved-node");
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.severity).toBe("warning");
+  });
+
+  it("does not emit query-unresolved-node when node exists by implicitId", () => {
+    const { diagnostics } = parseDsl("@P\n\nAuth\n?node auth\n");
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+  });
+
+  it("emits query-unresolved-route W804 for ?route with unknown route name", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n?route NonExistent\n");
+    const warns = diagnostics.filter((d) => d.code === "query-unresolved-route");
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.severity).toBe("warning");
+  });
+
+  it("does not emit query-unresolved-route for a valid route name", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n\n/Intro\n1 A\n?route Intro\n");
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-route")).toHaveLength(0);
+  });
+
+  it("query before palace header has document scope", () => {
+    const { snapshot } = parseDsl("?all\n@P\n");
+    expect(snapshot.queries[0]!.scope).toBe("document");
+  });
+
+  it("query after palace header has palace scope", () => {
+    const { snapshot } = parseDsl("@P\n?all\n");
+    expect(snapshot.queries[0]!.scope).toBe("palace");
+  });
+
+  it("multiple queries are all stored in order", () => {
+    const text = "@P\n\nAuth\n\n/Intro\n1 Auth\n?node auth\n?route Intro\n?all\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(snapshot.queries).toHaveLength(3);
+    expect(snapshot.queries.map((q) => q.verb)).toEqual(["node", "route", "all"]);
+  });
+});
+
+describe("parseDsl — formal diagnostic system (Feature 6)", () => {
+  it("every diagnostic has a numericCode string", () => {
+    const { diagnostics } = parseDsl("Foo\n: bar\n");
+    expect(diagnostics.length).toBeGreaterThan(0);
+    for (const d of diagnostics) {
+      expect(typeof d.numericCode).toBe("string");
+      expect(d.numericCode.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("missing-palace-header maps to E001", () => {
+    const { diagnostics } = parseDsl("Foo\n");
+    const d = diagnostics.find((x) => x.code === "missing-palace-header");
+    expect(d?.numericCode).toBe("E001");
+  });
+
+  it("duplicate-title maps to E002", () => {
+    const { diagnostics } = parseDsl("@P\n\nFoo\n\nFoo\n");
+    const d = diagnostics.find((x) => x.code === "duplicate-title");
+    expect(d?.numericCode).toBe("E002");
+  });
+
+  it("unknown-target maps to W007", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n>Missing\n");
+    const d = diagnostics.find((x) => x.code === "unknown-target");
+    expect(d?.numericCode).toBe("W007");
+  });
+
+  it("malformed-node-id maps to E101", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Auth\n");
+    const d = diagnostics.find((x) => x.code === "malformed-node-id");
+    expect(d?.numericCode).toBe("E101");
+  });
+
+  it("duplicate-node-id maps to E102", () => {
+    const { diagnostics } = parseDsl("@P\n\n[auth] Auth\n\n[auth] Auth2\n");
+    const d = diagnostics.find((x) => x.code === "duplicate-node-id");
+    expect(d?.numericCode).toBe("E102");
+  });
+
+  it("reserved-node-id maps to E103", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Auth\n");
+    const d = diagnostics.find((x) => x.code === "reserved-node-id");
+    expect(d?.numericCode).toBe("E103");
+  });
+
+  it("query-verb-unknown maps to E801", () => {
+    const { diagnostics } = parseDsl("@P\n?bad\n");
+    const d = diagnostics.find((x) => x.code === "query-verb-unknown");
+    expect(d?.numericCode).toBe("E801");
+  });
+
+  it("every diagnostic has related array (empty by default)", () => {
+    const { diagnostics } = parseDsl("@P\n\nA\n>Missing\n");
+    for (const d of diagnostics) {
+      expect(Array.isArray(d.related)).toBe(true);
+    }
+  });
+
+  it("duplicate-title related points to the first occurrence line", () => {
+    const text = "@P\n\nFoo\n: first\n\nFoo\n: second\n";
+    const { diagnostics } = parseDsl(text);
+    const d = diagnostics.find((x) => x.code === "duplicate-title");
+    expect(d?.related).toHaveLength(1);
+    expect(d?.related[0]!.line).toBe(3);
+  });
+
+  it("duplicate-node-id related points to first occurrence line", () => {
+    const text = "@P\n\n[auth] Authentication\n\n[auth] Auth Module\n";
+    const { diagnostics } = parseDsl(text);
+    const d = diagnostics.find((x) => x.code === "duplicate-node-id");
+    expect(d?.related).toHaveLength(1);
+    expect(d?.related[0]!.line).toBe(3);
+  });
+
+  it("reserved-node-id has a SuggestedFix with replacement equal to the title", () => {
+    const { diagnostics } = parseDsl("@P\n\n[palace] Authentication\n");
+    const d = diagnostics.find((x) => x.code === "reserved-node-id");
+    expect(d?.fix).not.toBeNull();
+    expect(d?.fix?.replacement).toBe("Authentication");
+    expect(typeof d?.fix?.description).toBe("string");
+  });
+
+  it("non-auto-correctable errors have null fix", () => {
+    const { diagnostics } = parseDsl("@P\n\n[123] Auth\n");
+    const d = diagnostics.find((x) => x.code === "malformed-node-id");
+    expect(d?.fix).toBeNull();
+  });
+
+  it("every diagnostic has fix field (null or object)", () => {
+    const text = "@P\n\nFoo\n\nFoo\n>Missing\n\n[palace] X\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.length).toBeGreaterThan(0);
+    for (const d of diagnostics) {
+      expect(d.fix === null || typeof d.fix === "object").toBe(true);
+    }
   });
 });
