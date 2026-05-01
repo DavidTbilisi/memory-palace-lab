@@ -123,7 +123,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     if (next.join(",") !== (prev ?? []).join(",")) {
       setAvailableTags(next);
     }
-  }, []);
+  }, [setAvailableTags]);
 
   const openPortalDestination = useCallback(async (meta: MemoryPalaceMeta) => {
     const portal = portalRefFromMeta(meta);
@@ -303,7 +303,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         editor.setSelectedShapes([activeShapeId]);
       }
     }
-  }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci]);
+  }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci, clearActiveTags]);
 
   useEffect(() => {
     const editor = editorRef.current;

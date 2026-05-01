@@ -1,3 +1,18 @@
+import * as vscode from "vscode";
+
+const LANGUAGE_ID = "palace-dsl";
+
+function snippetCompletionItem(
+  label: string,
+  detail: string,
+  insertText: string,
+): vscode.CompletionItem {
+  const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Snippet);
+  item.detail = detail;
+  item.insertText = new vscode.SnippetString(insertText);
+  return item;
+}
+
 const KEYWORD_SNIPPETS = [
   { label: "@", detail: "Palace header", insertText: "@${1:PalaceName}" },
   { label: "Node", detail: "Node title", insertText: "${1:NodeName}" },

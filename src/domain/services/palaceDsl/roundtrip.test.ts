@@ -6,7 +6,7 @@ import { serializeDsl } from "./serializer";
 import { dslToPalaceSnapshot, stripSourceLines } from "./testHelpers";
 
 function fixture(name: string) {
-  return readFileSync(resolve(__dirname, "fixtures", name), "utf8");
+  return readFileSync(resolve(__dirname, "fixtures", name), "utf8").replace(/\r\n/g, "\n");
 }
 
 const FIXTURES = ["empty.dsl", "mechanics.dsl", "portals.dsl", "solid-citadel.dsl"];

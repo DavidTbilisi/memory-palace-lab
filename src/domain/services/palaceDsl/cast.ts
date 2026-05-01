@@ -7,8 +7,7 @@ export interface CastValue {
   gh: string;
 }
 
-const AXES = ["who", "how", "what", "when"] as const;
-type AxisName = (typeof AXES)[number];
+type AxisName = "who" | "how" | "what" | "when";
 
 const AXIS_VALUES: Record<AxisName, readonly string[]> = {
   who: CAST_WHO,
