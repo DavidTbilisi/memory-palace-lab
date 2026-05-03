@@ -175,7 +175,6 @@ test.describe("rating: Good", () => {
 test.describe("rating: Easy", () => {
   test("after Easy: interval is larger than after Good", async ({ page }) => {
     let goodInterval: number;
-    let easyInterval: number;
 
     // Good run
     {
@@ -198,7 +197,7 @@ test.describe("rating: Easy", () => {
     await page.getByRole("button", { name: /add selected node to route/i }).click();
     await rateAndClose(page, "Easy");
     const loci = await getLoci(page);
-    easyInterval = loci[0]!.interval ?? 0;
+    const easyInterval = loci[0]!.interval ?? 0;
 
     expect(easyInterval).toBeGreaterThan(goodInterval);
   });
@@ -221,7 +220,6 @@ test.describe("rating: Easy", () => {
 test.describe("rating: Hard", () => {
   test("after Hard: interval > 1 but smaller than Good", async ({ page }) => {
     let hardInterval: number;
-    let goodInterval: number;
 
     // Hard run
     {
@@ -244,7 +242,7 @@ test.describe("rating: Hard", () => {
     await page.getByRole("button", { name: /add selected node to route/i }).click();
     await rateAndClose(page, "Good");
     const loci = await getLoci(page);
-    goodInterval = loci[0]!.interval ?? 0;
+    const goodInterval = loci[0]!.interval ?? 0;
 
     // Hard interval is ≥ 1 but ≤ good interval
     expect(hardInterval).toBeGreaterThanOrEqual(1);
