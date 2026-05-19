@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
+import { plainTextFromRichText } from "../canvas/readShapeText";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
 import { AtlasEditorPage } from "../components/AtlasEditorPage";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
@@ -28,6 +29,9 @@ import { AnalyticsPanel } from "../components/AnalyticsPanel";
 import { ImportNodesDialog } from "../components/ImportNodesDialog";
 import { PalaceSidebar } from "../components/PalaceSidebar";
 import { PalaceToolbar } from "../components/PalaceToolbar";
+import { RepresentMotifDialog } from "../components/RepresentMotifDialog";
+import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
+import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
 import { ReviewPage } from "../components/ReviewPage";
 import { RouteEditorPage } from "../components/RouteEditorPage";
 import { RoutePanel } from "../components/RoutePanel";
@@ -232,6 +236,17 @@ export function MemoryPalaceApp() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
   const [viewMode, setViewMode] = useState<"balanced" | "focus">("balanced");
+  const [representOpen, setRepresentOpen] = useState(false);
+
+  const onRepresentInsert = useCallback(
+    (scaffold: MotifScaffold) => {
+      const editor = usePalaceStore.getState().editorRef;
+      const palace = usePalaceStore.getState().currentPalace;
+      if (!editor || !palace) return;
+      applyMotifScaffold(editor, palace.id, scaffold);
+    },
+    [],
+  );
   const [hoverHint, setHoverHint] = useState<string | null>(null);
 
   const navigateToPage = useCallback((page: AppPage) => {
@@ -704,6 +719,23 @@ export function MemoryPalaceApp() {
   const snap = currentPalace?.editorSnapshot;
   const castOpen = !!pendingCast;
 
+  const castSiblingEdgeLabels = useMemo(() => {
+    if (!pendingCast) return [];
+    const editor = usePalaceStore.getState().editorRef;
+    if (!editor) return [];
+    const labels: string[] = [];
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(id);
+      if (!shape || shape.type !== "arrow") continue;
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      if (meta.mpSourceNodeId !== pendingCast.sourceNodeId) continue;
+      if (meta.mpTargetNodeId === pendingCast.targetNodeId) continue;
+      const text = plainTextFromRichText((shape.props as { richText?: unknown } | undefined)?.richText);
+      if (text) labels.push(text);
+    }
+    return labels;
+  }, [pendingCast]);
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
@@ -814,7 +846,7 @@ export function MemoryPalaceApp() {
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <section className={currentPage === "graph" ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
-            <PalaceToolbar onHoverHintChange={setHoverHint} />
+            <PalaceToolbar onHoverHintChange={setHoverHint} onOpenRepresent={() => setRepresentOpen(true)} />
             {routePanelOpen ? <RoutePanel onHoverHintChange={setHoverHint} /> : null}
             <WalkModeBar onHoverHintChange={setHoverHint} />
             {currentPalace ? (
@@ -942,6 +974,13 @@ export function MemoryPalaceApp() {
           if (!open) setPendingCast(null);
         }}
         onConfirm={onCastConfirm}
+        siblingEdgeLabels={castSiblingEdgeLabels}
+      />
+
+      <RepresentMotifDialog
+        open={representOpen}
+        onOpenChange={setRepresentOpen}
+        onInsert={onRepresentInsert}
       />
 
       <ImportNodesDialog open={importOpen} onOpenChange={setImportOpen} />

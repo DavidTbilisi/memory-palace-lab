@@ -1,6 +1,23 @@
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { CAST_HOW, CAST_WHEN, CAST_WHAT, CAST_WHO } from "../domain/entities/types";
+import {
+  CAST_LEXICON,
+  CAST_WHO_GLOSS,
+  CAST_HOW_GLOSS,
+  CAST_WHAT_GLOSS,
+  CAST_WHEN_GLOSS,
+  CAST_WHO_PROFILE,
+  CAST_HOW_PROFILE,
+  CAST_WHAT_PROFILE,
+  CAST_WHEN_PROFILE,
+  type CastAxisName,
+} from "../data/castLexicon";
+import {
+  TIER1_VERB_GROUPS,
+  describeCollision,
+  detectVerbCollisions,
+} from "../domain/services/cast/verbCollisions";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 
@@ -10,6 +27,12 @@ type Props = {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onConfirm: (cast: EdgeCastPayload) => void;
+  /**
+   * Tier-1 labels of other edges already leaving the same source node.
+   * Used to warn about exact duplicates and confusable verbs from the same
+   * Tier-1 group. Optional — the dialog still works without it.
+   */
+  siblingEdgeLabels?: readonly string[];
 };
 
 const DEFAULT_TIER1_VERB = "links";
@@ -41,7 +64,7 @@ function hasTier1Verb(verbs: string[], candidate: string) {
   return verbs.some((verb) => verb.toLowerCase() === key);
 }
 
-export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
+export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabels }: Props) {
   const [tier, setTier] = React.useState<"tier1" | "tier2">("tier1");
   const [ab, setAb] = React.useState<string>(CAST_WHO[0]);
   const [cd, setCd] = React.useState<string>(CAST_HOW[0]);
@@ -53,16 +76,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
   const [activeHint, setActiveHint] = React.useState(
     "Tier 1 starts simple with one or more verbs. Switch to Tier 2 CAST when edges collide.",
   );
-  const tier1VerbGroups = [
-    { label: "Control", verbs: ["commands", "owns", "governs", "locks"] },
-    { label: "Supply", verbs: ["feeds", "sends", "delivers", "supplies"] },
-    { label: "Trigger", verbs: ["triggers", "activates", "fires", "launches"] },
-    { label: "Block", verbs: ["blocks", "stops", "freezes", "prevents"] },
-    { label: "Transform", verbs: ["converts", "transforms", "encodes", "breaks"] },
-    { label: "Inform", verbs: ["signals", "notifies", "warns", "informs"] },
-    { label: "Depend", verbs: ["requires", "depends on", "needs"] },
-    { label: "Amplify", verbs: ["amplifies", "inflates", "multiplies"] },
-  ] as const;
+  const tier1VerbGroups = TIER1_VERB_GROUPS;
 
   const bits = ["00", "01", "10", "11"] as const;
   const bitOf = (list: readonly string[], value: string) => {
@@ -70,47 +84,39 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
     return idx >= 0 && idx < bits.length ? bits[idx] : "--";
   };
 
-  const cProfiles = [
-    "Hub/controller source role",
-    "Peer/mutual source role (renders bidirectional edge)",
-    "Helper/invisible dependency role",
-    "Reactive/triggered source role",
-  ] as const;
-  const aProfiles = [
-    "Owns/dictates effect",
-    "Supplies/feeds effect",
-    "Influences/spreads effect",
-    "Transforms/breaks effect",
-  ] as const;
-  const sProfiles = [
-    "Data/structure stream",
-    "Resources/energy stream",
-    "Signals/information stream",
-    "Events/triggers stream",
-  ] as const;
-  const tProfiles = [
-    "Permanent relation",
-    "Normally active relation",
-    "Conditional relation",
-    "Temporary/unstable relation",
-  ] as const;
+  const cProfiles = CAST_WHO_PROFILE;
+  const aProfiles = CAST_HOW_PROFILE;
+  const sProfiles = CAST_WHAT_PROFILE;
+  const tProfiles = CAST_WHEN_PROFILE;
 
-  const cGloss = ["hub/controller", "peer/mutual", "helper/dependency", "reactive/triggered"] as const;
-  const aGloss = ["controls", "feeds", "influences", "transforms or breaks"] as const;
-  const sGloss = ["data or structure", "resources or energy", "signals or information", "events or triggers"] as const;
-  const tGloss = ["permanent", "normally active", "conditional", "temporary or unstable"] as const;
+  const cGloss = CAST_WHO_GLOSS;
+  const aGloss = CAST_HOW_GLOSS;
+  const sGloss = CAST_WHAT_GLOSS;
+  const tGloss = CAST_WHEN_GLOSS;
 
-  const slotDescriptions = {
-    c: "C - Character: source role (Giant, Mermaid, Mage, Dragon).",
-    a: "A - Action: effect style (Crushing, Flowing, Spreading, Exploding).",
-    s: "S - Stream: what moves (Rock, Water, Cloud, Lightning).",
-    t: "T - Time: stability (Red cave, Blue ocean, Green sky, Purple storm).",
-  } as const;
+  const useWhenHint = (axis: CastAxisName, english: string): string => {
+    const row = CAST_LEXICON[axis].rows.find((r) => r.english === english);
+    if (!row) return "";
+    return `${row.english} (${row.bits}) — ${row.useWhen}  ·  ქართ: ${row.georgian}  ·  Рус: ${row.russian}`;
+  };
 
   const selectedTier1Verbs = React.useMemo(() => parseTier1Verbs(tier1Verb), [tier1Verb]);
   const tier1LabelPreview = React.useMemo(() => {
     return selectedTier1Verbs.length > 0 ? selectedTier1Verbs.join(" / ") : DEFAULT_TIER1_VERB;
   }, [selectedTier1Verbs]);
+
+  const tier1Collisions = React.useMemo(() => {
+    if (!siblingEdgeLabels || siblingEdgeLabels.length === 0) return [];
+    return detectVerbCollisions(selectedTier1Verbs, siblingEdgeLabels);
+  }, [selectedTier1Verbs, siblingEdgeLabels]);
+
+  const promoteToTier2 = () => {
+    setTier("tier2");
+    setAb(tier1Direction === "two-way" ? CAST_WHO[1] : CAST_WHO[0]);
+    setActiveHint(
+      "Promoted to Tier 2 — pick the slot that breaks the tie. C (source role) usually does it first; if both sources play the same role, try S (what flows) or T (timing).",
+    );
+  };
   const tier2MeaningPreview = `${ab} means ${cGloss[(CAST_WHO as readonly string[]).indexOf(ab)] ?? cGloss[0]}. ${cd} means ${
     aGloss[(CAST_HOW as readonly string[]).indexOf(cd)] ?? aGloss[0]
   }. ${ef} means ${sGloss[(CAST_WHAT as readonly string[]).indexOf(ef)] ?? sGloss[0]}. ${gh} means ${
@@ -238,6 +244,30 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 <div className="text-[11px] uppercase tracking-wide text-zinc-400">Edge label preview</div>
                 <div className="mt-1 text-sm text-zinc-100">{tier1LabelPreview}</div>
               </div>
+              {tier1Collisions.length > 0 ? (
+                <div
+                  role="alert"
+                  aria-label="Tier 1 verb collision"
+                  className="rounded-md border border-amber-500/40 bg-amber-950/30 p-2 text-xs text-amber-100"
+                >
+                  <div className="font-medium text-amber-200">
+                    Verb collision on this source node
+                  </div>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-amber-100/90">
+                    {tier1Collisions.map((c, i) => (
+                      <li key={`${c.candidate}|${c.sibling}|${i}`}>{describeCollision(c)}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button type="button" size="sm" onClick={promoteToTier2}>
+                      Promote this edge to Tier 2 →
+                    </Button>
+                    <span className="text-[11px] text-amber-100/70">
+                      Or pick a verb from a different family.
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <Label htmlFor="tier1-direction">Direction</Label>
                 <select
@@ -281,8 +311,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 {tier2MeaningPreview}
               </div>
               <div
-                onMouseEnter={() => setActiveHint(`${slotDescriptions.c} 00/01/10/11 from top to bottom.`)}
-                onFocusCapture={() => setActiveHint(`${slotDescriptions.c} 00/01/10/11 from top to bottom.`)}
+                onMouseEnter={() => setActiveHint(useWhenHint("who", ab))}
+                onFocusCapture={() => setActiveHint(useWhenHint("who", ab))}
               >
                 <Label>C - source role (Character)</Label>
                 <select
@@ -304,8 +334,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(`${slotDescriptions.a} 00/01/10/11 from top to bottom.`)}
-                onFocusCapture={() => setActiveHint(`${slotDescriptions.a} 00/01/10/11 from top to bottom.`)}
+                onMouseEnter={() => setActiveHint(useWhenHint("how", cd))}
+                onFocusCapture={() => setActiveHint(useWhenHint("how", cd))}
               >
                 <Label>A - effect style (Action)</Label>
                 <select
@@ -327,8 +357,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(`${slotDescriptions.s} 00/01/10/11 from top to bottom.`)}
-                onFocusCapture={() => setActiveHint(`${slotDescriptions.s} 00/01/10/11 from top to bottom.`)}
+                onMouseEnter={() => setActiveHint(useWhenHint("what", ef))}
+                onFocusCapture={() => setActiveHint(useWhenHint("what", ef))}
               >
                 <Label>S - what moves (Stream)</Label>
                 <select
@@ -350,8 +380,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm }: Props) {
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(`${slotDescriptions.t} 00/01/10/11 from top to bottom.`)}
-                onFocusCapture={() => setActiveHint(`${slotDescriptions.t} 00/01/10/11 from top to bottom.`)}
+                onMouseEnter={() => setActiveHint(useWhenHint("when", gh))}
+                onFocusCapture={() => setActiveHint(useWhenHint("when", gh))}
               >
                 <Label>T - stability (Time)</Label>
                 <select

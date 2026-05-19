@@ -123,10 +123,8 @@ export interface PalaceSnapshot {
   loci: Locus[];
 }
 
-export const CAST_WHO = ["Giant", "Mermaid", "Mage", "Dragon"] as const;
-export const CAST_HOW = ["Crushing", "Flowing", "Spreading", "Exploding"] as const;
-export const CAST_WHAT = ["Rock", "Water", "Cloud", "Lightning"] as const;
-export const CAST_WHEN = ["Red cave", "Blue ocean", "Green sky", "Purple storm"] as const;
+export { CAST_WHO, CAST_HOW, CAST_WHAT, CAST_WHEN } from "../../data/castLexicon";
+import { CAST_WHO, CAST_HOW, CAST_WHAT, CAST_WHEN } from "../../data/castLexicon";
 
 export type CastWho = (typeof CAST_WHO)[number];
 export type CastHow = (typeof CAST_HOW)[number];

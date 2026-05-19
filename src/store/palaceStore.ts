@@ -35,6 +35,12 @@ import { applySm2Schedule, defaultLocusSchedule, normalizeLocusSchedule } from "
 import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
 import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
 import type { DslApplyResult, DslSnapshot } from "../domain/services/palaceDsl/types";
+import type { AARRecord } from "../domain/services/cast/aarRecords";
+import {
+  appendAARRecord as persistAppendAAR,
+  deleteAARRecord as persistDeleteAAR,
+  loadAARRecords as persistLoadAARs,
+} from "../infrastructure/aarStorage";
 
 const repo = getPalaceRepository();
 const DRAFT_SAVE_DELAY_MS = 900;
@@ -78,6 +84,8 @@ export type PalaceStore = {
   analyticsEvents: AnalyticsEvent[];
   analyticsSessionId: string | null;
   analyticsLoaded: boolean;
+  aarRecords: AARRecord[];
+  aarRecordsLoaded: boolean;
   editorRef: Editor | null;
   selectedShapeId: string | null;
   toolMode: ToolMode;
@@ -110,6 +118,9 @@ export type PalaceStore = {
   loadPalaces: () => Promise<void>;
   loadAnalyticsEvents: (limit?: number) => Promise<void>;
   recordAnalyticsEvent: (input: RecordAnalyticsInput) => Promise<AnalyticsEvent>;
+  loadAARRecords: () => void;
+  appendAARRecord: (record: AARRecord) => void;
+  deleteAARRecord: (id: string) => void;
   openPalace: (id: string) => Promise<void>;
   createPalace: (name: string, atlasPath?: string | null) => Promise<void>;
   saveCurrent: () => Promise<void>;
@@ -367,6 +378,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     edges: [],
     routes: [],
     loci: [],
+    aarRecords: [],
+    aarRecordsLoaded: false,
     analyticsEvents: [],
     analyticsSessionId: null,
     analyticsLoaded: false,
@@ -458,6 +471,20 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         analyticsEvents: mergeAnalyticsEvents(state.analyticsEvents, analyticsEvents),
         analyticsLoaded: true,
       }));
+    },
+
+    loadAARRecords() {
+      set({ aarRecords: persistLoadAARs(), aarRecordsLoaded: true });
+    },
+
+    appendAARRecord(record) {
+      const next = persistAppendAAR(record);
+      set({ aarRecords: next, aarRecordsLoaded: true });
+    },
+
+    deleteAARRecord(id) {
+      const next = persistDeleteAAR(id);
+      set({ aarRecords: next, aarRecordsLoaded: true });
     },
 
     async recordAnalyticsEvent(input) {

@@ -12,6 +12,7 @@ import {
   ExternalLink,
   HardDrive,
   RefreshCw,
+  Sparkles,
   Tag,
   X,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const tools: { id: ToolMode | "save" | "portal" | "reset"; label: string; icon: 
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
+  onOpenRepresent?: () => void;
 };
 
 const IS_TAURI_RUNTIME = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -87,7 +89,7 @@ function ToolbarStatusPopover({
   );
 }
 
-export function PalaceToolbar({ onHoverHintChange }: Props) {
+export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
   const toolMode = usePalaceStore((s) => s.toolMode);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
@@ -376,6 +378,24 @@ export function PalaceToolbar({ onHoverHintChange }: Props) {
             </Button>
           );
         })}
+        {onOpenRepresent ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            type="button"
+            title="Represent: scaffold from a motif"
+            onClick={() => onOpenRepresent()}
+            onMouseEnter={() =>
+              onHoverHintChange?.(
+                "Represent: pick a motif (cascade, diamond, hub-spoke, feedback loop) and seed the palace.",
+              )
+            }
+            onMouseLeave={() => onHoverHintChange?.(null)}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden lg:inline">Represent</span>
+          </Button>
+        ) : null}
       </div>
       {(availableTags?.length ?? 0) > 0 && (
         <Popover.Root>
