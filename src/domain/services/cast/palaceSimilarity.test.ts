@@ -71,4 +71,49 @@ describe("palaceSimilarity", () => {
     // both empty → similarity 0 → filtered
     expect(topSimilarPalaces(a, [b])).toEqual([]);
   });
+
+  it("similarityScore favors instance-overlap palaces over kind-only matches", () => {
+    // Build two palaces with the same kind composition (one hub-spoke each).
+    // Inject motifInstances so anchor labels differ.
+    const baseInput = {
+      nodes: nodes("CAP", "A", "B", "C"),
+      edges: [edge("CAP", "A"), edge("CAP", "B"), edge("CAP", "C")],
+    };
+    const otherInput = {
+      nodes: nodes("Latency", "X", "Y", "Z"),
+      edges: [edge("Latency", "X"), edge("Latency", "Y"), edge("Latency", "Z")],
+    };
+    const current = makeSig("c", "Current", baseInput);
+    const twinByAnchor = makeSig("twin", "Twin", baseInput);
+    const otherAnchor = makeSig("other", "Other", otherInput);
+    // Inject motifInstances on each signature
+    current.motifInstances = {
+      cascade: [],
+      diamond: [],
+      hubSpoke: [{ hub: "CAP", spokes: ["A", "B", "C"] }],
+      feedbackLoop: [],
+      bottleneck: [],
+      bipartite: [],
+    };
+    twinByAnchor.motifInstances = {
+      cascade: [],
+      diamond: [],
+      hubSpoke: [{ hub: "CAP", spokes: ["A", "B", "C"] }],
+      feedbackLoop: [],
+      bottleneck: [],
+      bipartite: [],
+    };
+    otherAnchor.motifInstances = {
+      cascade: [],
+      diamond: [],
+      hubSpoke: [{ hub: "Latency", spokes: ["X", "Y", "Z"] }],
+      feedbackLoop: [],
+      bottleneck: [],
+      bipartite: [],
+    };
+
+    const sameAnchor = similarityScore(current, twinByAnchor);
+    const differentAnchor = similarityScore(current, otherAnchor);
+    expect(sameAnchor).toBeGreaterThan(differentAnchor);
+  });
 });

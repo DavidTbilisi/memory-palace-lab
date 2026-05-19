@@ -15,6 +15,9 @@
 
 import type { MotifKind } from "./castMotifs";
 import { similarityScore, type PalaceSignature } from "./palaceSimilarity";
+import { motifInstanceOverlap, type MotifInstances } from "./motifInstances";
+
+export { motifInstanceOverlap };
 
 /** Compact frozen-in-time copy of `PalaceSignature`. */
 export type AARSignatureSnapshot = {
@@ -24,6 +27,12 @@ export type AARSignatureSnapshot = {
   motifCounts: Record<MotifKind, number>;
   /** Numeric features in `palaceSignature.ts` order. */
   features: number[];
+  /**
+   * Optional. Per-kind motif anchors keyed by node *titles* — lets
+   * cross-palace matching say "both palaces share a hub-spoke around CAP"
+   * rather than just "both have a hub-spoke". Legacy records lack this.
+   */
+  motifInstances?: MotifInstances;
 };
 
 export type AARRecord = {
@@ -106,8 +115,10 @@ function aarToPseudoSignature(record: AARRecord): PalaceSignature {
     edgeCount: record.signature.edgeCount,
     features: record.signature.features,
     motifKindsPresent: new Set(record.signature.motifKindsPresent),
+    motifInstances: record.signature.motifInstances,
   };
 }
+
 
 /**
  * Top-N AAR records whose frozen graph shape most resembles the current

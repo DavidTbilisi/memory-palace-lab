@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildAARRecord,
   isAARFieldsFilled,
+  motifInstanceOverlap,
   recordsForPalace,
   topMatchingAARs,
   type AARFields,
@@ -9,6 +10,7 @@ import {
 } from "./aarRecords";
 import type { PalaceSignature } from "./palaceSimilarity";
 import type { MotifKind } from "./castMotifs";
+import type { MotifInstances } from "./motifInstances";
 
 const SIG: AARSignatureSnapshot = {
   nodeCount: 5,
@@ -116,5 +118,53 @@ describe("aarRecords", () => {
     const current = makeCurrent([], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const records = [makeAAR("a", [], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])];
     expect(topMatchingAARs(current, records)).toEqual([]);
+  });
+
+  const emptyInstances = (): MotifInstances => ({
+    cascade: [],
+    diamond: [],
+    hubSpoke: [],
+    feedbackLoop: [],
+    bottleneck: [],
+    bipartite: [],
+  });
+
+  it("AARSignatureSnapshot accepts an optional motifInstances field", () => {
+    const rec = buildAARRecord({
+      palaceId: "p1",
+      palaceName: "P1",
+      signature: {
+        ...SIG,
+        motifInstances: {
+          ...emptyInstances(),
+          hubSpoke: [{ hub: "CAP", spokes: ["A", "B", "C"] }],
+        },
+      },
+      fields: FIELDS(),
+    });
+    expect(rec.signature.motifInstances?.hubSpoke[0]?.hub).toBe("CAP");
+  });
+
+  it("motifInstanceOverlap returns 0 when no instances overlap", () => {
+    const a = { ...emptyInstances(), hubSpoke: [{ hub: "CAP", spokes: ["A"] }] };
+    const b = { ...emptyInstances(), hubSpoke: [{ hub: "Latency", spokes: ["X"] }] };
+    expect(motifInstanceOverlap(a, b)).toBe(0);
+  });
+
+  it("motifInstanceOverlap rewards shared hub-spoke anchors", () => {
+    const a = { ...emptyInstances(), hubSpoke: [{ hub: "CAP", spokes: ["A"] }] };
+    const b = { ...emptyInstances(), hubSpoke: [{ hub: "CAP", spokes: ["B"] }] };
+    expect(motifInstanceOverlap(a, b)).toBeGreaterThan(0);
+  });
+
+  it("motifInstanceOverlap is symmetric", () => {
+    const a = { ...emptyInstances(), hubSpoke: [{ hub: "CAP", spokes: ["A"] }] };
+    const b = { ...emptyInstances(), hubSpoke: [{ hub: "CAP", spokes: ["B"] }], bottleneck: [{ node: "Choke" }] };
+    expect(motifInstanceOverlap(a, b)).toBeCloseTo(motifInstanceOverlap(b, a), 6);
+  });
+
+  it("motifInstanceOverlap handles legacy snapshots without motifInstances", () => {
+    expect(motifInstanceOverlap(undefined, undefined)).toBe(0);
+    expect(motifInstanceOverlap(emptyInstances(), undefined)).toBe(0);
   });
 });

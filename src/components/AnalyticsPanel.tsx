@@ -4,6 +4,7 @@ import type { AnalyticsEvent } from "../domain/entities/types";
 import { humanizeAnalyticsEventType, parseAnalyticsPayload, summarizeAnalytics } from "../domain/services/analyticsService";
 import { analyzeGraph, topByMetric } from "../domain/services/cast/graphAnalysis";
 import { MOTIF_MOVES, detectMotifs, groupMotifs } from "../domain/services/cast/castMotifs";
+import { extractMotifInstances } from "../domain/services/cast/motifInstances";
 import {
   palaceSignature,
   topSimilarPalaces,
@@ -212,10 +213,14 @@ export function AnalyticsPanel() {
     [palaceNodes, palaceEdges],
   );
   const motifGroups = useMemo(() => groupMotifs(motifs), [motifs]);
+  const currentMotifInstances = useMemo(() => {
+    return extractMotifInstances(motifs, nodeTitleById);
+  }, [motifs, nodeTitleById]);
   const currentSignature = useMemo<PalaceSignature | null>(() => {
     if (!currentPalace) return null;
-    return palaceSignature(currentPalace.id, currentPalace.name, graphAnalysis, motifGroups);
-  }, [currentPalace, graphAnalysis, motifGroups]);
+    const sig = palaceSignature(currentPalace.id, currentPalace.name, graphAnalysis, motifGroups);
+    return { ...sig, motifInstances: currentMotifInstances };
+  }, [currentPalace, graphAnalysis, motifGroups, currentMotifInstances]);
 
   const palaces = usePalaceStore((s) => s.palaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
@@ -276,6 +281,29 @@ export function AnalyticsPanel() {
     void openPalace(record.palaceId);
   };
 
+  const sharedAnchorsForAAR = (recordInstances: AARSignatureSnapshot["motifInstances"]) => {
+    if (!recordInstances || !currentMotifInstances) return null;
+    const out: { kind: string; anchors: string[] }[] = [];
+    const pairs: { key: keyof typeof currentMotifInstances; label: string; pick: (i: { hub?: string; node?: string; source?: string; sink?: string; nodes?: string[] }) => string[] }[] = [
+      { key: "hubSpoke", label: "hub-spoke", pick: (i) => (i.hub ? [i.hub] : []) },
+      { key: "bottleneck", label: "bottleneck", pick: (i) => (i.node ? [i.node] : []) },
+      { key: "diamond", label: "diamond", pick: (i) => [i.source ?? "", i.sink ?? ""].filter(Boolean) },
+    ];
+    for (const pair of pairs) {
+      const recAnchors = new Set<string>();
+      for (const inst of recordInstances[pair.key] as { hub?: string; node?: string; source?: string; sink?: string }[]) {
+        for (const v of pair.pick(inst)) recAnchors.add(v);
+      }
+      const curAnchors = new Set<string>();
+      for (const inst of currentMotifInstances[pair.key] as { hub?: string; node?: string; source?: string; sink?: string }[]) {
+        for (const v of pair.pick(inst)) curAnchors.add(v);
+      }
+      const shared = [...curAnchors].filter((v) => recAnchors.has(v));
+      if (shared.length > 0) out.push({ kind: pair.label, anchors: shared });
+    }
+    return out.length > 0 ? out : null;
+  };
+
   const ASSESS_BANNER_THRESHOLD = 0.7;
   const assessHint = useMemo(() => {
     if (!currentPalace || relatedAARs.length === 0) return null;
@@ -318,8 +346,9 @@ export function AnalyticsPanel() {
         bipartite: motifGroups.bipartite.length,
       },
       features: currentSignature ? [...currentSignature.features] : [],
+      motifInstances: currentMotifInstances,
     };
-  }, [graphAnalysis, motifGroups, currentSignature]);
+  }, [graphAnalysis, motifGroups, currentSignature, currentMotifInstances]);
 
   useEffect(() => {
     if (!currentPalace) {
@@ -786,31 +815,39 @@ export function AnalyticsPanel() {
                     takeaway probably still applies.
                   </div>
                   <ul className="mt-1 grid gap-1 text-xs text-fuchsia-100/90 sm:grid-cols-2">
-                    {relatedAARs.map((entry) => (
-                      <li key={entry.record.id}>
-                        <button
-                          type="button"
-                          onClick={() => onClickRelatedAAR(entry.record)}
-                          className="block w-full rounded bg-fuchsia-900/30 p-1.5 text-left transition-colors hover:bg-fuchsia-800/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-fuchsia-400"
-                          title={`Jump to ${entry.record.palaceName} and locate this AAR`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-fuchsia-100">
-                              {entry.record.takeaway || "(no takeaway)"}
-                            </span>
-                            <span className="text-[10px] text-fuchsia-300">
-                              {Math.round(entry.score * 100)}% · {entry.record.palaceName}
-                            </span>
-                          </div>
-                          {entry.record.adjustment ? (
-                            <div className="mt-0.5 text-[11px] text-fuchsia-100/80">
-                              <span className="text-fuchsia-300">Next time:</span>{" "}
-                              {entry.record.adjustment}
+                    {relatedAARs.map((entry) => {
+                      const shared = sharedAnchorsForAAR(entry.record.signature.motifInstances);
+                      return (
+                        <li key={entry.record.id}>
+                          <button
+                            type="button"
+                            onClick={() => onClickRelatedAAR(entry.record)}
+                            className="block w-full rounded bg-fuchsia-900/30 p-1.5 text-left transition-colors hover:bg-fuchsia-800/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-fuchsia-400"
+                            title={`Jump to ${entry.record.palaceName} and locate this AAR`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-fuchsia-100">
+                                {entry.record.takeaway || "(no takeaway)"}
+                              </span>
+                              <span className="text-[10px] text-fuchsia-300">
+                                {Math.round(entry.score * 100)}% · {entry.record.palaceName}
+                              </span>
                             </div>
-                          ) : null}
-                        </button>
-                      </li>
-                    ))}
+                            {shared ? (
+                              <div className="mt-0.5 text-[11px] text-fuchsia-200">
+                                {shared.map((s) => `shared ${s.kind}: ${s.anchors.join(", ")}`).join(" · ")}
+                              </div>
+                            ) : null}
+                            {entry.record.adjustment ? (
+                              <div className="mt-0.5 text-[11px] text-fuchsia-100/80">
+                                <span className="text-fuchsia-300">Next time:</span>{" "}
+                                {entry.record.adjustment}
+                              </div>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}

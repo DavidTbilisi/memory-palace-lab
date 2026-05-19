@@ -16,6 +16,7 @@
 
 import type { GraphAnalysisResult } from "./graphAnalysis";
 import type { MotifGroups, MotifKind } from "./castMotifs";
+import { motifInstanceOverlap, type MotifInstances } from "./motifInstances";
 
 export type PalaceSignature = {
   palaceId: string;
@@ -38,6 +39,8 @@ export type PalaceSignature = {
    */
   features: number[];
   motifKindsPresent: Set<MotifKind>;
+  /** Optional; when present, similarityScore folds in instance overlap. */
+  motifInstances?: MotifInstances;
 };
 
 const ALL_MOTIF_KINDS: MotifKind[] = [
@@ -114,13 +117,24 @@ function jaccard(a: Set<MotifKind>, b: Set<MotifKind>): number {
 }
 
 /**
- * Similarity score in [0, 1]. 0.6 * cosine(features) + 0.4 * jaccard(motif kinds).
- * Cosine weight is higher so dense-but-different palaces still get
- * meaningful scores, but Jaccard provides a sharp bonus when palaces share
- * the same motif vocabulary.
+ * Similarity score in [0, 1]. Blends three signals:
+ *   0.5 * cosine(features) — overall graph shape similarity
+ *   0.3 * jaccard(motif kinds) — same named motif vocabulary
+ *   0.2 * motifInstanceOverlap — shared anchor titles per kind
+ * The instance-overlap term only contributes when both signatures carry
+ * `motifInstances`; legacy signatures (no instances) score as before
+ * up to a small renormalization.
  */
 export function similarityScore(a: PalaceSignature, b: PalaceSignature): number {
-  return 0.6 * cosine(a.features, b.features) + 0.4 * jaccard(a.motifKindsPresent, b.motifKindsPresent);
+  const cos = cosine(a.features, b.features);
+  const jac = jaccard(a.motifKindsPresent, b.motifKindsPresent);
+  const inst = motifInstanceOverlap(a.motifInstances, b.motifInstances);
+  if (a.motifInstances && b.motifInstances) {
+    return 0.5 * cos + 0.3 * jac + 0.2 * inst;
+  }
+  // Fall back to the legacy 0.6/0.4 mix so existing scores stay stable
+  // for AARs and palaces without instance data.
+  return 0.6 * cos + 0.4 * jac;
 }
 
 /** Top-N most similar palaces to `current`, excluding `current` itself. */
