@@ -247,6 +247,7 @@ export function AnalyticsPanel() {
   const appendAARRecord = usePalaceStore((s) => s.appendAARRecord);
   const [aarOpen, setAarOpen] = useState(false);
   const [focusedAARId, setFocusedAARId] = useState<string | null>(null);
+  const [dismissedAssessForPalaceId, setDismissedAssessForPalaceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!aarRecordsLoaded) loadAARRecords();
@@ -270,6 +271,15 @@ export function AnalyticsPanel() {
     setFocusedAARId(record.id);
     void openPalace(record.palaceId);
   };
+
+  const ASSESS_BANNER_THRESHOLD = 0.7;
+  const assessHint = useMemo(() => {
+    if (!currentPalace || relatedAARs.length === 0) return null;
+    const top = relatedAARs[0]!;
+    if (top.score < ASSESS_BANNER_THRESHOLD) return null;
+    if (dismissedAssessForPalaceId === currentPalace.id) return null;
+    return top;
+  }, [currentPalace, relatedAARs, dismissedAssessForPalaceId]);
 
   // When a focus target appears, scroll its Past-AAR row into view and clear
   // the focus state after a short window so the highlight fades.
@@ -367,6 +377,52 @@ export function AnalyticsPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto py-3">
+        {assessHint && currentPalace ? (
+          <section
+            aria-label="You have seen this shape before"
+            className="mb-3 flex items-start justify-between gap-3 rounded-md border border-fuchsia-500/50 bg-fuchsia-900/30 p-3 text-sm text-fuchsia-100"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-fuchsia-200">
+                <span className="rounded bg-fuchsia-500/30 px-1.5 py-0.5 text-fuchsia-50">
+                  Assess · seen this shape before
+                </span>
+                <span className="text-fuchsia-300/80">
+                  {Math.round(assessHint.score * 100)}% match · from{" "}
+                  {assessHint.record.palaceName}
+                </span>
+              </div>
+              <div className="mt-1 font-medium text-fuchsia-50">
+                {assessHint.record.takeaway || "(no takeaway — open the source palace)"}
+              </div>
+              {assessHint.record.adjustment ? (
+                <div className="mt-0.5 text-xs text-fuchsia-100/90">
+                  <span className="text-fuchsia-300">Next time:</span>{" "}
+                  {assessHint.record.adjustment}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                type="button"
+                onClick={() => onClickRelatedAAR(assessHint.record)}
+              >
+                Jump to source
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                aria-label="Dismiss"
+                onClick={() => setDismissedAssessForPalaceId(currentPalace.id)}
+              >
+                ×
+              </Button>
+            </div>
+          </section>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-5">
           <StatCard icon={<Activity className="h-3.5 w-3.5" />} label="Total events" value={String(allSummary.totalEvents)} />
           <StatCard
