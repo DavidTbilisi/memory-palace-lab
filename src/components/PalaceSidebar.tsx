@@ -5,12 +5,23 @@ import { insertBackgroundImageFromFile } from "../canvas/backgroundImageImport";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { composeAtlasPath, DEFAULT_ATLAS_LEVEL_LABELS, splitAtlasPath } from "../domain/services/atlasHierarchy";
 import { usePalaceStore } from "../store/palaceStore";
+import {
+  buildAARBackupPayload,
+  extractAARRecordsFromBackup,
+} from "../infrastructure/aarBackup";
+import { loadAARRecords, saveAllAARRecords } from "../infrastructure/aarStorage";
+import type { AARRecord } from "../domain/services/cast/aarRecords";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const repo = getPalaceRepository();
 
-type BackupFile = { version: number; exportedAt: string; palaces: PalaceSnapshot[] };
+type BackupFile = {
+  version: number;
+  exportedAt: string;
+  palaces: PalaceSnapshot[];
+  aarRecords?: AARRecord[];
+};
 
 type AtlasTreeNode = {
   key: string;
@@ -142,6 +153,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const palaces = usePalaceStore((s) => s.palaces);
   const trashedPalaces = usePalaceStore((s) => s.trashedPalaces) ?? [];
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
+  const loadAarRecordsAction = usePalaceStore((s) => s.loadAARRecords);
   const openPalace = usePalaceStore((s) => s.openPalace);
   const createPalace = usePalaceStore((s) => s.createPalace);
   const deletePalace = usePalaceStore((s) => s.deletePalace);
@@ -197,10 +209,12 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
     try {
       const snapshots = await Promise.all(palaces.map((p) => repo.loadPalace(p.id)));
       const valid = snapshots.filter((s): s is PalaceSnapshot => s !== null);
+      const aarPayload = buildAARBackupPayload(loadAARRecords());
       const backup: BackupFile = {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         palaces: valid,
+        aarRecords: aarPayload.aarRecords,
       };
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -222,6 +236,14 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
       if (!Array.isArray(parsed.palaces)) throw new Error("Invalid backup file");
       for (const snapshot of parsed.palaces) {
         await repo.savePalace(snapshot);
+      }
+      const importedAARs = extractAARRecordsFromBackup(parsed);
+      if (importedAARs.length > 0) {
+        const existing = loadAARRecords();
+        const seen = new Set(existing.map((r) => r.id));
+        const merged = [...existing, ...importedAARs.filter((r) => !seen.has(r.id))];
+        saveAllAARRecords(merged);
+        loadAarRecordsAction();
       }
       await loadPalaces();
     } catch (err) {
