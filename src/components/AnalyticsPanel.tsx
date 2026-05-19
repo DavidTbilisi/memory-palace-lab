@@ -15,6 +15,8 @@ import {
   type AARSignatureSnapshot,
 } from "../domain/services/cast/aarRecords";
 import { CloseAARDialog } from "./CloseAARDialog";
+import { ViewAARDialog } from "./ViewAARDialog";
+import type { AARRecord } from "../domain/services/cast/aarRecords";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { buildReviewHeatmap, buildRetentionSeries, formatDayKeyLabel, retentionTrendDown } from "../domain/services/reviewMetrics";
 import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
@@ -245,9 +247,11 @@ export function AnalyticsPanel() {
   const aarRecordsLoaded = usePalaceStore((s) => s.aarRecordsLoaded);
   const loadAARRecords = usePalaceStore((s) => s.loadAARRecords);
   const appendAARRecord = usePalaceStore((s) => s.appendAARRecord);
+  const deleteAARRecord = usePalaceStore((s) => s.deleteAARRecord);
   const [aarOpen, setAarOpen] = useState(false);
   const [focusedAARId, setFocusedAARId] = useState<string | null>(null);
   const [dismissedAssessForPalaceId, setDismissedAssessForPalaceId] = useState<string | null>(null);
+  const [viewingAAR, setViewingAAR] = useState<AARRecord | null>(null);
 
   useEffect(() => {
     if (!aarRecordsLoaded) loadAARRecords();
@@ -739,23 +743,30 @@ export function AnalyticsPanel() {
                         <li
                           key={rec.id}
                           data-aar-id={rec.id}
-                          className={`rounded bg-sky-900/30 p-1.5 transition-shadow ${
+                          className={`rounded transition-shadow ${
                             isFocused ? "ring-2 ring-sky-300 shadow-[0_0_0_2px_rgba(125,211,252,0.25)]" : ""
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-sky-100">
-                              {rec.takeaway || "(no takeaway)"}
-                            </span>
-                            <span className="text-[10px] text-sky-300/80">
-                              {new Date(rec.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {rec.adjustment ? (
-                            <div className="mt-0.5 text-[11px] text-sky-100/80">
-                              <span className="text-sky-300">Next time:</span> {rec.adjustment}
+                          <button
+                            type="button"
+                            onClick={() => setViewingAAR(rec)}
+                            className="block w-full rounded bg-sky-900/30 p-1.5 text-left transition-colors hover:bg-sky-800/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                            title="Open full AAR"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-sky-100">
+                                {rec.takeaway || "(no takeaway)"}
+                              </span>
+                              <span className="text-[10px] text-sky-300/80">
+                                {new Date(rec.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
-                          ) : null}
+                            {rec.adjustment ? (
+                              <div className="mt-0.5 text-[11px] text-sky-100/80">
+                                <span className="text-sky-300">Next time:</span> {rec.adjustment}
+                              </div>
+                            ) : null}
+                          </button>
                         </li>
                       );
                     })}
@@ -985,6 +996,15 @@ export function AnalyticsPanel() {
         palaceName={currentPalace?.name ?? ""}
         signature={aarSignatureSnapshot}
         onSave={appendAARRecord}
+      />
+
+      <ViewAARDialog
+        record={viewingAAR}
+        open={viewingAAR !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewingAAR(null);
+        }}
+        onDelete={deleteAARRecord}
       />
     </div>
   );
