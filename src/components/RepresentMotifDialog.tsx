@@ -5,9 +5,10 @@ import { MOTIF_MOVES } from "../domain/services/cast/castMotifs";
 import {
   MOTIF_TEMPLATES,
   instantiateMotif,
-  suggestMotif,
+  suggestMotifWithAARs,
   type MotifScaffold,
 } from "../domain/services/cast/motifTemplates";
+import type { AARRecord } from "../domain/services/cast/aarRecords";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 
@@ -15,6 +16,8 @@ type Props = {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onInsert: (scaffold: MotifScaffold) => void;
+  /** Optional past AARs that strengthen the motif suggestion. */
+  aarRecords?: readonly AARRecord[];
 };
 
 const KINDS: MotifKind[] = [
@@ -26,13 +29,16 @@ const KINDS: MotifKind[] = [
   "bipartite",
 ];
 
-export function RepresentMotifDialog({ open, onOpenChange, onInsert }: Props) {
+export function RepresentMotifDialog({ open, onOpenChange, onInsert, aarRecords = [] }: Props) {
   const [statement, setStatement] = React.useState("");
   const [kind, setKind] = React.useState<MotifKind>("cascade");
   const [titles, setTitles] = React.useState<string[]>(MOTIF_TEMPLATES.cascade.defaultTitles);
   const [userPickedKind, setUserPickedKind] = React.useState(false);
 
-  const suggestion = React.useMemo(() => suggestMotif(statement), [statement]);
+  const suggestion = React.useMemo(
+    () => suggestMotifWithAARs(statement, aarRecords),
+    [statement, aarRecords],
+  );
 
   // When the suggestion changes and the user hasn't manually picked, follow it.
   React.useEffect(() => {
@@ -105,6 +111,11 @@ export function RepresentMotifDialog({ open, onOpenChange, onInsert }: Props) {
                 className="mt-2 rounded border border-violet-700/50 bg-violet-950/40 px-2 py-1 text-xs text-violet-100"
               >
                 Suggested: <span className="font-medium">{MOTIF_TEMPLATES[suggestion.kind].title}</span>{" "}
+                {suggestion.source === "aar" ? (
+                  <span className="ml-1 rounded bg-fuchsia-500/30 px-1 text-[10px] text-fuchsia-100">
+                    matched past AAR
+                  </span>
+                ) : null}{" "}
                 <span className="text-violet-300/80">— {suggestion.reasoning}</span>
               </div>
             ) : statement.trim().length > 0 ? (

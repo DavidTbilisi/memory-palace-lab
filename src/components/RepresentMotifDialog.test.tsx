@@ -42,4 +42,43 @@ describe("RepresentMotifDialog", () => {
     await user.type(screen.getByLabelText(/Problem statement/i), "xyzzy plover");
     expect(screen.getByText(/No strong keyword signal/i)).toBeInTheDocument();
   });
+
+  it("Represent dialog shows 'matched past AAR' badge when suggestion source is aar", async () => {
+    const { buildAARRecord } = await import("../domain/services/cast/aarRecords");
+    const aar = buildAARRecord({
+      palaceId: "p",
+      palaceName: "P",
+      signature: {
+        nodeCount: 0,
+        edgeCount: 0,
+        motifKindsPresent: [],
+        motifCounts: {
+          cascade: 0,
+          diamond: 0,
+          hubSpoke: 1,
+          feedbackLoop: 0,
+          bottleneck: 0,
+          bipartite: 0,
+        },
+        features: [],
+      },
+      fields: {
+        intent: "central dispatcher pattern",
+        outcome: "",
+        gap: "",
+        adjustment: "",
+        takeaway: "use a hub",
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <RepresentMotifDialog open onOpenChange={vi.fn()} onInsert={vi.fn()} aarRecords={[aar]} />,
+    );
+    await user.type(
+      screen.getByLabelText(/Problem statement/i),
+      "build a central dispatcher",
+    );
+    const badges = await screen.findAllByText(/matched past AAR/i);
+    expect(badges.length).toBeGreaterThan(0);
+  });
 });

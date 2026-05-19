@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { MOTIF_TEMPLATES, instantiateMotif, suggestMotif } from "./motifTemplates";
+import {
+  MOTIF_TEMPLATES,
+  instantiateMotif,
+  suggestMotif,
+  suggestMotifWithAARs,
+} from "./motifTemplates";
+import { buildAARRecord, type AARSignatureSnapshot } from "./aarRecords";
 import type { MotifKind } from "./castMotifs";
 
 describe("motifTemplates", () => {
@@ -147,5 +153,65 @@ describe("suggestMotif", () => {
     // "pipeline" → cascade; "central" + "dispatcher" → hubSpoke. Hub-spoke wins.
     const s = suggestMotif("a pipeline driven by a central dispatcher controller");
     expect(s?.kind).toBe("hubSpoke");
+  });
+});
+
+describe("suggestMotifWithAARs", () => {
+  const emptySig = (counts: Partial<Record<MotifKind, number>>): AARSignatureSnapshot => ({
+    nodeCount: 0,
+    edgeCount: 0,
+    motifKindsPresent: [],
+    motifCounts: {
+      cascade: 0,
+      diamond: 0,
+      hubSpoke: 0,
+      feedbackLoop: 0,
+      bottleneck: 0,
+      bipartite: 0,
+      ...counts,
+    },
+    features: [],
+  });
+
+  const makeAAR = (intent: string, takeaway: string, counts: Partial<Record<MotifKind, number>>) =>
+    buildAARRecord({
+      palaceId: "p",
+      palaceName: "P",
+      signature: emptySig(counts),
+      fields: { intent, outcome: "", gap: "", adjustment: "", takeaway },
+    });
+
+  it("suggestMotifWithAARs returns source=keyword when no AARs match", () => {
+    const out = suggestMotifWithAARs("a pipeline with sequential steps", []);
+    expect(out?.kind).toBe("cascade");
+    expect(out?.source).toBe("keyword");
+  });
+
+  it("suggestMotifWithAARs returns source=aar when AAR intent matches statement", () => {
+    const aar = makeAAR("central dispatcher pattern", "use a hub", { hubSpoke: 1 });
+    const out = suggestMotifWithAARs("build a central dispatcher", [aar]);
+    expect(out?.kind).toBe("hubSpoke");
+    expect(out?.source).toBe("aar");
+    expect(out?.recordId).toBe(aar.id);
+  });
+
+  it("suggestMotifWithAARs prefers AAR match over keyword match", () => {
+    const aar = makeAAR("central dispatcher", "use a hub", { hubSpoke: 1 });
+    const out = suggestMotifWithAARs("central pipeline dispatcher", [aar]);
+    expect(out?.kind).toBe("hubSpoke");
+    expect(out?.source).toBe("aar");
+  });
+
+  it("suggestMotifWithAARs returns null on empty statement regardless of AARs", () => {
+    const aar = makeAAR("anything", "anything", { hubSpoke: 1 });
+    expect(suggestMotifWithAARs("", [aar])).toBeNull();
+    expect(suggestMotifWithAARs("   ", [aar])).toBeNull();
+  });
+
+  it("suggestMotifWithAARs derives motif kind from AAR top motif count", () => {
+    const aar = makeAAR("auth path validation", "use bipartite", { bipartite: 3, cascade: 1 });
+    const out = suggestMotifWithAARs("auth path validation rules", [aar]);
+    expect(out?.kind).toBe("bipartite");
+    expect(out?.source).toBe("aar");
   });
 });

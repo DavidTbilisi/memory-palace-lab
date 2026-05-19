@@ -224,6 +224,7 @@ export function MemoryPalaceApp() {
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const palaces = usePalaceStore((s) => s.palaces);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
+  const aarRecords = usePalaceStore((s) => s.aarRecords);
   const setPendingCast = usePalaceStore((s) => s.setPendingCast);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
@@ -981,6 +982,7 @@ export function MemoryPalaceApp() {
         open={representOpen}
         onOpenChange={setRepresentOpen}
         onInsert={onRepresentInsert}
+        aarRecords={aarRecords}
       />
 
       <ImportNodesDialog open={importOpen} onOpenChange={setImportOpen} />

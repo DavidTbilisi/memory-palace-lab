@@ -11,6 +11,7 @@
  */
 
 import type { MotifKind } from "./castMotifs";
+import type { AARRecord } from "./aarRecords";
 import {
   CAST_HOW,
   CAST_WHAT,
@@ -279,6 +280,95 @@ const MOTIF_KEYWORDS: Record<MotifKind, string[]> = {
     "bipartite",
   ],
 };
+
+function dominantMotifKind(record: AARRecord): MotifKind | null {
+  let best: MotifKind | null = null;
+  let bestCount = 0;
+  for (const kind of Object.keys(record.signature.motifCounts) as MotifKind[]) {
+    const count = record.signature.motifCounts[kind];
+    if (count > bestCount) {
+      bestCount = count;
+      best = kind;
+    }
+  }
+  return best;
+}
+
+const STOP_WORDS = new Set([
+  "a", "an", "the", "to", "of", "for", "and", "or", "with", "without",
+  "is", "are", "be", "in", "on", "at", "by", "as", "it", "this", "that",
+  "from", "into", "via", "build", "design", "create",
+]);
+
+function significantTokens(statement: string): string[] {
+  return statement
+    .toLowerCase()
+    .split(/[^a-z0-9-]+/)
+    .filter((tok) => tok.length >= 3 && !STOP_WORDS.has(tok));
+}
+
+function aarMatchScore(record: AARRecord, tokens: readonly string[]): number {
+  if (tokens.length === 0) return 0;
+  const corpus = `${record.intent} ${record.takeaway}`.toLowerCase();
+  if (corpus.trim().length === 0) return 0;
+  let hits = 0;
+  for (const token of tokens) {
+    if (corpus.includes(token)) hits += 1;
+  }
+  return hits;
+}
+
+export type MotifSuggestionSource = "keyword" | "aar";
+
+export type MotifSuggestionFull = {
+  kind: MotifKind;
+  reasoning: string;
+  source: MotifSuggestionSource;
+  recordId?: string;
+};
+
+/**
+ * Like `suggestMotif` but folds in past AAR records as an additional
+ * signal source. AAR matches win over keyword matches when both fire,
+ * because past AAR text is solver-authored and more semantically rich
+ * than the fixed keyword corpus.
+ */
+export function suggestMotifWithAARs(
+  statement: string,
+  aarRecords: readonly AARRecord[],
+): MotifSuggestionFull | null {
+  const trimmed = statement.trim();
+  if (trimmed.length === 0) return null;
+
+  // AAR pass: find the AAR whose intent/takeaway text best matches the
+  // statement's significant tokens.
+  const tokens = significantTokens(trimmed);
+  let bestAARScore = 0;
+  let bestAAR: AARRecord | null = null;
+  for (const record of aarRecords) {
+    const score = aarMatchScore(record, tokens);
+    if (score > bestAARScore) {
+      bestAARScore = score;
+      bestAAR = record;
+    }
+  }
+  if (bestAAR) {
+    const kind = dominantMotifKind(bestAAR);
+    if (kind) {
+      return {
+        kind,
+        reasoning: `matched past AAR — ${bestAAR.takeaway || bestAAR.intent || "(no text)"}`,
+        source: "aar",
+        recordId: bestAAR.id,
+      };
+    }
+  }
+
+  // Keyword pass: same as legacy suggestMotif.
+  const keyword = suggestMotif(statement);
+  if (!keyword) return null;
+  return { ...keyword, source: "keyword" };
+}
 
 export function suggestMotif(statement: string): MotifSuggestion | null {
   const text = statement.toLowerCase();
