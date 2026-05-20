@@ -86,6 +86,10 @@ export type PalaceStore = {
   analyticsLoaded: boolean;
   aarRecords: AARRecord[];
   aarRecordsLoaded: boolean;
+  /** Per-palace, session-only dismissal of the Assess banner. */
+  dismissedAssessByPalaceId: string[];
+  /** AAR id to scroll into view + highlight on the Insights page. */
+  focusedAARId: string | null;
   editorRef: Editor | null;
   selectedShapeId: string | null;
   toolMode: ToolMode;
@@ -121,6 +125,9 @@ export type PalaceStore = {
   loadAARRecords: () => void;
   appendAARRecord: (record: AARRecord) => void;
   deleteAARRecord: (id: string) => void;
+  dismissAssessForPalace: (palaceId: string) => void;
+  clearAssessDismissalForPalace: (palaceId: string) => void;
+  setFocusedAARId: (id: string | null) => void;
   openPalace: (id: string) => Promise<void>;
   createPalace: (name: string, atlasPath?: string | null) => Promise<void>;
   saveCurrent: () => Promise<void>;
@@ -380,6 +387,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     loci: [],
     aarRecords: [],
     aarRecordsLoaded: false,
+    dismissedAssessByPalaceId: [],
+    focusedAARId: null,
     analyticsEvents: [],
     analyticsSessionId: null,
     analyticsLoaded: false,
@@ -485,6 +494,24 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     deleteAARRecord(id) {
       const next = persistDeleteAAR(id);
       set({ aarRecords: next, aarRecordsLoaded: true });
+    },
+
+    dismissAssessForPalace(palaceId) {
+      set((state) => ({
+        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.includes(palaceId)
+          ? state.dismissedAssessByPalaceId
+          : [...state.dismissedAssessByPalaceId, palaceId],
+      }));
+    },
+
+    clearAssessDismissalForPalace(palaceId) {
+      set((state) => ({
+        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.filter((id) => id !== palaceId),
+      }));
+    },
+
+    setFocusedAARId(id) {
+      set({ focusedAARId: id });
     },
 
     async recordAnalyticsEvent(input) {

@@ -30,6 +30,8 @@ import { ImportNodesDialog } from "../components/ImportNodesDialog";
 import { PalaceSidebar } from "../components/PalaceSidebar";
 import { PalaceToolbar } from "../components/PalaceToolbar";
 import { RepresentMotifDialog } from "../components/RepresentMotifDialog";
+import { AssessBanner } from "../components/AssessBanner";
+import { useAssessHint } from "../components/hooks/useAssessHint";
 import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
 import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
 import { ReviewPage } from "../components/ReviewPage";
@@ -225,6 +227,13 @@ export function MemoryPalaceApp() {
   const palaces = usePalaceStore((s) => s.palaces);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
   const aarRecords = usePalaceStore((s) => s.aarRecords);
+  const setFocusedAARId = usePalaceStore((s) => s.setFocusedAARId);
+
+  const graphAssessHint = useAssessHint((record) => {
+    setFocusedAARId(record.id);
+    void usePalaceStore.getState().openPalace(record.palaceId);
+    setCurrentPage("insights");
+  });
   const setPendingCast = usePalaceStore((s) => s.setPendingCast);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
@@ -850,6 +859,19 @@ export function MemoryPalaceApp() {
             <PalaceToolbar onHoverHintChange={setHoverHint} onOpenRepresent={() => setRepresentOpen(true)} />
             {routePanelOpen ? <RoutePanel onHoverHintChange={setHoverHint} /> : null}
             <WalkModeBar onHoverHintChange={setHoverHint} />
+            {graphAssessHint && currentPalace ? (
+              <div className="border-b border-zinc-800 px-2 py-2">
+                <AssessBanner
+                  palaceName={currentPalace.name}
+                  sourcePalaceName={graphAssessHint.sourcePalaceName}
+                  score={graphAssessHint.score}
+                  takeaway={graphAssessHint.record.takeaway}
+                  adjustment={graphAssessHint.record.adjustment}
+                  onJump={graphAssessHint.jump}
+                  onDismiss={graphAssessHint.dismiss}
+                />
+              </div>
+            ) : null}
             {currentPalace ? (
               <div className="flex min-h-0 flex-1">
                 {dslPaneOpen ? (
