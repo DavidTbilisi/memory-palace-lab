@@ -160,10 +160,14 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       const bounds = editor.getShapePageBounds(shape.id);
       if (!bounds) continue;
       const point = editor.pageToViewport({ x: bounds.x, y: bounds.y });
+      // Clamp inside the canvas viewport so a node touching the top/left
+      // edge doesn't emit a badge that bleeds onto the toolbar above.
+      const x = Math.max(4, point.x - 4);
+      const y = Math.max(4, point.y - 4);
       badges.push({
         shapeId: shape.id,
-        x: point.x - 4,
-        y: point.y - 4,
+        x,
+        y,
         role,
       });
     }
@@ -442,7 +446,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
       <Tldraw snapshot={initialSnapshot} onMount={onMount} />
-      <div className="pointer-events-none absolute inset-0 z-20">
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button
             key={badge.shapeId}
