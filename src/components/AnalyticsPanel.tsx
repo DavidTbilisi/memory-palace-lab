@@ -325,7 +325,7 @@ export function AnalyticsPanel() {
       window.clearTimeout(handle);
       window.clearTimeout(clear);
     };
-  }, [focusedAARId, currentPalaceAARs.length]);
+  }, [focusedAARId, currentPalaceAARs.length, setFocusedAARId]);
 
   const aarSignatureSnapshot = useMemo<AARSignatureSnapshot>(() => {
     return {

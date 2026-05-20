@@ -43,7 +43,8 @@ export function useAssessHint(onJump: (record: AARRecord) => void): AssessHint |
   const aarRecords = usePalaceStore((s) => s.aarRecords);
   const aarRecordsLoaded = usePalaceStore((s) => s.aarRecordsLoaded);
   const loadAARRecords = usePalaceStore((s) => s.loadAARRecords);
-  const dismissedByPalaceId = usePalaceStore((s) => s.dismissedAssessByPalaceId) ?? [];
+  const dismissedByPalaceIdRaw = usePalaceStore((s) => s.dismissedAssessByPalaceId);
+  const dismissedByPalaceId = useMemo(() => dismissedByPalaceIdRaw ?? [], [dismissedByPalaceIdRaw]);
   const dismissAssessForPalace = usePalaceStore((s) => s.dismissAssessForPalace);
 
   useEffect(() => {

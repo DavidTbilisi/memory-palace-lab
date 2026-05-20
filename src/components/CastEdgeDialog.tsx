@@ -94,7 +94,7 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
   const sGloss = CAST_WHAT_GLOSS;
   const tGloss = CAST_WHEN_GLOSS;
 
-  const useWhenHint = (axis: CastAxisName, english: string): string => {
+  const whenHintFor = (axis: CastAxisName, english: string): string => {
     const row = CAST_LEXICON[axis].rows.find((r) => r.english === english);
     if (!row) return "";
     return `${row.english} (${row.bits}) — ${row.useWhen}  ·  ქართ: ${row.georgian}  ·  Рус: ${row.russian}`;
@@ -311,8 +311,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
                 {tier2MeaningPreview}
               </div>
               <div
-                onMouseEnter={() => setActiveHint(useWhenHint("who", ab))}
-                onFocusCapture={() => setActiveHint(useWhenHint("who", ab))}
+                onMouseEnter={() => setActiveHint(whenHintFor("who", ab))}
+                onFocusCapture={() => setActiveHint(whenHintFor("who", ab))}
               >
                 <Label>C - source role (Character)</Label>
                 <select
@@ -334,8 +334,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(useWhenHint("how", cd))}
-                onFocusCapture={() => setActiveHint(useWhenHint("how", cd))}
+                onMouseEnter={() => setActiveHint(whenHintFor("how", cd))}
+                onFocusCapture={() => setActiveHint(whenHintFor("how", cd))}
               >
                 <Label>A - effect style (Action)</Label>
                 <select
@@ -357,8 +357,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(useWhenHint("what", ef))}
-                onFocusCapture={() => setActiveHint(useWhenHint("what", ef))}
+                onMouseEnter={() => setActiveHint(whenHintFor("what", ef))}
+                onFocusCapture={() => setActiveHint(whenHintFor("what", ef))}
               >
                 <Label>S - what moves (Stream)</Label>
                 <select
@@ -380,8 +380,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
                 </div>
               </div>
               <div
-                onMouseEnter={() => setActiveHint(useWhenHint("when", gh))}
-                onFocusCapture={() => setActiveHint(useWhenHint("when", gh))}
+                onMouseEnter={() => setActiveHint(whenHintFor("when", gh))}
+                onFocusCapture={() => setActiveHint(whenHintFor("when", gh))}
               >
                 <Label>T - stability (Time)</Label>
                 <select
