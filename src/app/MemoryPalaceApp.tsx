@@ -242,7 +242,18 @@ export function MemoryPalaceApp() {
   const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
   const [dslSplitRatio, setDslSplitRatio] = useState<number>(() => loadSplitRatio());
 
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const stored = window.localStorage.getItem("mp-learn-panel-open");
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+    // First-ever visit: open the panel so the onboarding lessons surface.
+    return true;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("mp-learn-panel-open", showOnboarding ? "true" : "false");
+  }, [showOnboarding]);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
   const [viewMode, setViewMode] = useState<"balanced" | "focus">("balanced");
@@ -405,7 +416,7 @@ export function MemoryPalaceApp() {
     }
     setShowSidebar(false);
     setShowInspector(false);
-    setShowOnboarding(true);
+    setShowOnboarding(false);
   };
 
   useEffect(() => {
