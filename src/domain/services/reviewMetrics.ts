@@ -3,7 +3,7 @@ import { parseAnalyticsPayload } from "./analyticsService";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type ReviewFilter = {
+export type ReviewFilter = {
   palaceId?: string | null;
   routeId?: string | null;
 };

@@ -31,7 +31,7 @@ import {
   moveLocus as moveRouteLocus,
   reassignLocusRoute as reassignRouteLocus,
 } from "../domain/services/routeEditing";
-import { applySm2Schedule, defaultLocusSchedule, normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { applySm2Schedule, defaultLocusSchedule } from "../domain/services/spacedRepetition";
 import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
 import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
 import type { DslApplyResult, DslSnapshot } from "../domain/services/palaceDsl/types";
@@ -41,11 +41,19 @@ import {
   deleteAARRecord as persistDeleteAAR,
   loadAARRecords as persistLoadAARs,
 } from "../infrastructure/aarStorage";
+import {
+  DAILY_REVIEW_GOAL_STORAGE_KEY,
+  DEFAULT_DAILY_REVIEW_GOAL,
+  DRAFT_SAVE_DELAY_MS,
+  EMPTY_WALK_RATINGS,
+  RECALL_RATING_VALUES,
+  type WalkRatingCounts,
+  loadDailyReviewGoal,
+  normalizeLoci,
+  safeElapsedMs,
+} from "./palaceStoreHelpers";
 
 const repo = getPalaceRepository();
-const DRAFT_SAVE_DELAY_MS = 900;
-const DAILY_REVIEW_GOAL_STORAGE_KEY = "mp-daily-review-goal";
-const DEFAULT_DAILY_REVIEW_GOAL = 10;
 
 export type ToolMode = "select" | "connect" | "route";
 export type PalacePersistenceState = "clean" | "dirty" | "draft";
@@ -60,8 +68,6 @@ type RecordAnalyticsInput = {
   nodeId?: string | null;
   payload?: Record<string, unknown>;
 };
-
-type WalkRatingCounts = Record<RecallRating, number>;
 
 type WalkSummary = {
   sessionId: string | null;
@@ -173,43 +179,6 @@ export type PalaceStore = {
     options?: { persistenceState?: PalacePersistenceState; draftRestored?: boolean; lastDraftSavedAt?: string | null },
   ) => void;
 };
-
-function safeElapsedMs(isoTimestamp: string | null, now: number): number | null {
-  if (!isoTimestamp) return null;
-  const parsed = Date.parse(isoTimestamp);
-  if (Number.isNaN(parsed)) return null;
-  return Math.max(0, now - parsed);
-}
-
-const RECALL_RATING_VALUES: Record<RecallRating, number> = {
-  again: 1,
-  hard: 2,
-  good: 3,
-  easy: 4,
-};
-
-const EMPTY_WALK_RATINGS: WalkRatingCounts = {
-  again: 0,
-  hard: 0,
-  good: 0,
-  easy: 0,
-};
-
-function normalizeLoci(loci: Locus[], nowIso = new Date().toISOString()) {
-  return loci.map((locus) => normalizeLocusSchedule(locus, nowIso));
-}
-
-function loadDailyReviewGoal() {
-  if (typeof window === "undefined") return DEFAULT_DAILY_REVIEW_GOAL;
-  try {
-    const raw = window.localStorage.getItem(DAILY_REVIEW_GOAL_STORAGE_KEY);
-    const parsed = raw ? Number(raw) : DEFAULT_DAILY_REVIEW_GOAL;
-    if (!Number.isFinite(parsed)) return DEFAULT_DAILY_REVIEW_GOAL;
-    return Math.max(1, Math.min(200, Math.round(parsed)));
-  } catch {
-    return DEFAULT_DAILY_REVIEW_GOAL;
-  }
-}
 
 export const usePalaceStore = create<PalaceStore>((set, get) => {
   let draftTimer: ReturnType<typeof setTimeout> | null = null;

@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, BarChart3, Brain, Clock3, Network, Settings2, ShieldCheck } from "lucide-react";
-import type { AnalyticsEvent } from "../domain/entities/types";
-import { humanizeAnalyticsEventType, parseAnalyticsPayload, summarizeAnalytics } from "../domain/services/analyticsService";
-import { analyzeGraph, topByMetric } from "../domain/services/cast/graphAnalysis";
+import { summarizeAnalytics } from "../domain/services/analyticsService";
+import { analyzeGraph } from "../domain/services/cast/graphAnalysis";
 import { MOTIF_MOVES, detectMotifs, groupMotifs } from "../domain/services/cast/castMotifs";
-import { extractMotifInstances } from "../domain/services/cast/motifInstances";
 import {
   palaceSignature,
   topSimilarPalaces,
@@ -19,88 +17,18 @@ import { CloseAARDialog } from "./CloseAARDialog";
 import { ViewAARDialog } from "./ViewAARDialog";
 import { AssessBanner } from "./AssessBanner";
 import { useAssessHint } from "./hooks/useAssessHint";
+import { useGraphAnalysis } from "./hooks/useGraphAnalysis";
+import { useReviewMetrics } from "./hooks/useReviewMetrics";
 import type { AARRecord } from "../domain/services/cast/aarRecords";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
-import { buildReviewHeatmap, buildRetentionSeries, formatDayKeyLabel, retentionTrendDown } from "../domain/services/reviewMetrics";
-import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
+import { StatCard } from "./analytics/StatCard";
+import { RetentionChart } from "./analytics/RetentionChart";
+import { ReviewHeatmap } from "./analytics/ReviewHeatmap";
+import { RecentEventsList } from "./analytics/RecentEventsList";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
-
-function formatEventDetail(event: AnalyticsEvent) {
-  const payload = parseAnalyticsPayload(event);
-  if (event.eventType === "walk_recall_rated") {
-    const rating = typeof payload.rating === "string" ? payload.rating : "unrated";
-    const latency = typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms` : "no timer";
-    return `${rating} - ${latency}`;
-  }
-  if (event.eventType === "walk_answer_revealed") {
-    return typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms to reveal` : "answer revealed";
-  }
-  if (event.eventType === "node_created" || event.eventType === "node_updated") {
-    return typeof payload.title === "string" && payload.title.trim() ? payload.title : "memory node";
-  }
-  if (event.eventType === "edge_created" || event.eventType === "edge_updated") {
-    return typeof payload.label === "string" && payload.label.trim() ? payload.label : "CAST edge";
-  }
-  if (event.eventType === "route_created") {
-    return typeof payload.name === "string" && payload.name.trim() ? payload.name : "route";
-  }
-  if (event.eventType === "system_run_materialized") {
-    return typeof payload.pipelineTitle === "string" ? payload.pipelineTitle : "theSystem run";
-  }
-  return typeof payload.source === "string" ? payload.source : "local event";
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  tone = "zinc",
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  tone?: "zinc" | "violet" | "emerald";
-}) {
-  const toneClass =
-    tone === "violet"
-      ? "border-violet-800/60 bg-violet-950/30"
-      : tone === "emerald"
-        ? "border-emerald-800/60 bg-emerald-950/30"
-        : "border-zinc-800 bg-zinc-900/40";
-
-  return (
-    <div className={`rounded-md border p-3 ${toneClass}`}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-100">{value}</div>
-    </div>
-  );
-}
-
-function retentionPath(points: Array<{ averageScorePct: number }>, width: number, height: number, padding = 24) {
-  if (points.length === 0) return "";
-  const usableWidth = width - padding * 2;
-  const usableHeight = height - padding * 2;
-  return points
-    .map((point, index) => {
-      const x = padding + (points.length === 1 ? 0 : (index / (points.length - 1)) * usableWidth);
-      const y = padding + (1 - point.averageScorePct / 100) * usableHeight;
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-}
-
-function heatmapTone(count: number) {
-  if (count <= 0) return "bg-zinc-900";
-  if (count <= 3) return "bg-emerald-900/60";
-  if (count <= 9) return "bg-emerald-600/70";
-  return "bg-emerald-400";
-}
 
 export function AnalyticsPanel() {
   const currentPalace = usePalaceStore((s) => s.currentPalace);
@@ -110,10 +38,13 @@ export function AnalyticsPanel() {
   const loci = usePalaceStore((s) => s.loci);
   const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
   const setDailyReviewGoal = usePalaceStore((s) => s.setDailyReviewGoal);
+  const palaceNodes = usePalaceStore((s) => s.nodes);
+  const palaceEdges = usePalaceStore((s) => s.edges);
+  const palaces = usePalaceStore((s) => s.palaces);
+  const openPalace = usePalaceStore((s) => s.openPalace);
 
   const [selectedPalaceFilter, setSelectedPalaceFilter] = useState<string>("all");
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>("all");
-  const [hoveredDayKey, setHoveredDayKey] = useState<string | null>(null);
   const [anthropicKey, setAnthropicKey] = useState(() =>
     typeof window === "undefined" ? "" : window.localStorage.getItem(AI_KEY_STORAGE) ?? "",
   );
@@ -144,25 +75,11 @@ export function AnalyticsPanel() {
     [selectedPalaceFilter, selectedRouteFilter],
   );
 
-  const retentionSeries = useMemo(() => buildRetentionSeries(analyticsEvents, 30, filter), [analyticsEvents, filter]);
-  const trendDown = useMemo(() => retentionTrendDown(retentionSeries), [retentionSeries]);
-  const heatmapCells = useMemo(() => buildReviewHeatmap(analyticsEvents, 52, new Date().toISOString(), filter), [analyticsEvents, filter]);
-  const hoveredCell = useMemo(() => heatmapCells.find((cell) => cell.dayKey === hoveredDayKey) ?? null, [heatmapCells, hoveredDayKey]);
-
-  const dueCount = useMemo(() => {
-    const nowIso = new Date().toISOString();
-    const nowMs = Date.parse(nowIso);
-    return loci
-      .map((locus) => normalizeLocusSchedule(locus, nowIso))
-      .filter((locus) => Date.parse(locus.nextReviewAt ?? nowIso) <= nowMs).length;
-  }, [loci]);
-
-  const averageInterval = useMemo(() => {
-    if (loci.length === 0) return null;
-    const intervals = loci.map((locus) => normalizeLocusSchedule(locus).interval ?? 0).filter((value) => value > 0);
-    if (intervals.length === 0) return null;
-    return Math.round(intervals.reduce((total, value) => total + value, 0) / intervals.length);
-  }, [loci]);
+  const { retentionSeries, trendDown, heatmapCells, dueCount, averageInterval } = useReviewMetrics(
+    analyticsEvents,
+    loci,
+    filter,
+  );
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -180,52 +97,19 @@ export function AnalyticsPanel() {
     return [...set].sort();
   }, [analyticsEvents]);
 
-  const palaceNodes = usePalaceStore((s) => s.nodes);
-  const palaceEdges = usePalaceStore((s) => s.edges);
-  const graphAnalysis = useMemo(
-    () =>
-      analyzeGraph({
-        nodes: palaceNodes.map((n) => ({ id: n.id })),
-        edges: palaceEdges.map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId })),
-      }),
-    [palaceNodes, palaceEdges],
-  );
-  const nodeTitleById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const n of palaceNodes) map.set(n.id, n.title || "Untitled");
-    return map;
-  }, [palaceNodes]);
-  const topHubs = useMemo(() => topByMetric(graphAnalysis.inDegree, 3), [graphAnalysis.inDegree]);
-  const topBetween = useMemo(() => topByMetric(graphAnalysis.betweenness, 3), [graphAnalysis.betweenness]);
-  const largestScc = useMemo(() => {
-    let largest = 0;
-    for (const c of graphAnalysis.sccs) if (c.length > largest) largest = c.length;
-    return largest;
-  }, [graphAnalysis.sccs]);
-  const nonTrivialSccCount = useMemo(
-    () => graphAnalysis.sccs.filter((c) => c.length > 1).length,
-    [graphAnalysis.sccs],
-  );
-  const motifs = useMemo(
-    () =>
-      detectMotifs({
-        nodes: palaceNodes.map((n) => ({ id: n.id })),
-        edges: palaceEdges.map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId })),
-      }),
-    [palaceNodes, palaceEdges],
-  );
-  const motifGroups = useMemo(() => groupMotifs(motifs), [motifs]);
-  const currentMotifInstances = useMemo(() => {
-    return extractMotifInstances(motifs, nodeTitleById);
-  }, [motifs, nodeTitleById]);
-  const currentSignature = useMemo<PalaceSignature | null>(() => {
-    if (!currentPalace) return null;
-    const sig = palaceSignature(currentPalace.id, currentPalace.name, graphAnalysis, motifGroups);
-    return { ...sig, motifInstances: currentMotifInstances };
-  }, [currentPalace, graphAnalysis, motifGroups, currentMotifInstances]);
+  const {
+    analysis: graphAnalysis,
+    nodeTitleById,
+    topHubs,
+    topBetween,
+    largestScc,
+    nonTrivialSccCount,
+    motifGroups,
+    motifInstances: currentMotifInstances,
+    motifTotal,
+    currentSignature,
+  } = useGraphAnalysis(palaceNodes, palaceEdges, currentPalace);
 
-  const palaces = usePalaceStore((s) => s.palaces);
-  const openPalace = usePalaceStore((s) => s.openPalace);
   const [otherSignatures, setOtherSignatures] = useState<PalaceSignature[]>([]);
   const [comparisonFrom, setComparisonFrom] = useState<PalaceSignature | null>(null);
 
@@ -331,9 +215,7 @@ export function AnalyticsPanel() {
     return {
       nodeCount: graphAnalysis.nodeCount,
       edgeCount: graphAnalysis.edgeCount,
-      motifKindsPresent: currentSignature
-        ? [...currentSignature.motifKindsPresent]
-        : [],
+      motifKindsPresent: currentSignature ? [...currentSignature.motifKindsPresent] : [],
       motifCounts: {
         cascade: motifGroups.cascade.length,
         diamond: motifGroups.diamond.length,
@@ -384,13 +266,6 @@ export function AnalyticsPanel() {
     return topSimilarPalaces(currentSignature, otherSignatures, 3);
   }, [currentSignature, otherSignatures]);
 
-  const motifTotal =
-    motifGroups.cascade.length +
-    motifGroups.diamond.length +
-    motifGroups.hubSpoke.length +
-    motifGroups.feedbackLoop.length +
-    motifGroups.bottleneck.length +
-    motifGroups.bipartite.length;
   const renderTitle = (id: string) => nodeTitleById.get(id) ?? id;
 
   return (
@@ -859,6 +734,7 @@ export function AnalyticsPanel() {
                 className="h-8 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
                 value={selectedPalaceFilter}
                 onChange={(event) => setSelectedPalaceFilter(event.target.value)}
+                aria-label="Filter retention by palace"
               >
                 <option value="all">All palaces</option>
                 {palaceOptions.map((palaceId) => (
@@ -871,6 +747,7 @@ export function AnalyticsPanel() {
                 className="h-8 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
                 value={selectedRouteFilter}
                 onChange={(event) => setSelectedRouteFilter(event.target.value)}
+                aria-label="Filter retention by route"
               >
                 <option value="all">All routes</option>
                 {routeOptions.map((routeId) => (
@@ -881,73 +758,12 @@ export function AnalyticsPanel() {
               </select>
             </div>
           </div>
-          {retentionSeries.length === 0 ? (
-            <div className="mt-3 rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 px-3 py-6 text-sm text-zinc-500">
-              Review some loci to see your retention curve.
-            </div>
-          ) : (
-            <>
-              <svg viewBox="0 0 640 220" className="mt-3 h-[220px] w-full rounded-md border border-zinc-800 bg-zinc-950/50">
-                <path d={retentionPath(retentionSeries, 640, 220)} fill="none" stroke="#a78bfa" strokeWidth={2.5} />
-                {retentionSeries.map((point, index) => {
-                  const x = 24 + (retentionSeries.length === 1 ? 0 : (index / (retentionSeries.length - 1)) * (640 - 48));
-                  const y = 24 + (1 - point.averageScorePct / 100) * (220 - 48);
-                  return (
-                    <circle key={point.dayKey} cx={x} cy={y} r={4} fill="#c4b5fd">
-                      <title>{`${formatDayKeyLabel(point.dayKey)}: ${point.averageScorePct}% (${point.count} loci)`}</title>
-                    </circle>
-                  );
-                })}
-              </svg>
-              {trendDown ? (
-                <div className="mt-2 rounded-md border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
-                  Your retention is trending down - consider shorter, more frequent sessions.
-                </div>
-              ) : null}
-            </>
-          )}
+          <RetentionChart series={retentionSeries} trendDown={trendDown} />
         </section>
 
         <section className="mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
           <div className="text-sm font-medium text-zinc-100">Review Consistency (52 weeks)</div>
-          {heatmapCells.every((cell) => cell.count === 0) ? (
-            <div className="mt-3 rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 px-3 py-6 text-sm text-zinc-500">
-              Your review history will appear here after your first walk session.
-              <div className="mt-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent("mp-open-review"))}
-                >
-                  Start reviewing
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="mt-3 overflow-x-auto pb-2">
-                <div className="grid grid-flow-col grid-rows-7 gap-1">
-                  {heatmapCells.map((cell) => (
-                    <button
-                      key={cell.dayKey}
-                      type="button"
-                      onMouseEnter={() => setHoveredDayKey(cell.dayKey)}
-                      onMouseLeave={() => setHoveredDayKey((current) => (current === cell.dayKey ? null : current))}
-                      className={`h-3 w-3 rounded-sm ${heatmapTone(cell.count)} ${cell.isToday ? "ring-1 ring-violet-300" : ""}`}
-                      title={`${formatDayKeyLabel(cell.dayKey)} - ${cell.count} loci reviewed across ${cell.routeCount} routes`}
-                      aria-label={`${cell.dayKey}: ${cell.count} reviewed`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="mt-2 text-xs text-zinc-500">
-                {hoveredCell
-                  ? `${formatDayKeyLabel(hoveredCell.dayKey)} - ${hoveredCell.count} loci reviewed across ${hoveredCell.routeCount} routes`
-                  : "Hover a day to inspect review volume."}
-              </div>
-            </>
-          )}
+          <ReviewHeatmap cells={heatmapCells} />
         </section>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
@@ -970,21 +786,7 @@ export function AnalyticsPanel() {
           <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
             <div className="text-sm font-medium text-zinc-100">Recent events</div>
             <div className="mt-3 space-y-2">
-              {recentEvents.length === 0 ? (
-                <div className="rounded border border-dashed border-zinc-800 bg-zinc-950/40 px-3 py-4 text-sm text-zinc-500">
-                  No analytics events yet.
-                </div>
-              ) : (
-                recentEvents.map((event) => (
-                  <div key={event.id} className="rounded border border-zinc-800 bg-zinc-950/40 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <div className="font-medium capitalize text-zinc-100">{humanizeAnalyticsEventType(event.eventType)}</div>
-                      <div className="text-[11px] text-zinc-500">{new Date(event.createdAt).toLocaleString()}</div>
-                    </div>
-                    <div className="mt-1 text-xs text-zinc-400">{formatEventDetail(event)}</div>
-                  </div>
-                ))
-              )}
+              <RecentEventsList events={recentEvents} />
             </div>
           </section>
         </div>

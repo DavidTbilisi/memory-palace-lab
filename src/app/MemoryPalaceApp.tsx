@@ -1,211 +1,45 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
-import {
-  BarChart2,
-  BookOpen,
-  Columns3,
-  Cpu,
-  Focus,
-  Globe,
-  HelpCircle,
-  LayoutDashboard,
-  ListOrdered,
-  PanelLeft,
-  PanelRightOpen,
-  Search,
-  Sparkles,
-} from "lucide-react";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
-import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
-import { AtlasEditorPage } from "../components/AtlasEditorPage";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
 import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
 import { ContextualTipCard } from "../components/ContextualTipCard";
 import { GlossaryPanel } from "../components/GlossaryPanel";
-import { HelpCenterPage } from "../components/HelpCenterPage";
-import { AnalyticsPanel } from "../components/AnalyticsPanel";
 import { ImportNodesDialog } from "../components/ImportNodesDialog";
 import { PalaceSidebar } from "../components/PalaceSidebar";
-import { PalaceToolbar } from "../components/PalaceToolbar";
 import { RepresentMotifDialog } from "../components/RepresentMotifDialog";
-import { AssessBanner } from "../components/AssessBanner";
+import { GraphWorkspace } from "../components/GraphWorkspace";
+import { PageContentRouter } from "../components/PageContentRouter";
+import { PageNavigationBar } from "../components/PageNavigationBar";
+import { ViewModeToggleGroup } from "../components/ViewModeToggleGroup";
 import { useAssessHint } from "../components/hooks/useAssessHint";
+import { useCommandPalette } from "../components/hooks/useCommandPalette";
+import { useDragResizable } from "../components/hooks/useDragResizable";
+import { useKeyboardShortcuts } from "../components/hooks/useKeyboardShortcuts";
+import { useOnboardingState } from "../components/hooks/useOnboardingState";
 import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
 import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
-import { ReviewPage } from "../components/ReviewPage";
-import { RouteEditorPage } from "../components/RouteEditorPage";
-import { RoutePanel } from "../components/RoutePanel";
 import { SessionSummaryModal } from "../components/SessionSummaryModal";
-import { TheSystemWorkbench } from "../components/TheSystemWorkbench";
-import { WalkModeBar } from "../components/WalkModeBar";
-import { NodeInspector } from "../components/NodeInspector";
 import { OnboardingPanel } from "../components/OnboardingPanel";
-import { PalaceDslEditor } from "../components/PalaceDslEditor";
-import { Button } from "../components/ui/button";
-import type { MemoryNode } from "../domain/entities/types";
 import { buildPrimaryContextHint } from "../domain/services/contextualTips";
-import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
-
-type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "routes" | "help";
-
-type NodeSearchEntry = {
-  palaceId: string;
-  palaceName: string;
-  nodeId: string;
-  title: string;
-  subtitle: string;
-  keywords: string;
-  group: "Current Palace Nodes" | "Other Palaces";
-};
-
-const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
-const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
-const DSL_SPLIT_RATIO_STORAGE_KEY = "mp-dsl-split-ratio";
-
-function loadSplitRatio(): number {
-  if (typeof window === "undefined") return 0.4;
-  const raw = window.localStorage.getItem(DSL_SPLIT_RATIO_STORAGE_KEY);
-  const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) && parsed > 0.1 && parsed < 0.9 ? parsed : 0.4;
-}
-const palaceRepo = getPalaceRepository();
-function loadRecentIds(storageKey: string, max = 20) {
-  if (typeof window === "undefined") return [] as string[];
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((entry): entry is string => typeof entry === "string").slice(0, max);
-  } catch {
-    return [];
-  }
-}
-
-function toPlainText(value: string) {
-  return value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function pageHint(page: AppPage) {
-  if (page === "review") {
-    return "Review turns routes and recall ratings into an attention queue instead of a loose reading habit.";
-  }
-  if (page === "insights") {
-    return "Insights shows the telemetry behind your graph and review behavior so weak spots become visible.";
-  }
-  if (page === "system") {
-    return "System is where theSystem frameworks become runnable thinking pipelines and graph output.";
-  }
-  if (page === "atlas") {
-    return "Atlas organizes palaces by geography: domain, place, section. Build a hierarchy across multiple spaces.";
-  }
-  if (page === "routes") {
-    return "Routes are ordered walks through your palace. Organize and edit loci sequences here without toolbar noise.";
-  }
-  if (page === "help") {
-    return "Help is onboarding plus examples. Use it to start fast, then leave it once the palace is alive.";
-  }
-  return null;
-}
-
-function GraphEmptyState({
-  onCreateTutorialPalace,
-  onOpenHelp,
-  onOpenCommandPalette,
-  onOpenImport,
-}: {
-  onCreateTutorialPalace: () => void;
-  onOpenHelp: () => void;
-  onOpenCommandPalette: () => void;
-  onOpenImport: () => void;
-}) {
-  return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-3xl rounded-[34px] border border-zinc-800 bg-[radial-gradient(circle_at_top,#27272a_0%,rgba(9,9,11,0)_48%),linear-gradient(180deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] p-7 shadow-[0_28px_120px_rgba(0,0,0,0.45)]">
-        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">Palace workspace</div>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100">Build the graph where memory actually lives.</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-          Start with one palace, a few anchors, and one route. The surrounding pages handle review, system workflows,
-          and insight. This surface stays dedicated to graph work.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Button type="button" onClick={onCreateTutorialPalace}>
-            <Sparkles className="h-4 w-4" />
-            Create tutorial palace
-          </Button>
-          <Button type="button" variant="secondary" onClick={onOpenHelp}>
-            <BookOpen className="h-4 w-4" />
-            Open help
-          </Button>
-          <Button type="button" variant="outline" onClick={onOpenCommandPalette}>
-            <Search className="h-4 w-4" />
-            Open command palette
-          </Button>
-          <Button type="button" variant="outline" onClick={onOpenImport}>
-            Import notes
-          </Button>
-        </div>
-        <div className="mt-8 grid gap-3 md:grid-cols-3">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Review</div>
-            <div className="mt-2 text-sm leading-6 text-zinc-300">Queue weak routes, start walks, and keep retrieval stable.</div>
-          </div>
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Insights</div>
-            <div className="mt-2 text-sm leading-6 text-zinc-300">See memory strength, graph activity, and review signals without leaving the app.</div>
-          </div>
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">System</div>
-            <div className="mt-2 text-sm leading-6 text-zinc-300">Run frameworks as pipelines and materialize them into the current palace.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function routeNamesByNodeId(
-  nodes: MemoryNode[],
-  routes: Array<{ id: string; name: string }>,
-  loci: Array<{ routeId: string; nodeId: string }>,
-) {
-  const routeNameMap = new Map(routes.map((route) => [route.id, route.name]));
-  const namesByNode = new Map<string, Set<string>>();
-  for (const locus of loci) {
-    const routeName = routeNameMap.get(locus.routeId);
-    if (!routeName) continue;
-    const set = namesByNode.get(locus.nodeId) ?? new Set<string>();
-    set.add(routeName);
-    namesByNode.set(locus.nodeId, set);
-  }
-
-  return nodes.map((node) => {
-    const routeNames = [...(namesByNode.get(node.id) ?? new Set<string>())];
-    return {
-      node,
-      routeSummary: routeNames.length === 0 ? "No route" : routeNames.join(", "),
-    };
-  });
-}
+import {
+  DSL_SPLIT_RATIO_STORAGE_KEY,
+  loadSplitRatio,
+  pageHint,
+  type AppPage,
+} from "./memoryPalaceAppHelpers";
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function MemoryPalaceApp() {
-  const [commandOpen, setCommandOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<AppPage>("graph");
-  const [recentCommandIds, setRecentCommandIds] = useState<string[]>(() => loadRecentIds(RECENT_COMMANDS_STORAGE_KEY));
-  const [recentNodeIds, setRecentNodeIds] = useState<string[]>(() => loadRecentIds(RECENT_NODE_IDS_STORAGE_KEY, 12));
-  const [nodeCommands, setNodeCommands] = useState<PaletteCommand[]>([]);
   const graphControls = true;
 
   const editorRef = usePalaceStore((s) => s.editorRef);
@@ -215,7 +49,6 @@ export function MemoryPalaceApp() {
   const loci = usePalaceStore((s) => s.loci);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const toolMode = usePalaceStore((s) => s.toolMode);
-  const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const createPalace = usePalaceStore((s) => s.createPalace);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
@@ -238,22 +71,13 @@ export function MemoryPalaceApp() {
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
-  const dslPaneOpen = usePalaceStore((s) => s.dslPaneOpen);
   const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
-  const [dslSplitRatio, setDslSplitRatio] = useState<number>(() => loadSplitRatio());
-
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const stored = window.localStorage.getItem("mp-learn-panel-open");
-    if (stored === "true") return true;
-    if (stored === "false") return false;
-    // First-ever visit: open the panel so the onboarding lessons surface.
-    return true;
+  const { ratio: dslSplitRatio, onSeparatorMouseDown: onDslSeparatorMouseDown } = useDragResizable({
+    getInitialRatio: loadSplitRatio,
+    storageKey: DSL_SPLIT_RATIO_STORAGE_KEY,
   });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("mp-learn-panel-open", showOnboarding ? "true" : "false");
-  }, [showOnboarding]);
+
+  const [showOnboarding, setShowOnboarding] = useOnboardingState();
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInspector, setShowInspector] = useState(true);
   const [viewMode, setViewMode] = useState<"balanced" | "focus">("balanced");
@@ -272,14 +96,6 @@ export function MemoryPalaceApp() {
 
   const navigateToPage = useCallback((page: AppPage) => {
     setCurrentPage(page);
-  }, []);
-
-  const trackCommandRun = useCallback((id: string) => {
-    setRecentCommandIds((current) => [id, ...current.filter((entry) => entry !== id)].slice(0, 20));
-  }, []);
-
-  const trackNodeVisit = useCallback((nodeId: string) => {
-    setRecentNodeIds((current) => [nodeId, ...current.filter((entry) => entry !== nodeId)].slice(0, 12));
   }, []);
 
   const startRouteReview = useCallback(
@@ -324,6 +140,15 @@ export function MemoryPalaceApp() {
     },
     [currentPalace?.id, openPalace, waitForNodeShape],
   );
+
+  const {
+    commandOpen,
+    setCommandOpen,
+    recentCommandIds,
+    trackCommandRun,
+    trackNodeVisit,
+    nodeCommands,
+  } = useCommandPalette({ currentPalace, nodes, routes, loci, palaces, onFocusNode: focusNodeCommand });
 
   const sceneStats = useMemo(() => {
     if (!editorRef) {
@@ -449,29 +274,11 @@ export function MemoryPalaceApp() {
     };
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen((open) => !open);
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
-        event.preventDefault();
-        setGlossaryOpen((open) => !open);
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "e") {
-        event.preventDefault();
-        setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setDslPaneOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(DSL_SPLIT_RATIO_STORAGE_KEY, String(dslSplitRatio));
-  }, [dslSplitRatio]);
+  useKeyboardShortcuts({
+    k: () => setCommandOpen((open) => !open),
+    d: () => setGlossaryOpen((open) => !open),
+    e: () => setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen),
+  });
 
   useEffect(() => {
     const onOpenInsights = () => setCurrentPage("insights");
@@ -485,112 +292,12 @@ export function MemoryPalaceApp() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(RECENT_COMMANDS_STORAGE_KEY, JSON.stringify(recentCommandIds.slice(0, 20)));
-  }, [recentCommandIds]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(RECENT_NODE_IDS_STORAGE_KEY, JSON.stringify(recentNodeIds.slice(0, 12)));
-  }, [recentNodeIds]);
-
-  useEffect(() => {
     if (!editorRef || !selectedShapeId) return;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
     if (!shape || shape.type !== "geo" || !meta.mpNodeId) return;
     trackNodeVisit(meta.mpNodeId);
   }, [editorRef, selectedShapeId, trackNodeVisit]);
-
-  useEffect(() => {
-    if (!commandOpen) return;
-    let cancelled = false;
-
-    async function buildNodeCommands() {
-      const currentPalaceId = currentPalace?.id ?? null;
-      const currentNodes = nodes;
-      const currentRoutes = routes;
-      const currentLoci = loci;
-
-      const snapshots = await Promise.all(
-        palaces.map(async (palace) => {
-          if (palace.id === currentPalaceId) {
-            return {
-              palace,
-              nodes: currentNodes,
-              routes: currentRoutes,
-              loci: currentLoci,
-            };
-          }
-          const loaded = await palaceRepo.loadPalace(palace.id);
-          if (!loaded) return null;
-          return {
-            palace: loaded.palace,
-            nodes: loaded.nodes,
-            routes: loaded.routes,
-            loci: loaded.loci,
-          };
-        }),
-      );
-
-      if (cancelled) return;
-
-      const entries: NodeSearchEntry[] = [];
-      for (const snapshot of snapshots) {
-        if (!snapshot) continue;
-        const nodeRouteSummaries = routeNamesByNodeId(snapshot.nodes, snapshot.routes, snapshot.loci);
-        for (const entry of nodeRouteSummaries) {
-          const title = entry.node.title?.trim() || "Untitled node";
-          entries.push({
-            palaceId: snapshot.palace.id,
-            palaceName: snapshot.palace.name,
-            nodeId: entry.node.id,
-            title,
-            subtitle: `${snapshot.palace.name} | ${entry.routeSummary}`,
-            keywords: `${entry.node.alias ?? ""} ${toPlainText(entry.node.content ?? "")}`,
-            group: snapshot.palace.id === currentPalaceId ? "Current Palace Nodes" : "Other Palaces",
-          });
-        }
-      }
-
-      const entryByNodeId = new Map(entries.map((entry) => [entry.nodeId, entry]));
-      const recentNodeCommands: PaletteCommand[] = recentNodeIds
-        .map((nodeId) => entryByNodeId.get(nodeId))
-        .filter((entry): entry is NodeSearchEntry => !!entry)
-        .slice(0, 5)
-        .map((entry) => ({
-          id: `recent-node:${entry.palaceId}:${entry.nodeId}`,
-          group: "Recent nodes",
-          title: entry.title,
-          subtitle: entry.subtitle,
-          keywords: entry.keywords,
-          onSelect: () => {
-            trackNodeVisit(entry.nodeId);
-            void focusNodeCommand(entry.palaceId, entry.nodeId);
-          },
-        }));
-
-      const regularNodeCommands: PaletteCommand[] = entries.map((entry) => ({
-        id: `node:${entry.palaceId}:${entry.nodeId}`,
-        group: entry.group,
-        title: entry.title,
-        subtitle: entry.subtitle,
-        keywords: entry.keywords,
-        onSelect: () => {
-          trackNodeVisit(entry.nodeId);
-          void focusNodeCommand(entry.palaceId, entry.nodeId);
-        },
-      }));
-
-      setNodeCommands([...recentNodeCommands, ...regularNodeCommands]);
-    }
-
-    void buildNodeCommands();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [commandOpen, currentPalace?.id, focusNodeCommand, loci, nodes, palaces, recentNodeIds, routes, trackNodeVisit]);
 
   const basePaletteCommands: PaletteCommand[] = useMemo(
     () => [
@@ -737,7 +444,6 @@ export function MemoryPalaceApp() {
     [basePaletteCommands, nodeCommands, palacePaletteCommands, routePaletteCommands],
   );
 
-  const snap = currentPalace?.editorSnapshot;
   const castOpen = !!pendingCast;
 
   const castSiblingEdgeLabels = useMemo(() => {
@@ -765,226 +471,51 @@ export function MemoryPalaceApp() {
             <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
           </div>
 
-          <nav className="flex items-center justify-center gap-1">
-            {(["graph", "review", "insights", "system", "atlas", "routes", "help"] as const).map((page) => {
-              const icons: Record<typeof page, ReactNode> = {
-                graph: <LayoutDashboard className="h-4 w-4" />,
-                review: <BookOpen className="h-4 w-4" />,
-                insights: <BarChart2 className="h-4 w-4" />,
-                system: <Cpu className="h-4 w-4" />,
-                atlas: <Globe className="h-4 w-4" />,
-                routes: <ListOrdered className="h-4 w-4" />,
-                help: <HelpCircle className="h-4 w-4" />,
-              };
-              const labels: Record<typeof page, string> = {
-                graph: "Graph",
-                review: "Review",
-                insights: "Insights",
-                system: "System",
-                atlas: "Atlas",
-                routes: "Routes",
-                help: "Help",
-              };
-              return (
-                <Button
-                  key={page}
-                  size="sm"
-                  variant={currentPage === page ? "default" : "ghost"}
-                  onClick={() => navigateToPage(page)}
-                  title={`Open ${labels[page]}`}
-                  onMouseEnter={() => setHoverHint(`${labels[page]} - ${pageHint(page) || "workspace area"}`)}
-                  onMouseLeave={() => setHoverHint(null)}
-                  className="gap-1.5"
-                >
-                  {icons[page]}
-                  <span className="hidden sm:inline">{labels[page]}</span>
-                </Button>
-              );
-            })}
-          </nav>
+          <PageNavigationBar currentPage={currentPage} onNavigate={navigateToPage} onHoverHintChange={setHoverHint} />
 
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant={viewMode === "balanced" ? "default" : "secondary"}
-              type="button"
-              onClick={() => applyViewMode("balanced")}
-              title="Balanced layout"
-              onMouseEnter={() => setHoverHint("Balanced mode: keeps side panels visible for editing and navigation.")}
-              onMouseLeave={() => setHoverHint(null)}
-            >
-              <Columns3 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === "focus" ? "default" : "secondary"}
-              type="button"
-              onClick={() => applyViewMode("focus")}
-              title="Focus mode"
-              onMouseEnter={() => setHoverHint("Focus mode: hides panels and maximizes canvas space.")}
-              onMouseLeave={() => setHoverHint(null)}
-            >
-              <Focus className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              type="button"
-              onClick={() => setShowSidebar((v) => !v)}
-              title="Toggle palace sidebar"
-              onMouseEnter={() => setHoverHint("Toggle palace sidebar: show or hide palace list and create controls.")}
-              onMouseLeave={() => setHoverHint(null)}
-            >
-              <PanelLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              type="button"
-              onClick={() => setShowInspector((v) => !v)}
-              title="Toggle inspector"
-              onMouseEnter={() => setHoverHint("Toggle inspector: show or hide node title and content editor.")}
-              onMouseLeave={() => setHoverHint(null)}
-            >
-              <PanelRightOpen className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              type="button"
-              onClick={() => setShowOnboarding((v) => !v)}
-              onMouseEnter={() => setHoverHint("Learn panel: onboarding guides plus theSystem pipelines.")}
-              onMouseLeave={() => setHoverHint(null)}
-            >
-              <BookOpen className="h-4 w-4" />
-              Learn
-            </Button>
-          </div>
+          <ViewModeToggleGroup
+            viewMode={viewMode}
+            onApplyViewMode={applyViewMode}
+            onToggleSidebar={() => setShowSidebar((v) => !v)}
+            onToggleInspector={() => setShowInspector((v) => !v)}
+            onToggleOnboarding={() => setShowOnboarding((v) => !v)}
+            onHoverHintChange={setHoverHint}
+          />
       </header>
 
       <div className="flex min-h-0 flex-1">
         {graphControls && showSidebar ? <PalaceSidebar onOpenImport={() => setImportOpen(true)} /> : null}
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <section className={currentPage === "graph" ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
-            <PalaceToolbar onHoverHintChange={setHoverHint} onOpenRepresent={() => setRepresentOpen(true)} />
-            {routePanelOpen ? <RoutePanel onHoverHintChange={setHoverHint} /> : null}
-            <WalkModeBar onHoverHintChange={setHoverHint} />
-            {graphAssessHint && currentPalace ? (
-              <div className="border-b border-zinc-800 px-2 py-2">
-                <AssessBanner
-                  palaceName={currentPalace.name}
-                  sourcePalaceName={graphAssessHint.sourcePalaceName}
-                  score={graphAssessHint.score}
-                  takeaway={graphAssessHint.record.takeaway}
-                  adjustment={graphAssessHint.record.adjustment}
-                  onJump={graphAssessHint.jump}
-                  onDismiss={graphAssessHint.dismiss}
-                />
-              </div>
-            ) : null}
-            {currentPalace ? (
-              <div className="flex min-h-0 flex-1">
-                {dslPaneOpen ? (
-                  <>
-                    <div
-                      className="flex min-h-0 shrink-0 flex-col border-r border-zinc-800"
-                      style={{ width: `${dslSplitRatio * 100}%` }}
-                    >
-                      <PalaceDslEditor />
-                    </div>
-                    <div
-                      role="separator"
-                      aria-orientation="vertical"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const startX = e.clientX;
-                        const startRatio = dslSplitRatio;
-                        const containerWidth = e.currentTarget.parentElement?.clientWidth ?? 1;
-                        const onMove = (ev: MouseEvent) => {
-                          const dx = ev.clientX - startX;
-                          const next = startRatio + dx / containerWidth;
-                          setDslSplitRatio(Math.min(0.85, Math.max(0.15, next)));
-                        };
-                        const onUp = () => {
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                      className="w-1.5 cursor-col-resize bg-zinc-800 hover:bg-violet-500/40"
-                    />
-                  </>
-                ) : null}
-                <div className="flex min-h-0 min-w-0 flex-1">
-                  <MemoryPalaceCanvas key={currentPalace.id} palaceId={currentPalace.id} editorSnapshot={snap} />
-                </div>
-                {showInspector ? <NodeInspector /> : null}
-              </div>
-            ) : (
-              <GraphEmptyState
-                onCreateTutorialPalace={() => {
-                  void createPalace("Tutorial Palace");
-                }}
-                onOpenHelp={() => navigateToPage("help")}
-                onOpenCommandPalette={() => setCommandOpen(true)}
-                onOpenImport={() => setImportOpen(true)}
-              />
-            )}
-          </section>
+          <GraphWorkspace
+            isActive={currentPage === "graph"}
+            assessHint={graphAssessHint}
+            dslSplitRatio={dslSplitRatio}
+            onDslSeparatorMouseDown={onDslSeparatorMouseDown}
+            showInspector={showInspector}
+            onHoverHintChange={setHoverHint}
+            onOpenRepresent={() => setRepresentOpen(true)}
+            onCreateTutorialPalace={() => {
+              void createPalace("Tutorial Palace");
+            }}
+            onOpenHelp={() => navigateToPage("help")}
+            onOpenCommandPalette={() => setCommandOpen(true)}
+            onOpenImport={() => setImportOpen(true)}
+          />
 
-          {currentPage === "review" ? (
-            <ReviewPage onStartRouteReview={startRouteReview} onOpenPalaceWorkspace={() => navigateToPage("graph")} />
-          ) : null}
-
-          {currentPage === "insights" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
-                <AnalyticsPanel />
-              </div>
-            </div>
-          ) : null}
-
-          {currentPage === "system" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
-                <TheSystemWorkbench />
-              </div>
-            </div>
-          ) : null}
-
-          {currentPage === "atlas" ? (
-            <div className="min-h-0 flex-1 overflow-hidden p-5">
-              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
-                <AtlasEditorPage
-                  onOpenPalace={(palaceId) => {
-                    const palace = palaces.find((entry) => entry.id === palaceId);
-                    if (palace) {
-                      void usePalaceStore.getState().openPalace(palace.id);
-                      navigateToPage("graph");
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {currentPage === "routes" ? (
-            <div className="min-h-0 flex-1 overflow-hidden p-5">
-              <div className="h-full rounded-[30px] border border-zinc-800 bg-zinc-950/45 p-5">
-                <RouteEditorPage />
-              </div>
-            </div>
-          ) : null}
-
-          {currentPage === "help" ? (
-            <HelpCenterPage
-              onOpenPalaceWorkspace={() => navigateToPage("graph")}
-              onOpenSystem={() => navigateToPage("system")}
-              onOpenCommandPalette={() => setCommandOpen(true)}
-            />
-          ) : null}
+          <PageContentRouter
+            currentPage={currentPage}
+            onStartRouteReview={startRouteReview}
+            onNavigate={navigateToPage}
+            onOpenCommandPalette={() => setCommandOpen(true)}
+            onOpenPalaceFromAtlas={(palaceId) => {
+              const palace = palaces.find((entry) => entry.id === palaceId);
+              if (palace) {
+                void usePalaceStore.getState().openPalace(palace.id);
+                navigateToPage("graph");
+              }
+            }}
+          />
         </main>
 
         <OnboardingPanel
