@@ -46,6 +46,10 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
       if (target) lines.push(`@portal ${target}`);
     }
 
+    if (node.imageUrl) {
+      lines.push(`@image ${node.imageUrl}`);
+    }
+
     if (node.tags && node.tags.length > 0) {
       const sorted = [...new Set(node.tags)].sort();
       lines.push(sorted.map((t) => `#${t}`).join(" "));

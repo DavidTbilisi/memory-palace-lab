@@ -182,4 +182,69 @@ describe("serializeDsl", () => {
     const out = serializeDsl(snap);
     expect(out).toContain("/Walk\n1 A\n2 B\n");
   });
+
+  it("emits @image line when imageUrl is set", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [
+        {
+          id: "n-0",
+          objectId: "o-0",
+          title: "A",
+          content: "some content",
+          kind: "memory",
+          portal: null,
+          imageUrl: "https://example.com/photo.jpg",
+        },
+      ],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain("@image https://example.com/photo.jpg");
+  });
+
+  it("omits @image line when imageUrl is null or absent", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [
+        { id: "n-0", objectId: "o-0", title: "A", content: "", kind: "memory", portal: null },
+        { id: "n-1", objectId: "o-1", title: "B", content: "", kind: "memory", portal: null, imageUrl: null },
+      ],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).not.toContain("@image");
+  });
+
+  it("places @image after content lines and after @portal if both are set", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [
+        {
+          id: "n-0",
+          objectId: "o-0",
+          title: "A",
+          content: "body text",
+          kind: "memory",
+          portal: null,
+          imageUrl: "https://img.test/x.png",
+        },
+      ],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    const contentPos = out.indexOf(": body text");
+    const imagePos = out.indexOf("@image");
+    expect(contentPos).toBeGreaterThanOrEqual(0);
+    expect(imagePos).toBeGreaterThan(contentPos);
+  });
 });

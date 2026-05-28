@@ -37,4 +37,19 @@ describe("DSL round-trip", () => {
       expect(reEmitted, `${name} should byte-equal after round-trip`).toBe(text);
     }
   });
+
+  it("round-trips @image urls without loss", () => {
+    const text = "@Gallery\n\nSunrise\n: morning light\n@image https://img.example/sunrise.jpg\n#nature\n\nSunset\n@image https://img.example/sunset.jpg\n\nMidnight\n";
+    const { snapshot: first, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(first.nodes[0]!.imageUrl).toBe("https://img.example/sunrise.jpg");
+    expect(first.nodes[1]!.imageUrl).toBe("https://img.example/sunset.jpg");
+    expect(first.nodes[2]!.imageUrl).toBeNull();
+
+    const reEmitted = serializeDsl(dslToPalaceSnapshot(first));
+    const { snapshot: second } = parseDsl(reEmitted);
+    expect(second.nodes[0]!.imageUrl).toBe("https://img.example/sunrise.jpg");
+    expect(second.nodes[1]!.imageUrl).toBe("https://img.example/sunset.jpg");
+    expect(second.nodes[2]!.imageUrl).toBeNull();
+  });
 });

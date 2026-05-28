@@ -923,3 +923,47 @@ describe("parseDsl — formal diagnostic system (Feature 6)", () => {
     }
   });
 });
+
+describe("parseDsl — @image directive", () => {
+  it("sets imageUrl on a node when @image is present", () => {
+    const text = "@P\n\nA\n@image https://example.com/photo.jpg\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(snapshot.nodes[0]!.imageUrl).toBe("https://example.com/photo.jpg");
+  });
+
+  it("defaults imageUrl to null when @image is absent", () => {
+    const text = "@P\n\nA\n: some content\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.imageUrl).toBeNull();
+  });
+
+  it("treats @image with empty url as null", () => {
+    const text = "@P\n\nA\n@image\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.imageUrl).toBeNull();
+  });
+
+  it("emits misplaced-line when @image appears before any node", () => {
+    const text = "@P\n@image https://example.com/x.jpg\n";
+    const { diagnostics } = parseDsl(text);
+    expect(diagnostics.some((d) => d.code === "misplaced-line")).toBe(true);
+  });
+
+  it("@image coexists with content, tags, and edges on the same node", () => {
+    const text = "@P\n\nA\n: some content\n@image https://img.example/a.png\n#tag1\n\nB\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const node = snapshot.nodes[0]!;
+    expect(node.content).toBe("some content");
+    expect(node.imageUrl).toBe("https://img.example/a.png");
+    expect(node.tags).toContain("tag1");
+  });
+
+  it("second node overrides imageUrl independently", () => {
+    const text = "@P\n\nA\n@image https://a.example/1.jpg\n\nB\n@image https://b.example/2.jpg\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.imageUrl).toBe("https://a.example/1.jpg");
+    expect(snapshot.nodes[1]!.imageUrl).toBe("https://b.example/2.jpg");
+  });
+});

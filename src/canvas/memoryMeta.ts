@@ -9,6 +9,7 @@ export type MemoryPalaceMeta = {
   mpTitle?: string;
   mpAlias?: string;
   mpContent?: string;
+  mpImageUrl?: string;
   mpTags?: string[];
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;

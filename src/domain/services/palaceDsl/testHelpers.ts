@@ -26,6 +26,7 @@ export function dslToPalaceSnapshot(dsl: DslSnapshot): PalaceSnapshot {
     content: n.content,
     kind: n.kind,
     portal: n.portal,
+    imageUrl: n.imageUrl,
     tags: n.tags,
   }));
 

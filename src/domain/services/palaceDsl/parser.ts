@@ -56,6 +56,7 @@ type ClassifiedLine =
   | { type: "palace"; name: string }
   | { type: "atlas"; path: string }
   | { type: "portal"; target: string }
+  | { type: "image"; url: string }
   | { type: "body"; text: string }
   | { type: "tags" }
   | { type: "edge"; rest: string }
@@ -85,6 +86,9 @@ function classify(body: string): ClassifiedLine {
   }
   if (body.startsWith("@portal")) {
     return { type: "portal", target: body.slice("@portal".length).trim() };
+  }
+  if (body.startsWith("@image")) {
+    return { type: "image", url: body.slice("@image".length).trim() };
   }
   if (body.startsWith("@")) {
     return { type: "palace", name: body.slice(1).trim() };
@@ -567,6 +571,7 @@ export function parseDsl(text: string): DslParseResult {
           bodySegments: [],
           kind: "memory",
           portal: null,
+          imageUrl: null,
           tags: [],
           structuredTags: [],
           edges: [],
@@ -774,6 +779,22 @@ export function parseDsl(text: string): DslParseResult {
             currentNode.portal = portal;
           }
         }
+        break;
+
+      case "image":
+        if (!currentNode) {
+          diag(
+            diagnostics,
+            "error",
+            "misplaced-line",
+            num,
+            1,
+            body.length,
+            "@image directive must appear under a node",
+          );
+          break;
+        }
+        currentNode.imageUrl = cl.url || null;
         break;
 
       case "query-decl": {

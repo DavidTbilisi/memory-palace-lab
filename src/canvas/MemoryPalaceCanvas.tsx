@@ -38,6 +38,15 @@ type MotifBadge = {
   role: MotifRole;
 };
 
+type ImageBackground = {
+  shapeId: TLShapeId;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  url: string;
+};
+
 type MotifRoleVisualTone = (typeof MOTIF_ROLE_VISUALS)[MotifRole]["tone"];
 
 const MOTIF_BADGE_CLASS: Record<MotifRoleVisualTone, string> = {
@@ -92,6 +101,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
   const [motifBadges, setMotifBadges] = useState<MotifBadge[]>([]);
+  const [imageBackgrounds, setImageBackgrounds] = useState<ImageBackground[]>([]);
 
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
@@ -174,14 +184,40 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     setMotifBadges(badges);
   }, [motifRoleByNodeId]);
 
+  const recomputeImageBackgrounds = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) { setImageBackgrounds([]); return; }
+    const backgrounds: ImageBackground[] = [];
+    for (const shapeId of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(shapeId);
+      if (!shape || shape.type !== "geo") continue;
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      if (!meta.mpImageUrl) continue;
+      const bounds = editor.getShapePageBounds(shape.id);
+      if (!bounds) continue;
+      const tl = editor.pageToViewport({ x: bounds.x, y: bounds.y });
+      const br = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
+      backgrounds.push({
+        shapeId: shape.id,
+        x: tl.x,
+        y: tl.y,
+        w: br.x - tl.x,
+        h: br.y - tl.y,
+        url: meta.mpImageUrl,
+      });
+    }
+    setImageBackgrounds(backgrounds);
+  }, []);
+
   const queueBadgeRefresh = useCallback(() => {
     if (badgeFrameRef.current !== null) return;
     badgeFrameRef.current = window.requestAnimationFrame(() => {
       badgeFrameRef.current = null;
       recomputePortalBadges();
       recomputeMotifBadges();
+      recomputeImageBackgrounds();
     });
-  }, [recomputePortalBadges, recomputeMotifBadges]);
+  }, [recomputePortalBadges, recomputeMotifBadges, recomputeImageBackgrounds]);
 
   const recomputeAvailableTags = useCallback(() => {
     const editor = editorRef.current;
@@ -436,16 +472,36 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     };
   }, []);
 
-  // Re-render motif badges when the role map updates (palace switch, edits
-  // landing as draft saves, etc.) — separate effect so it doesn't depend on
-  // queueBadgeRefresh's identity.
+  // Re-render motif badges and image backgrounds when the role map or image
+  // meta updates (palace switch, DSL apply, draft restores, etc.).
   useEffect(() => {
     recomputeMotifBadges();
-  }, [recomputeMotifBadges]);
+    recomputeImageBackgrounds();
+  }, [recomputeMotifBadges, recomputeImageBackgrounds]);
 
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
       <Tldraw snapshot={initialSnapshot} onMount={onMount} />
+      <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+        {imageBackgrounds.map((bg) => (
+          <img
+            key={bg.shapeId}
+            src={bg.url}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="absolute object-cover"
+            style={{
+              left: bg.x,
+              top: bg.y,
+              width: bg.w,
+              height: bg.h,
+              borderRadius: 5,
+              opacity: 0.25,
+            }}
+          />
+        ))}
+      </div>
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button

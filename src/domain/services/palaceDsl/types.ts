@@ -122,6 +122,8 @@ export interface DslNode {
   bodySegments: DslBodySegment[];
   kind: MemoryNodeKind;
   portal: PalacePortalRef | null;
+  /** URL declared via `@image <url>` directive. Null if not set. */
+  imageUrl: string | null;
   tags: string[];
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];

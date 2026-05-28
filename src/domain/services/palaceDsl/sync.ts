@@ -60,6 +60,7 @@ function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta
     ...withPortal,
     mpTitle: intent.title,
     mpContent: intent.content,
+    mpImageUrl: intent.imageUrl ?? undefined,
     mpTags: intent.tags,
   };
 }
@@ -72,6 +73,7 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalPalaceName !== next.mpPortalPalaceName ||
     prev.mpPortalRouteName !== next.mpPortalRouteName ||
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
+    prev.mpImageUrl !== next.mpImageUrl ||
     !arraysEqual(prev.mpTags, next.mpTags)
   );
 }
