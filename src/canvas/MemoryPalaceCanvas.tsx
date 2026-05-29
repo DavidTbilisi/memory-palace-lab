@@ -92,6 +92,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
   const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const comprehendCruxNodeId = usePalaceStore((s) => s.comprehendCruxNodeId);
+  const focusNodeId = usePalaceStore((s) => s.focusNodeId);
+  const setFocusNodeId = usePalaceStore((s) => s.setFocusNodeId);
 
   // A mounted editor should keep its live state. Re-loading from a fresh snapshot on every
   // draft/manual save can wipe the visible canvas in the browser build.
@@ -506,6 +508,24 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       }
     }
   }, [comprehendActive, comprehendCruxNodeId, walkOpen]);
+
+  // One-shot node focus (e.g. "Encode this" from Comprehend mode): select + zoom
+  // to the requested node, then clear the request so it doesn't re-fire.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !focusNodeId) return;
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (!s || s.type !== "geo") continue;
+      if ((s.meta as MemoryPalaceMeta).mpNodeId !== focusNodeId) continue;
+      editor.stopCameraAnimation();
+      editor.setSelectedShapes([id]);
+      editor.zoomToSelection({ animation: { duration: 320 } });
+      setSelectedShapeId(id);
+      break;
+    }
+    setFocusNodeId(null);
+  }, [focusNodeId, setFocusNodeId, setSelectedShapeId]);
 
   useEffect(() => {
     return () => {

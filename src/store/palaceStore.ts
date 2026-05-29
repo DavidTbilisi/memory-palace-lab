@@ -104,6 +104,8 @@ export type PalaceStore = {
   appMode: AppMode;
   /** Slot the crux node so the Comprehend panel can drive nine-dive prompts on it. */
   comprehendCruxNodeId: string | null;
+  /** One-shot request for the canvas to select + zoom to a node, then clear it. */
+  focusNodeId: string | null;
   routePanelOpen: boolean;
   availableTags: string[];
   activeTags: string[];
@@ -153,6 +155,9 @@ export type PalaceStore = {
   setToolMode: (m: ToolMode) => void;
   setAppMode: (m: AppMode) => void;
   setComprehendCruxNodeId: (id: string | null) => void;
+  setFocusNodeId: (id: string | null) => void;
+  /** Return to Encode mode and queue the canvas to focus the given node. */
+  encodeNode: (nodeId: string) => void;
   setRoutePanelOpen: (open: boolean) => void;
   setAvailableTags: (tags: string[]) => void;
   toggleActiveTag: (tag: string) => void;
@@ -373,6 +378,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     toolMode: "select",
     appMode: "encode",
     comprehendCruxNodeId: null,
+    focusNodeId: null,
     routePanelOpen: false,
     availableTags: [],
     activeTags: [],
@@ -623,6 +629,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           : { appMode, comprehendCruxNodeId: null },
       ),
     setComprehendCruxNodeId: (comprehendCruxNodeId) => set({ comprehendCruxNodeId }),
+    setFocusNodeId: (focusNodeId) => set({ focusNodeId }),
+    encodeNode: (nodeId) => set({ appMode: "encode", comprehendCruxNodeId: null, focusNodeId: nodeId }),
     setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
     setAvailableTags: (availableTags) => set({ availableTags }),
     toggleActiveTag: (tag) => set((s) => ({

@@ -18,6 +18,7 @@ const REASON_COPY: Record<CruxReason, string> = {
 export function ComprehendOverlay() {
   const { crux, cruxTitle, nodeCount, edgeCount, motifTotal } = useComprehendCrux();
   const setAppMode = usePalaceStore((s) => s.setAppMode);
+  const encodeNode = usePalaceStore((s) => s.encodeNode);
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/80">
@@ -44,7 +45,7 @@ export function ComprehendOverlay() {
           </p>
           <ComprehendPanel
             onUnderstood={() => setAppMode("encode")}
-            onEncodeThis={() => setAppMode("encode")}
+            onEncodeThis={() => encodeNode(crux.nodeId)}
           />
         </div>
       ) : (

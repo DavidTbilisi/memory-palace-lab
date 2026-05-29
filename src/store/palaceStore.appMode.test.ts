@@ -11,6 +11,7 @@ describe("palaceStore appMode", () => {
       appMode: "encode",
       toolMode: "select",
       comprehendCruxNodeId: null,
+      focusNodeId: null,
       connect: { fromShapeId: null },
     });
   });
@@ -36,5 +37,15 @@ describe("palaceStore appMode", () => {
 
     usePalaceStore.getState().setAppMode("encode");
     expect(usePalaceStore.getState().comprehendCruxNodeId).toBeNull();
+  });
+
+  it("encodeNode returns to encode and queues the node for canvas focus", () => {
+    usePalaceStore.setState({ appMode: "comprehend", comprehendCruxNodeId: "node-3" });
+    usePalaceStore.getState().encodeNode("node-3");
+
+    const s = usePalaceStore.getState();
+    expect(s.appMode).toBe("encode");
+    expect(s.comprehendCruxNodeId).toBeNull();
+    expect(s.focusNodeId).toBe("node-3");
   });
 });
