@@ -90,6 +90,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const loci = usePalaceStore((s) => s.loci);
   const toolMode = usePalaceStore((s) => s.toolMode);
   const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
+  const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
+  const comprehendCruxNodeId = usePalaceStore((s) => s.comprehendCruxNodeId);
 
   // A mounted editor should keep its live state. Re-loading from a fresh snapshot on every
   // draft/manual save can wipe the visible canvas in the browser build.
@@ -97,6 +99,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
   const editorRef = useRef<Editor | null>(null);
   const lastWalkNodeIdRef = useRef<string | null>(null);
+  const lastCruxNodeIdRef = useRef<string | null>(null);
   const lastSceneSnapshotRef = useRef<ReturnType<typeof captureSceneAnalyticsSnapshot> | null>(null);
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
@@ -463,6 +466,46 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.updateShape({ id, type: "geo", opacity: match ? 1 : 0.2 });
     }
   }, [activeTags, walkOpen]);
+
+  // Comprehend mode: spotlight the crux node — dim the rest, ring + zoom to it.
+  // Walk mode owns the same opacity channel, so we stay out of its way when open.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || walkOpen) return;
+
+    if (!comprehendActive || !comprehendCruxNodeId) {
+      lastCruxNodeIdRef.current = null;
+      editor.setHintingShapes([]);
+      for (const id of editor.getCurrentPageShapeIds()) {
+        const s = editor.getShape(id);
+        if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
+          editor.updateShape({ id, type: "geo", opacity: 1 });
+        }
+      }
+      return;
+    }
+
+    let cruxShapeId: TLShapeId | null = null;
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (!s || s.type !== "geo") continue;
+      const m = s.meta as MemoryPalaceMeta;
+      if (!m.mpNodeId) continue;
+      const isCrux = m.mpNodeId === comprehendCruxNodeId;
+      if (isCrux) cruxShapeId = id;
+      editor.updateShape({ id, type: "geo", opacity: isCrux ? 1 : 0.35 });
+    }
+
+    if (cruxShapeId) {
+      editor.setHintingShapes([cruxShapeId]);
+      if (lastCruxNodeIdRef.current !== comprehendCruxNodeId) {
+        editor.stopCameraAnimation();
+        editor.setSelectedShapes([cruxShapeId]);
+        editor.zoomToSelection({ animation: { duration: 320 } });
+        lastCruxNodeIdRef.current = comprehendCruxNodeId;
+      }
+    }
+  }, [comprehendActive, comprehendCruxNodeId, walkOpen]);
 
   useEffect(() => {
     return () => {

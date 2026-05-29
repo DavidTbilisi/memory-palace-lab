@@ -2,6 +2,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
 import { usePalaceStore } from "../store/palaceStore";
 import { AssessBanner } from "./AssessBanner";
+import { ComprehendOverlay } from "./ComprehendOverlay";
 import { GraphEmptyState } from "./GraphEmptyState";
 import { NodeInspector } from "./NodeInspector";
 import { PalaceDslEditor } from "./PalaceDslEditor";
@@ -44,6 +45,7 @@ export function GraphWorkspace({
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const dslPaneOpen = usePalaceStore((s) => s.dslPaneOpen);
+  const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const snap = currentPalace?.editorSnapshot;
 
   return (
@@ -85,7 +87,7 @@ export function GraphWorkspace({
           <div className="flex min-h-0 min-w-0 flex-1">
             <MemoryPalaceCanvas key={currentPalace.id} palaceId={currentPalace.id} editorSnapshot={snap} />
           </div>
-          {showInspector ? <NodeInspector /> : null}
+          {comprehendActive ? <ComprehendOverlay /> : showInspector ? <NodeInspector /> : null}
         </div>
       ) : (
         <GraphEmptyState
