@@ -1,5 +1,7 @@
 import { Telescope, Target } from "lucide-react";
 import type { CruxReason } from "../domain/services/cast/crux";
+import { usePalaceStore } from "../store/palaceStore";
+import { ComprehendPanel } from "./ComprehendPanel";
 import { useComprehendCrux } from "./hooks/useComprehendCrux";
 
 const REASON_COPY: Record<CruxReason, string> = {
@@ -15,6 +17,7 @@ const REASON_COPY: Record<CruxReason, string> = {
  */
 export function ComprehendOverlay() {
   const { crux, cruxTitle, nodeCount, edgeCount, motifTotal } = useComprehendCrux();
+  const setAppMode = usePalaceStore((s) => s.setAppMode);
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/80">
@@ -39,6 +42,10 @@ export function ComprehendOverlay() {
           <p className="mt-3 text-xs leading-5 text-zinc-500">
             If this node resists, the whole structure resists. Interrogate it before you encode further.
           </p>
+          <ComprehendPanel
+            onUnderstood={() => setAppMode("encode")}
+            onEncodeThis={() => setAppMode("encode")}
+          />
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
