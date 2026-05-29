@@ -87,6 +87,26 @@ describe("analyzeGraph", () => {
     expect(top?.id).toBe("c");
   });
 
+  it("finds two disjoint strongly connected components", () => {
+    // a ⇄ b and c ⇄ d, with no edge between the pairs.
+    const r = analyzeGraph({
+      nodes: nodes("a", "b", "c", "d"),
+      edges: [edge("a", "b"), edge("b", "a"), edge("c", "d"), edge("d", "c")],
+    });
+    const nonTrivial = r.sccs.filter((c) => c.length > 1).map((c) => [...c].sort());
+    expect(nonTrivial).toHaveLength(2);
+    expect(nonTrivial).toContainEqual(["a", "b"]);
+    expect(nonTrivial).toContainEqual(["c", "d"]);
+  });
+
+  it("assigns exact Brandes betweenness on a short chain", () => {
+    // a → b → c: only the a→c shortest path runs through b.
+    const r = analyzeGraph({ nodes: nodes("a", "b", "c"), edges: [edge("a", "b"), edge("b", "c")] });
+    expect(r.betweenness.b).toBe(1);
+    expect(r.betweenness.a).toBe(0);
+    expect(r.betweenness.c).toBe(0);
+  });
+
   it("topByMetric breaks ties alphabetically and drops zeros", () => {
     const m = { z: 0, b: 5, a: 5, c: 3 };
     expect(topByMetric(m, 3)).toEqual([
