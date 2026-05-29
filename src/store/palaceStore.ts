@@ -56,6 +56,7 @@ import {
 const repo = getPalaceRepository();
 
 export type ToolMode = "select" | "connect" | "route";
+export type AppMode = "encode" | "comprehend";
 export type PalacePersistenceState = "clean" | "dirty" | "draft";
 
 type ConnectState = { fromShapeId: string | null };
@@ -99,6 +100,10 @@ export type PalaceStore = {
   editorRef: Editor | null;
   selectedShapeId: string | null;
   toolMode: ToolMode;
+  /** Encode (author the palace) vs Comprehend (read structure + interrogate it). Session-only. */
+  appMode: AppMode;
+  /** Slot the crux node so the Comprehend panel can drive nine-dive prompts on it. */
+  comprehendCruxNodeId: string | null;
   routePanelOpen: boolean;
   availableTags: string[];
   activeTags: string[];
@@ -146,6 +151,8 @@ export type PalaceStore = {
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
+  setAppMode: (m: AppMode) => void;
+  setComprehendCruxNodeId: (id: string | null) => void;
   setRoutePanelOpen: (open: boolean) => void;
   setAvailableTags: (tags: string[]) => void;
   toggleActiveTag: (tag: string) => void;
@@ -364,6 +371,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     editorRef: null,
     selectedShapeId: null,
     toolMode: "select",
+    appMode: "encode",
+    comprehendCruxNodeId: null,
     routePanelOpen: false,
     availableTags: [],
     activeTags: [],
@@ -607,6 +616,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
     setSelectedShapeId: (selectedShapeId) => set({ selectedShapeId }),
     setToolMode: (toolMode) => set({ toolMode, connect: { fromShapeId: null } }),
+    setAppMode: (appMode) =>
+      set(
+        appMode === "comprehend"
+          ? { appMode, toolMode: "select", connect: { fromShapeId: null } }
+          : { appMode, comprehendCruxNodeId: null },
+      ),
+    setComprehendCruxNodeId: (comprehendCruxNodeId) => set({ comprehendCruxNodeId }),
     setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
     setAvailableTags: (availableTags) => set({ availableTags }),
     toggleActiveTag: (tag) => set((s) => ({

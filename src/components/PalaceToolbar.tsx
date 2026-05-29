@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { AppModeToggle } from "./AppModeToggle";
 import { usePalaceStore } from "../store/palaceStore";
 import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
@@ -92,6 +93,7 @@ function ToolbarStatusPopover({
 export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
   const toolMode = usePalaceStore((s) => s.toolMode);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
+  const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
   const availableTags = usePalaceStore((s) => s.availableTags);
@@ -157,7 +159,14 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <AppModeToggle onHoverHintChange={onHoverHintChange} />
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-1 transition",
+          comprehendActive && "pointer-events-none opacity-40",
+        )}
+        aria-hidden={comprehendActive}
+      >
         {tools.map((t) => {
           const Icon = t.icon;
           if (t.id === "save") {
