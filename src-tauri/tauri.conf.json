@@ -31,8 +31,20 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkzQzg3REVBQ0NGMUMzNDIKUldSQ3cvSE02bjNJazFDZFdBeHFQRGhqbG16ODNUcE1jVmI3anUyczNYQ1VpVmt2dW1Ic1hIZ3MK",
+      "endpoints": [
+        "https://github.com/DavidTbilisi/memory-palace-lab/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",

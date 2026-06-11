@@ -4,6 +4,7 @@ import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
 import { AppErrorBanner } from "../components/AppErrorBanner";
+import { UpdateBanner } from "../components/UpdateBanner";
 import { WebModeBanner } from "../components/WebModeBanner";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
 import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
@@ -495,6 +496,7 @@ export function MemoryPalaceApp() {
 
       <AppErrorBanner />
       <WebModeBanner />
+      <UpdateBanner />
 
       <div className="flex min-h-0 flex-1">
         {graphControls && showSidebar ? <PalaceSidebar onOpenImport={() => setImportOpen(true)} /> : null}
