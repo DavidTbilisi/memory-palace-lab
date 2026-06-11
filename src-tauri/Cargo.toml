@@ -12,7 +12,17 @@ edition = "2021"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "memory_palace_lab"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# staticlib/cdylib are only needed for mobile targets and cannot link with the
+# windows-gnu toolchain (PE export ordinal limit, ~65k symbols). Restore them
+# when building for mobile (requires MSVC on Windows).
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Debug-bridge dev tooling. Opt-in: its cdylib artifact cannot link with the
+# windows-gnu toolchain either, so it stays off unless explicitly requested:
+# `npm run tauri dev -- -- --features mcp-bridge` (requires MSVC).
+mcp-bridge = ["dep:tauri-plugin-mcp-bridge"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -22,7 +32,7 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
-tauri-plugin-mcp-bridge = "0.11"
+tauri-plugin-mcp-bridge = { version = "0.11", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.33", features = ["bundled"] }
