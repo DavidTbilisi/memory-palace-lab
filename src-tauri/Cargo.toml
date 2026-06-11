@@ -1,6 +1,6 @@
 [package]
 name = "memory_palace_lab"
-version = "0.7.0"
+version = "0.8.0"
 description = "A Tauri application for managing and visualizing memory palaces."
 authors = ["David Chincharashvili <davidchincharashvili@gmail.com>"]
 edition = "2021"

@@ -32,7 +32,7 @@ initDb(db); // no-op on the app's DB; creates schema for fresh override paths
 
 const ctx: ServerContext = { db, sentinelDir: sentinelDirFor(dbPath) };
 
-const server = new McpServer({ name: "memory-palace", version: "0.7.0" });
+const server = new McpServer({ name: "memory-palace", version: "0.8.0" });
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 

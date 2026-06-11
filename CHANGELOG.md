@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.0 — 2026-06-11
+
+### Self-update
+
+- The desktop app now updates itself: it checks GitHub releases on startup and offers a one-click **Install & restart** when a newer version is published. Updates are cryptographically signed and verified (tauri-plugin-updater).
+- This is the first updater-enabled build — installs of v0.8.0 and newer update in-app automatically; v0.7.0 and older need one final manual install.
+
+### Small improvements
+
+- The app version is shown in the header and the Help Center.
+- Release/signing flow documented in `docs/releasing.md`.
+
 ## v0.7.0 — 2026-06-11
 
 ### MCP support (Model Context Protocol)
