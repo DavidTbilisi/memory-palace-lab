@@ -128,6 +128,13 @@ export type PalaceStore = {
   lastDraftSavedAt: string | null;
   lastCheckpointSavedAt: string | null;
   draftRestored: boolean;
+  /** Bumped when the current palace is reloaded from disk so the canvas remounts. */
+  canvasReloadKey: number;
+  /** Set when an external (MCP) edit hit the open palace while it had unsaved changes. */
+  externalChangePending: { palaceId: string; op: string } | null;
+  /** Last persistence/repository failure, surfaced by AppErrorBanner. */
+  lastError: { message: string; at: string } | null;
+  setLastError: (message: string | null) => void;
   pendingCast: null | { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string };
   dslPaneOpen: boolean;
   setDslPaneOpen: (open: boolean) => void;
@@ -142,6 +149,9 @@ export type PalaceStore = {
   clearAssessDismissalForPalace: (palaceId: string) => void;
   setFocusedAARId: (id: string | null) => void;
   openPalace: (id: string) => Promise<void>;
+  /** Reload the open palace from the saved snapshot, discarding any draft — used when an external (MCP) edit lands. */
+  reloadCurrentPalaceFromDisk: () => Promise<void>;
+  setExternalChangePending: (pending: { palaceId: string; op: string } | null) => void;
   createPalace: (name: string, atlasPath?: string | null) => Promise<void>;
   saveCurrent: () => Promise<void>;
   deletePalace: (id: string) => Promise<void>;
@@ -206,6 +216,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     if (!draftTimer) return;
     clearTimeout(draftTimer);
     draftTimer = null;
+  };
+
+  const reportError = (context: string, error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    set({ lastError: { message: `${context}: ${detail}`, at: new Date().toISOString() } });
   };
 
   const mergeAnalyticsEvents = (current: AnalyticsEvent[], next: AnalyticsEvent[]) => {
@@ -401,8 +416,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     lastDraftSavedAt: null,
     lastCheckpointSavedAt: null,
     draftRestored: false,
+    canvasReloadKey: 0,
+    externalChangePending: null,
+    lastError: null,
     pendingCast: null,
     dslPaneOpen: false,
+
+    setLastError(message) {
+      set({
+        lastError: message ? { message, at: new Date().toISOString() } : null,
+      });
+    },
 
     setDslPaneOpen(open: boolean) {
       set({ dslPaneOpen: open });
@@ -418,35 +442,58 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       };
       if (!editorRef || !currentPalace) return empty;
 
-      const canvasResult = applyDslToCanvas(editorRef, currentPalace.id, intent);
+      // An exception mid-apply would leave partial canvas edits with no
+      // feedback; convert it to a diagnostic so the DSL pane can show it.
+      try {
+        const canvasResult = applyDslToCanvas(editorRef, currentPalace.id, intent);
 
-      const titleToNodeId = new Map<string, string>();
-      for (const shapeId of editorRef.getCurrentPageShapeIds()) {
-        const shape = editorRef.getShape(shapeId);
-        if (!shape || shape.type !== "geo") continue;
-        const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
-        if (meta.mpPalaceId !== currentPalace.id) continue;
-        if (meta.mpTitle && meta.mpNodeId) {
-          titleToNodeId.set(meta.mpTitle, meta.mpNodeId);
+        const titleToNodeId = new Map<string, string>();
+        for (const shapeId of editorRef.getCurrentPageShapeIds()) {
+          const shape = editorRef.getShape(shapeId);
+          if (!shape || shape.type !== "geo") continue;
+          const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+          if (meta.mpPalaceId !== currentPalace.id) continue;
+          if (meta.mpTitle && meta.mpNodeId) {
+            titleToNodeId.set(meta.mpTitle, meta.mpNodeId);
+          }
         }
+
+        const reconciled = reconcileRoutes({
+          palaceId: currentPalace.id,
+          currentRoutes: routes,
+          currentLoci: loci,
+          intent: intent.routes,
+          titleToNodeId,
+        });
+
+        get().replaceRoutesAndLoci(reconciled.routes, reconciled.loci);
+
+        return {
+          added: { ...canvasResult.added, ...reconciled.added },
+          updated: canvasResult.updated,
+          deleted: { ...canvasResult.deleted, ...reconciled.deleted },
+          errors: [...canvasResult.errors, ...reconciled.errors],
+        };
+      } catch (error) {
+        return {
+          ...empty,
+          errors: [
+            {
+              code: "misplaced-line",
+              numericCode: "E006",
+              severity: "error",
+              line: 1,
+              column: 1,
+              length: 1,
+              message: `DSL apply failed mid-way (canvas may have partial changes): ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              related: [],
+              fix: null,
+            },
+          ],
+        };
       }
-
-      const reconciled = reconcileRoutes({
-        palaceId: currentPalace.id,
-        currentRoutes: routes,
-        currentLoci: loci,
-        intent: intent.routes,
-        titleToNodeId,
-      });
-
-      get().replaceRoutesAndLoci(reconciled.routes, reconciled.loci);
-
-      return {
-        added: { ...canvasResult.added, ...reconciled.added },
-        updated: canvasResult.updated,
-        deleted: { ...canvasResult.deleted, ...reconciled.deleted },
-        errors: [...canvasResult.errors, ...reconciled.errors],
-      };
     },
 
     async loadPalaces() {
@@ -505,7 +552,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     async openPalace(id: string) {
       await get().flushDraftSave();
       clearDraftTimer();
-      const snap = await repo.loadPalace(id);
+      let snap: PalaceSnapshot | null;
+      try {
+        snap = await repo.loadPalace(id);
+      } catch (error) {
+        reportError("Opening palace failed", error);
+        return;
+      }
       if (!snap) return;
       const sessionId = crypto.randomUUID();
       set({ analyticsSessionId: sessionId });
@@ -537,10 +590,51 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       });
     },
 
+    async reloadCurrentPalaceFromDisk() {
+      const current = get().currentPalace;
+      if (!current) return;
+      clearDraftTimer();
+      let snap: PalaceSnapshot | null;
+      try {
+        snap = await repo.loadPalace(current.id);
+      } catch (error) {
+        reportError(`Reloading palace "${current.name}" failed`, error);
+        return;
+      }
+      if (!snap) {
+        // Palace vanished (deleted externally): close it.
+        set({ currentPalace: null, nodes: [], edges: [], routes: [], loci: [], externalChangePending: null });
+        await get().loadPalaces();
+        return;
+      }
+      // Disk is the accepted truth here, so the stale draft must go — otherwise
+      // the next openPalace would resurrect it over the external edit.
+      clearPalaceDraft(current.id);
+      get().hydrateFromSnapshot(snap, {
+        persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+      });
+      set((state) => ({
+        canvasReloadKey: state.canvasReloadKey + 1,
+        externalChangePending: null,
+      }));
+    },
+
+    setExternalChangePending(pending) {
+      set({ externalChangePending: pending });
+    },
+
     async createPalace(name: string, atlasPath?: string | null) {
       await get().flushDraftSave();
       clearDraftTimer();
-      const p = await repo.createPalace(name.trim() || "Untitled palace", atlasPath?.trim() || null);
+      let p: Palace;
+      try {
+        p = await repo.createPalace(name.trim() || "Untitled palace", atlasPath?.trim() || null);
+      } catch (error) {
+        reportError(`Creating palace "${name.trim() || "Untitled palace"}" failed`, error);
+        return;
+      }
       await recordAnalytics({
         eventType: "palace_created",
         eventGroup: "palace",
@@ -560,7 +654,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const snap = buildCurrentSnapshot();
       if (!snap) return;
       const savedAt = new Date().toISOString();
-      await repo.savePalace(snap);
+      try {
+        await repo.savePalace(snap);
+      } catch (error) {
+        // Persistence failed — keep the dirty state visible and tell the user
+        // instead of leaving a silent unhandled rejection.
+        reportError(`Saving palace "${snap.palace.name}" failed`, error);
+        return;
+      }
       clearPalaceDraft(snap.palace.id);
       set((state) => ({
         currentPalace: snap.palace,

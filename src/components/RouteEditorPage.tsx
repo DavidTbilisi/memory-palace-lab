@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Trash2, ArrowUp, ArrowDown, Plus } from "lucide-react";
 import { usePalaceStore } from "../store/palaceStore";
+import { confirmDestructive } from "../utils/confirmDestructive";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 export function RouteEditorPage() {
@@ -142,7 +143,15 @@ export function RouteEditorPage() {
                         type="button"
                         variant="ghost"
                         aria-label={`Delete route ${index + 1}`}
-                        onClick={() => deleteRoute(route.id)}
+                        onClick={() => {
+                          void (async () => {
+                            const stepCount = routeSteps.get(route.id)?.length ?? 0;
+                            const ok = await confirmDestructive(
+                              `Delete route "${route.name}"${stepCount > 0 ? ` and its ${stepCount} loci (review schedules included)` : ""}? This cannot be undone.`,
+                            );
+                            if (ok) deleteRoute(route.id);
+                          })();
+                        }}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

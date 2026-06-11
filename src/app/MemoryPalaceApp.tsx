@@ -3,6 +3,8 @@ import type { TLShapeId } from "@tldraw/tlschema";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
+import { AppErrorBanner } from "../components/AppErrorBanner";
+import { WebModeBanner } from "../components/WebModeBanner";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
 import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
 import { ContextualTipCard } from "../components/ContextualTipCard";
@@ -31,12 +33,14 @@ import {
   pageHint,
   type AppPage,
 } from "./memoryPalaceAppHelpers";
+import { useExternalMcpSync } from "./useExternalMcpSync";
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function MemoryPalaceApp() {
+  useExternalMcpSync();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<AppPage>("graph");
@@ -482,6 +486,9 @@ export function MemoryPalaceApp() {
             onHoverHintChange={setHoverHint}
           />
       </header>
+
+      <AppErrorBanner />
+      <WebModeBanner />
 
       <div className="flex min-h-0 flex-1">
         {graphControls && showSidebar ? <PalaceSidebar onOpenImport={() => setImportOpen(true)} /> : null}

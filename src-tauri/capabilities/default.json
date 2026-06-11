@@ -3,11 +3,21 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
+  "_comment": "When building with the optional mcp-bridge cargo feature, add 'mcp-bridge:default' back to permissions.",
   "permissions": [
     "core:default",
-    "mcp-bridge:default",
     "fs:allow-appdata-write-recursive",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-watch",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "obsidian://*" },
+        { "url": "https://*" },
+        { "url": "http://*" }
+      ]
+    },
     "fs:default",
     "dialog:default",
     {
@@ -18,6 +28,9 @@
         },
         {
           "path": "$APPDATA/palace-backgrounds/**"
+        },
+        {
+          "path": "$APPDATA/mcp-sync.json"
         }
       ]
     }

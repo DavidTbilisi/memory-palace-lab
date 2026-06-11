@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   BarChart2,
   BookOpen,
@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { pageHint, type AppPage } from "../app/memoryPalaceAppHelpers";
+import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { usePalaceStore } from "../store/palaceStore";
 
 const PAGES = ["graph", "review", "insights", "system", "atlas", "routes", "help"] as const;
 
@@ -42,6 +44,17 @@ export function PageNavigationBar({
   onNavigate: (page: AppPage) => void;
   onHoverHintChange: (hint: string | null) => void;
 }) {
+  const loci = usePalaceStore((s) => s.loci);
+  // Due loci for the open palace; nudges the user toward Review without
+  // having to remember to check.
+  const dueCount = useMemo(() => {
+    const nowIso = new Date().toISOString();
+    const nowMs = Date.parse(nowIso);
+    return loci
+      .map((locus) => normalizeLocusSchedule(locus, nowIso))
+      .filter((locus) => Date.parse(locus.nextReviewAt ?? nowIso) <= nowMs).length;
+  }, [loci]);
+
   return (
     <nav className="flex items-center justify-center gap-1">
       {PAGES.map((page) => (
@@ -50,13 +63,25 @@ export function PageNavigationBar({
           size="sm"
           variant={currentPage === page ? "default" : "ghost"}
           onClick={() => onNavigate(page)}
-          title={`Open ${LABELS[page]}`}
+          title={
+            page === "review" && dueCount > 0
+              ? `Open Review — ${dueCount} loci due now`
+              : `Open ${LABELS[page]}`
+          }
           onMouseEnter={() => onHoverHintChange(`${LABELS[page]} - ${pageHint(page) || "workspace area"}`)}
           onMouseLeave={() => onHoverHintChange(null)}
-          className="gap-1.5"
+          className="relative gap-1.5"
         >
           {ICONS[page]}
           <span className="hidden sm:inline">{LABELS[page]}</span>
+          {page === "review" && dueCount > 0 ? (
+            <span
+              aria-label={`${dueCount} loci due for review`}
+              className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-semibold leading-none text-zinc-950"
+            >
+              {dueCount > 99 ? "99+" : dueCount}
+            </span>
+          ) : null}
         </Button>
       ))}
     </nav>

@@ -14,6 +14,8 @@ import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
 
+import DOMPurify from "dompurify";
+
 function stripHtmlToText(value: string) {
   return value
     .replace(/<[^>]*>/g, " ")
@@ -21,9 +23,37 @@ function stripHtmlToText(value: string) {
     .trim();
 }
 
+/**
+ * Node content can arrive from DSL imports, MCP writes, or pasted HTML, and is
+ * rendered via innerHTML — sanitize every value at this funnel. The URI regexp
+ * extends DOMPurify's default with obsidian:// (source-note links) and asset:
+ * (palace background images).
+ */
+const CONTENT_URI_REGEXP =
+  /^(?:(?:https?|mailto|tel|callto|sms|cid|xmpp|obsidian|asset):|data:image\/|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
+
+export function sanitizeContentHtml(value: string) {
+  return DOMPurify.sanitize(value, { ALLOWED_URI_REGEXP: CONTENT_URI_REGEXP });
+}
+
 function normalizeEditorHtml(value: string) {
-  const trimmed = value.trim();
+  const trimmed = sanitizeContentHtml(value).trim();
   return trimmed ? trimmed : "<p></p>";
+}
+
+/**
+ * Open a link from node content outside the webview: external notes
+ * (obsidian://), websites, etc. Inside Tauri the webview blocks navigation,
+ * so this must go through the opener plugin (scoped in capabilities).
+ */
+async function openExternalUrl(url: string) {
+  const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  if (hasTauri) {
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 const palaceRepo = getPalaceRepository();
@@ -429,7 +459,7 @@ export function NodeInspector() {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-5-sonnet-latest",
+          model: "claude-sonnet-4-6",
           max_tokens: 280,
           temperature: 0.7,
           messages: [
@@ -567,9 +597,18 @@ export function NodeInspector() {
               ref={contentEditorRef}
               contentEditable
               suppressContentEditableWarning
-              className="min-h-[108px] px-2 py-2 text-sm text-zinc-100 focus:outline-none"
+              className="min-h-[108px] px-2 py-2 text-sm text-zinc-100 focus:outline-none [&_a]:cursor-pointer [&_a]:text-violet-400 [&_a]:underline"
               onInput={(event) => setContent(normalizeEditorHtml((event.currentTarget as HTMLDivElement).innerHTML))}
               onBlur={applyNodeChanges}
+              onClick={(event) => {
+                // Ctrl/Cmd+click opens links (plain click keeps the caret for editing).
+                if (!event.ctrlKey && !event.metaKey) return;
+                const anchor = (event.target as HTMLElement).closest?.("a[href]");
+                const href = anchor?.getAttribute("href");
+                if (!href) return;
+                event.preventDefault();
+                void openExternalUrl(href);
+              }}
               onKeyDown={(event) => {
                 if (event.key.toLowerCase() === "b" && (event.ctrlKey || event.metaKey)) {
                   event.preventDefault();
@@ -601,6 +640,7 @@ export function NodeInspector() {
               }}
             />
           </div>
+          <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
         {nextReviewInfo ? (

@@ -23,12 +23,13 @@ import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
 import { cn } from "../utils/cn";
 
-const tools: { id: ToolMode | "save" | "portal" | "reset"; label: string; icon: typeof MousePointer2 }[] = [
+const tools: { id: ToolMode | "save" | "portal" | "reset" | "refresh"; label: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "Select", icon: MousePointer2 },
   { id: "portal", label: "Portal", icon: ExternalLink },
   { id: "connect", label: "Connect", icon: Link2 },
   { id: "route", label: "Route", icon: ListOrdered },
   { id: "reset", label: "Reset View", icon: LocateFixed },
+  { id: "refresh", label: "Refresh", icon: RefreshCw },
   { id: "save", label: "Save", icon: Save },
 ];
 
@@ -103,6 +104,9 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
   const connectFromShapeId = usePalaceStore((s) => s.connect.fromShapeId);
   const setConnectFrom = usePalaceStore((s) => s.setConnectFrom);
   const saveCurrent = usePalaceStore((s) => s.saveCurrent);
+  const loadPalaces = usePalaceStore((s) => s.loadPalaces);
+  const reloadCurrentPalaceFromDisk = usePalaceStore((s) => s.reloadCurrentPalaceFromDisk);
+  const setExternalChangePending = usePalaceStore((s) => s.setExternalChangePending);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
   const draftRestored = usePalaceStore((s) => s.draftRestored);
   const lastDraftSavedAt = usePalaceStore((s) => s.lastDraftSavedAt);
@@ -152,6 +156,19 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
         ? "bg-amber-300"
         : "bg-zinc-500"
       : "bg-emerald-300";
+  const refreshFromDisk = async () => {
+    await loadPalaces();
+    const palace = usePalaceStore.getState().currentPalace;
+    if (!palace) return;
+    if (usePalaceStore.getState().persistenceState === "clean") {
+      await reloadCurrentPalaceFromDisk();
+    } else {
+      // Unsaved work: hand off to the ExternalChangeBanner so the user
+      // explicitly picks reload-and-discard vs keep-mine.
+      setExternalChangePending({ palaceId: palace.id, op: "manual refresh" });
+    }
+  };
+
   const connectStepLabel = connectFromShapeId ? "Step 2: pick target" : "Step 1: pick source";
   const connectStepDetail = connectFromShapeId
     ? "Source locked. Click the destination node to open the edge dialog, or cancel to choose a different source."
@@ -221,6 +238,27 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
               >
                 <Icon className="h-4 w-4" />
                 <span className="hidden lg:inline">Reset</span>
+              </Button>
+            );
+          }
+          if (t.id === "refresh") {
+            return (
+              <Button
+                key={t.id}
+                size="sm"
+                variant="outline"
+                type="button"
+                title="Reload palaces and the open palace from disk"
+                onMouseEnter={() =>
+                  onHoverHintChange?.(
+                    "Refresh: reload the palace list and the open palace from disk — picks up changes made outside the app (e.g. Claude via MCP).",
+                  )
+                }
+                onMouseLeave={() => onHoverHintChange?.(null)}
+                onClick={() => void refreshFromDisk()}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden lg:inline">{t.label}</span>
               </Button>
             );
           }
