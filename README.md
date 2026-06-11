@@ -117,11 +117,14 @@ This runs Vite + Tauri and stores palace snapshots and analytics in SQLite via R
 | `npm run tauri dev` | Start desktop app with Tauri + Vite. |
 | `npm run build` | Type-check and build production bundle. |
 | `npm run preview` | Preview production web build. |
+| `npm run mcp` | Start the memory-palace MCP server (stdio). |
 | `npm test` | Run Vitest unit/integration tests. |
+| `npm run test:mcp` | Run MCP server tests. |
 | `npm run test:ui` | Run Playwright UI tests. |
 | `npm run test:ui:headed` | Run Playwright tests with headed browser. |
 | `npm run lint` | Run ESLint. |
 | `npm run typecheck` | Run TypeScript checks (`tsc --noEmit`). |
+| `npm run typecheck:mcp` | Run TypeScript checks for the MCP server. |
 | `npm run format` | Run Prettier write mode. |
 
 ## Quick Workflow
@@ -140,6 +143,15 @@ This runs Vite + Tauri and stores palace snapshots and analytics in SQLite via R
 
 - Desktop (`npm run tauri dev`): SQLite-backed palace snapshots and analytics.
 - Web (`npm run dev`): in-memory palace repository fallback with browser-local fallback behavior for some client-side state.
+
+## MCP (Model Context Protocol)
+
+The repo ships a full MCP integration so Claude (or any MCP client) can read, build, and analyze palaces:
+
+- **memory-palace** server — domain tools (palace/node/edge/route CRUD, DSL import/export, graph analysis, crux, motifs, review queue), resources (palace DSL, theSystem docs), and prompts (nine-dive drill, comprehension protocol, encoding assistant). Works against the same SQLite DB as the desktop app; the running app live-refreshes when Claude edits a palace.
+- **tauri-debug-bridge** — dev-only tooling for driving the running app (debug builds only).
+
+Both are registered in the project-scoped `.mcp.json`. See [docs/mcp.md](docs/mcp.md).
 
 ## Testing
 

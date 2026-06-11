@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "memory-palace": {
+      "command": "npx",
+      "args": ["tsx", "mcp-server/src/index.ts"],
+      "env": {}
+    },
+    "tauri-debug-bridge": {
+      "command": "npx",
+      "args": ["-y", "@hypothesi/tauri-mcp-server"]
+    }
+  }
+}
