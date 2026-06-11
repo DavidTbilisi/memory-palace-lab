@@ -390,6 +390,9 @@ export function HelpCenterPage({ onOpenPalaceWorkspace, onOpenSystem, onOpenComm
         <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
           <BookOpen className="h-4 w-4" />
           Help Center
+          <span className="rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500">
+            Memory Palace Lab v{__APP_VERSION__}
+          </span>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
           Use guides and example palaces when you want structure fast. Help should accelerate the first useful graph,
