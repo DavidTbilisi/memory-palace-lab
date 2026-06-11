@@ -3,6 +3,7 @@ import type { TLShapeId } from "@tldraw/tlschema";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
+import { APP_VERSION } from "../appVersion";
 import { AppErrorBanner } from "../components/AppErrorBanner";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { WebModeBanner } from "../components/WebModeBanner";
@@ -474,10 +475,10 @@ export function MemoryPalaceApp() {
           <div className="flex min-w-0 items-center gap-3">
             <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">{title}</h1>
             <span
-              title={`Memory Palace Lab v${__APP_VERSION__}`}
+              title={`Memory Palace Lab v${APP_VERSION}`}
               className="shrink-0 rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500"
             >
-              v{__APP_VERSION__}
+              v{APP_VERSION}
             </span>
             <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
           </div>

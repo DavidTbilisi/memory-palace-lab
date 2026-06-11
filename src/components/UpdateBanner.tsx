@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { APP_VERSION } from "../appVersion";
 
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -80,7 +81,7 @@ export function UpdateBanner() {
     <div className="flex items-center gap-3 border-b border-violet-800/60 bg-violet-950/60 px-3 py-2 text-sm text-violet-100">
       <span className="min-w-0 flex-1">
         {state.phase === "available"
-          ? `Update available: v${state.version} (you have v${__APP_VERSION__}).`
+          ? `Update available: v${state.version} (you have v${APP_VERSION}).`
           : state.phase === "downloading"
             ? `Downloading v${state.version}${state.percent !== null ? ` — ${state.percent}%` : "…"}`
             : `Update failed: ${state.message}`}

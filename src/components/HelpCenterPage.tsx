@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
+import { APP_VERSION } from "../appVersion";
 import { toRichText } from "@tldraw/tlschema";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { BookOpen, Compass, Sparkles, Wand2 } from "lucide-react";
@@ -391,7 +392,7 @@ export function HelpCenterPage({ onOpenPalaceWorkspace, onOpenSystem, onOpenComm
           <BookOpen className="h-4 w-4" />
           Help Center
           <span className="rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500">
-            Memory Palace Lab v{__APP_VERSION__}
+            Memory Palace Lab v{APP_VERSION}
           </span>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
