@@ -25,6 +25,7 @@ const DOC_ORDER = [
   "comprehension-protocol",
   "confusion-triage",
   "heuristic-palace",
+  "how-to-learn-a-language",
   "domain-patterns",
   "metacognitive-checklist",
   "triz",
@@ -59,6 +60,7 @@ const DOC_CATEGORY_BY_SLUG: Record<string, TheSystemCategory> = {
   "comprehension-protocol": "Comprehension",
   "confusion-triage": "Comprehension",
   "heuristic-palace": "Comprehension",
+  "how-to-learn-a-language": "Comprehension",
   "domain-patterns": "Comprehension",
   "metacognitive-checklist": "Comprehension",
   triz: "Comprehension",
@@ -174,7 +176,9 @@ let docsPromise: Promise<TheSystemDoc[]> | null = null;
 export function loadTheSystemDocs() {
   if (!docsPromise) {
     docsPromise = Promise.all(
-      Object.entries(rawDocModules).map(async ([path, loader]) => [path, await loader()] as [string, string]),
+      Object.entries(rawDocModules).map(
+        async ([path, loader]) => [path, await loader()] as [string, string],
+      ),
     ).then(buildDocs);
   }
   return docsPromise;
