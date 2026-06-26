@@ -139,10 +139,10 @@ export function ImportNodesDialog({ open, onOpenChange }: Props) {
               className="mt-1 min-h-[280px]"
               placeholder={
                 mode === "markdown"
-                  ? "- Hippocampus\n- Mitochondria\n- Krebs cycle"
+                  ? "Example — type or paste your own bullet list here:\n\n- Hippocampus\n- Mitochondria\n- Krebs cycle"
                   : mode === "csv"
-                    ? "title,content\nHippocampus,Memory formation\nATP,Energy currency"
-                    : "# Palace: Demo\n\n== Hippocampus\n  > Memory formation\n  -> ATP  ::1010\n\n== ATP\n  > Energy currency"
+                    ? "Example — type or paste your own CSV here (keep the title,content header):\n\ntitle,content\nHippocampus,Memory formation\nATP,Energy currency"
+                    : "Example — type or paste your own palace DSL here:\n\n# Palace: Demo\n\n== Hippocampus\n  > Memory formation\n  -> ATP  ::1010\n\n== ATP\n  > Energy currency"
               }
             />
             {parsed.error ? <div className="mt-2 text-xs text-amber-300">{parsed.error}</div> : null}
