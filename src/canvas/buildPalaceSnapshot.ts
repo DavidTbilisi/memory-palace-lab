@@ -54,6 +54,7 @@ export function buildPalaceSnapshot(
           portal: portalRefFromMeta(m),
           imageUrl: m.mpImageUrl ?? null,
           tags: m.mpTags ?? [],
+          difficulty: m.mpDifficulty ?? null,
         });
       }
     }

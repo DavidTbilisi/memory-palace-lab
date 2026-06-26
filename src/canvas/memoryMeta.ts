@@ -1,3 +1,5 @@
+import type { NodeDifficultyOverride } from "../domain/entities/types";
+
 export type MemoryPalaceMeta = {
   mpPalaceId?: string;
   mpObjectId?: string;
@@ -11,6 +13,7 @@ export type MemoryPalaceMeta = {
   mpContent?: string;
   mpImageUrl?: string;
   mpTags?: string[];
+  mpDifficulty?: NodeDifficultyOverride;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;

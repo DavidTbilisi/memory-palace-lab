@@ -1,5 +1,6 @@
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { AtlasEditorPage } from "./AtlasEditorPage";
+import { DifficultyPanel } from "./DifficultyPanel";
 import { HelpCenterPage } from "./HelpCenterPage";
 import { ReviewPage } from "./ReviewPage";
 import { RouteEditorPage } from "./RouteEditorPage";
@@ -47,6 +48,16 @@ export function PageContentRouter({
       <div className={PANEL_WRAP}>
         <div className={PANEL_CARD}>
           <TheSystemWorkbench />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "difficulty") {
+    return (
+      <div className={PANEL_WRAP}>
+        <div className={PANEL_CARD}>
+          <DifficultyPanel />
         </div>
       </div>
     );
