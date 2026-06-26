@@ -1,6 +1,6 @@
 import type { MemoryNode } from "../domain/entities/types";
 
-export type AppPage = "graph" | "review" | "insights" | "system" | "atlas" | "routes" | "help";
+export type AppPage = "graph" | "review" | "insights" | "system" | "difficulty" | "atlas" | "routes" | "help";
 
 export const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 export const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
@@ -48,6 +48,9 @@ export function pageHint(page: AppPage): string | null {
   }
   if (page === "system") {
     return "System is where theSystem frameworks become runnable thinking pipelines and graph output.";
+  }
+  if (page === "difficulty") {
+    return "Difficulty estimates the learner-relative acquisition cost of each node and the whole palace — walls, order, and what's left to learn.";
   }
   if (page === "atlas") {
     return "Atlas organizes palaces by geography: domain, place, section. Build a hierarchy across multiple spaces.";

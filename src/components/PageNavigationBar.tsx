@@ -6,6 +6,7 @@ import {
   Globe,
   HelpCircle,
   LayoutDashboard,
+  Layers,
   ListOrdered,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -13,13 +14,14 @@ import { pageHint, type AppPage } from "../app/memoryPalaceAppHelpers";
 import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 import { usePalaceStore } from "../store/palaceStore";
 
-const PAGES = ["graph", "review", "insights", "system", "atlas", "routes", "help"] as const;
+const PAGES = ["graph", "review", "insights", "system", "difficulty", "atlas", "routes", "help"] as const;
 
 const ICONS: Record<AppPage, ReactNode> = {
   graph: <LayoutDashboard className="h-4 w-4" />,
   review: <BookOpen className="h-4 w-4" />,
   insights: <BarChart2 className="h-4 w-4" />,
   system: <Cpu className="h-4 w-4" />,
+  difficulty: <Layers className="h-4 w-4" />,
   atlas: <Globe className="h-4 w-4" />,
   routes: <ListOrdered className="h-4 w-4" />,
   help: <HelpCircle className="h-4 w-4" />,
@@ -30,6 +32,7 @@ const LABELS: Record<AppPage, string> = {
   review: "Review",
   insights: "Insights",
   system: "System",
+  difficulty: "Difficulty",
   atlas: "Atlas",
   routes: "Routes",
   help: "Help",

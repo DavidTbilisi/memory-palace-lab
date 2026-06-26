@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Link2Off } from "lucide-react";
 import { Tldraw } from "tldraw";
-import type { Editor, TLGeoShape, TLEditorSnapshot, TLEventInfo } from "@tldraw/editor";
+import type {
+  Editor,
+  TLGeoShape,
+  TLEditorSnapshot,
+  TLEventInfo,
+} from "@tldraw/editor";
 import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
-import { captureSceneAnalyticsSnapshot, diffSceneAnalyticsSnapshots } from "./analyticsSceneSnapshot";
+import {
+  captureSceneAnalyticsSnapshot,
+  diffSceneAnalyticsSnapshots,
+} from "./analyticsSceneSnapshot";
 import { createGeoMemoryNode } from "./createMemoryShapes";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
@@ -16,6 +24,18 @@ import {
   primaryRoleFor,
   type MotifRole,
 } from "../domain/services/cast/motifRoles";
+import {
+  computePalaceDifficulty,
+  difficultyLevel,
+} from "../domain/services/palaceDifficulty";
+
+const DIFFICULTY_BADGE_CLASS: Record<number, string> = {
+  1: "border-emerald-300/80 bg-emerald-500/85 text-emerald-50",
+  2: "border-lime-300/80 bg-lime-500/85 text-lime-50",
+  3: "border-amber-300/80 bg-amber-500/85 text-amber-50",
+  4: "border-orange-300/80 bg-orange-500/85 text-orange-50",
+  5: "border-rose-300/80 bg-rose-500/90 text-rose-50",
+};
 
 type Props = {
   palaceId: string;
@@ -36,6 +56,14 @@ type MotifBadge = {
   x: number;
   y: number;
   role: MotifRole;
+};
+
+type DifficultyBadge = {
+  shapeId: TLShapeId;
+  x: number;
+  y: number;
+  step: number;
+  level: number;
 };
 
 type ImageBackground = {
@@ -102,18 +130,28 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const editorRef = useRef<Editor | null>(null);
   const lastWalkNodeIdRef = useRef<string | null>(null);
   const lastCruxNodeIdRef = useRef<string | null>(null);
-  const lastSceneSnapshotRef = useRef<ReturnType<typeof captureSceneAnalyticsSnapshot> | null>(null);
+  const lastSceneSnapshotRef = useRef<ReturnType<
+    typeof captureSceneAnalyticsSnapshot
+  > | null>(null);
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
   const [motifBadges, setMotifBadges] = useState<MotifBadge[]>([]);
-  const [imageBackgrounds, setImageBackgrounds] = useState<ImageBackground[]>([]);
+  const [difficultyBadges, setDifficultyBadges] = useState<DifficultyBadge[]>(
+    [],
+  );
+  const [imageBackgrounds, setImageBackgrounds] = useState<ImageBackground[]>(
+    [],
+  );
 
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const motifRoleByNodeId = useMemo(() => {
     const motifs = detectMotifs({
       nodes: (palaceNodes ?? []).map((n) => ({ id: n.id })),
-      edges: (palaceEdges ?? []).map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId })),
+      edges: (palaceEdges ?? []).map((e) => ({
+        sourceNodeId: e.sourceNodeId,
+        targetNodeId: e.targetNodeId,
+      })),
     });
     const map = motifRolesByNode(motifs);
     const primary = new Map<string, MotifRole>();
@@ -123,6 +161,15 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
     return primary;
   }, [palaceNodes, palaceEdges]);
+  const difficultyByNodeId = useMemo(
+    () =>
+      computePalaceDifficulty(palaceNodes ?? [], palaceEdges ?? [], loci ?? [])
+        .byNodeId,
+    [palaceNodes, palaceEdges, loci],
+  );
+  // recompute closures captured at editor mount can be stale; a ref keeps the
+  // latest difficulty map reachable so badge refreshes always read fresh data
+  const difficultyRef = useRef(difficultyByNodeId);
   const setAvailableTags = usePalaceStore((s) => s.setAvailableTags);
   const activeTags = usePalaceStore((s) => s.activeTags);
   const clearActiveTags = usePalaceStore((s) => s.clearActiveTags);
@@ -142,7 +189,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       if (nodeKindFromMeta(meta) !== "portal") continue;
       const bounds = editor.getShapePageBounds(shape.id);
       if (!bounds) continue;
-      const point = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y });
+      const point = editor.pageToViewport({
+        x: bounds.x + bounds.w,
+        y: bounds.y,
+      });
       const portal = portalRefFromMeta(meta);
       badges.push({
         shapeId: shape.id,
@@ -189,9 +239,45 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     setMotifBadges(badges);
   }, [motifRoleByNodeId]);
 
+  const recomputeDifficultyBadges = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setDifficultyBadges([]);
+      return;
+    }
+    const badges: DifficultyBadge[] = [];
+    for (const shapeId of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(shapeId);
+      if (!shape || shape.type !== "geo") continue;
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      const nodeId = meta.mpNodeId;
+      if (!nodeId) continue;
+      const d = difficultyRef.current.get(nodeId);
+      if (!d) continue;
+      const bounds = editor.getShapePageBounds(shape.id);
+      if (!bounds) continue;
+      // bottom-right corner (portal badges sit top-right, motif badges top-left)
+      const point = editor.pageToViewport({
+        x: bounds.x + bounds.w,
+        y: bounds.y + bounds.h,
+      });
+      badges.push({
+        shapeId: shape.id,
+        x: point.x - 20,
+        y: point.y - 20,
+        step: d.result.step,
+        level: difficultyLevel(d.result.step),
+      });
+    }
+    setDifficultyBadges(badges);
+  }, []);
+
   const recomputeImageBackgrounds = useCallback(() => {
     const editor = editorRef.current;
-    if (!editor) { setImageBackgrounds([]); return; }
+    if (!editor) {
+      setImageBackgrounds([]);
+      return;
+    }
     const backgrounds: ImageBackground[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
@@ -201,7 +287,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       const bounds = editor.getShapePageBounds(shape.id);
       if (!bounds) continue;
       const tl = editor.pageToViewport({ x: bounds.x, y: bounds.y });
-      const br = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
+      const br = editor.pageToViewport({
+        x: bounds.x + bounds.w,
+        y: bounds.y + bounds.h,
+      });
       backgrounds.push({
         shapeId: shape.id,
         x: tl.x,
@@ -220,13 +309,29 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       badgeFrameRef.current = null;
       recomputePortalBadges();
       recomputeMotifBadges();
+      recomputeDifficultyBadges();
       recomputeImageBackgrounds();
     });
-  }, [recomputePortalBadges, recomputeMotifBadges, recomputeImageBackgrounds]);
+  }, [
+    recomputePortalBadges,
+    recomputeMotifBadges,
+    recomputeDifficultyBadges,
+    recomputeImageBackgrounds,
+  ]);
+
+  // refresh badges when difficulty changes (graph or spaced-repetition state),
+  // even without a canvas event — loci updates don't touch shapes
+  useEffect(() => {
+    difficultyRef.current = difficultyByNodeId;
+    recomputeDifficultyBadges();
+  }, [difficultyByNodeId, recomputeDifficultyBadges]);
 
   const recomputeAvailableTags = useCallback(() => {
     const editor = editorRef.current;
-    if (!editor) { setAvailableTags([]); return; }
+    if (!editor) {
+      setAvailableTags([]);
+      return;
+    }
     const seen = new Set<string>();
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
@@ -262,7 +367,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       const onEvent = (info: TLEventInfo) => {
         if ((info as { name?: string }).name === "double_click") {
           const point = editor.inputs.currentPagePoint;
-          const hit = editor.getShapeAtPoint(point, { hitInside: true, margin: 8 });
+          const hit = editor.getShapeAtPoint(point, {
+            hitInside: true,
+            margin: 8,
+          });
           if (!hit) {
             createGeoMemoryNode(editor, palaceId, point);
             return;
@@ -283,16 +391,23 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         if (info.type === "pointer" && info.name === "pointer_up") {
           const st = usePalaceStore.getState();
           if (st.toolMode !== "connect") return;
-          if (editor.inputs.getIsDragging() || editor.inputs.getIsPanning()) return;
+          if (editor.inputs.getIsDragging() || editor.inputs.getIsPanning())
+            return;
 
           // Connect mode should react to intentional clicks, not drags.
           const origin = editor.inputs.getOriginPagePoint();
           const current = editor.inputs.getCurrentPagePoint();
-          const movement = Math.hypot(current.x - origin.x, current.y - origin.y);
+          const movement = Math.hypot(
+            current.x - origin.x,
+            current.y - origin.y,
+          );
           if (movement > 6) return;
 
           const point = editor.inputs.currentPagePoint;
-          const hitId = editor.getShapeAtPoint(point, { hitInside: true, margin: 8 })?.id;
+          const hitId = editor.getShapeAtPoint(point, {
+            hitInside: true,
+            margin: 8,
+          })?.id;
           if (!hitId) return;
           const sh = editor.getShape(hitId);
           if (!sh || sh.type !== "geo") return;
@@ -337,7 +452,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         () => {
           if (usePalaceStore.getState().currentPalace?.id !== palaceId) return;
           const nextSnapshot = captureSceneAnalyticsSnapshot(editor);
-          const analyticsDiff = diffSceneAnalyticsSnapshots(lastSceneSnapshotRef.current, nextSnapshot);
+          const analyticsDiff = diffSceneAnalyticsSnapshots(
+            lastSceneSnapshotRef.current,
+            nextSnapshot,
+          );
           lastSceneSnapshotRef.current = nextSnapshot;
           queueDraftSave();
           for (const event of analyticsDiff) {
@@ -373,7 +491,15 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         setPortalBadges([]);
       };
     },
-    [openPortalDestination, palaceId, queueBadgeRefresh, queueDraftSave, recomputeAvailableTags, setEditor, setSelectedShapeId],
+    [
+      openPortalDestination,
+      palaceId,
+      queueBadgeRefresh,
+      queueDraftSave,
+      recomputeAvailableTags,
+      setEditor,
+      setSelectedShapeId,
+    ],
   );
 
   useEffect(() => {
@@ -419,7 +545,15 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         editor.setSelectedShapes([activeShapeId]);
       }
     }
-  }, [walkAnswerRevealed, walkOpen, walkRecallMode, walkIndex, walkRouteId, loci, clearActiveTags]);
+  }, [
+    walkAnswerRevealed,
+    walkOpen,
+    walkRecallMode,
+    walkIndex,
+    walkRouteId,
+    loci,
+    clearActiveTags,
+  ]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -464,7 +598,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       if (!s || s.type !== "geo") continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
-      const match = activeTags.length === 0 || (m.mpTags ?? []).some((t) => activeTags.includes(t));
+      const match =
+        activeTags.length === 0 ||
+        (m.mpTags ?? []).some((t) => activeTags.includes(t));
       editor.updateShape({ id, type: "geo", opacity: match ? 1 : 0.2 });
     }
   }, [activeTags, walkOpen]);
@@ -570,14 +706,18 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           <button
             key={badge.shapeId}
             type="button"
-            aria-label={badge.linked ? "Open linked palace" : "Portal is not linked yet"}
+            aria-label={
+              badge.linked ? "Open linked palace" : "Portal is not linked yet"
+            }
             className={`pointer-events-auto absolute inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition ${
               badge.linked
                 ? "border-amber-300/90 bg-amber-300 text-zinc-950 hover:bg-amber-200"
                 : "border-rose-400/70 bg-rose-950/95 text-rose-100 hover:bg-rose-900"
             }`}
             style={{ left: badge.x, top: badge.y }}
-            title={badge.linked ? "Open linked palace" : "Portal is not linked yet"}
+            title={
+              badge.linked ? "Open linked palace" : "Portal is not linked yet"
+            }
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -591,7 +731,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
               void openPortalDestination(meta);
             }}
           >
-            {badge.linked ? <ExternalLink className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+            {badge.linked ? (
+              <ExternalLink className="h-3.5 w-3.5" />
+            ) : (
+              <Link2Off className="h-3.5 w-3.5" />
+            )}
           </button>
         ))}
         {motifBadges.map((badge) => {
@@ -609,6 +753,18 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             </div>
           );
         })}
+        {difficultyBadges.map((badge) => (
+          <div
+            key={`difficulty-${badge.shapeId}`}
+            role="img"
+            aria-label={`difficulty ${badge.step}`}
+            title={`difficulty: ${badge.step} (level ${badge.level} of 5)`}
+            className={`pointer-events-none absolute inline-flex h-5 min-w-[20px] select-none items-center justify-center rounded-full border px-1 text-[10px] font-bold leading-none tabular-nums shadow-[0_4px_10px_rgba(0,0,0,0.35)] ${DIFFICULTY_BADGE_CLASS[badge.level]}`}
+            style={{ left: badge.x, top: badge.y }}
+          >
+            {badge.step}
+          </div>
+        ))}
       </div>
     </div>
   );

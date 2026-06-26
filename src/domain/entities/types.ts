@@ -34,6 +34,22 @@ export interface PalacePortalRef {
   targetNodeId?: string;
 }
 
+/**
+ * Optional, learner-judged inputs for the /difficulty estimator. When absent,
+ * the difficulty adapter auto-derives every field from the palace graph and the
+ * node's content (so every node still gets a unit). Setting any field here
+ * overrides just that field — the "hybrid" model.
+ */
+export type NodeDifficultyOverride = {
+  new_ideas?: number;
+  normal_links?: number;
+  breaks?: string[];
+  analogy_links?: number;
+  juggle?: number;
+  key_idea?: string | null;
+  extra_needs?: string[];
+};
+
 export interface MemoryNode {
   id: string;
   objectId: string;
@@ -44,6 +60,7 @@ export interface MemoryNode {
   portal: PalacePortalRef | null;
   imageUrl?: string | null;
   tags?: string[];
+  difficulty?: NodeDifficultyOverride | null;
 }
 
 export interface MemoryEdge {
