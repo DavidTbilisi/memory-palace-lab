@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "mcp": "tsx mcp-server/src/index.ts",
+    "sync:thesystem": "node scripts/sync-thesystem.mjs",
+    "sync:thesystem:check": "node scripts/sync-thesystem.mjs --check",
     "test": "vitest run --pool forks --maxWorkers 1",
     "test:mcp": "vitest run --config mcp-server/vitest.config.ts",
     "typecheck:mcp": "tsc -p mcp-server --noEmit",

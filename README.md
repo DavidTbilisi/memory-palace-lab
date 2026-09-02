@@ -118,6 +118,8 @@ This runs Vite + Tauri and stores palace snapshots and analytics in SQLite via R
 | `npm run build` | Type-check and build production bundle. |
 | `npm run preview` | Preview production web build. |
 | `npm run mcp` | Start the memory-palace MCP server (stdio). |
+| `npm run sync:thesystem` | Re-mirror the curated wiki slice into `theSystem/wiki/`. |
+| `npm run sync:thesystem:check` | Fail if that mirror is out of date (needs a local wiki checkout). |
 | `npm test` | Run Vitest unit/integration tests. |
 | `npm run test:mcp` | Run MCP server tests. |
 | `npm run test:ui` | Run Playwright UI tests. |
@@ -177,6 +179,29 @@ Defaults:
 Optional environment variables:
 - `MP_BASE_URL`
 - `MP_SCREENSHOT_DIR`
+
+## The System Docs
+
+`theSystem/` holds the memory science the app is built on, in two parts:
+
+- **`theSystem/*.md`** — hand-authored lab docs (CAST system, concept encoding, retrieval
+  protocol, the app manual). Written in the app's own voice; edit them here.
+- **`theSystem/wiki/`** — a read-only mirror of a curated slice of the
+  [Neural OS wiki](https://github.com/DavidTbilisi/Neural-OS-Research), which is canonical
+  for that material. **Do not edit these files** — edit the wiki and re-sync.
+
+```bash
+npm run sync:thesystem                          # source defaults to ../Neural-OS-Research
+npm run sync:thesystem -- /path/to/Neural-OS-Research
+NEURAL_OS_WIKI=/path/to/repo npm run sync:thesystem
+node scripts/sync-thesystem.mjs --dry-run       # report only
+```
+
+Which pages get mirrored is curated in `theSystem/wiki-sync.manifest.json`. The sync flattens
+pages to a single directory, rewrites `[[wiki-links]]` to relative markdown links (flattening
+the ones that point outside the mirrored slice), skips fenced code blocks, and stamps each
+page with a `wiki_source:` frontmatter key. Both sets are exposed over MCP as
+`thesystem://{slug}`, with mirrored wiki pages under a `wiki-` slug prefix.
 
 ## Backlog and Delivery Notes
 
