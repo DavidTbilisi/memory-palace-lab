@@ -321,6 +321,38 @@ describe("palace CLI", () => {
     });
   });
 
+  describe("meter backfill", () => {
+    it("mirrors the palace's analytics into the given data dir and reports what it skipped", async () => {
+      // import records palace_created (mapped) and the apply's palace_saved (no mapping).
+      await run("import", file("citadel.dsl", citadel()));
+      const dataDir = join(dir, "meter-data");
+      const out = await run("meter", "backfill", "--data-dir", dataDir, "--json");
+      expect(out.code).toBe(0);
+      const summary = JSON.parse(out.stdout);
+      expect(summary).toMatchObject({
+        dataDir,
+        dataDirVia: "flag",
+        dryRun: false,
+        appendedByMetric: { "palace.created": 1 },
+        skippedByType: { palace_saved: 1 },
+      });
+      const lines = readFileSync(join(dataDir, "events.jsonl"), "utf8").trimEnd().split("\n");
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0]!)).toMatchObject({
+        layer: "encoding",
+        operation: "encode",
+        metric_type: "palace.created",
+        context: { source: "memory-palace-lab", topic: "SOLID Citadel" },
+      });
+
+      const again = await run("meter", "backfill", "--data-dir", dataDir, "--palace", "SOLID Citadel");
+      expect(again.code).toBe(0);
+      expect(again.stdout).toContain("appended:         0");
+      expect(again.stdout).toContain("already present:  1");
+      expect(again.stdout).toContain("(--data-dir)");
+    });
+  });
+
   it("covers every MCP tool with a verb or an explicit exclusion", () => {
     const source = readFileSync(resolve(__dirname, "../index.ts"), "utf8");
     const mcpTools = [...source.matchAll(/registerTool\(\s*"([a-z_]+)"/g)].map((m) => m[1]!);

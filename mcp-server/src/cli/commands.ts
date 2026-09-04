@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import { parseDsl } from "../../../src/domain/services/palaceDsl/parser";
+import { resolvePalace } from "../palaceDb";
 import { setWriterSource } from "../palaceWriter";
 import * as analysis from "../tools/analysis";
 import * as dslTools from "../tools/dsl";
@@ -25,6 +27,7 @@ import {
   lintSource,
   unformattableConstructs,
 } from "./dslVerbs";
+import { backfillMeter, renderBackfillSummary, resolveMeterDataDir } from "./meterVerbs";
 
 /**
  * The `palace` command line: a second thin transport over the same tool
@@ -66,7 +69,7 @@ interface VerbOutput {
 
 export interface Verb {
   name: string;
-  group: "palace" | "dsl" | "cast";
+  group: "palace" | "dsl" | "cast" | "meter";
   summary: string;
   usage: string;
   options?: Options;
@@ -378,6 +381,36 @@ export const VERBS: Verb[] = [
     },
   },
 
+  // METER bridge (database)
+  {
+    name: "meter backfill",
+    group: "meter",
+    summary: "Mirror app analytics into METER's events.jsonl: chronological, append-only, idempotent.",
+    usage: "meter backfill [--data-dir DIR] [--palace REF] [--dry-run] [--json]",
+    options: {
+      "data-dir": { type: "string" },
+      palace: { type: "string" },
+      "dry-run": { type: "boolean" },
+    },
+    arity: [0, 0],
+    mcpTools: [],
+    run: ({ ctx, values, json: asJson }) => {
+      const context = ctx();
+      const palaceId = values.palace ? resolvePalace(context.db, String(values.palace)).id : undefined;
+      const { dir, via } = resolveMeterDataDir({
+        flag: str(values["data-dir"]),
+        env: process.env.METER_DATA_DIR,
+        cwd: process.cwd(),
+        home: homedir(),
+      });
+      const summary = {
+        ...backfillMeter({ db: context.db, dataDir: dir, palaceId, dryRun: Boolean(values["dry-run"]) }),
+        dataDirVia: via,
+      };
+      return asJson ? json(summary) : text(renderBackfillSummary(summary));
+    },
+  },
+
   // DSL files (no database)
   {
     name: "lint",
@@ -538,6 +571,7 @@ export const VERBS: Verb[] = [
 
 const GROUP_TITLES: Array<[Verb["group"], string]> = [
   ["palace", "Palace (needs the app database)"],
+  ["meter", "METER bridge (needs the app database)"],
   ["dsl", "DSL files (no database needed)"],
   ["cast", "CAST lexicon"],
 ];

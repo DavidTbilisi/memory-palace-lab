@@ -167,6 +167,7 @@ bin/palace lint --strict palaces/*.dsl        # parse diagnostics, exit 1 on err
 bin/palace import my-palace.dsl               # new palace from a DSL file
 bin/palace export "SOLID Citadel" > solid.dsl # palace as DSL text
 bin/palace cast decode "00 01 10 00"          # theSystem bits → compact token + scene
+bin/palace meter backfill                     # mirror walks and encoding into METER's events.jsonl
 ```
 
 `lint`, `fmt`, `hash`, and `cast` need no database. See [docs/cli.md](docs/cli.md).
