@@ -86,8 +86,8 @@ function LessonsView() {
     LESSONS.find((lesson) => lesson.id === lessonId) ?? LESSONS[0];
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-md border border-zinc-800 bg-zinc-900/40 p-5">
-      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex flex-wrap gap-4">
+        <div className="w-64 shrink-0 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
             <Sparkles className="h-3.5 w-3.5" />
             Progress
@@ -103,7 +103,7 @@ function LessonsView() {
             ))}
           </ul>
         </div>
-        <div>
+        <div className="min-w-0 flex-1 basis-72">
           <div className="flex flex-wrap gap-2">
             {LESSONS.map((lesson) => (
               <Button

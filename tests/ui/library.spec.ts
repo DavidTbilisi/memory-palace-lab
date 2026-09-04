@@ -18,8 +18,8 @@ test("library deep links, wiki search, and encode-this pipeline", async ({ page 
   // Wiki section browses lazily and searches titles.
   await page.getByRole("tab", { name: "Wiki" }).click();
   await page.getByLabel("Search the Library").fill("spaced repetition");
-  await expect(page.getByRole("button", { name: /^Spaced Repetition/ }).first()).toBeVisible();
-  await page.getByRole("button", { name: /^Spaced Repetition/ }).first().click();
+  await expect(page.getByRole("button", { name: /^Wiki Spaced Repetition/ }).first()).toBeVisible();
+  await page.getByRole("button", { name: /^Wiki Spaced Repetition/ }).first().click();
   await expect(page.locator("#the-system-doc-content")).not.toContainText("Loading document");
 
   // Encode this → Run as pipeline lands on System with the document as steps.
@@ -63,7 +63,7 @@ test("settings page holds preferences and the library about-link works", async (
   await goal.fill("25");
   await goal.blur();
   await page.getByRole("button", { name: /^Review/ }).click();
-  await expect(page.getByText("Daily Goal")).toBeVisible();
+  await expect(page.getByText("Daily Goal", { exact: true })).toBeVisible();
   await expect(page.getByText("0/25").first()).toBeVisible();
 
   await page.getByRole("button", { name: /^Insights/ }).click();

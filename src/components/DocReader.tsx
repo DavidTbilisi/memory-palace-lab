@@ -165,8 +165,8 @@ export function DocReader({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-md border border-zinc-800 bg-zinc-900/40">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-56">
             {category ? (
               <div className="text-xs uppercase tracking-wide text-zinc-500">
                 {category}

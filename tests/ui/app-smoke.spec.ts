@@ -1,4 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** Number of memory-node shapes on the current canvas, read through the dev store hook. */
+function countNodeShapes(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
+      } | null;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    return Array.from(editor.getCurrentPageShapeIds()).filter((id) => {
+      const shape = editor.getShape(id);
+      return shape?.type === "geo" && !!shape.meta?.mpNodeId;
+    }).length;
+  });
+}
 
 test("contextual primary hint and idle tip adapt to current state", async ({ page }) => {
   await page.addInitScript(() => {
@@ -38,14 +58,16 @@ test("shell pages and layout workflow", async ({ page }) => {
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Phases" })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("tab", { name: "Start here" }).click();
-  await expect(page.getByText("Lesson 1 - Build your first palace")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lesson 1 - Build your first palace" })).toBeVisible();
 
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await page.locator(".tl-canvas").dblclick({ position: { x: 240, y: 200 } });
   await expect(page.locator("#mp-title")).toHaveValue("New node");
 
+  // The route panel is collapsed by default; the toolbar Route button shows it.
+  await page.locator('button[title="Show route panel"]').click();
   await page.getByPlaceholder("Route name").fill("Smoke Route");
   await page.getByRole("button", { name: /add route/i }).click();
   await expect(page.getByLabel("Active route")).toContainText("Smoke Route");
@@ -72,28 +94,12 @@ test("command palette opens pages and runs graph actions", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
   await page.keyboard.press("Control+K");
-  await page.getByLabel("Command palette search").fill("create node");
-  await page.getByRole("button", { name: /Create node Add a node to Tutorial Palace/i }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-        if (!store) throw new Error("missing dev store hook");
-        const state = store.getState() as {
-          editorRef: {
-            getCurrentPageShapeIds: () => Iterable<string>;
-            getShape: (id: string) => { type?: string; meta?: Record<string, unknown> } | undefined;
-          } | null;
-        };
-        const editor = state.editorRef;
-        if (!editor) throw new Error("editor not ready");
-        return Array.from(editor.getCurrentPageShapeIds()).filter((id) => {
-          const shape = editor.getShape(id);
-          return shape?.type === "geo" && !!shape.meta?.mpNodeId;
-        }).length;
-      }),
-    )
-    .toBeGreaterThan(0);
+  await page.getByLabel("Command palette search").fill("dsl");
+  await page.getByRole("button", { name: /Toggle DSL editor/ }).click();
+  await expect(page.getByTestId("palace-dsl-editor")).toBeVisible();
+
+  await page.getByRole("button", { name: "Portal", exact: true }).click();
+  await expect.poll(() => countNodeShapes(page)).toBeGreaterThan(0);
 
   await page.keyboard.press("Control+K");
   await page.getByLabel("Command palette search").fill("insights");

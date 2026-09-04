@@ -590,7 +590,7 @@ export function MemoryPalaceApp() {
           >
             v{APP_VERSION}
           </span>
-          <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">
+          <div id="context-primary-hint" className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">
             {hoverHint ?? defaultHint}
           </div>
         </div>
