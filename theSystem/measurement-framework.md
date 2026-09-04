@@ -2,11 +2,11 @@
 
 You can't improve what you don't measure. This framework gives you
 **six independent dimensions of progress** with **milestone belts** on top of
-**raw numbers**, all feedable by a **30-second daily log**.
+**raw numbers**, read from **METER's event log** plus a **30-second daily check-in**.
 
 Design constraints:
 - Daily cost ≤ 30 seconds (so you actually do it)
-- Most metrics are passive (derived from Anki, palace walks, encoding counts)
+- Most metrics are passive: Anki reviews and palace walks stream into METER's event log by themselves (Anki bridge, `palace meter backfill`)
 - Each dimension has 7 belt-ranks: **White → Yellow → Orange → Green → Blue → Purple → Brown → Black**
 - One composite score (LPQ — Learning Performance Quotient) rolls the six up into a single trajectory number
 
@@ -14,6 +14,20 @@ Design constraints:
 
 **Helper:** [memorization-helpers.md](./memorization-helpers.md#mh-measurement-framework) — NEDF/SPEAR lens, minimal first session, stack placement.
 
+
+---
+
+## Measurement Layer: METER
+
+Since 2026-05 the measurement layer of Neural OS is **METER** ([meter-overview](./meter-overview.md), mirrored at `theSystem/wiki/meter-overview.md`): one event schema, one append-only log (`meter-data/events.jsonl`), three reports (Daily Glance, Weekly Review, Monthly Trend), and the `meter` CLI. This framework no longer keeps a log of its own. It is the **belt rollup** that reads METER's events: METER answers *"what happened?"*, the belts answer *"where am I on the trajectory?"*, and the LPQ stays the single trajectory number.
+
+| This framework used to own | Where it lives now |
+|---|---|
+| The daily six-number log | METER events. Two kinds of self-report remain (next section); every count arrives passively |
+| The weekly Anki pull | The Anki bridge (`tools/meter-anki-addon/`) emits every review as a `hit`/`miss` event plus a `latency_ms` event |
+| Palace walk logging | `palace meter backfill` (Memory Palace Lab CLI, `docs/cli.md`) mirrors walk recall, walk start/finish, and node/edge/route creation into the same log |
+| "Compute the metrics" | `meter report daily`, `meter report weekly`, `meter report monthly`, and `meter stats --days N` |
+| Belt thresholds, belt tests, LPQ | Still here. METER deliberately does not prescribe which metric matters most; that is this framework's job |
 
 ---
 
@@ -37,33 +51,35 @@ hurt more than leading ones help — prevents lopsided progress).
 
 ## The Daily 30-Second Log
 
-One line per day. Passive sources fill themselves; active inputs are minimal.
+One check-in and at most three one-line emits. Everything else arrives passively.
 
-### The log template
+### The check-in
 
 ```
-Date: YYYY-MM-DD
-Encodings today (count):    N
-Palace walks (count):       N
-Applied (count):            N  [real use of encoded material]
-Stuck / triaged (count):    N  [confusion-triage or palace walk used]
-Self-deception caught:      N  [meta-check flagged something]
-Energy (1–5):               N  [subjective — affects interpretation]
+meter pulse checkin -e 4 -s 2      # Energy 1=exhausted..5=fresh, Stress 1=calm..5=overwhelmed
 ```
 
-That's it. 6 numbers. 30 seconds.
+That is the old "Energy (1–5)" line, now a PULSE state event, so Weekly Review can split every hit rate by state band.
 
-**From Anki (passive, pulled weekly):**
-- Cards reviewed
-- Correct-first-try %
-- Median response time
-- Mature card count
-- Mature card retention %
+### The self-reports (only when they happened)
 
-**From palace walks (passive, logged during the walk):**
-- Walk duration
-- Weak links flagged
-- Weak links repaired
+Applied, triaged, and self-deception-caught are things only you can see. Each is one `meter emit`. The metric types are this framework's own: METER leaves `metric_type` open and each layer names its metrics.
+
+```
+meter emit -l performance -o produce     -t application          -v 1 --context '{"what":"used the CAST graph in a PR review"}'
+meter emit -l governance  -o self-report -t triage               -v 1 --context '{"tool":"confusion-triage"}'
+meter emit -l governance  -o self-report -t self-deception-catch -v 1 --context '{"check":"metacognitive-checklist"}'
+```
+
+Skip the emits on a day when none happened. Zero is a real number and Weekly Review will show it.
+
+### What arrives on its own
+
+**From Anki (the bridge, every review):** `hit`/`miss` per card, `latency_ms` per card, `mode` from `oracle::`/`grace::` tags, lifecycle tier. Mature-card count and mature retention still come from Anki's own stats screen; the lifecycle sweep (`tools/meter-lifecycle/`) reads the collection for retirement candidates.
+
+**From palace walks (`palace meter backfill`):** `hit`/`miss` per rated locus (Again = miss), `latency_ms` from time-to-reveal, `walk.started` and `walk.completed` per session, all under `mode: palace::walk` with the palace name as `context.topic`.
+
+**From encoding (same backfill):** `palace.node_created`, `palace.edge_created`, `palace.route_created`, `palace.created` on the encoding layer. That is your encodings-per-session count.
 
 ---
 
@@ -298,17 +314,19 @@ Between-belt levels are fine (e.g., LPQ = 580 means you're between Green and Blu
 ## Cadence
 
 ### Daily (30 sec)
-The 6-number log. That's all.
+`meter pulse checkin`, then at most three `meter emit` lines. `meter report daily` if you want the glance; don't linger.
 
 ### Weekly (5–10 min)
-- Pull Anki stats
-- Compute the 4 primary metrics for each dimension
+- `meter report weekly` — hit rates, latency, per-mode and per-state breakdowns, floor breaches
+- Anki's stats screen for mature retention, the one number the bridge does not carry
+- Compute the 4 primary metrics for each dimension from those two sources
 - Check if any belt threshold was crossed (up or down)
 - Answer the weekly meta-review questions (from metacognitive-checklist.md)
 
 ### Monthly (30–60 min)
-- **Belt tests** — attempt a challenge at current +1 level for each dimension you feel ready to advance
-- 30-day cold recall test: pick 20 random encodings from a month ago, regenerate without notes
+- `meter report monthly` — trend, state-conditioned patterns, drift
+- **Belt tests** — attempt a challenge at current +1 level for each dimension you feel ready to advance; record each result with one `meter emit`
+- 30-day cold recall test: pick 20 random encodings from a month ago, regenerate without notes; record the rate (`-t 30cr`)
 - Compute LPQ
 - Retrospective: what do the numbers say? Where's the lagging dimension?
 
@@ -336,14 +354,23 @@ the LPQ geometric mean will stall. That's the signal.
 
 ---
 
-## Integration with Existing Systems
+## Where Each Dimension Reads From METER
 
-- **Anki** → primary data source for Speed (ART), Accuracy (AFC), Durability (MR)
-- **Heuristic Palace** → primary source for Speed (PWT), Process (PWC)
-- **Comprehension Protocol** → primary source for Accuracy (RPR), Process (PA, MGC)
-- **Confusion Triage** → primary source for Process (TU)
-- **Metacognitive Checklist** → primary source for Process (WMR, FCC)
-- **Domain Patterns** → primary source for Depth (via pattern-library size + HMR) and Application (TA)
+| Dimension | Already in the event log | Still a self-report or a test you record |
+|---|---|---|
+| Speed | `latency_ms` review events from the Anki bridge (ART) and from palace walks (per-locus reveal time, the finer-grained successor of PWT); encode events per session (EPH) | RUS |
+| Accuracy | `hit`/`miss` review events from Anki (AFC) and palace walks; per-mode hit rates from `oracle::`/`grace::` tags | RPR, HMR, FCC |
+| Depth | `palace analyze` gives node counts for MGS candidates | MCD, MFC, CDT, the monthly belt test |
+| Durability | Anki's stats screen for MR; the `tools/meter-lifecycle/` sweep flags retirement candidates | 30CR, 90CR cold-recall tests |
+| Application | nothing yet | A48, APW, TA, PI via `meter emit -l performance -o produce` |
+| Process | `walk.started`/`walk.completed` events (PWC); `meter gate` and `meter encoder` suggest-then-confirm events (`gate_suggestion_override_rate`, `encoder_override_rate`) | PA, MGC, TU, WMR |
+
+Record a test result or a self-report with one `meter emit` on the `measurement` layer, naming the metric by its abbreviation so they list together later:
+
+```
+meter emit -l measurement -o self-report -t 30cr -v 0.62 --context '{"sampled":20,"correct":12}'
+meter log since 30 --layer measurement
+```
 
 The framework reads from the systems you're already running. **You don't
 add work — you add measurement over work that's already happening.**
@@ -395,7 +422,7 @@ Patterns that indicate something is wrong:
 
 1. **Six dimensions, independent. No single number captures learning quality.**
 2. **Daily log ≤ 30 seconds or it won't happen.**
-3. **Passive sources (Anki, palace walks) do most of the measuring.**
+3. **METER's event log does most of the measuring.** Anki reviews and palace walks stream in by themselves; you add one check-in and a few one-line emits.
 4. **Geometric mean prevents lopsided optimization.**
 5. **Process is the leading indicator.** When it slips, others follow in 2 weeks.
 6. **Application is the dimension most people ignore and it's the one that matters.**
