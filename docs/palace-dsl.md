@@ -426,13 +426,14 @@ Format: `?<verb> [args]`
 | `path` | `<from> <to>` | Shortest path between two nodes |
 | `filter` | Tag expression | Filtered node set |
 
-The `?path` verb requires exactly two whitespace-separated node references. Missing the second argument emits **E802 `query-path-missing-arg`**.
+The `?path` verb takes exactly two node references. Titles may contain spaces, so the parser tries every boundary between words and keeps the one where both sides are a known title or implicit id (`?path Gate of SOLID Dependency Tower` resolves to "Gate of SOLID" and "Dependency Tower"). Wrap a reference in double quotes to fix the boundary yourself (`?path "Gate of SOLID" dependency-tower`). Fewer than two references emits **E802 `query-path-missing-arg`**; more than one boundary resolving on both sides emits **W805 `query-path-ambiguous`** and the first is kept; a side that never resolves emits **W803**.
 
 Diagnostic codes:
 - **E801 `query-verb-unknown`** — verb is not in the recognised set
 - **E802 `query-path-missing-arg`** — `?path` missing one of its two arguments
 - **W803 `query-unresolved-node`** — node-targeting verb references an unknown node
 - **W804 `query-unresolved-route`** — `?route` references an unknown route
+- **W805 `query-path-ambiguous`** — `?path` splits into known nodes at more than one boundary; quote a reference
 
 ---
 
@@ -495,6 +496,7 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | E802 | `query-path-missing-arg` | error | `?path` requires two node references |
 | W803 | `query-unresolved-node` | warning | Query references an unknown node |
 | W804 | `query-unresolved-route` | warning | `?route` references an unknown route |
+| W805 | `query-path-ambiguous` | warning | `?path` resolves at more than one word boundary |
 
 ### Suggested Fixes
 

@@ -52,4 +52,5 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "query-path-missing-arg":     "E802",
   "query-unresolved-node":      "W803",
   "query-unresolved-route":     "W804",
+  "query-path-ambiguous":       "W805",
 };

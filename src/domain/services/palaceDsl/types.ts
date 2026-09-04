@@ -34,7 +34,8 @@ export type DslDiagnosticCode =
   | "query-verb-unknown"
   | "query-path-missing-arg"
   | "query-unresolved-node"
-  | "query-unresolved-route";
+  | "query-unresolved-route"
+  | "query-path-ambiguous";
 
 export interface SuggestedFix {
   description: string;
