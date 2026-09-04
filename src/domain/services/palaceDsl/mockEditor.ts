@@ -20,6 +20,31 @@ export interface MockBinding {
 const SHAPE_W = 180;
 const SHAPE_H = 100;
 
+function isJsonSerializable(value: unknown): boolean {
+  if (value === null) return true;
+  const type = typeof value;
+  if (type === "string" || type === "number" || type === "boolean") return true;
+  if (Array.isArray(value)) return value.every(isJsonSerializable);
+  if (type === "object") {
+    return Object.values(value as Record<string, unknown>).every(isJsonSerializable);
+  }
+  return false;
+}
+
+/**
+ * Mirrors tldraw's record validation: shape meta must be JSON-serializable,
+ * and an `undefined` value (which tldraw's meta merge copies verbatim) is
+ * rejected with the same message the real editor throws.
+ */
+function assertValidMeta(type: string, meta: MemoryPalaceMeta) {
+  for (const [key, value] of Object.entries(meta)) {
+    if (isJsonSerializable(value)) continue;
+    throw new Error(
+      `At shape(type = ${type}).meta: Expected json serializable value, got ${typeof value} (key "${key}")`,
+    );
+  }
+}
+
 export class MockEditor {
   private shapes = new Map<string, MockShape>();
   private bindings: MockBinding[] = [];
@@ -54,12 +79,14 @@ export class MockEditor {
     props?: Record<string, unknown>;
   }): void {
     if (shape.type !== "geo" && shape.type !== "arrow") return;
+    const meta = shape.meta ?? {};
+    assertValidMeta(shape.type, meta);
     this.shapes.set(shape.id, {
       id: shape.id,
       type: shape.type,
       x: shape.x ?? 0,
       y: shape.y ?? 0,
-      meta: shape.meta ?? {},
+      meta,
       props: shape.props ?? {},
     });
   }
@@ -76,7 +103,12 @@ export class MockEditor {
   }): void {
     const existing = this.shapes.get(patch.id);
     if (!existing) return;
-    if (patch.meta) existing.meta = { ...existing.meta, ...patch.meta };
+    if (patch.meta) {
+      // Same key-by-key merge as tldraw, including its validation.
+      const merged = { ...existing.meta, ...patch.meta };
+      assertValidMeta(existing.type, merged);
+      existing.meta = merged;
+    }
     if (patch.props) existing.props = { ...existing.props, ...patch.props };
   }
 

@@ -23,7 +23,9 @@ export function writeNodeDifficulty(
     if (override && Object.keys(override).length > 0) {
       nextMeta.mpDifficulty = override;
     } else {
-      delete nextMeta.mpDifficulty;
+      // tldraw merges meta key by key, so a missing key would leave the old
+      // override in place; `null` is the only way to clear it.
+      nextMeta.mpDifficulty = null;
     }
     editor.updateShape({
       id: shape.id as TLShapeId,

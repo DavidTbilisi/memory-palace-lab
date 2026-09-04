@@ -1,6 +1,8 @@
 import type { Editor } from "@tldraw/editor";
 import { describe, expect, it } from "vitest";
 import { MockEditor, type MockShape } from "./mockEditor";
+import { SOLID_CITADEL_DSL } from "./fixtures/solidCitadel.dsl";
+import { parseDsl } from "./parser";
 import { applyDslToCanvas } from "./sync";
 import type { DslNode, DslSnapshot } from "./types";
 
@@ -141,5 +143,55 @@ describe("applyDslToCanvas", () => {
     expect(after.mpNodeKind).toBe("portal");
     expect(after.mpPortalPalaceName).toBe("other");
     expect(after.mpTags).toEqual(["alpha", "beta"]);
+  });
+});
+
+describe("applyDslToCanvas meta hygiene", () => {
+  it("never writes undefined into meta for nodes without @image", () => {
+    const editor = new MockEditor();
+    applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("A")]));
+
+    const [shape] = shapesOf(editor);
+    expect(shape).toBeDefined();
+    expect(Object.keys(shape!.meta)).not.toContain("mpImageUrl");
+    expect(Object.values(shape!.meta)).not.toContain(undefined);
+  });
+
+  it("sets and then clears the image so the change survives tldraw's meta merge", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "A");
+
+    const withImage = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([memoryNode("A", { imageUrl: "https://img.example/a.png" })]),
+    );
+    expect(withImage.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpImageUrl).toBe("https://img.example/a.png");
+
+    const cleared = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("A")]));
+    expect(cleared.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpImageUrl).toBeNull();
+
+    const unchanged = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("A")]));
+    expect(unchanged.updated.nodes).toBe(0);
+  });
+
+  it("applies the SOLID Citadel document that used to crash", () => {
+    const { snapshot, diagnostics } = parseDsl(SOLID_CITADEL_DSL);
+    expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+
+    const editor = new MockEditor();
+    const result = applyDslToCanvas(asEditor(editor), PALACE_ID, snapshot);
+
+    expect(result.errors).toEqual([]);
+    expect(result.added.nodes).toBe(2);
+    const titles = shapesOf(editor)
+      .filter((s) => s.type === "geo")
+      .map((s) => s.meta.mpTitle)
+      .sort();
+    expect(titles).toEqual(["Gate of SOLID", "Single Responsibility Forge"]);
+    // Gate -> Forge exists; edges to undeclared nodes are skipped.
+    expect(shapesOf(editor).filter((s) => s.type === "arrow")).toHaveLength(1);
   });
 });

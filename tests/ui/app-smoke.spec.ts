@@ -258,3 +258,52 @@ test("palace background can be set, adjusted, locked, replaced, and removed", as
   expect((await probeBackground(page)).ids).toHaveLength(0);
   expect(await countNodeShapes(page)).toBe(nodeCount);
 });
+
+const SOLID_CITADEL_DSL = `@SOLID Citadel
+@atlas /engineering/oop
+
+~dep:0001 depends on
+!import shared.dsl as sh
+
+[gate] Gate of SOLID
+: Central fortress connecting five engineering districts.
+: Giant glowing word "SOLID" above the gate.
+#architecture #clean-code #solid #difficulty:beginner
+>Single Responsibility Forge 0001
+>Open Closed Library dep
+
+Single Responsibility Forge
+: Blacksmith focuses {#gate on the gate} — one thing only.
+#cohesion #maintenance #srp
+>Change Hydra 1000
+
+/SOLID Main Route
+#difficulty:beginner
+1 Gate of SOLID
+2 Single Responsibility Forge
+
+?tag difficulty:beginner
+?path Gate of SOLID Single Responsibility Forge
+`;
+
+test("DSL editor applies a document that creates new nodes", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /create tutorial palace/i }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+
+  await page.keyboard.press("Control+K");
+  await page.getByLabel("Command palette search").fill("dsl");
+  await page.getByRole("button", { name: /Toggle DSL editor/ }).click();
+  const dslEditor = page.getByTestId("palace-dsl-editor");
+  await expect(dslEditor).toBeVisible();
+
+  await dslEditor.locator(".cm-content").click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.insertText(SOLID_CITADEL_DSL);
+
+  const status = page.getByTestId("palace-dsl-status");
+  await expect.poll(() => countNodeShapes(page)).toBe(2);
+  await expect(status).toContainText("0 errors");
+  await expect(status).not.toContainText("apply failed");
+  await expect(status).toContainText(/last applied \d/);
+});

@@ -11,9 +11,11 @@ export type MemoryPalaceMeta = {
   mpTitle?: string;
   mpAlias?: string;
   mpContent?: string;
-  mpImageUrl?: string;
+  /** `null` clears an image; tldraw merges meta key by key, so absence cannot. */
+  mpImageUrl?: string | null;
   mpTags?: string[];
-  mpDifficulty?: NodeDifficultyOverride;
+  /** `null` clears an override, for the same reason as `mpImageUrl`. */
+  mpDifficulty?: NodeDifficultyOverride | null;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;
