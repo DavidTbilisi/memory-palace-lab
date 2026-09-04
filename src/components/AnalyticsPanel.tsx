@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, Brain, Clock3, Network, Settings2, ShieldCheck } from "lucide-react";
+import { requestNavigation } from "../app/navigationEvents";
+import {
+  Activity,
+  BarChart3,
+  Brain,
+  Clock3,
+  Network,
+  Settings2,
+  ShieldCheck,
+} from "lucide-react";
 import { summarizeAnalytics } from "../domain/services/analyticsService";
 import { analyzeGraph } from "../domain/services/cast/graphAnalysis";
-import { MOTIF_MOVES, detectMotifs, groupMotifs } from "../domain/services/cast/castMotifs";
+import {
+  MOTIF_MOVES,
+  detectMotifs,
+  groupMotifs,
+} from "../domain/services/cast/castMotifs";
 import {
   palaceSignature,
   topSimilarPalaces,
@@ -28,26 +41,20 @@ import { RetentionChart } from "./analytics/RetentionChart";
 import { ReviewHeatmap } from "./analytics/ReviewHeatmap";
 import { RecentEventsList } from "./analytics/RecentEventsList";
 
-const AI_KEY_STORAGE = "mp-ai-anthropic-key";
-
 export function AnalyticsPanel() {
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const loci = usePalaceStore((s) => s.loci);
-  const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
-  const setDailyReviewGoal = usePalaceStore((s) => s.setDailyReviewGoal);
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const palaces = usePalaceStore((s) => s.palaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
 
-  const [selectedPalaceFilter, setSelectedPalaceFilter] = useState<string>("all");
+  const [selectedPalaceFilter, setSelectedPalaceFilter] =
+    useState<string>("all");
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>("all");
-  const [anthropicKey, setAnthropicKey] = useState(() =>
-    typeof window === "undefined" ? "" : window.localStorage.getItem(AI_KEY_STORAGE) ?? "",
-  );
 
   useEffect(() => {
     if (!analyticsLoaded) {
@@ -55,31 +62,30 @@ export function AnalyticsPanel() {
     }
   }, [analyticsLoaded, loadAnalyticsEvents]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const trimmed = anthropicKey.trim();
-    if (!trimmed) {
-      window.localStorage.removeItem(AI_KEY_STORAGE);
-      return;
-    }
-    window.localStorage.setItem(AI_KEY_STORAGE, trimmed);
-  }, [anthropicKey]);
-
-  const allSummary = useMemo(() => summarizeAnalytics(analyticsEvents), [analyticsEvents]);
-  const recentEvents = useMemo(() => analyticsEvents.slice(0, 12), [analyticsEvents]);
+  const allSummary = useMemo(
+    () => summarizeAnalytics(analyticsEvents),
+    [analyticsEvents],
+  );
+  const recentEvents = useMemo(
+    () => analyticsEvents.slice(0, 12),
+    [analyticsEvents],
+  );
   const filter = useMemo(
     () => ({
-      palaceId: selectedPalaceFilter === "all" ? undefined : selectedPalaceFilter,
+      palaceId:
+        selectedPalaceFilter === "all" ? undefined : selectedPalaceFilter,
       routeId: selectedRouteFilter === "all" ? undefined : selectedRouteFilter,
     }),
     [selectedPalaceFilter, selectedRouteFilter],
   );
 
-  const { retentionSeries, trendDown, heatmapCells, dueCount, averageInterval } = useReviewMetrics(
-    analyticsEvents,
-    loci,
-    filter,
-  );
+  const {
+    retentionSeries,
+    trendDown,
+    heatmapCells,
+    dueCount,
+    averageInterval,
+  } = useReviewMetrics(analyticsEvents, loci, filter);
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -111,7 +117,9 @@ export function AnalyticsPanel() {
   } = useGraphAnalysis(palaceNodes, palaceEdges, currentPalace);
 
   const [otherSignatures, setOtherSignatures] = useState<PalaceSignature[]>([]);
-  const [comparisonFrom, setComparisonFrom] = useState<PalaceSignature | null>(null);
+  const [comparisonFrom, setComparisonFrom] = useState<PalaceSignature | null>(
+    null,
+  );
 
   const onClickSimilarPalace = (target: PalaceSignature) => {
     if (!currentSignature) return;
@@ -167,21 +175,55 @@ export function AnalyticsPanel() {
     void openPalace(record.palaceId);
   };
 
-  const sharedAnchorsForAAR = (recordInstances: AARSignatureSnapshot["motifInstances"]) => {
+  const sharedAnchorsForAAR = (
+    recordInstances: AARSignatureSnapshot["motifInstances"],
+  ) => {
     if (!recordInstances || !currentMotifInstances) return null;
     const out: { kind: string; anchors: string[] }[] = [];
-    const pairs: { key: keyof typeof currentMotifInstances; label: string; pick: (i: { hub?: string; node?: string; source?: string; sink?: string; nodes?: string[] }) => string[] }[] = [
-      { key: "hubSpoke", label: "hub-spoke", pick: (i) => (i.hub ? [i.hub] : []) },
-      { key: "bottleneck", label: "bottleneck", pick: (i) => (i.node ? [i.node] : []) },
-      { key: "diamond", label: "diamond", pick: (i) => [i.source ?? "", i.sink ?? ""].filter(Boolean) },
+    const pairs: {
+      key: keyof typeof currentMotifInstances;
+      label: string;
+      pick: (i: {
+        hub?: string;
+        node?: string;
+        source?: string;
+        sink?: string;
+        nodes?: string[];
+      }) => string[];
+    }[] = [
+      {
+        key: "hubSpoke",
+        label: "hub-spoke",
+        pick: (i) => (i.hub ? [i.hub] : []),
+      },
+      {
+        key: "bottleneck",
+        label: "bottleneck",
+        pick: (i) => (i.node ? [i.node] : []),
+      },
+      {
+        key: "diamond",
+        label: "diamond",
+        pick: (i) => [i.source ?? "", i.sink ?? ""].filter(Boolean),
+      },
     ];
     for (const pair of pairs) {
       const recAnchors = new Set<string>();
-      for (const inst of recordInstances[pair.key] as { hub?: string; node?: string; source?: string; sink?: string }[]) {
+      for (const inst of recordInstances[pair.key] as {
+        hub?: string;
+        node?: string;
+        source?: string;
+        sink?: string;
+      }[]) {
         for (const v of pair.pick(inst)) recAnchors.add(v);
       }
       const curAnchors = new Set<string>();
-      for (const inst of currentMotifInstances[pair.key] as { hub?: string; node?: string; source?: string; sink?: string }[]) {
+      for (const inst of currentMotifInstances[pair.key] as {
+        hub?: string;
+        node?: string;
+        source?: string;
+        sink?: string;
+      }[]) {
         for (const v of pair.pick(inst)) curAnchors.add(v);
       }
       const shared = [...curAnchors].filter((v) => recAnchors.has(v));
@@ -201,7 +243,10 @@ export function AnalyticsPanel() {
     const handle = window.setTimeout(() => {
       const el = document.querySelector(`[data-aar-id="${focusedAARId}"]`);
       if (el && "scrollIntoView" in el) {
-        (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+        (el as HTMLElement).scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }, 250);
     const clear = window.setTimeout(() => setFocusedAARId(null), 4000);
@@ -215,7 +260,9 @@ export function AnalyticsPanel() {
     return {
       nodeCount: graphAnalysis.nodeCount,
       edgeCount: graphAnalysis.edgeCount,
-      motifKindsPresent: currentSignature ? [...currentSignature.motifKindsPresent] : [],
+      motifKindsPresent: currentSignature
+        ? [...currentSignature.motifKindsPresent]
+        : [],
       motifCounts: {
         cascade: motifGroups.cascade.length,
         diamond: motifGroups.diamond.length,
@@ -245,7 +292,10 @@ export function AnalyticsPanel() {
           if (!snap) continue;
           const input = {
             nodes: snap.nodes.map((n) => ({ id: n.id })),
-            edges: snap.edges.map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId })),
+            edges: snap.edges.map((e) => ({
+              sourceNodeId: e.sourceNodeId,
+              targetNodeId: e.targetNodeId,
+            })),
           };
           const analysis = analyzeGraph(input);
           const groups = groupMotifs(detectMotifs(input));
@@ -276,8 +326,9 @@ export function AnalyticsPanel() {
           Insights
         </div>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-400">
-          Local-first telemetry for encoding and retrieval. This dashboard includes retention trends, consistency
-          heatmaps, and scheduling health.
+          Local-first telemetry for encoding and retrieval. This dashboard
+          includes retention trends, consistency heatmaps, and scheduling
+          health.
         </p>
       </div>
 
@@ -296,7 +347,11 @@ export function AnalyticsPanel() {
           </div>
         ) : null}
         <div className="grid gap-3 md:grid-cols-5">
-          <StatCard icon={<Activity className="h-3.5 w-3.5" />} label="Total events" value={String(allSummary.totalEvents)} />
+          <StatCard
+            icon={<Activity className="h-3.5 w-3.5" />}
+            label="Total events"
+            value={String(allSummary.totalEvents)}
+          />
           <StatCard
             icon={<Brain className="h-3.5 w-3.5" />}
             label="Review ratings"
@@ -306,10 +361,18 @@ export function AnalyticsPanel() {
           <StatCard
             icon={<Clock3 className="h-3.5 w-3.5" />}
             label="Avg reveal time"
-            value={allSummary.averageRecallLatencyMs === null ? "n/a" : `${allSummary.averageRecallLatencyMs} ms`}
+            value={
+              allSummary.averageRecallLatencyMs === null
+                ? "n/a"
+                : `${allSummary.averageRecallLatencyMs} ms`
+            }
             tone="emerald"
           />
-          <StatCard icon={<Clock3 className="h-3.5 w-3.5" />} label="Due loci" value={String(dueCount)} />
+          <StatCard
+            icon={<Clock3 className="h-3.5 w-3.5" />}
+            label="Due loci"
+            value={String(dueCount)}
+          />
           <StatCard
             icon={<Clock3 className="h-3.5 w-3.5" />}
             label="Avg interval"
@@ -339,44 +402,60 @@ export function AnalyticsPanel() {
             ) : null}
           </div>
           <p className="mt-1 text-xs text-zinc-500">
-            Before encoding scenes, see the topology. Hubs anchor recall; bridges flag fragile cross-cluster
-            connections; SCCs are feedback loops worth special handling.
+            Before encoding scenes, see the topology. Hubs anchor recall;
+            bridges flag fragile cross-cluster connections; SCCs are feedback
+            loops worth special handling.
           </p>
           {graphAnalysis.nodeCount === 0 ? (
             <div className="mt-3 rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 px-3 py-6 text-sm text-zinc-500">
-              No nodes in this palace yet. Add nodes and edges to see the graph shape.
+              No nodes in this palace yet. Add nodes and edges to see the graph
+              shape.
             </div>
           ) : (
             <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="rounded border border-zinc-800 bg-zinc-950/40 p-2">
-                <div className="text-[11px] uppercase tracking-wide text-zinc-400">Size</div>
+                <div className="text-[11px] uppercase tracking-wide text-zinc-400">
+                  Size
+                </div>
                 <div className="mt-1 text-sm text-zinc-100">
-                  {graphAnalysis.nodeCount} nodes · {graphAnalysis.edgeCount} edges
+                  {graphAnalysis.nodeCount} nodes · {graphAnalysis.edgeCount}{" "}
+                  edges
                 </div>
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950/40 p-2">
-                <div className="text-[11px] uppercase tracking-wide text-zinc-400">Top hubs (in-degree)</div>
+                <div className="text-[11px] uppercase tracking-wide text-zinc-400">
+                  Top hubs (in-degree)
+                </div>
                 {topHubs.length === 0 ? (
-                  <div className="mt-1 text-xs text-zinc-500">No incoming edges yet.</div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    No incoming edges yet.
+                  </div>
                 ) : (
                   <ul className="mt-1 space-y-0.5 text-xs text-zinc-200">
                     {topHubs.map((h) => (
                       <li key={h.id}>
-                        <span className="text-violet-300">{h.value}</span> ← {nodeTitleById.get(h.id) ?? h.id}
+                        <span className="text-violet-300">{h.value}</span> ←{" "}
+                        {nodeTitleById.get(h.id) ?? h.id}
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950/40 p-2">
-                <div className="text-[11px] uppercase tracking-wide text-zinc-400">Top betweenness</div>
+                <div className="text-[11px] uppercase tracking-wide text-zinc-400">
+                  Top betweenness
+                </div>
                 {topBetween.length === 0 ? (
-                  <div className="mt-1 text-xs text-zinc-500">No paths through any node yet.</div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    No paths through any node yet.
+                  </div>
                 ) : (
                   <ul className="mt-1 space-y-0.5 text-xs text-zinc-200">
                     {topBetween.map((b) => (
                       <li key={b.id}>
-                        <span className="text-emerald-300">{b.value.toFixed(1)}</span>{" "}
+                        <span className="text-emerald-300">
+                          {b.value.toFixed(1)}
+                        </span>{" "}
                         {nodeTitleById.get(b.id) ?? b.id}
                       </li>
                     ))}
@@ -384,14 +463,20 @@ export function AnalyticsPanel() {
                 )}
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950/40 p-2">
-                <div className="text-[11px] uppercase tracking-wide text-zinc-400">Loops & bridges</div>
+                <div className="text-[11px] uppercase tracking-wide text-zinc-400">
+                  Loops & bridges
+                </div>
                 <div className="mt-1 space-y-0.5 text-xs text-zinc-200">
                   <div>
-                    <span className="text-amber-300">{graphAnalysis.bridges.length}</span> bridge
+                    <span className="text-amber-300">
+                      {graphAnalysis.bridges.length}
+                    </span>{" "}
+                    bridge
                     {graphAnalysis.bridges.length === 1 ? "" : "s"}
                   </div>
                   <div>
-                    <span className="text-amber-300">{nonTrivialSccCount}</span> feedback loop
+                    <span className="text-amber-300">{nonTrivialSccCount}</span>{" "}
+                    feedback loop
                     {nonTrivialSccCount === 1 ? "" : "s"}
                     {largestScc > 1 ? ` · largest ${largestScc}` : ""}
                   </div>
@@ -399,12 +484,13 @@ export function AnalyticsPanel() {
               </div>
               {graphAnalysis.bridges.length > 0 ? (
                 <div className="md:col-span-2 lg:col-span-4 rounded border border-amber-800/40 bg-amber-950/20 p-2">
-                  <div className="text-[11px] uppercase tracking-wide text-amber-200">Bridge edges</div>
+                  <div className="text-[11px] uppercase tracking-wide text-amber-200">
+                    Bridge edges
+                  </div>
                   <ul className="mt-1 grid gap-0.5 text-xs text-amber-100/90 sm:grid-cols-2">
                     {graphAnalysis.bridges.map((b) => (
                       <li key={`${b.sourceNodeId}->${b.targetNodeId}`}>
-                        {nodeTitleById.get(b.sourceNodeId) ?? b.sourceNodeId}
-                        {" "}↔{" "}
+                        {nodeTitleById.get(b.sourceNodeId) ?? b.sourceNodeId} ↔{" "}
                         {nodeTitleById.get(b.targetNodeId) ?? b.targetNodeId}
                       </li>
                     ))}
@@ -426,11 +512,14 @@ export function AnalyticsPanel() {
                           Cascades ({motifGroups.cascade.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.cascade.label} — {MOTIF_MOVES.cascade.hint}
+                          {MOTIF_MOVES.cascade.label} —{" "}
+                          {MOTIF_MOVES.cascade.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.cascade.map((m, i) => (
-                            <li key={`cas-${i}`}>{m.nodeIds.map(renderTitle).join(" → ")}</li>
+                            <li key={`cas-${i}`}>
+                              {m.nodeIds.map(renderTitle).join(" → ")}
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -441,13 +530,14 @@ export function AnalyticsPanel() {
                           Diamonds ({motifGroups.diamond.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.diamond.label} — {MOTIF_MOVES.diamond.hint}
+                          {MOTIF_MOVES.diamond.label} —{" "}
+                          {MOTIF_MOVES.diamond.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.diamond.map((m, i) => (
                             <li key={`dia-${i}`}>
-                              {renderTitle(m.source)} ⇉ {renderTitle(m.left)}/{renderTitle(m.right)} ⇉{" "}
-                              {renderTitle(m.sink)}
+                              {renderTitle(m.source)} ⇉ {renderTitle(m.left)}/
+                              {renderTitle(m.right)} ⇉ {renderTitle(m.sink)}
                             </li>
                           ))}
                         </ul>
@@ -459,7 +549,8 @@ export function AnalyticsPanel() {
                           Hub-spokes ({motifGroups.hubSpoke.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.hubSpoke.label} — {MOTIF_MOVES.hubSpoke.hint}
+                          {MOTIF_MOVES.hubSpoke.label} —{" "}
+                          {MOTIF_MOVES.hubSpoke.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.hubSpoke.map((m, i) => (
@@ -478,11 +569,14 @@ export function AnalyticsPanel() {
                           Feedback loops ({motifGroups.feedbackLoop.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.feedbackLoop.label} — {MOTIF_MOVES.feedbackLoop.hint}
+                          {MOTIF_MOVES.feedbackLoop.label} —{" "}
+                          {MOTIF_MOVES.feedbackLoop.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.feedbackLoop.map((m, i) => (
-                            <li key={`loop-${i}`}>{m.nodeIds.map(renderTitle).join(" → ")} →</li>
+                            <li key={`loop-${i}`}>
+                              {m.nodeIds.map(renderTitle).join(" → ")} →
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -493,15 +587,21 @@ export function AnalyticsPanel() {
                           Bottlenecks ({motifGroups.bottleneck.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.bottleneck.label} — {MOTIF_MOVES.bottleneck.hint}
+                          {MOTIF_MOVES.bottleneck.label} —{" "}
+                          {MOTIF_MOVES.bottleneck.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.bottleneck.map((m, i) => (
                             <li key={`btl-${i}`}>
-                              <span className="text-violet-200">{renderTitle(m.node)}</span>
-                              {" "}splits into{" "}
+                              <span className="text-violet-200">
+                                {renderTitle(m.node)}
+                              </span>{" "}
+                              splits into{" "}
                               {m.isolatedSides
-                                .map((side) => `{${side.map(renderTitle).join(", ")}}`)
+                                .map(
+                                  (side) =>
+                                    `{${side.map(renderTitle).join(", ")}}`,
+                                )
                                 .join(" / ")}
                             </li>
                           ))}
@@ -514,7 +614,8 @@ export function AnalyticsPanel() {
                           Bipartite ({motifGroups.bipartite.length})
                         </div>
                         <div className="mt-0.5 text-[11px] italic text-violet-300/80">
-                          {MOTIF_MOVES.bipartite.label} — {MOTIF_MOVES.bipartite.hint}
+                          {MOTIF_MOVES.bipartite.label} —{" "}
+                          {MOTIF_MOVES.bipartite.hint}
                         </div>
                         <ul className="mt-0.5 space-y-0.5">
                           {motifGroups.bipartite.map((m, i) => (
@@ -538,7 +639,8 @@ export function AnalyticsPanel() {
                     Similar palaces · reduce to a known problem
                   </div>
                   <div className="mt-0.5 text-[11px] italic text-emerald-300/80">
-                    Click to jump — the strategies that worked there may transfer here.
+                    Click to jump — the strategies that worked there may
+                    transfer here.
                   </div>
                   <ul className="mt-1 grid gap-0.5 text-xs text-emerald-100/90 sm:grid-cols-2">
                     {similarPalaces.map((entry) => (
@@ -555,7 +657,8 @@ export function AnalyticsPanel() {
                             {entry.signature.palaceName}
                           </span>{" "}
                           <span className="text-emerald-100/70">
-                            ({entry.signature.nodeCount}n · {entry.signature.edgeCount}e)
+                            ({entry.signature.nodeCount}n ·{" "}
+                            {entry.signature.edgeCount}e)
                           </span>
                         </button>
                       </li>
@@ -571,18 +674,24 @@ export function AnalyticsPanel() {
                 >
                   <div>
                     <div className="font-medium text-emerald-100">
-                      Comparing to <span className="text-emerald-50">{comparisonFrom!.palaceName}</span>
+                      Comparing to{" "}
+                      <span className="text-emerald-50">
+                        {comparisonFrom!.palaceName}
+                      </span>
                     </div>
                     {sharedMotifKinds.length > 0 ? (
                       <div className="mt-0.5 text-emerald-100/90">
                         Both palaces share these motif kinds:{" "}
-                        <span className="font-medium">{sharedMotifKinds.join(", ")}</span>. Look for
-                        moves you used there.
+                        <span className="font-medium">
+                          {sharedMotifKinds.join(", ")}
+                        </span>
+                        . Look for moves you used there.
                       </div>
                     ) : (
                       <div className="mt-0.5 text-emerald-100/80">
-                        No shared named motifs — the structural match is in the metrics, not the
-                        named patterns. Look at degree distribution and bridge count for the analogy.
+                        No shared named motifs — the structural match is in the
+                        metrics, not the named patterns. Look at degree
+                        distribution and bridge count for the analogy.
                       </div>
                     )}
                   </div>
@@ -612,7 +721,9 @@ export function AnalyticsPanel() {
                           key={rec.id}
                           data-aar-id={rec.id}
                           className={`rounded transition-shadow ${
-                            isFocused ? "ring-2 ring-sky-300 shadow-[0_0_0_2px_rgba(125,211,252,0.25)]" : ""
+                            isFocused
+                              ? "ring-2 ring-sky-300 shadow-[0_0_0_2px_rgba(125,211,252,0.25)]"
+                              : ""
                           }`}
                         >
                           <button
@@ -631,7 +742,8 @@ export function AnalyticsPanel() {
                             </div>
                             {rec.adjustment ? (
                               <div className="mt-0.5 text-[11px] text-sky-100/80">
-                                <span className="text-sky-300">Next time:</span> {rec.adjustment}
+                                <span className="text-sky-300">Next time:</span>{" "}
+                                {rec.adjustment}
                               </div>
                             ) : null}
                           </button>
@@ -650,12 +762,14 @@ export function AnalyticsPanel() {
                     Related AARs · past solutions for similar shapes
                   </div>
                   <div className="mt-0.5 text-[11px] italic text-fuchsia-300/80">
-                    These records were closed on palaces whose graph shape resembled this one — the
-                    takeaway probably still applies.
+                    These records were closed on palaces whose graph shape
+                    resembled this one — the takeaway probably still applies.
                   </div>
                   <ul className="mt-1 grid gap-1 text-xs text-fuchsia-100/90 sm:grid-cols-2">
                     {relatedAARs.map((entry) => {
-                      const shared = sharedAnchorsForAAR(entry.record.signature.motifInstances);
+                      const shared = sharedAnchorsForAAR(
+                        entry.record.signature.motifInstances,
+                      );
                       return (
                         <li key={entry.record.id}>
                           <button
@@ -669,17 +783,25 @@ export function AnalyticsPanel() {
                                 {entry.record.takeaway || "(no takeaway)"}
                               </span>
                               <span className="text-[10px] text-fuchsia-300">
-                                {Math.round(entry.score * 100)}% · {entry.record.palaceName}
+                                {Math.round(entry.score * 100)}% ·{" "}
+                                {entry.record.palaceName}
                               </span>
                             </div>
                             {shared ? (
                               <div className="mt-0.5 text-[11px] text-fuchsia-200">
-                                {shared.map((s) => `shared ${s.kind}: ${s.anchors.join(", ")}`).join(" · ")}
+                                {shared
+                                  .map(
+                                    (s) =>
+                                      `shared ${s.kind}: ${s.anchors.join(", ")}`,
+                                  )
+                                  .join(" · ")}
                               </div>
                             ) : null}
                             {entry.record.adjustment ? (
                               <div className="mt-0.5 text-[11px] text-fuchsia-100/80">
-                                <span className="text-fuchsia-300">Next time:</span>{" "}
+                                <span className="text-fuchsia-300">
+                                  Next time:
+                                </span>{" "}
                                 {entry.record.adjustment}
                               </div>
                             ) : null}
@@ -694,46 +816,31 @@ export function AnalyticsPanel() {
           )}
         </section>
 
-        <section className="mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-          <div id="insights-settings" className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-              <Settings2 className="h-4 w-4 text-violet-300" />
-              Review Settings
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-              <div className="flex items-center gap-2">
-                <span>Daily loci goal</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={dailyReviewGoal}
-                  onChange={(event) => setDailyReviewGoal(Number(event.target.value))}
-                  className="h-8 w-20 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span>Anthropic API key</span>
-                <input
-                  type="password"
-                  value={anthropicKey}
-                  onChange={(event) => setAnthropicKey(event.target.value)}
-                  className="h-8 w-56 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
-                  placeholder="sk-ant-..."
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+        <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+          <Settings2 className="h-3.5 w-3.5 text-violet-300" />
+          The daily review goal and the Anthropic API key moved to{" "}
+          <button
+            type="button"
+            className="text-violet-300 underline-offset-2 hover:underline"
+            onClick={() => requestNavigation("settings")}
+          >
+            Settings
+          </button>
+          .
+        </div>
 
         <section className="mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-sm font-medium text-zinc-100">Memory Strength Over Time</div>
+            <div className="text-sm font-medium text-zinc-100">
+              Memory Strength Over Time
+            </div>
             <div className="flex flex-wrap gap-2">
               <select
                 className="h-8 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
                 value={selectedPalaceFilter}
-                onChange={(event) => setSelectedPalaceFilter(event.target.value)}
+                onChange={(event) =>
+                  setSelectedPalaceFilter(event.target.value)
+                }
                 aria-label="Filter retention by palace"
               >
                 <option value="all">All palaces</option>
@@ -762,7 +869,9 @@ export function AnalyticsPanel() {
         </section>
 
         <section className="mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-          <div className="text-sm font-medium text-zinc-100">Review Consistency (52 weeks)</div>
+          <div className="text-sm font-medium text-zinc-100">
+            Review Consistency (52 weeks)
+          </div>
           <ReviewHeatmap cells={heatmapCells} />
         </section>
 
@@ -773,18 +882,34 @@ export function AnalyticsPanel() {
               What is tracked
             </div>
             <ul className="mt-3 space-y-1 text-sm text-zinc-300">
-              <li>- Palace lifecycle: created, opened, draft-saved, checkpoint-saved.</li>
-              <li>- Graph work: node create/update, edge create/update, route create, locus add/update.</li>
-              <li>- Review flow: walk start, step changes, answer reveals, recall ratings, walk close.</li>
-              <li>- theSystem runs: pipeline materialization into graph structure.</li>
+              <li>
+                - Palace lifecycle: created, opened, draft-saved,
+                checkpoint-saved.
+              </li>
+              <li>
+                - Graph work: node create/update, edge create/update, route
+                create, locus add/update.
+              </li>
+              <li>
+                - Review flow: walk start, step changes, answer reveals, recall
+                ratings, walk close.
+              </li>
+              <li>
+                - theSystem runs: pipeline materialization into graph structure.
+              </li>
             </ul>
             <div className="mt-3 text-xs text-zinc-500">
-              Palace: {currentPalace ? currentPalace.name : "Open a palace to inspect palace-scoped metrics."}
+              Palace:{" "}
+              {currentPalace
+                ? currentPalace.name
+                : "Open a palace to inspect palace-scoped metrics."}
             </div>
           </section>
 
           <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-            <div className="text-sm font-medium text-zinc-100">Recent events</div>
+            <div className="text-sm font-medium text-zinc-100">
+              Recent events
+            </div>
             <div className="mt-3 space-y-2">
               <RecentEventsList events={recentEvents} />
             </div>

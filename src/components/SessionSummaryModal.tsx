@@ -3,6 +3,8 @@ import { ArrowRight, CheckCircle2, Trophy } from "lucide-react";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { computeDailyStreak, countReviewedToday } from "../domain/services/reviewMetrics";
+import { startReviewAt } from "../app/reviewNavigation";
+import { useDueQueue } from "./hooks/useDueQueue";
 
 type Props = {
   onReviewAnother: () => void;
@@ -14,6 +16,8 @@ export function SessionSummaryModal({ onReviewAnother, onBackToPalace }: Props) 
   const dismissWalkSummary = usePalaceStore((s) => s.dismissWalkSummary);
   const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
   const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
+  const { items: dueItems } = useDueQueue();
+  const nextDue = dueItems.find((item) => item.routeId !== walkSummary?.routeId) ?? dueItems[0] ?? null;
 
   const streak = useMemo(() => computeDailyStreak(analyticsEvents), [analyticsEvents]);
   const reviewedToday = useMemo(() => countReviewedToday(analyticsEvents), [analyticsEvents]);
@@ -68,11 +72,20 @@ export function SessionSummaryModal({ onReviewAnother, onBackToPalace }: Props) 
             variant="secondary"
             onClick={() => {
               dismissWalkSummary();
+              if (nextDue) {
+                void startReviewAt({
+                  palaceId: nextDue.palaceId,
+                  routeId: nextDue.routeId,
+                  locusId: nextDue.locusId,
+                  nodeId: nextDue.nodeId,
+                });
+                return;
+              }
               onReviewAnother();
             }}
           >
             <ArrowRight className="h-4 w-4" />
-            Review another route
+            {nextDue ? "Review next due" : "Review another route"}
           </Button>
           <Button
             type="button"

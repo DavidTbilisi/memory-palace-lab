@@ -28,7 +28,7 @@ export function GraphEmptyState({
           </Button>
           <Button type="button" variant="secondary" onClick={onOpenHelp}>
             <BookOpen className="h-4 w-4" />
-            Open help
+            Open Library
           </Button>
           <Button type="button" variant="outline" onClick={onOpenCommandPalette}>
             <Search className="h-4 w-4" />

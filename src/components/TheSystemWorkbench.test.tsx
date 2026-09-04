@@ -6,9 +6,6 @@ import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 // Mock the store
 vi.mock("../store/palaceStore");
-vi.mock("./TheSystemLibrary", () => ({
-  TheSystemLibrary: () => <div data-testid="system-library">Docs</div>,
-}));
 
 describe("TheSystemWorkbench - Page Overflow (#10)", () => {
   beforeEach(() => {
@@ -20,6 +17,8 @@ describe("TheSystemWorkbench - Page Overflow (#10)", () => {
         selectedShapeId: null,
         replaceRoutesAndLoci: vi.fn(),
         recordAnalyticsEvent: vi.fn(),
+        systemDraftTemplate: null,
+        setRoutePanelOpen: vi.fn(),
       };
       return selector(state as unknown as PalaceStore);
     });
@@ -65,17 +64,46 @@ describe("TheSystemWorkbench - Page Overflow (#10)", () => {
     });
   });
 
-  describe("Docs page scrolling", () => {
-    it("should display docs page with full scrollable content", async () => {
-      const user = userEvent.setup();
+  describe("Document draft", () => {
+    it("preselects a pipeline sent from the Library and labels it as a document", () => {
+      vi.mocked(usePalaceStore).mockImplementation((selector) =>
+        selector({
+          currentPalace: null,
+          editorRef: null,
+          selectedShapeId: null,
+          replaceRoutesAndLoci: vi.fn(),
+          recordAnalyticsEvent: vi.fn(),
+          setRoutePanelOpen: vi.fn(),
+          systemDraftTemplate: {
+            id: "doc:navigator",
+            category: "Document",
+            title: "NAVIGATOR (doc)",
+            shortTitle: "NAVIGATOR (doc)",
+            summary: "From the Library.",
+            recommendedFor: "Docs",
+            routeName: "NAVIGATOR walk",
+            overviewLabel: "Document overview",
+            docsSlug: "navigator",
+            steps: [{ id: "s1", code: "01", title: "Narrow", prompt: "Pick one question.", placeholder: "", hint: "" }],
+          },
+        } as unknown as PalaceStore),
+      );
       render(<TheSystemWorkbench />);
+      expect(screen.getByText("From document")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "NAVIGATOR (doc)" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Narrow notes")).toBeInTheDocument();
+    });
+  });
 
-      const docsButton = screen.getAllByText("Docs")[0]; // Get the button, not the span
-      await user.click(docsButton);
+  describe("Guide link", () => {
+    it("opens the selected pipeline's guide in the Library", async () => {
+      const user = userEvent.setup();
+      const onOpenGuide = vi.fn();
+      render(<TheSystemWorkbench onOpenGuide={onOpenGuide} />);
 
-      // Docs container should be scrollable
-      const docsContainer = screen.getByTestId("system-library").parentElement;
-      expect(docsContainer?.className).toMatch(/overflow-y-auto|flex-1/);
+      await user.click(screen.getAllByRole("button", { name: /Read the guide/ })[0]);
+      expect(onOpenGuide).toHaveBeenCalledWith("navigator");
+      expect(screen.queryByRole("button", { name: "Docs", exact: true })).not.toBeInTheDocument();
     });
   });
 

@@ -10,6 +10,7 @@ vi.mock("./PalaceDslEditor", () => ({ PalaceDslEditor: () => <div data-testid="d
 vi.mock("./PalaceToolbar", () => ({ PalaceToolbar: () => <div data-testid="toolbar" /> }));
 vi.mock("./RoutePanel", () => ({ RoutePanel: () => <div data-testid="route-panel" /> }));
 vi.mock("./WalkModeBar", () => ({ WalkModeBar: () => <div data-testid="walk-bar" /> }));
+vi.mock("./NextUpCard", () => ({ NextUpCard: () => <div data-testid="next-up" /> }));
 vi.mock("./GraphEmptyState", () => ({ GraphEmptyState: () => <div data-testid="empty-state" /> }));
 
 function mockStore(overrides: Partial<Record<keyof PalaceStore, unknown>> = {}) {

@@ -11,6 +11,8 @@ It combines an infinite canvas, CAST semantic edges, route-based recall, spaced 
 - Use a due-based review queue that prioritizes weak or unseen loci.
 - Track local telemetry in the Insights page (node/edge/route/review/session events).
 - Run theSystem pipelines and materialize them into ready-to-walk graph runs.
+- Read everything in one Library: first-session lessons, the curated theSystem guides, the Neural OS wiki mirror, the glossary with the bilingual CAST lexicon, and the Palace DSL reference.
+- Keep preferences in one Settings page: review goal, AI key, idle tips, atlas terminology, backup/restore, updates.
 - Organize multiple palaces with Atlas hierarchy paths (`Domain/Place/Section`).
 - Use portal nodes to jump between palaces and start linked routes.
 - Work safely with draft autosave and explicit save checkpoints.
@@ -35,11 +37,11 @@ It combines an infinite canvas, CAST semantic edges, route-based recall, spaced 
 ### Atlas hierarchy
 ![Atlas hierarchy](docs/screenshots/06-atlas.png)
 
-### Routes editor
+### Routes (in-canvas route panel)
 ![Routes editor](docs/screenshots/07-routes.png)
 
-### Help center
-![Help center](docs/screenshots/08-help-center.png)
+### Library (lessons, guides, wiki, glossary, reference)
+![Library](docs/screenshots/08-help-center.png)
 
 ## Tech Stack
 

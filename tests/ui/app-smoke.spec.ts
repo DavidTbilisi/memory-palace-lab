@@ -26,9 +26,10 @@ test("shell pages and layout workflow", async ({ page }) => {
   await expect(page.getByText("Memory Palace Lab")).toBeVisible();
   await page.getByRole("button", { name: /^System$/ }).click();
   await expect(page.getByText("graph-native thinking workflows")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Pipelines" })).toBeVisible();
-  await page.getByRole("button", { name: "Docs", exact: true }).click();
-  await expect(page.getByLabel("Search theSystem")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Comprehension Protocol" })).toBeVisible();
+  await page.getByRole("button", { name: /Read the guide/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(page.getByLabel("Search the Library")).toBeVisible();
   await expect(page.getByRole("heading", { name: /NAVIGATOR/ })).toBeVisible();
   await expect(page.locator("#the-system-doc-content")).toContainText("Acronym = order");
   await expect(page.getByRole("tablist", { name: "Document sections" })).toBeVisible();
@@ -36,8 +37,8 @@ test("shell pages and layout workflow", async ({ page }) => {
   await expect(page.locator("#the-system-doc-content")).toContainText("Success criteria");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Phases" })).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("button", { name: /^Help$/ }).click();
-  await expect(page.getByText("Help Center")).toBeVisible();
+  await page.getByRole("tab", { name: "Start here" }).click();
+  await expect(page.getByText("Lesson 1 - Build your first palace")).toBeVisible();
 
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
@@ -50,10 +51,10 @@ test("shell pages and layout workflow", async ({ page }) => {
   await expect(page.getByLabel("Active route")).toContainText("Smoke Route");
 
   await page.locator('button[title="Focus mode"]').click();
-  await expect(page.getByText("Atlas", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Palaces" })).toHaveCount(0);
 
   await page.locator('button[title="Balanced layout"]').click();
-  await expect(page.getByText("Atlas", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Palaces" })).toBeVisible();
 
   await page.getByRole("button", { name: "Reset", exact: true }).click();
 });
@@ -63,9 +64,9 @@ test("command palette opens pages and runs graph actions", async ({ page }) => {
 
   await page.keyboard.press("Control+K");
   await expect(page.getByLabel("Command palette search")).toBeVisible();
-  await page.getByLabel("Command palette search").fill("help");
-  await page.getByRole("button", { name: "Open Help Guides, examples, and onboarding" }).click();
-  await expect(page.getByText("Help Center")).toBeVisible();
+  await page.getByLabel("Command palette search").fill("library");
+  await page.getByRole("button", { name: "Open Library Guides, wiki, glossary, and lessons" }).click();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
 
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();

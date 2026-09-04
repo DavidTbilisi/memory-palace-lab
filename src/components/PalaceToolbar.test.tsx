@@ -100,4 +100,34 @@ describe("PalaceToolbar", () => {
     expect(screen.getByText("Step 2: pick target")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pick a different source node/i })).toBeInTheDocument();
   });
+
+  it("exposes a DSL editor toggle with its shortcut in the tooltip", async () => {
+    const setDslPaneOpen = vi.fn();
+    vi.mocked(usePalaceStore).mockImplementation((selector) =>
+      selector({
+        toolMode: "select",
+        setToolMode: vi.fn(),
+        routePanelOpen: false,
+        setRoutePanelOpen: vi.fn(),
+        dslPaneOpen: false,
+        setDslPaneOpen,
+        connect: { fromShapeId: null },
+        setConnectFrom: vi.fn(),
+        saveCurrent: vi.fn(),
+        persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
+        editorRef: null,
+        currentPalace: null,
+      } as never),
+    );
+
+    render(<PalaceToolbar />);
+    const button = screen.getByRole("button", { name: /DSL/ });
+    expect(button).toHaveAttribute("title", expect.stringMatching(/Toggle DSL editor \((Ctrl\+E|⌘E)\)/));
+    expect(screen.queryByRole("radiogroup", { name: "Editor mode" })).not.toBeInTheDocument();
+    button.click();
+    expect(setDslPaneOpen).toHaveBeenCalledWith(true);
+  });
 });

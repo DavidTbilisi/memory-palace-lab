@@ -1,4 +1,5 @@
 import * as React from "react";
+import { CastLexiconReference } from "./CastLexiconReference";
 import * as Dialog from "@radix-ui/react-dialog";
 import { CAST_HOW, CAST_WHEN, CAST_WHAT, CAST_WHO } from "../domain/entities/types";
 import {
@@ -430,41 +431,8 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
               Tier 1: one or more verb labels. Tier 2: C/A/S/T means source role, effect style, payload, and timing.
             </Dialog.Description>
 
-            <div className="mt-3 grid gap-3 text-sm text-zinc-200">
-              <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
-                <div className="text-xs uppercase tracking-wide text-zinc-400">C - Character (source role)</div>
-                <div className="mt-1 text-zinc-300">
-                  Giant=hub/controller, Mermaid=peer/mutual, Mage=helper/dependency, Dragon=reactive/triggered.
-                </div>
-                <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHO[0]} ({cProfiles[0]}) - 01 {CAST_WHO[1]} ({cProfiles[1]}) - 10 {CAST_WHO[2]} ({cProfiles[2]}) - 11 {CAST_WHO[3]} ({cProfiles[3]})
-                </div>
-              </div>
-              <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
-                <div className="text-xs uppercase tracking-wide text-zinc-400">A - Action (effect kind)</div>
-                <div className="mt-1 text-zinc-300">
-                  Crushing=controls, Flowing=feeds, Spreading=influences, Exploding=transforms/breaks.
-                </div>
-                <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_HOW[0]} ({aProfiles[0]}) - 01 {CAST_HOW[1]} ({aProfiles[1]}) - 10 {CAST_HOW[2]} ({aProfiles[2]}) - 11 {CAST_HOW[3]} ({aProfiles[3]})
-                </div>
-              </div>
-              <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
-                <div className="text-xs uppercase tracking-wide text-zinc-400">S - Stream (what moves)</div>
-                <div className="mt-1 text-zinc-300">Rock=data, Water=resources/energy, Cloud=signals, Lightning=events.</div>
-                <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHAT[0]} ({sProfiles[0]}) - 01 {CAST_WHAT[1]} ({sProfiles[1]}) - 10 {CAST_WHAT[2]} ({sProfiles[2]}) - 11 {CAST_WHAT[3]} ({sProfiles[3]})
-                </div>
-              </div>
-              <div className="rounded-md border border-zinc-700 bg-zinc-950/60 p-2">
-                <div className="text-xs uppercase tracking-wide text-zinc-400">T - stability</div>
-                <div className="mt-1 text-zinc-300">
-                  Red cave=permanent, Blue ocean=normally active, Green sky=conditional, Purple storm=temporary.
-                </div>
-                <div className="mt-1 text-xs text-zinc-400">
-                  00 {CAST_WHEN[0]} ({tProfiles[0]}) - 01 {CAST_WHEN[1]} ({tProfiles[1]}) - 10 {CAST_WHEN[2]} ({tProfiles[2]}) - 11 {CAST_WHEN[3]} ({tProfiles[3]})
-                </div>
-              </div>
+            <div className="mt-3">
+              <CastLexiconReference compact />
             </div>
 
             <div className="mt-4 flex justify-end">

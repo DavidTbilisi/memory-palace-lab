@@ -7,65 +7,58 @@ import {
   type ContextualTip,
   type ContextualTipContext,
 } from "../domain/services/contextualTips";
+import {
+  addDismissedTipId,
+  areTipsDisabled,
+  loadDismissedTipIds,
+  loadIdleDelayMs,
+  setTipsDisabled,
+} from "../domain/services/tipPreferences";
 import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 
-const DEFAULT_IDLE_DELAY_MS = 60000;
-const IDLE_DELAY_STORAGE_KEY = "mp-idle-tip-delay-ms";
-const DISMISSED_TIPS_STORAGE_KEY = "mp-dismissed-tip-ids";
-const TIPS_DISABLED_KEY = "mp-tips-disabled";
-
-function areTipsGloballyDisabled(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(TIPS_DISABLED_KEY) === "true";
-}
-
-function disableAllTipsPermanently() {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(TIPS_DISABLED_KEY, "true");
-}
-
 type Props = {
   context: ContextualTipContext;
-  onOpenHelp: () => void;
+  /** Open the Learn rail (progress + lessons). */
+  onOpenLearnRail: () => void;
+  /** Open a Library entry by slug, optionally in a given section. */
+  onOpenLibrary: (target: { section?: string; slug?: string }) => void;
 };
 
-function resolveIdleDelayMs() {
-  if (typeof window === "undefined") return DEFAULT_IDLE_DELAY_MS;
-  const raw = window.localStorage.getItem(IDLE_DELAY_STORAGE_KEY);
-  if (!raw) return DEFAULT_IDLE_DELAY_MS;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 50 ? parsed : DEFAULT_IDLE_DELAY_MS;
-}
-
-function loadDismissedTipIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.localStorage.getItem(DISMISSED_TIPS_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
-  } catch {
-    return new Set();
-  }
-}
-
-
-export function ContextualTipCard({ context, onOpenHelp }: Props) {
+/**
+ * A non-blocking corner toast that surfaces one context-appropriate tip after
+ * a period of inactivity. Tips can be hidden one at a time or turned off.
+ */
+export function ContextualTipCard({
+  context,
+  onOpenLearnRail,
+  onOpenLibrary,
+}: Props) {
   const editorRef = usePalaceStore((s) => s.editorRef);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const [currentTip, setCurrentTip] = useState<ContextualTip | null>(null);
   const [lastTipId, setLastTipId] = useState<string | null>(null);
-  const [dismissedTipIds] = useState<Set<string>>(() => loadDismissedTipIds());
-  const [tipsDisabled, setTipsDisabled] = useState(() => areTipsGloballyDisabled());
+  const [dismissedTipIds, setDismissedTipIds] = useState<Set<string>>(() =>
+    loadDismissedTipIds(),
+  );
+  const [tipsDisabled, setTipsDisabledState] = useState(() =>
+    areTipsDisabled(),
+  );
 
-  const allEligibleTips = useMemo(() => buildEligibleContextTips(context), [context]);
-  const eligibleTips = useMemo(() => allEligibleTips.filter((tip) => !dismissedTipIds.has(tip.id)), [allEligibleTips, dismissedTipIds]);
+  const allEligibleTips = useMemo(
+    () => buildEligibleContextTips(context),
+    [context],
+  );
+  const eligibleTips = useMemo(
+    () => allEligibleTips.filter((tip) => !dismissedTipIds.has(tip.id)),
+    [allEligibleTips, dismissedTipIds],
+  );
 
   useEffect(() => {
-    if (currentTip && eligibleTips.some((tip) => tip.id === currentTip.id)) return;
+    if (currentTip && eligibleTips.some((tip) => tip.id === currentTip.id))
+      return;
     setCurrentTip(null);
   }, [currentTip, eligibleTips]);
 
@@ -73,14 +66,16 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
     if (currentTip) return;
     if (tipsDisabled) return;
 
-    const idleDelayMs = resolveIdleDelayMs();
+    const idleDelayMs = loadIdleDelayMs();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const schedule = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (document.visibilityState === "hidden" || currentTip) return;
-        const next = pickNextContextTip(eligibleTips, { previousTipId: lastTipId });
+        const next = pickNextContextTip(eligibleTips, {
+          previousTipId: lastTipId,
+        });
         if (!next) return;
         setLastTipId(next.id);
         setCurrentTip(next);
@@ -112,52 +107,64 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
 
   const runTipAction = () => {
     if (!currentTip?.action) return;
-    if (currentTip.action === "open_learn") {
-      onOpenHelp();
-      setCurrentTip(null);
+    const tip = currentTip;
+    setCurrentTip(null);
+    if (tip.action === "open_learn") {
+      onOpenLearnRail();
       return;
     }
-    if (currentTip.action === "connect_mode") {
+    if (tip.action === "open_library") {
+      onOpenLibrary({ section: tip.librarySection, slug: tip.librarySlug });
+      return;
+    }
+    if (tip.action === "connect_mode") {
       setToolMode("connect");
-      setCurrentTip(null);
       return;
     }
-    if (currentTip.action === "start_walk") {
+    if (tip.action === "start_walk") {
       setWalkOpen(true);
-      setCurrentTip(null);
       return;
     }
-    if (currentTip.action === "create_node" && editorRef && currentPalace) {
+    if (tip.action === "create_node" && editorRef && currentPalace) {
       const viewport = editorRef.getViewportPageBounds();
       createGeoMemoryNode(editorRef, currentPalace.id, {
         x: viewport.x + viewport.w / 2,
         y: viewport.y + viewport.h / 2,
       });
-      setCurrentTip(null);
     }
   };
 
   const showAnotherTip = () => {
-    const next = pickNextContextTip(eligibleTips, { previousTipId: currentTip?.id ?? lastTipId });
+    const next = pickNextContextTip(eligibleTips, {
+      previousTipId: currentTip?.id ?? lastTipId,
+    });
     if (next) {
       setLastTipId(next.id);
       setCurrentTip(next);
     }
   };
 
-  const dismissTipForever = () => {
-    disableAllTipsPermanently();
+  const hideThisTip = () => {
+    if (!currentTip) return;
+    setDismissedTipIds(addDismissedTipId(currentTip.id));
+    setCurrentTip(null);
+  };
+
+  const turnOffTips = () => {
     setTipsDisabled(true);
+    setTipsDisabledState(true);
     setCurrentTip(null);
   };
 
   if (!currentTip) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center px-4">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[120] flex w-[min(420px,calc(100vw-2rem))] justify-end">
       <div
         data-testid="context-tip-card"
-        className="pointer-events-auto w-full max-w-xl rounded-2xl border border-violet-700/60 bg-zinc-950/95 p-4 shadow-[0_20px_80px_rgba(76,29,149,0.42)] backdrop-blur"
+        role="status"
+        aria-live="polite"
+        className="pointer-events-auto w-full rounded-2xl border border-violet-700/60 bg-zinc-950/95 p-4 shadow-[0_20px_80px_rgba(76,29,149,0.42)] backdrop-blur"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -169,21 +176,49 @@ export function ContextualTipCard({ context, onOpenHelp }: Props) {
               <Lightbulb className="h-4 w-4 text-amber-300" />
               {currentTip.title}
             </div>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">{currentTip.body}</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              {currentTip.body}
+            </p>
           </div>
-          <Button size="icon" variant="ghost" type="button" aria-label="Dismiss tip" onClick={() => setCurrentTip(null)}>
+          <Button
+            size="icon"
+            variant="ghost"
+            type="button"
+            aria-label="Dismiss tip"
+            onClick={() => setCurrentTip(null)}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-zinc-500">Tips appear after 1 minute of inactivity. Click "Do not show again" to permanently dismiss this tip.</div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs text-zinc-500">
+            Appears after a minute of inactivity. Adjust in Settings.
+          </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" type="button" variant="secondary" onClick={showAnotherTip}>
+            <Button
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={showAnotherTip}
+            >
               Another tip
             </Button>
-            <Button size="sm" type="button" variant="ghost" onClick={dismissTipForever}>
-              Do not show again
+            <Button
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={hideThisTip}
+            >
+              Hide this tip
+            </Button>
+            <Button
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={turnOffTips}
+            >
+              Turn off tips
             </Button>
             {currentTip.action && currentTip.ctaLabel ? (
               <Button size="sm" type="button" onClick={runTipAction}>

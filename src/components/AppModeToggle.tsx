@@ -15,10 +15,12 @@ const MODES: { id: AppMode; label: string; icon: typeof Pencil; hint: string }[]
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
+  /** Off the graph page the lens has nothing to act on. */
+  disabled?: boolean;
 };
 
 /** Segmented Encode ⇄ Comprehend switch. The higher-level lens above the canvas tools. */
-export function AppModeToggle({ onHoverHintChange }: Props) {
+export function AppModeToggle({ onHoverHintChange, disabled = false }: Props) {
   const appMode = usePalaceStore((s) => s.appMode);
   const setAppMode = usePalaceStore((s) => s.setAppMode);
 
@@ -26,7 +28,12 @@ export function AppModeToggle({ onHoverHintChange }: Props) {
     <div
       role="radiogroup"
       aria-label="Editor mode"
-      className="inline-flex items-center gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900/70 p-0.5"
+      aria-disabled={disabled}
+      title={disabled ? "Encode / Comprehend applies on the Graph page" : undefined}
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900/70 p-0.5",
+        disabled && "opacity-50",
+      )}
     >
       {MODES.map((mode) => {
         const Icon = mode.icon;
@@ -37,6 +44,7 @@ export function AppModeToggle({ onHoverHintChange }: Props) {
             type="button"
             role="radio"
             aria-checked={active}
+            disabled={disabled}
             title={mode.label}
             onClick={() => setAppMode(mode.id)}
             onMouseEnter={() => onHoverHintChange?.(mode.hint)}

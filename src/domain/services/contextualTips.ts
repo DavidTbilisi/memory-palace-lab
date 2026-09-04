@@ -1,7 +1,7 @@
 import type { ToolMode, PalacePersistenceState } from "../../store/palaceStore";
 
 export type ContextTipSelectedKind = "node" | "portal" | "edge" | null;
-export type ContextTipAction = "open_learn" | "create_node" | "connect_mode" | "start_walk";
+export type ContextTipAction = "open_learn" | "open_library" | "create_node" | "connect_mode" | "start_walk";
 
 export type ContextualTipContext = {
   hasPalace: boolean;
@@ -21,6 +21,9 @@ export type ContextualTip = {
   body: string;
   action?: ContextTipAction;
   ctaLabel?: string;
+  /** For `open_library`: which Library section/entry to open. */
+  librarySection?: string;
+  librarySlug?: string;
 };
 
 export function buildPrimaryContextHint(context: ContextualTipContext) {
@@ -66,14 +69,16 @@ export function buildEligibleContextTips(context: ContextualTipContext) {
       title: "Start with a place, not a pile of notes",
       body: "Create a palace or open the tutorial flow first. Spatial structure should exist before the detail flood starts.",
       action: "open_learn",
-      ctaLabel: "Open Help",
+      ctaLabel: "Show lessons",
     });
     tips.push({
       id: "use-guides-first",
       title: "Use a scaffold when you are cold-starting",
       body: "Guides and examples are most useful before you build the first graph, not after the palace is already chaotic.",
-      action: "open_learn",
-      ctaLabel: "Show Help",
+      action: "open_library",
+      librarySection: "start",
+      librarySlug: "examples",
+      ctaLabel: "Browse examples",
     });
     return tips;
   }
@@ -103,8 +108,10 @@ export function buildEligibleContextTips(context: ContextualTipContext) {
       id: "create-first-route",
       title: "Build a recall path early",
       body: "Routes turn a graph into a memory journey. Create one path before adding too many more nodes.",
-      action: "open_learn",
-      ctaLabel: "Open Help",
+      action: "open_library",
+      librarySection: "start",
+      librarySlug: "lessons",
+      ctaLabel: "Show route lesson",
     });
   }
 
@@ -161,9 +168,11 @@ export function buildEligibleContextTips(context: ContextualTipContext) {
   tips.push({
     id: "learn-examples",
     title: "Examples are faster than staring at an empty graph",
-    body: "If you feel stuck, open Help and load an example palace. It is better to mutate a structure than invent one from nothing.",
-    action: "open_learn",
-    ctaLabel: "Open Help",
+    body: "If you feel stuck, open the Library and load an example palace. It is better to mutate a structure than invent one from nothing.",
+    action: "open_library",
+    librarySection: "start",
+    librarySlug: "examples",
+    ctaLabel: "Open examples",
   });
 
   return tips;

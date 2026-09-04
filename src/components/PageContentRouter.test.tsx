@@ -5,7 +5,6 @@ import { PageContentRouter } from "./PageContentRouter";
 
 vi.mock("./AnalyticsPanel", () => ({ AnalyticsPanel: () => <div data-testid="insights" /> }));
 vi.mock("./TheSystemWorkbench", () => ({ TheSystemWorkbench: () => <div data-testid="system" /> }));
-vi.mock("./RouteEditorPage", () => ({ RouteEditorPage: () => <div data-testid="routes" /> }));
 vi.mock("./AtlasEditorPage", () => ({
   AtlasEditorPage: ({ onOpenPalace }: { onOpenPalace: (id: string) => void }) => (
     <button type="button" onClick={() => onOpenPalace("p9")}>
@@ -14,16 +13,16 @@ vi.mock("./AtlasEditorPage", () => ({
   ),
 }));
 vi.mock("./ReviewPage", () => ({
-  ReviewPage: ({ onStartRouteReview }: { onStartRouteReview: (id: string) => void }) => (
-    <button type="button" onClick={() => onStartRouteReview("r1")}>
-      review-start
+  ReviewPage: ({ onOpenPalaceWorkspace }: { onOpenPalaceWorkspace: () => void }) => (
+    <button type="button" onClick={onOpenPalaceWorkspace}>
+      review-back
     </button>
   ),
 }));
-vi.mock("./HelpCenterPage", () => ({
-  HelpCenterPage: ({ onOpenCommandPalette }: { onOpenCommandPalette: () => void }) => (
+vi.mock("./LibraryPage", () => ({
+  LibraryPage: ({ onOpenCommandPalette }: { onOpenCommandPalette: () => void }) => (
     <button type="button" onClick={onOpenCommandPalette}>
-      help-palette
+      library-palette
     </button>
   ),
 }));
@@ -31,10 +30,11 @@ vi.mock("./HelpCenterPage", () => ({
 function setup(currentPage: Parameters<typeof PageContentRouter>[0]["currentPage"], overrides = {}) {
   const props = {
     currentPage,
-    onStartRouteReview: vi.fn(),
     onNavigate: vi.fn(),
     onOpenCommandPalette: vi.fn(),
     onOpenPalaceFromAtlas: vi.fn(),
+    libraryTarget: null,
+    onOpenLibrary: vi.fn(),
     ...overrides,
   };
   render(<PageContentRouter {...props} />);
@@ -46,10 +46,11 @@ describe("PageContentRouter", () => {
     const { container } = render(
       <PageContentRouter
         currentPage="graph"
-        onStartRouteReview={vi.fn()}
         onNavigate={vi.fn()}
         onOpenCommandPalette={vi.fn()}
         onOpenPalaceFromAtlas={vi.fn()}
+        libraryTarget={null}
+        onOpenLibrary={vi.fn()}
       />,
     );
     expect(container).toBeEmptyDOMElement();
@@ -67,10 +68,21 @@ describe("PageContentRouter", () => {
     expect(props.onOpenPalaceFromAtlas).toHaveBeenCalledWith("p9");
   });
 
-  it("forwards review start and help command-palette callbacks", async () => {
+  it("forwards the review page's back-to-palace navigation", async () => {
     const user = userEvent.setup();
     const review = setup("review");
-    await user.click(screen.getByText("review-start"));
-    expect(review.onStartRouteReview).toHaveBeenCalledWith("r1");
+    await user.click(screen.getByText("review-back"));
+    expect(review.onNavigate).toHaveBeenCalledWith("graph");
+  });
+
+  it("renders the library page and exposes an About-this-page link on card pages", async () => {
+    const user = userEvent.setup();
+    const library = setup("library");
+    await user.click(screen.getByText("library-palette"));
+    expect(library.onOpenCommandPalette).toHaveBeenCalled();
+
+    const insights = setup("insights");
+    await user.click(screen.getByRole("button", { name: "About this page" }));
+    expect(insights.onOpenLibrary).toHaveBeenCalledWith({ slug: "measurement-framework" });
   });
 });

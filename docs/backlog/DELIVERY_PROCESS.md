@@ -44,4 +44,12 @@ Do not commit unless:
 6. `06-encoding-assistant.feature`
 7. `07-contrast-and-confusion-nodes.feature`
 8. `08-media-cues.feature`
+9. `09-nedf-slots-and-four-schedules.feature`
+10. `10-meter-event-bridge.feature`
+11. `11-encode-speed-telemetry.feature`
+12. `12-attribute-channels-and-count-shape.feature`
+13. `13-storm-and-siege-sessions.feature`
+14. `14-generated-loci-stores.feature`
+15. `15-concept-glyphs.feature`
+16. `16-information-architecture.feature`
 

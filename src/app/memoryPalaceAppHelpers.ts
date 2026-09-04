@@ -1,6 +1,6 @@
 import type { MemoryNode } from "../domain/entities/types";
 
-export type AppPage = "graph" | "review" | "insights" | "system" | "difficulty" | "atlas" | "routes" | "help";
+export { pageHint, type AppPage } from "./pages";
 
 export const RECENT_COMMANDS_STORAGE_KEY = "mp-recent-command-ids";
 export const RECENT_NODE_IDS_STORAGE_KEY = "mp-recent-node-ids";
@@ -36,32 +36,6 @@ export function toPlainText(value: string): string {
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-/** One-line orientation hint shown beneath each non-graph page header. */
-export function pageHint(page: AppPage): string | null {
-  if (page === "review") {
-    return "Review turns routes and recall ratings into an attention queue instead of a loose reading habit.";
-  }
-  if (page === "insights") {
-    return "Insights shows the telemetry behind your graph and review behavior so weak spots become visible.";
-  }
-  if (page === "system") {
-    return "System is where theSystem frameworks become runnable thinking pipelines and graph output.";
-  }
-  if (page === "difficulty") {
-    return "Difficulty estimates the learner-relative acquisition cost of each node and the whole palace — walls, order, and what's left to learn.";
-  }
-  if (page === "atlas") {
-    return "Atlas organizes palaces by geography: domain, place, section. Build a hierarchy across multiple spaces.";
-  }
-  if (page === "routes") {
-    return "Routes are ordered walks through your palace. Organize and edit loci sequences here without toolbar noise.";
-  }
-  if (page === "help") {
-    return "Help is onboarding plus examples. Use it to start fast, then leave it once the palace is alive.";
-  }
-  return null;
 }
 
 /** Pair each node with a comma-joined summary of the routes that visit it. */
