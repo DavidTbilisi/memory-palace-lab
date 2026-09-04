@@ -2,9 +2,9 @@ mod commands;
 mod db;
 
 use commands::{
-    analytics_append, analytics_list, db_ping, palace_create, palace_export_json, palace_import_json,
-    palace_list, palace_list_trashed, palace_load, palace_purge, palace_restore, palace_save,
-    palace_soft_delete, DbState,
+    analytics_append, analytics_list, db_ping, meter_append_events, meter_default_data_dir,
+    palace_create, palace_export_json, palace_import_json, palace_list, palace_list_trashed,
+    palace_load, palace_purge, palace_restore, palace_save, palace_soft_delete, DbState,
 };
 use std::fs;
 use tauri::Manager;
@@ -44,6 +44,8 @@ pub fn run() {
             palace_export_json,
             palace_import_json,
             db_ping,
+            meter_default_data_dir,
+            meter_append_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

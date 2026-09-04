@@ -25,7 +25,7 @@ Since 2026-05 the measurement layer of Neural OS is **METER** ([meter-overview](
 |---|---|
 | The daily six-number log | METER events. Two kinds of self-report remain (next section); every count arrives passively |
 | The weekly Anki pull | The Anki bridge (`tools/meter-anki-addon/`) emits every review as a `hit`/`miss` event plus a `latency_ms` event |
-| Palace walk logging | `palace meter backfill` (Memory Palace Lab CLI, `docs/cli.md`) mirrors walk recall, walk start/finish, and node/edge/route creation into the same log |
+| Palace walk logging | The desktop app's live bridge (Settings › METER bridge) mirrors walk recall, walk start/finish, and node/edge/route creation as they happen; `palace meter backfill` (Memory Palace Lab CLI, `docs/cli.md`) does the same for history |
 | "Compute the metrics" | `meter report daily`, `meter report weekly`, `meter report monthly`, and `meter stats --days N` |
 | Belt thresholds, belt tests, LPQ | Still here. METER deliberately does not prescribe which metric matters most; that is this framework's job |
 
@@ -77,7 +77,7 @@ Skip the emits on a day when none happened. Zero is a real number and Weekly Rev
 
 **From Anki (the bridge, every review):** `hit`/`miss` per card, `latency_ms` per card, `mode` from `oracle::`/`grace::` tags, lifecycle tier. Mature-card count and mature retention still come from Anki's own stats screen; the lifecycle sweep (`tools/meter-lifecycle/`) reads the collection for retirement candidates.
 
-**From palace walks (`palace meter backfill`):** `hit`/`miss` per rated locus (Again = miss), `latency_ms` from time-to-reveal, `walk.started` and `walk.completed` per session, all under `mode: palace::walk` with the palace name as `context.topic`.
+**From palace walks (live from the app's Settings › METER bridge, or `palace meter backfill` for history):** `hit`/`miss` per rated locus (Again = miss), `latency_ms` from time-to-reveal, `walk.started` and `walk.completed` per session, all under `mode: palace::walk` with the palace name as `context.topic`.
 
 **From encoding (same backfill):** `palace.node_created`, `palace.edge_created`, `palace.route_created`, `palace.created` on the encoding layer. That is your encodings-per-session count.
 

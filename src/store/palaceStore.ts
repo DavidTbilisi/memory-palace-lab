@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { TheSystemPipelineTemplate } from "../content/theSystemPipelines";
 import { DEFAULT_ATLAS_LEVEL_LABELS } from "../domain/services/atlasHierarchy";
+import { meterBridge } from "../infrastructure/meterBridge";
 import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
 import type {
@@ -288,6 +289,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     );
   };
 
+  const mirrorToMeter = async (events: AnalyticsEvent[]) => {
+    const nameOf = (palaceId: string | null | undefined) =>
+      get().palaces.find((palace) => palace.id === palaceId)?.name ?? null;
+    const result = await meterBridge.mirror(events, nameOf);
+    if (result.surfaceError) get().setLastError(result.surfaceError);
+  };
+
   const appendAnalyticsEvents = async (events: AnalyticsEvent[]) => {
     if (events.length === 0) return;
     await repo.appendAnalyticsEvents(events);
@@ -295,6 +303,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       analyticsEvents: mergeAnalyticsEvents(state.analyticsEvents, events),
       analyticsLoaded: true,
     }));
+    // Live METER bridge: local persistence first, then mirror; never blocks or throws.
+    void mirrorToMeter(events);
   };
 
   const recordAnalytics = async (input: RecordAnalyticsInput) => {

@@ -35,6 +35,12 @@ describe("SettingsPage", () => {
     mockStore();
   });
 
+  it("shows the METER bridge section, desktop-only outside Tauri", () => {
+    render(<SettingsPage />);
+    expect(screen.getByRole("heading", { name: "METER bridge" })).toBeInTheDocument();
+    expect(screen.getByText("Available in the desktop app.")).toBeInTheDocument();
+  });
+
   it("writes the daily goal to the store on blur", async () => {
     const user = userEvent.setup();
     render(<SettingsPage />);
