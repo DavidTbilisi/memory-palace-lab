@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import type { TheSystemPipelineTemplate } from "../content/theSystemPipelines";
+import { DEFAULT_ATLAS_LEVEL_LABELS } from "../domain/services/atlasHierarchy";
 import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
 import type {
@@ -18,7 +20,11 @@ import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import { createAnalyticsEvent } from "../domain/services/analyticsService";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
-import { clearPalaceDraft, loadPalaceDraft, savePalaceDraft } from "../infrastructure/draft/palaceDraftStore";
+import {
+  clearPalaceDraft,
+  loadPalaceDraft,
+  savePalaceDraft,
+} from "../infrastructure/draft/palaceDraftStore";
 import {
   walkNext as nextWalkIndex,
   walkPrevious as prevWalkIndex,
@@ -31,10 +37,16 @@ import {
   moveLocus as moveRouteLocus,
   reassignLocusRoute as reassignRouteLocus,
 } from "../domain/services/routeEditing";
-import { applySm2Schedule, defaultLocusSchedule } from "../domain/services/spacedRepetition";
+import {
+  applySm2Schedule,
+  defaultLocusSchedule,
+} from "../domain/services/spacedRepetition";
 import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
 import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
-import type { DslApplyResult, DslSnapshot } from "../domain/services/palaceDsl/types";
+import type {
+  DslApplyResult,
+  DslSnapshot,
+} from "../domain/services/palaceDsl/types";
 import type { AARRecord } from "../domain/services/cast/aarRecords";
 import {
   appendAARRecord as persistAppendAAR,
@@ -51,6 +63,8 @@ import {
   loadDailyReviewGoal,
   normalizeLoci,
   safeElapsedMs,
+  loadAtlasLevelLabels,
+  saveAtlasLevelLabels,
 } from "./palaceStoreHelpers";
 
 const repo = getPalaceRepository();
@@ -124,6 +138,8 @@ export type PalaceStore = {
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
   dailyReviewGoal: number;
+  /** User-chosen names for atlas hierarchy levels (Domain / Place / Section by default). */
+  atlasLevelLabels: string[];
   persistenceState: PalacePersistenceState;
   lastDraftSavedAt: string | null;
   lastCheckpointSavedAt: string | null;
@@ -135,13 +151,23 @@ export type PalaceStore = {
   /** Last persistence/repository failure, surfaced by AppErrorBanner. */
   lastError: { message: string; at: string } | null;
   setLastError: (message: string | null) => void;
-  pendingCast: null | { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string };
+  pendingCast: null | {
+    fromShapeId: string;
+    toShapeId: string;
+    sourceNodeId: string;
+    targetNodeId: string;
+  };
   dslPaneOpen: boolean;
+  /** A pipeline built from a Library document, waiting to be run in the System workbench. */
+  systemDraftTemplate: TheSystemPipelineTemplate | null;
   setDslPaneOpen: (open: boolean) => void;
+  setSystemDraftTemplate: (template: TheSystemPipelineTemplate | null) => void;
   applyDslSnapshot: (intent: DslSnapshot) => DslApplyResult;
   loadPalaces: () => Promise<void>;
   loadAnalyticsEvents: (limit?: number) => Promise<void>;
-  recordAnalyticsEvent: (input: RecordAnalyticsInput) => Promise<AnalyticsEvent>;
+  recordAnalyticsEvent: (
+    input: RecordAnalyticsInput,
+  ) => Promise<AnalyticsEvent>;
   loadAARRecords: () => void;
   appendAARRecord: (record: AARRecord) => void;
   deleteAARRecord: (id: string) => void;
@@ -151,7 +177,9 @@ export type PalaceStore = {
   openPalace: (id: string) => Promise<void>;
   /** Reload the open palace from the saved snapshot, discarding any draft — used when an external (MCP) edit lands. */
   reloadCurrentPalaceFromDisk: () => Promise<void>;
-  setExternalChangePending: (pending: { palaceId: string; op: string } | null) => void;
+  setExternalChangePending: (
+    pending: { palaceId: string; op: string } | null,
+  ) => void;
   createPalace: (name: string, atlasPath?: string | null) => Promise<void>;
   saveCurrent: () => Promise<void>;
   deletePalace: (id: string) => Promise<void>;
@@ -159,7 +187,9 @@ export type PalaceStore = {
   purgePalace: (id: string) => Promise<void>;
   queueDraftSave: () => void;
   flushDraftSave: () => Promise<void>;
-  setCurrentPalaceMeta: (patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>) => void;
+  setCurrentPalaceMeta: (
+    patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>,
+  ) => void;
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
@@ -189,6 +219,7 @@ export type PalaceStore = {
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
   setDailyReviewGoal: (goal: number) => void;
+  setAtlasLevelLabels: (labels: string[]) => void;
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
@@ -198,7 +229,11 @@ export type PalaceStore = {
   currentWalkNodeId: () => string | null;
   hydrateFromSnapshot: (
     s: PalaceSnapshot,
-    options?: { persistenceState?: PalacePersistenceState; draftRestored?: boolean; lastDraftSavedAt?: string | null },
+    options?: {
+      persistenceState?: PalacePersistenceState;
+      draftRestored?: boolean;
+      lastDraftSavedAt?: string | null;
+    },
   ) => void;
 };
 
@@ -207,7 +242,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   const mergePalaceIntoList = (palaces: Palace[], palace: Palace) => {
     if (palaces.some((entry) => entry.id === palace.id)) {
-      return palaces.map((entry) => (entry.id === palace.id ? { ...entry, ...palace } : entry));
+      return palaces.map((entry) =>
+        entry.id === palace.id ? { ...entry, ...palace } : entry,
+      );
     }
     return [palace, ...palaces];
   };
@@ -220,20 +257,35 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   const reportError = (context: string, error: unknown) => {
     const detail = error instanceof Error ? error.message : String(error);
-    set({ lastError: { message: `${context}: ${detail}`, at: new Date().toISOString() } });
+    set({
+      lastError: {
+        message: `${context}: ${detail}`,
+        at: new Date().toISOString(),
+      },
+    });
   };
 
-  const mergeAnalyticsEvents = (current: AnalyticsEvent[], next: AnalyticsEvent[]) => {
+  const mergeAnalyticsEvents = (
+    current: AnalyticsEvent[],
+    next: AnalyticsEvent[],
+  ) => {
     const byId = new Map<string, AnalyticsEvent>();
     for (const event of current) byId.set(event.id, event);
     for (const event of next) byId.set(event.id, event);
-    return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...byId.values()].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
   };
 
   const buildCurrentSnapshot = () => {
     const { editorRef, currentPalace, routes, loci } = get();
     if (!editorRef || !currentPalace) return null;
-    return buildPalaceSnapshot(editorRef, currentPalace, routes, normalizeLoci(loci));
+    return buildPalaceSnapshot(
+      editorRef,
+      currentPalace,
+      routes,
+      normalizeLoci(loci),
+    );
   };
 
   const appendAnalyticsEvents = async (events: AnalyticsEvent[]) => {
@@ -250,10 +302,16 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     const event = createAnalyticsEvent({
       eventType: input.eventType,
       eventGroup: input.eventGroup,
-      sessionId: "sessionId" in input ? input.sessionId ?? null : state.analyticsSessionId,
-      palaceId: "palaceId" in input ? input.palaceId ?? null : state.currentPalace?.id ?? null,
-      routeId: "routeId" in input ? input.routeId ?? null : null,
-      nodeId: "nodeId" in input ? input.nodeId ?? null : null,
+      sessionId:
+        "sessionId" in input
+          ? (input.sessionId ?? null)
+          : state.analyticsSessionId,
+      palaceId:
+        "palaceId" in input
+          ? (input.palaceId ?? null)
+          : (state.currentPalace?.id ?? null),
+      routeId: "routeId" in input ? (input.routeId ?? null) : null,
+      nodeId: "nodeId" in input ? (input.nodeId ?? null) : null,
       payload: input.payload,
     });
     await appendAnalyticsEvents([event]);
@@ -305,7 +363,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return nodes.find((node) => node.id === nodeId)?.title ?? null;
   };
 
-  const noteWalkStepEntered = (direction: "open" | "next" | "prev" | "route_change") => {
+  const noteWalkStepEntered = (
+    direction: "open" | "next" | "prev" | "route_change",
+  ) => {
     const enteredAt = new Date().toISOString();
     set((state) => ({
       walkStepEnteredAt: enteredAt,
@@ -343,22 +403,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       palaces: mergePalaceIntoList(state.palaces, snapshot.palace),
       nodes: snapshot.nodes,
       edges: snapshot.edges,
-        persistenceState: savedAt ? "draft" : state.persistenceState,
-        lastDraftSavedAt: savedAt ?? state.lastDraftSavedAt,
-      }));
-      if (savedAt) {
-        void recordAnalytics({
-          eventType: "draft_saved",
-          eventGroup: "palace",
-          palaceId: snapshot.palace.id,
-          payload: {
-            savedAt,
-            nodeCount: snapshot.nodes.length,
-            edgeCount: snapshot.edges.length,
-            routeCount: snapshot.routes.length,
-          },
-        });
-      }
+      persistenceState: savedAt ? "draft" : state.persistenceState,
+      lastDraftSavedAt: savedAt ?? state.lastDraftSavedAt,
+    }));
+    if (savedAt) {
+      void recordAnalytics({
+        eventType: "draft_saved",
+        eventGroup: "palace",
+        palaceId: snapshot.palace.id,
+        payload: {
+          savedAt,
+          nodeCount: snapshot.nodes.length,
+          edgeCount: snapshot.edges.length,
+          routeCount: snapshot.routes.length,
+        },
+      });
+    }
   };
 
   const scheduleDraftSave = () => {
@@ -412,6 +472,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
     dailyReviewGoal: loadDailyReviewGoal(),
+    atlasLevelLabels: loadAtlasLevelLabels(DEFAULT_ATLAS_LEVEL_LABELS),
     persistenceState: "clean",
     lastDraftSavedAt: null,
     lastCheckpointSavedAt: null,
@@ -421,6 +482,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     lastError: null,
     pendingCast: null,
     dslPaneOpen: false,
+    systemDraftTemplate: null,
 
     setLastError(message) {
       set({
@@ -430,6 +492,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     setDslPaneOpen(open: boolean) {
       set({ dslPaneOpen: open });
+    },
+
+    setSystemDraftTemplate(template) {
+      set({ systemDraftTemplate: template });
     },
 
     applyDslSnapshot(intent: DslSnapshot): DslApplyResult {
@@ -445,7 +511,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       // An exception mid-apply would leave partial canvas edits with no
       // feedback; convert it to a diagnostic so the DSL pane can show it.
       try {
-        const canvasResult = applyDslToCanvas(editorRef, currentPalace.id, intent);
+        const canvasResult = applyDslToCanvas(
+          editorRef,
+          currentPalace.id,
+          intent,
+        );
 
         const titleToNodeId = new Map<string, string>();
         for (const shapeId of editorRef.getCurrentPageShapeIds()) {
@@ -497,10 +567,15 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     async loadPalaces() {
-      const [palaces, trashedPalaces] = await Promise.all([repo.listPalaces(), repo.listTrashedPalaces()]);
+      const [palaces, trashedPalaces] = await Promise.all([
+        repo.listPalaces(),
+        repo.listTrashedPalaces(),
+      ]);
       const currentPalace = get().currentPalace;
       set({
-        palaces: currentPalace ? mergePalaceIntoList(palaces, currentPalace) : palaces,
+        palaces: currentPalace
+          ? mergePalaceIntoList(palaces, currentPalace)
+          : palaces,
         trashedPalaces,
       });
     },
@@ -508,7 +583,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     async loadAnalyticsEvents(limit) {
       const analyticsEvents = await repo.listAnalyticsEvents(limit);
       set((state) => ({
-        analyticsEvents: mergeAnalyticsEvents(state.analyticsEvents, analyticsEvents),
+        analyticsEvents: mergeAnalyticsEvents(
+          state.analyticsEvents,
+          analyticsEvents,
+        ),
         analyticsLoaded: true,
       }));
     },
@@ -529,7 +607,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     dismissAssessForPalace(palaceId) {
       set((state) => ({
-        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.includes(palaceId)
+        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.includes(
+          palaceId,
+        )
           ? state.dismissedAssessByPalaceId
           : [...state.dismissedAssessByPalaceId, palaceId],
       }));
@@ -537,7 +617,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     clearAssessDismissalForPalace(palaceId) {
       set((state) => ({
-        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.filter((id) => id !== palaceId),
+        dismissedAssessByPalaceId: state.dismissedAssessByPalaceId.filter(
+          (id) => id !== palaceId,
+        ),
       }));
     },
 
@@ -603,7 +685,14 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       }
       if (!snap) {
         // Palace vanished (deleted externally): close it.
-        set({ currentPalace: null, nodes: [], edges: [], routes: [], loci: [], externalChangePending: null });
+        set({
+          currentPalace: null,
+          nodes: [],
+          edges: [],
+          routes: [],
+          loci: [],
+          externalChangePending: null,
+        });
         await get().loadPalaces();
         return;
       }
@@ -630,9 +719,15 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       clearDraftTimer();
       let p: Palace;
       try {
-        p = await repo.createPalace(name.trim() || "Untitled palace", atlasPath?.trim() || null);
+        p = await repo.createPalace(
+          name.trim() || "Untitled palace",
+          atlasPath?.trim() || null,
+        );
       } catch (error) {
-        reportError(`Creating palace "${name.trim() || "Untitled palace"}" failed`, error);
+        reportError(
+          `Creating palace "${name.trim() || "Untitled palace"}" failed`,
+          error,
+        );
         return;
       }
       await recordAnalytics({
@@ -704,13 +799,20 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         ...currentPalace,
         ...patch,
         name: patch.name?.trim() || currentPalace.name,
-        alias: patch.alias === undefined ? currentPalace.alias ?? null : patch.alias?.trim() || null,
+        alias:
+          patch.alias === undefined
+            ? (currentPalace.alias ?? null)
+            : patch.alias?.trim() || null,
         atlasPath:
-          patch.atlasPath === undefined ? currentPalace.atlasPath ?? null : patch.atlasPath?.trim() || null,
+          patch.atlasPath === undefined
+            ? (currentPalace.atlasPath ?? null)
+            : patch.atlasPath?.trim() || null,
       };
       set({
         currentPalace: nextPalace,
-        palaces: palaces.map((palace) => (palace.id === nextPalace.id ? { ...palace, ...nextPalace } : palace)),
+        palaces: palaces.map((palace) =>
+          palace.id === nextPalace.id ? { ...palace, ...nextPalace } : palace,
+        ),
       });
       scheduleDraftSave();
     },
@@ -722,23 +824,31 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       }
     },
     setSelectedShapeId: (selectedShapeId) => set({ selectedShapeId }),
-    setToolMode: (toolMode) => set({ toolMode, connect: { fromShapeId: null } }),
+    setToolMode: (toolMode) =>
+      set({ toolMode, connect: { fromShapeId: null } }),
     setAppMode: (appMode) =>
       set(
         appMode === "comprehend"
           ? { appMode, toolMode: "select", connect: { fromShapeId: null } }
           : { appMode, comprehendCruxNodeId: null },
       ),
-    setComprehendCruxNodeId: (comprehendCruxNodeId) => set({ comprehendCruxNodeId }),
+    setComprehendCruxNodeId: (comprehendCruxNodeId) =>
+      set({ comprehendCruxNodeId }),
     setFocusNodeId: (focusNodeId) => set({ focusNodeId }),
-    encodeNode: (nodeId) => set({ appMode: "encode", comprehendCruxNodeId: null, focusNodeId: nodeId }),
+    encodeNode: (nodeId) =>
+      set({
+        appMode: "encode",
+        comprehendCruxNodeId: null,
+        focusNodeId: nodeId,
+      }),
     setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
     setAvailableTags: (availableTags) => set({ availableTags }),
-    toggleActiveTag: (tag) => set((s) => ({
-      activeTags: s.activeTags.includes(tag)
-        ? s.activeTags.filter((t) => t !== tag)
-        : [...s.activeTags, tag],
-    })),
+    toggleActiveTag: (tag) =>
+      set((s) => ({
+        activeTags: s.activeTags.includes(tag)
+          ? s.activeTags.filter((t) => t !== tag)
+          : [...s.activeTags, tag],
+      })),
     clearActiveTags: () => set({ activeTags: [] }),
     setConnectFrom: (fromShapeId) => set({ connect: { fromShapeId } }),
     setPendingCast: (pendingCast) => set({ pendingCast }),
@@ -771,7 +881,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { walkRouteId, loci, routes } = get();
       const routeId = walkRouteId ?? routes[0]?.id;
       if (!routeId) return;
-      const max = loci.filter((l) => l.routeId === routeId).reduce((m, l) => Math.max(m, l.orderIndex), -1);
+      const max = loci
+        .filter((l) => l.routeId === routeId)
+        .reduce((m, l) => Math.max(m, l.orderIndex), -1);
       const schedule = defaultLocusSchedule();
       const l: Locus = {
         id: crypto.randomUUID(),
@@ -800,7 +912,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { routes } = get();
       const trimmedName = name.trim() || "Route";
       set({
-        routes: routes.map((route) => (route.id === routeId ? { ...route, name: trimmedName } : route)),
+        routes: routes.map((route) =>
+          route.id === routeId ? { ...route, name: trimmedName } : route,
+        ),
       });
       scheduleDraftSave();
     },
@@ -915,7 +1029,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     reassignLocusRoute(locusId, routeId) {
       const { loci, routes, walkRouteId, walkIndex } = get();
-      const nextLoci = normalizeLoci(reassignRouteLocus(loci, locusId, routeId));
+      const nextLoci = normalizeLoci(
+        reassignRouteLocus(loci, locusId, routeId),
+      );
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       const nextRouteLength = effectiveRouteId
         ? nextLoci.filter((locus) => locus.routeId === effectiveRouteId).length
@@ -943,7 +1059,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { routes, loci, walkRouteId } = get();
       const nextRoutes = routes.filter((r) => r.id !== routeId);
       const nextLoci = normalizeLoci(loci.filter((l) => l.routeId !== routeId));
-      const nextWalkRouteId = walkRouteId === routeId ? (nextRoutes[0]?.id ?? null) : walkRouteId;
+      const nextWalkRouteId =
+        walkRouteId === routeId ? (nextRoutes[0]?.id ?? null) : walkRouteId;
       set({ routes: nextRoutes, loci: nextLoci, walkRouteId: nextWalkRouteId });
       scheduleDraftSave();
     },
@@ -968,8 +1085,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       });
       scheduleDraftSave();
       if (!currentPalace) return;
-      const previousRoutesById = new Map(prevRoutes.map((route) => [route.id, route]));
-      const previousLociById = new Map(prevLoci.map((locus) => [locus.id, locus]));
+      const previousRoutesById = new Map(
+        prevRoutes.map((route) => [route.id, route]),
+      );
+      const previousLociById = new Map(
+        prevLoci.map((locus) => [locus.id, locus]),
+      );
       const events: AnalyticsEvent[] = [];
 
       for (const route of routes) {
@@ -1043,7 +1164,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const wasOpen = state.walkOpen;
       const previousContext = getWalkContext();
       const previousWalkSessionId = state.walkSessionId;
-      const nextWalkSessionId = wasOpen && walkRouteId ? crypto.randomUUID() : null;
+      const nextWalkSessionId =
+        wasOpen && walkRouteId ? crypto.randomUUID() : null;
       set((state) => ({
         walkRouteId,
         walkIndex: 0,
@@ -1094,14 +1216,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const state = get();
       const wasOpen = state.walkOpen;
       const previousContext = getWalkContext();
-      const nextWalkSessionId = walkOpen && !wasOpen ? crypto.randomUUID() : walkOpen ? state.walkSessionId : null;
+      const nextWalkSessionId =
+        walkOpen && !wasOpen
+          ? crypto.randomUUID()
+          : walkOpen
+            ? state.walkSessionId
+            : null;
       set({
         walkOpen,
         walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepRated: false,
-        walkRatingCounts: walkOpen && !wasOpen ? { ...EMPTY_WALK_RATINGS } : state.walkRatingCounts,
+        walkRatingCounts:
+          walkOpen && !wasOpen
+            ? { ...EMPTY_WALK_RATINGS }
+            : state.walkRatingCounts,
         walkSummary: walkOpen && !wasOpen ? null : state.walkSummary,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
@@ -1172,11 +1302,23 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     setDailyReviewGoal(goal) {
-      const normalized = Math.max(1, Math.min(200, Math.round(goal || DEFAULT_DAILY_REVIEW_GOAL)));
+      const normalized = Math.max(
+        1,
+        Math.min(200, Math.round(goal || DEFAULT_DAILY_REVIEW_GOAL)),
+      );
       set({ dailyReviewGoal: normalized });
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(DAILY_REVIEW_GOAL_STORAGE_KEY, String(normalized));
+        window.localStorage.setItem(
+          DAILY_REVIEW_GOAL_STORAGE_KEY,
+          String(normalized),
+        );
       }
+    },
+
+    setAtlasLevelLabels(labels) {
+      const next = labels.length > 0 ? labels : [...DEFAULT_ATLAS_LEVEL_LABELS];
+      set({ atlasLevelLabels: next });
+      saveAtlasLevelLabels(next);
     },
 
     dismissWalkSummary() {
@@ -1227,17 +1369,24 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         ...currentRatings,
         [rating]: currentRatings[rating] + 1,
       };
-      const isLastStep = context.count > 0 && context.stepIndex >= context.count - 1;
+      const isLastStep =
+        context.count > 0 && context.stepIndex >= context.count - 1;
 
       set((state) => {
         const nextLoci = state.loci.map((locus) => {
           if (locus.id !== context.locus?.id) return locus;
           return applySm2Schedule(locus, rating, ratedAt);
         });
-        const routeNextReviewAt = orderedLoci(nextLoci.filter((locus) => locus.routeId === context.routeId))
-          .map((locus) => locus.nextReviewAt)
-          .filter((value): value is string => typeof value === "string" && value.length > 0)
-          .sort()[0] ?? null;
+        const routeNextReviewAt =
+          orderedLoci(
+            nextLoci.filter((locus) => locus.routeId === context.routeId),
+          )
+            .map((locus) => locus.nextReviewAt)
+            .filter(
+              (value): value is string =>
+                typeof value === "string" && value.length > 0,
+            )
+            .sort()[0] ?? null;
         return {
           loci: nextLoci,
           walkStepEnteredAt: ratedAt,
@@ -1314,11 +1463,20 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     walkNext() {
-      const { loci, routes, walkRouteId, walkIndex, walkRecallMode, walkStepRated } = get();
+      const {
+        loci,
+        routes,
+        walkRouteId,
+        walkIndex,
+        walkRecallMode,
+        walkStepRated,
+      } = get();
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
+      const list = orderedLoci(
+        loci.filter((l) => l.routeId === effectiveRouteId),
+      );
       const nextIndex = nextWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
       set({ walkIndex: nextIndex });
@@ -1329,7 +1487,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
+      const list = orderedLoci(
+        loci.filter((l) => l.routeId === effectiveRouteId),
+      );
       const nextIndex = prevWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
       set({ walkIndex: nextIndex });
@@ -1337,11 +1497,20 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     setWalkIndex(index) {
-      const { loci, routes, walkRouteId, walkIndex, walkRecallMode, walkStepRated } = get();
+      const {
+        loci,
+        routes,
+        walkRouteId,
+        walkIndex,
+        walkRecallMode,
+        walkStepRated,
+      } = get();
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
+      const list = orderedLoci(
+        loci.filter((l) => l.routeId === effectiveRouteId),
+      );
       const clamped = clampWalkIndex(index, list.length);
       if (clamped === walkIndex) return;
       set({ walkIndex: clamped });
@@ -1352,7 +1521,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return null;
-      const list = orderedLoci(loci.filter((l) => l.routeId === effectiveRouteId));
+      const list = orderedLoci(
+        loci.filter((l) => l.routeId === effectiveRouteId),
+      );
       const loc = locusAtOrderedIndex(list, walkIndex);
       return loc?.nodeId ?? null;
     },
