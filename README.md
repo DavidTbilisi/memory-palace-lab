@@ -12,7 +12,8 @@ It combines an infinite canvas, CAST semantic edges, route-based recall, spaced 
 - Track local telemetry in the Insights page (node/edge/route/review/session events).
 - Run theSystem pipelines and materialize them into ready-to-walk graph runs.
 - Read everything in one Library: first-session lessons, the curated theSystem guides, the Neural OS wiki mirror, the glossary with the bilingual CAST lexicon, and the Palace DSL reference.
-- Keep preferences in one Settings page: review goal, AI key, idle tips, atlas terminology, backup/restore, updates.
+- Keep preferences in one Settings page: review goal, AI key, idle tips, atlas terminology, backup/restore, updates, the METER bridge.
+- Mirror walks and encoding into METER's event log as they happen (desktop), or in bulk with `palace meter backfill`.
 - Organize multiple palaces with Atlas hierarchy paths (`Domain/Place/Section`).
 - Use portal nodes to jump between palaces and start linked routes.
 - Work safely with draft autosave and explicit save checkpoints.

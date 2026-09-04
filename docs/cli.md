@@ -54,6 +54,8 @@ The log location follows the same precedence as the `meter` CLI in Neural-OS-Res
 
 Idempotency comes from deterministic ids: the primary METER event reuses the app event's id and the latency event derives its id from it, so a second run appends nothing. Each run reports what was appended, what was already present, and which app event types have no mapping.
 
+**Live bridge.** The desktop app can mirror events as they happen (Settings › METER bridge). It is on automatically when the app was launched with `METER_DATA_DIR` set, or when a data directory is typed in Settings; otherwise it stays off so the app never creates `~/.neural-os/meter` on its own. The live bridge and `backfill` share the mapping in `src/domain/services/meterBridge.ts` and the same ids, so they never duplicate each other: a row the live bridge could not append (the first failure is shown once in the app) stays in the app's database and the next `backfill` picks it up. Events written by the MCP server or the CLI itself are not mirrored live; `backfill` covers them.
+
 Mapping (everything else is skipped and counted, on purpose: METER wants signal, not a UI trace):
 
 | App event | layer / operation | metric_type | metric_value | artifact_id | mode |
@@ -137,6 +139,7 @@ Fine-grained canvas mutations stay MCP-only for now: `node_create`, `node_update
 | `mcp-server/src/cli/commands.ts` | Verb registry, argument parsing (`node:util` `parseArgs`), dispatch, help |
 | `mcp-server/src/cli/dslVerbs.ts` | `lint` / `fmt` / `hash` over the parser, serializer, and normalize pass |
 | `mcp-server/src/cli/cast.ts` | CAST notation conversion and lexicon rendering |
-| `mcp-server/src/cli/meterVerbs.ts` | METER bridge: data-dir resolution, app-event mapping, idempotent append |
+| `mcp-server/src/cli/meterVerbs.ts` | METER backfill: data-dir resolution and idempotent append over the shared mapping |
+| `src/domain/services/meterBridge.ts` | METER mapping shared by the CLI backfill and the app's live bridge (`src/infrastructure/meterBridge.ts`) |
 | `mcp-server/src/cli/cli.test.ts` | In-process tests, including the MCP parity check |
 | `bin/palace` | Bash wrapper for use outside the repo |

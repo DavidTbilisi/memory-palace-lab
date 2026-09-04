@@ -394,7 +394,7 @@ export const VERBS: Verb[] = [
     },
     arity: [0, 0],
     mcpTools: [],
-    run: ({ ctx, values, json: asJson }) => {
+    run: async ({ ctx, values, json: asJson }) => {
       const context = ctx();
       const palaceId = values.palace ? resolvePalace(context.db, String(values.palace)).id : undefined;
       const { dir, via } = resolveMeterDataDir({
@@ -404,7 +404,7 @@ export const VERBS: Verb[] = [
         home: homedir(),
       });
       const summary = {
-        ...backfillMeter({ db: context.db, dataDir: dir, palaceId, dryRun: Boolean(values["dry-run"]) }),
+        ...(await backfillMeter({ db: context.db, dataDir: dir, palaceId, dryRun: Boolean(values["dry-run"]) })),
         dataDirVia: via,
       };
       return asJson ? json(summary) : text(renderBackfillSummary(summary));

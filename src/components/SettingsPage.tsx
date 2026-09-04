@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Activity,
   BookOpen,
   Database,
   Info,
@@ -28,6 +29,17 @@ import {
   saveIdleDelayMs,
   setTipsDisabled,
 } from "../domain/services/tipPreferences";
+import {
+  loadMeterBridgePreference,
+  loadMeterDataDir,
+  saveMeterBridgePreference,
+  saveMeterDataDir,
+} from "../domain/services/meterPreferences";
+import {
+  meterBridge,
+  type MeterBridgeStatus,
+  type MeterDataDirSource,
+} from "../infrastructure/meterBridge";
 import { usePalaceStore } from "../store/palaceStore";
 import { AtlasLevelLabelsEditor } from "./AtlasLevelLabelsEditor";
 import { Button } from "./ui/button";
@@ -85,6 +97,19 @@ function Section({
   );
 }
 
+function describeMeterVia(via: MeterDataDirSource): string {
+  switch (via) {
+    case "setting":
+      return "from Settings";
+    case "env":
+      return "from METER_DATA_DIR";
+    case "project":
+      return "project root, like the meter CLI";
+    default:
+      return "~/.neural-os/meter fallback";
+  }
+}
+
 type UpdateUi =
   | { phase: "idle" }
   | { phase: "checking" }
@@ -113,11 +138,38 @@ export function SettingsPage() {
     () => readStorage(LEARN_PANEL_STORAGE_KEY) !== "false",
   );
   const [dataMessage, setDataMessage] = useState<string | null>(null);
+  const [meterPreference, setMeterPreference] = useState(() => loadMeterBridgePreference());
+  const [meterDir, setMeterDir] = useState(() => loadMeterDataDir() ?? "");
+  const [meterStatus, setMeterStatus] = useState<MeterBridgeStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [update, setUpdate] = useState<UpdateUi>({ phase: "idle" });
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setGoalDraft(String(dailyReviewGoal)), [dailyReviewGoal]);
+
+  useEffect(() => {
+    if (!IS_TAURI_RUNTIME) return;
+    let cancelled = false;
+    void meterBridge.status().then((status) => {
+      if (!cancelled) setMeterStatus(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [meterPreference, meterDir]);
+
+  const commitMeterEnabled = (enabled: boolean) => {
+    const next = enabled ? "on" : "off";
+    saveMeterBridgePreference(next);
+    meterBridge.settingsChanged();
+    setMeterPreference(next);
+  };
+
+  const commitMeterDir = () => {
+    saveMeterDataDir(meterDir);
+    meterBridge.settingsChanged();
+    setMeterDir(loadMeterDataDir() ?? "");
+  };
 
   const commitGoal = () => {
     const parsed = Number(goalDraft);
@@ -386,6 +438,56 @@ export function SettingsPage() {
           {dataMessage ? (
             <div className="mt-2 text-xs text-zinc-400">{dataMessage}</div>
           ) : null}
+        </Section>
+
+        <Section
+          icon={Activity}
+          title="METER bridge"
+          blurb="Mirror walks and encoding into METER's events.jsonl as they happen, so palace work shows up in Daily Glance beside Anki reviews. Older events: palace meter backfill."
+        >
+          {IS_TAURI_RUNTIME ? (
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-xs text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={meterStatus?.enabled ?? meterPreference === "on"}
+                  onChange={(event) => commitMeterEnabled(event.target.checked)}
+                />
+                Mirror events to METER
+                {meterPreference === "auto" && meterStatus?.enabled ? (
+                  <span className="text-zinc-500">(on because METER_DATA_DIR is set)</span>
+                ) : null}
+              </label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="settings-meter-dir" className="text-xs text-zinc-400">
+                  Data directory
+                </Label>
+                <Input
+                  id="settings-meter-dir"
+                  value={meterDir}
+                  onChange={(event) => setMeterDir(event.target.value)}
+                  onBlur={commitMeterDir}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") commitMeterDir();
+                  }}
+                  placeholder="empty = METER_DATA_DIR, then project root, then ~/.neural-os/meter"
+                  className="h-8 w-full max-w-md text-xs"
+                />
+              </div>
+              <div className="text-xs text-zinc-400">
+                {meterStatus === null
+                  ? "Checking…"
+                  : meterStatus.enabled && meterStatus.target
+                    ? `Writing to ${meterStatus.target.dir}/events.jsonl (${describeMeterVia(meterStatus.target.via)}). ${meterStatus.emitted} event(s) this session.`
+                    : "Off. Events stay in the app; run palace meter backfill to catch up later."}
+              </div>
+              {meterStatus?.lastError ? (
+                <div className="text-xs text-red-300">Last error: {meterStatus.lastError}</div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="text-xs text-zinc-400">Available in the desktop app.</div>
+          )}
         </Section>
 
         <Section
