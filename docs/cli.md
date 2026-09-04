@@ -99,6 +99,8 @@ bin/palace list | jq -r '.palaces[].id' | while read id; do bin/palace crux "$id
 
 The running desktop app live-refreshes after CLI writes exactly as it does after MCP writes (same sentinel file; see [mcp.md](mcp.md#live-refresh-in-the-running-app)).
 
+The Neural OS wiki repository already runs `lint` from both of its hook surfaces (`.claude/palace-lint-hook.py` there): as a Claude Code PostToolUse hook on every edited `.dsl`/`.palace` file, and as a pre-commit gate on staged ones. That script finds this repo through `$MEMORY_PALACE_LAB` or the sibling checkout `../memory-palace-lab` and skips silently when neither exists, so moving this checkout means setting that variable, not breaking the wiki.
+
 ## Not exposed as CLI verbs
 
 Fine-grained canvas mutations stay MCP-only for now: `node_create`, `node_update`, `node_delete`, `edge_create`, `edge_update`, `edge_delete`, `route_create`, `route_update`, `route_delete`, `locus_add`, `locus_remove`, `locus_reorder`. From the shell, make those edits in bulk with `apply` and a DSL file. The list lives in `MCP_TOOLS_WITHOUT_CLI_VERB` (`mcp-server/src/cli/commands.ts`); a test asserts that every tool registered in the MCP server is either a CLI verb or on that list, so the two surfaces cannot drift silently.
