@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Memory Palace Lab CLI, callable from any directory (hooks, other repos, cron).
+# Equivalent to `npm run palace -- "$@"` inside the repo, without the npm noise.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TSX="$ROOT/node_modules/.bin/tsx"
+if [ ! -x "$TSX" ]; then
+  echo "palace: tsx not found; run 'npm install' in $ROOT first" >&2
+  exit 1
+fi
+exec "$TSX" "$ROOT/mcp-server/src/cli/main.ts" "$@"

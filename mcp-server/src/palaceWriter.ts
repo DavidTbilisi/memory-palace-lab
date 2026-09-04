@@ -18,8 +18,24 @@ import { appendAnalyticsEvents, loadPalace, resolvePalace, saveSnapshot } from "
 import { writeSentinel } from "./sentinel";
 import { createBaselineSnapshotJson, SnapshotEditor } from "./snapshotEditor";
 
-/** One session id per MCP server process; lands on every analytics event. */
+/** One session id per headless process (MCP server or CLI); lands on every analytics event. */
 export const MCP_SESSION_ID = randomUUID();
+
+export type WriterSource = "mcp" | "cli";
+let writerSource: WriterSource = "mcp";
+
+/**
+ * Which headless surface this process is. Every analytics payload written
+ * through the shared tools carries it as `source`, so app users can audit
+ * where an external edit came from (docs/mcp.md, docs/cli.md).
+ */
+export function setWriterSource(source: WriterSource): void {
+  writerSource = source;
+}
+
+export function getWriterSource(): WriterSource {
+  return writerSource;
+}
 
 export type MutationContext = {
   /** Palace meta — mutate name/alias/atlasPath in place to update them. */
@@ -92,7 +108,7 @@ export async function withPalaceMutation<T>(
             palaceId: loaded.palace.id,
             routeId: extra.routeId ?? null,
             nodeId: extra.nodeId ?? null,
-            payload: { ...(extra.payload ?? {}), source: "mcp" },
+            payload: { ...(extra.payload ?? {}), source: getWriterSource() },
           }),
         );
       },

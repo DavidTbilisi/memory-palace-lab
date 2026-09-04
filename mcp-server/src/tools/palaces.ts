@@ -10,7 +10,7 @@ import {
   restorePalace,
   softDeletePalace,
 } from "../palaceDb";
-import { MCP_SESSION_ID, withPalaceMutation } from "../palaceWriter";
+import { getWriterSource, MCP_SESSION_ID, withPalaceMutation } from "../palaceWriter";
 import { writeSentinel } from "../sentinel";
 import type { ServerContext } from "./shared";
 import { snapshotStats } from "./shared";
@@ -71,7 +71,7 @@ export function palaceCreate(ctx: ServerContext, args: { name: string; atlasPath
       eventGroup: "palace",
       sessionId: MCP_SESSION_ID,
       palaceId: palace.id,
-      payload: { name: palace.name, source: "mcp" },
+      payload: { name: palace.name, source: getWriterSource() },
     }),
   ]);
   writeSentinel(ctx.sentinelDir, { palaceId: palace.id, op: "palace_create" });
@@ -111,7 +111,7 @@ export function palaceDelete(ctx: ServerContext, args: { palace: string }) {
       eventGroup: "palace",
       sessionId: MCP_SESSION_ID,
       palaceId: palace.id,
-      payload: { source: "mcp" },
+      payload: { source: getWriterSource() },
     }),
   ]);
   writeSentinel(ctx.sentinelDir, { palaceId: palace.id, op: "palace_delete" });
@@ -132,7 +132,7 @@ export function palaceRestore(ctx: ServerContext, args: { palace: string }) {
       eventGroup: "palace",
       sessionId: MCP_SESSION_ID,
       palaceId: match.id,
-      payload: { source: "mcp" },
+      payload: { source: getWriterSource() },
     }),
   ]);
   writeSentinel(ctx.sentinelDir, { palaceId: match.id, op: "palace_restore" });
