@@ -823,6 +823,65 @@ describe("parseDsl — query/traversal language (Feature 8)", () => {
     expect(snapshot.queries).toHaveLength(3);
     expect(snapshot.queries.map((q) => q.verb)).toEqual(["node", "route", "all"]);
   });
+
+  it("?path resolves multi-word titles by trying every split against known nodes", () => {
+    const text = "@P\n\nGate of SOLID\n\nSingle Responsibility Forge\n?path Gate of SOLID Single Responsibility Forge\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["Gate of SOLID", "Single Responsibility Forge"]);
+  });
+
+  it("?path resolves a multi-word title against an implicit id on the other side", () => {
+    const text = "@P\n\nGate of SOLID\n\nLogin\n?path gate-of-solid login\n?path Gate of SOLID login\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["gate-of-solid", "login"]);
+    expect(snapshot.queries[1]!.pathArgs).toEqual(["Gate of SOLID", "login"]);
+  });
+
+  it("?path accepts double-quoted references as explicit boundaries", () => {
+    const text =
+      '@P\n\nGate of SOLID\n\nSingle Responsibility Forge\n?path "Gate of SOLID" "Single Responsibility Forge"\n?path "Gate of SOLID" single-responsibility-forge\n';
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["Gate of SOLID", "Single Responsibility Forge"]);
+    expect(snapshot.queries[1]!.pathArgs).toEqual(["Gate of SOLID", "single-responsibility-forge"]);
+  });
+
+  it("?path with a single quoted reference is E802", () => {
+    const { diagnostics } = parseDsl('@P\n\nGate of SOLID\n?path "Gate of SOLID"\n');
+    expect(diagnostics.filter((d) => d.code === "query-path-missing-arg")).toHaveLength(1);
+  });
+
+  it("?path warns W805 when more than one split resolves, and keeps the first", () => {
+    const text = "@P\n\nA\n\nB C\n\nA B\n\nC\n?path A B C\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    const warns = diagnostics.filter((d) => d.code === "query-path-ambiguous");
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.numericCode).toBe("W805");
+    expect(warns[0]!.severity).toBe("warning");
+    expect(warns[0]!.message).toContain('"A" to "B C" or "A B" to "C"');
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["A", "B C"]);
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(0);
+  });
+
+  it("?path keeps a known title intact and names only the unresolved side", () => {
+    const text = "@P\n\nGate of SOLID\n?path Gate of SOLID nowhere at all\n?path nowhere at all Gate of SOLID\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    const warns = diagnostics.filter((d) => d.code === "query-unresolved-node");
+    expect(warns.map((w) => w.message)).toEqual([
+      'Query references unresolved node "nowhere at all"',
+      'Query references unresolved node "nowhere at all"',
+    ]);
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["Gate of SOLID", "nowhere at all"]);
+    expect(snapshot.queries[1]!.pathArgs).toEqual(["nowhere at all", "Gate of SOLID"]);
+  });
+
+  it("?path falls back to a first-word split, warning for both sides, when nothing resolves", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n?path x y z\n");
+    expect(diagnostics.filter((d) => d.code === "query-unresolved-node")).toHaveLength(2);
+    expect(snapshot.queries[0]!.pathArgs).toEqual(["x", "y z"]);
+  });
 });
 
 describe("parseDsl — formal diagnostic system (Feature 6)", () => {

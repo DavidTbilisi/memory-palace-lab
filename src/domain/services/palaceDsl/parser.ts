@@ -441,6 +441,46 @@ function parseEdgeRest(
 
 const QUERY_VERBS = new Set<string>(["tag", "node", "neighbors", "route", "depends", "path", "filter", "all"]);
 
+/**
+ * Split query arguments into reference units: a double-quoted string is one
+ * unit (quotes stripped), everything else splits on whitespace.
+ */
+function tokenizeQueryArgs(args: string): string[] {
+  const units: string[] = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(args)) !== null) {
+    const unit = m[1] !== undefined ? m[1] : m[2]!;
+    if (unit.length > 0) units.push(unit);
+  }
+  return units;
+}
+
+/**
+ * Choose where a `?path <from> <to>` line splits. Titles may contain spaces,
+ * so every boundary between units is tried against the known node titles and
+ * implicit ids. Returns the chosen pair plus every boundary at which both
+ * sides resolved (more than one means the line is ambiguous).
+ */
+function splitPathArgs(
+  units: string[],
+  resolves: (ref: string) => boolean,
+): { chosen: [string, string]; fullMatches: Array<[string, string]> } {
+  const splits: Array<[string, string]> = [];
+  for (let i = 1; i < units.length; i += 1) {
+    splits.push([units.slice(0, i).join(" "), units.slice(i).join(" ")]);
+  }
+  const fullMatches = splits.filter(([from, to]) => resolves(from) && resolves(to));
+  if (fullMatches.length > 0) return { chosen: fullMatches[0]!, fullMatches };
+  // Nothing resolves on both sides: keep the side that does resolve intact so
+  // the warning names the reference that is actually unknown.
+  const chosen =
+    splits.find(([from]) => resolves(from)) ??
+    [...splits].reverse().find(([, to]) => resolves(to)) ??
+    splits[0]!;
+  return { chosen, fullMatches };
+}
+
 function emptySnapshot(): DslSnapshot {
   return { palaceName: "", atlasPath: null, nodes: [], routes: [], aliases: [], imports: [], queries: [] };
 }
@@ -806,12 +846,13 @@ export function parseDsl(text: string): DslParseResult {
         }
         let pathArgs: [string, string] | null = null;
         if (verb === "path") {
-          const parts = args.trim().split(/\s+/).filter(Boolean);
-          if (parts.length < 2) {
+          const units = tokenizeQueryArgs(args);
+          if (units.length < 2) {
             diag(diagnostics, "error", "query-path-missing-arg", num, 1, body.length,
               "?path requires two node references");
           } else {
-            pathArgs = [parts[0]!, parts[1]!];
+            // Provisional split; refined against node titles once they are all known.
+            pathArgs = [units[0]!, units.slice(1).join(" ")];
           }
         }
         const scope: "document" | "palace" = sawHeader ? "palace" : "document";
@@ -943,8 +984,16 @@ export function parseDsl(text: string): DslParseResult {
           `Query references unresolved node "${ref}"`);
       }
     } else if (query.verb === "path" && query.pathArgs) {
-      for (const ref of query.pathArgs) {
-        if (!implicitIdMap.has(ref) && !titleMap2.has(ref)) {
+      const resolves = (ref: string) => implicitIdMap.has(ref) || titleMap2.has(ref);
+      const { chosen, fullMatches } = splitPathArgs(tokenizeQueryArgs(query.args), resolves);
+      query.pathArgs = chosen;
+      if (fullMatches.length > 1) {
+        const options = fullMatches.map(([from, to]) => `"${from}" to "${to}"`).join(" or ");
+        diag(diagnostics, "warning", "query-path-ambiguous", query.sourceLine, 1, 1,
+          `?path is ambiguous: ${options}. Quote the references to choose.`);
+      }
+      for (const ref of chosen) {
+        if (!resolves(ref)) {
           diag(diagnostics, "warning", "query-unresolved-node", query.sourceLine, 1, 1,
             `Query references unresolved node "${ref}"`);
         }
