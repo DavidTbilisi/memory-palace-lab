@@ -24,11 +24,26 @@
  *  - A `wiki_source:` frontmatter key records where each page came from. It is the
  *    only key added, and it is stable, so re-syncing an unchanged page is a no-op
  *    in git rather than a date-stamp churn.
+ *  - `wiki-index.json` (slug, title, summary, facets; no dates) is regenerated so the
+ *    app can search the mirror without loading page bodies. `--check` covers it.
  */
 
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+  statSync,
+} from "node:fs";
 import { join, basename, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  WIKI_INDEX_FILENAME,
+  buildWikiIndex,
+  serializeWikiIndex,
+} from "./wiki-index-lib.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DEST_DIR = join(REPO_ROOT, "theSystem", "wiki");
@@ -38,7 +53,11 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const checkOnly = args.includes("--check");
 const positional = args.filter((a) => !a.startsWith("--"));
-const SOURCE_ROOT = resolve(positional[0] ?? process.env.NEURAL_OS_WIKI ?? join(REPO_ROOT, "..", "Neural-OS-Research"));
+const SOURCE_ROOT = resolve(
+  positional[0] ??
+    process.env.NEURAL_OS_WIKI ??
+    join(REPO_ROOT, "..", "Neural-OS-Research"),
+);
 const WIKI_DIR = join(SOURCE_ROOT, "wiki");
 
 // ── Collect the source set ────────────────────────────────────────────────────
@@ -150,14 +169,22 @@ function stampProvenance(text, sourceRel) {
 }
 
 function firstHeading(text) {
-  return text.split("\n").find((line) => line.startsWith("# "))?.slice(2).trim() ?? null;
+  return (
+    text
+      .split("\n")
+      .find((line) => line.startsWith("# "))
+      ?.slice(2)
+      .trim() ?? null
+  );
 }
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 
 if (!existsSync(WIKI_DIR)) {
   console.error(`ERROR: ${WIKI_DIR} not found.`);
-  console.error("Pass the wiki repo path as an argument or set $NEURAL_OS_WIKI.");
+  console.error(
+    "Pass the wiki repo path as an argument or set $NEURAL_OS_WIKI.",
+  );
   process.exit(1);
 }
 
@@ -174,13 +201,22 @@ const bySlug = new Map();
 const collisions = [];
 for (const src of sources) {
   const slug = basename(src, ".md").toLowerCase();
-  if (bySlug.has(slug)) collisions.push({ slug, a: relative(SOURCE_ROOT, bySlug.get(slug)), b: relative(SOURCE_ROOT, src) });
+  if (bySlug.has(slug))
+    collisions.push({
+      slug,
+      a: relative(SOURCE_ROOT, bySlug.get(slug)),
+      b: relative(SOURCE_ROOT, src),
+    });
   else bySlug.set(slug, src);
 }
 if (collisions.length > 0) {
-  console.error("ERROR: basename collisions in the synced set — the flat slug namespace cannot hold both:");
+  console.error(
+    "ERROR: basename collisions in the synced set — the flat slug namespace cannot hold both:",
+  );
   for (const c of collisions) console.error(`  ${c.slug}: ${c.a}  vs  ${c.b}`);
-  console.error("Fix: rename one page in the wiki, or exclude one in wiki-sync.manifest.json.");
+  console.error(
+    "Fix: rename one page in the wiki, or exclude one in wiki-sync.manifest.json.",
+  );
   process.exit(1);
 }
 
@@ -216,14 +252,23 @@ const indexText = [
   "",
   "| Page | Title | Wiki source |",
   "| --- | --- | --- |",
-  ...pages.map((p) => `| [\`${p.slug}\`](./${p.slug}.md) | ${p.title.replace(/\|/g, "\\|")} | \`${p.sourceRel}\` |`),
+  ...pages.map(
+    (p) =>
+      `| [\`${p.slug}\`](./${p.slug}.md) | ${p.title.replace(/\|/g, "\\|")} | \`${p.sourceRel}\` |`,
+  ),
   "",
 ].join("\n");
 
 const desired = new Map(pages.map((p) => [`${p.slug}.md`, p.text]));
 desired.set("INDEX.md", indexText);
+// Date-free search index for the app's Library (see scripts/build-wiki-index.mjs).
+desired.set(WIKI_INDEX_FILENAME, serializeWikiIndex(buildWikiIndex(pages)));
 
-const existing = existsSync(DEST_DIR) ? readdirSync(DEST_DIR).filter((f) => f.endsWith(".md")) : [];
+const existing = existsSync(DEST_DIR)
+  ? readdirSync(DEST_DIR).filter(
+      (f) => f.endsWith(".md") || f === WIKI_INDEX_FILENAME,
+    )
+  : [];
 const added = [];
 const updated = [];
 const removed = existing.filter((f) => !desired.has(f));
@@ -235,11 +280,16 @@ for (const [name, text] of desired) {
 }
 
 // INDEX.md carries a sync date, so it always differs. Don't let it alone claim "out of date".
-const contentChanged = added.length + removed.length + updated.filter((f) => f !== "INDEX.md").length;
+const contentChanged =
+  added.length +
+  removed.length +
+  updated.filter((f) => f !== "INDEX.md").length;
 
 if (checkOnly) {
   if (contentChanged > 0) {
-    console.error(`theSystem/wiki is out of date: +${added.length} ~${updated.filter((f) => f !== "INDEX.md").length} -${removed.length}`);
+    console.error(
+      `theSystem/wiki is out of date: +${added.length} ~${updated.filter((f) => f !== "INDEX.md").length} -${removed.length}`,
+    );
     console.error("Run: npm run sync:thesystem");
     process.exit(1);
   }
@@ -252,20 +302,31 @@ if (!dryRun) {
   for (const name of removed) rmSync(join(DEST_DIR, name));
   for (const [name, text] of desired) {
     const dest = join(DEST_DIR, name);
-    if (!existsSync(dest) || readFileSync(dest, "utf8") !== text) writeFileSync(dest, text);
+    if (!existsSync(dest) || readFileSync(dest, "utf8") !== text)
+      writeFileSync(dest, text);
   }
 }
 
 const verb = dryRun ? "would sync" : "synced";
-console.log(`${verb} ${pages.length} pages: ${relative(process.cwd(), WIKI_DIR)} -> ${relative(REPO_ROOT, DEST_DIR)}`);
-console.log(`  +${added.length} added  ~${updated.filter((f) => f !== "INDEX.md").length} updated  -${removed.length} removed`);
+console.log(
+  `${verb} ${pages.length} pages: ${relative(process.cwd(), WIKI_DIR)} -> ${relative(REPO_ROOT, DEST_DIR)}`,
+);
+console.log(
+  `  +${added.length} added  ~${updated.filter((f) => f !== "INDEX.md").length} updated  -${removed.length} removed`,
+);
 if (emptyGlobs.length > 0) {
-  console.log(`  ${emptyGlobs.length} manifest entries matched nothing (renamed or moved in the wiki?):`);
+  console.log(
+    `  ${emptyGlobs.length} manifest entries matched nothing (renamed or moved in the wiki?):`,
+  );
   for (const g of emptyGlobs) console.log(`    ${g}`);
 }
 if (unresolvedAll.size > 0) {
   const sample = [...unresolvedAll].sort().slice(0, 8);
-  console.log(`  ${unresolvedAll.size} wiki-links pointed outside the synced slice and were flattened to plain text`);
-  console.log(`    e.g. ${sample.join(", ")}${unresolvedAll.size > sample.length ? ", …" : ""}`);
+  console.log(
+    `  ${unresolvedAll.size} wiki-links pointed outside the synced slice and were flattened to plain text`,
+  );
+  console.log(
+    `    e.g. ${sample.join(", ")}${unresolvedAll.size > sample.length ? ", …" : ""}`,
+  );
 }
 if (dryRun) console.log("  (dry run — nothing written)");
