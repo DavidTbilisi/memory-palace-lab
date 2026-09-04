@@ -120,6 +120,7 @@ This runs Vite + Tauri and stores palace snapshots and analytics in SQLite via R
 | `npm run build` | Type-check and build production bundle. |
 | `npm run preview` | Preview production web build. |
 | `npm run mcp` | Start the memory-palace MCP server (stdio). |
+| `npm run palace -- <command>` | Run the `palace` CLI (lint/fmt/hash DSL files, import/export/analyze palaces, CAST lexicon). See [docs/cli.md](docs/cli.md). |
 | `npm run sync:thesystem` | Re-mirror the curated wiki slice into `theSystem/wiki/`. |
 | `npm run sync:thesystem:check` | Fail if that mirror is out of date (needs a local wiki checkout). |
 | `npm test` | Run Vitest unit/integration tests. |
@@ -156,6 +157,19 @@ The repo ships a full MCP integration so Claude (or any MCP client) can read, bu
 - **tauri-debug-bridge** — dev-only tooling for driving the running app (debug builds only).
 
 Both are registered in the project-scoped `.mcp.json`. See [docs/mcp.md](docs/mcp.md).
+
+## Command Line (`palace`)
+
+The same domain tools are available from a shell for hooks, CI, other repositories, and batch work:
+
+```bash
+bin/palace lint --strict palaces/*.dsl        # parse diagnostics, exit 1 on errors
+bin/palace import my-palace.dsl               # new palace from a DSL file
+bin/palace export "SOLID Citadel" > solid.dsl # palace as DSL text
+bin/palace cast decode "00 01 10 00"          # theSystem bits → compact token + scene
+```
+
+`lint`, `fmt`, `hash`, and `cast` need no database. See [docs/cli.md](docs/cli.md).
 
 ## Testing
 

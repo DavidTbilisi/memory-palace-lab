@@ -7,6 +7,8 @@ Memory Palace Lab ships two MCP (Model Context Protocol) servers, both registere
 | `memory-palace` | Domain server: palaces, nodes, CAST edges, routes, graph analysis, DSL, review queue | Yes |
 | `tauri-debug-bridge` | Dev tooling: drive/debug the running Tauri app (screenshots, DOM, IPC) | No — needs a **debug** build running |
 
+The domain tools also have a shell surface, the `palace` CLI, for hooks, CI, other repositories, and batch work — see [cli.md](cli.md). Same functions, same database rules, same live refresh; analytics payloads say which surface wrote (`source: "mcp"` or `"cli"`).
+
 ---
 
 ## memory-palace (domain server)
@@ -78,7 +80,7 @@ The canvas source of truth is the tldraw snapshot blob in `palaces.editor_snapsh
 1. opens an immediate SQLite transaction (5s busy timeout),
 2. mutates the blob through a headless editor adapter using the **app's own shape factories** (`src/canvas/createMemoryShapes.ts`) and DSL sync (`src/domain/services/palaceDsl/sync.ts`),
 3. re-derives the row projection exactly like the app's save does,
-4. appends analytics events (session-tagged, payload `source: "mcp"`),
+4. appends analytics events (session-tagged, payload `source: "mcp"`, or `"cli"` when written by the [CLI](cli.md)),
 5. commits and writes a sentinel file (`mcp-sync.json` next to the DB).
 
 ### Live refresh in the running app
