@@ -241,7 +241,7 @@ An edge from the current node to another is declared with `>`:
 >Newton's Laws 0010
 ```
 
-Format: `>TargetTitle [CAST]`
+Format: `>TargetTitle` optionally followed by a space and a CAST token.
 
 The target is the full title of the destination node (case-sensitive). The CAST token is optional.
 
@@ -266,11 +266,10 @@ Examples:
 Malformed CAST tokens (wrong length, non-digit characters) emit **E003 `malformed-cast`**.
 Unknown edge targets (no matching node title in the file) emit **W007 `unknown-target`**.
 
-**Bracketed CAST** — the full text form may also be used:
+**How the token is found.** The parser looks only at the last whitespace-separated token of the line. It is read as a CAST token when it is four digits, as an alias reference when it is `[name]` or a declared alias name (see [Edge Semantic Aliases](#edge-semantic-aliases)), and otherwise the whole line is the target title. Two consequences:
 
-```text
->Gravity [who:Giant how:Crushing]
-```
+- The CAST token is always the compact four-digit form. Axis names such as `who:Giant how:Crushing` are not edge syntax; `palace cast encode --who Giant --how Crushing` prints the compact token for them, and `palace cast decode 1100` explains one.
+- A title whose last word is four digits or a declared alias name cannot be written on an edge line, because that word is taken as the token.
 
 ---
 
@@ -289,19 +288,21 @@ Format: `~<alias>:<cast> [optional description]`
 - `cast` — a valid 4-digit CAST token
 - `description` — optional human-readable description of the relationship
 
-Aliases are used in edges by substituting the alias name for the CAST token:
+An edge can refer to an alias in three forms, all in the token position at the end of the line:
 
-```text
->Single Responsibility Forge dep
-```
+| Form | Example | `semantic.form` | Notes |
+| --- | --- | --- | --- |
+| Bare word | `>Single Responsibility Forge dep` | `"alias"` | Only recognised when `dep` is declared; an undeclared last word is part of the target title (`>Single Responsibility Forge notes` targets "Single Responsibility Forge notes"). |
+| Bracketed | `>Single Responsibility Forge [dep]` | `"bracketed"` | Always read as an alias. Undeclared → **W305**. Use this form when a title could be confused with an alias. |
+| Hybrid | `>Single Responsibility Forge 0001:dep` | `"hybrid"` | Explicit CAST token plus alias, joined by `:`. If the alias is declared with a different cast → **E304**. |
 
-The edge's `semantic` field records both the alias name and the `resolvedCast`. If an alias and an explicit CAST token appear together (`>Target dep 1000`), the form is `"hybrid"`.
+The edge's `semantic` field records the alias name, the form, and the `resolvedCast`; the edge's `cast` is the resolved token. Aliases are case-insensitive and stored lowercase.
 
 Alias diagnostic codes:
 - **E301 `alias-malformed`** — line doesn't parse as `~alias:cast`
 - **E302 `alias-invalid-cast`** — cast portion is not a valid 4-digit token
-- **E303 `alias-duplicate`** — same alias name declared twice
-- **E304 `alias-cast-conflict`** — alias redeclared with a different cast
+- **E303 `alias-duplicate`** — same alias name declared twice (the second declaration is ignored, whatever its cast)
+- **E304 `alias-cast-conflict`** — hybrid edge `CAST:alias` whose explicit token differs from the alias's declared cast
 - **W305 `alias-unresolved`** — alias used in an edge but not declared
 
 ---
@@ -485,7 +486,7 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | E301 | `alias-malformed` | error | `~` line doesn't parse as `~alias:cast` |
 | E302 | `alias-invalid-cast` | error | Cast in alias declaration is not valid |
 | E303 | `alias-duplicate` | error | Alias name declared more than once |
-| E304 | `alias-cast-conflict` | error | Alias redeclared with different cast |
+| E304 | `alias-cast-conflict` | error | Hybrid edge `CAST:alias` disagrees with the alias's declared cast |
 | W305 | `alias-unresolved` | warning | Alias used in edge but not declared |
 | E401 | `import-malformed` | error | `!import` line doesn't parse |
 | E402 | `import-namespace-collision` | error | Two imports use the same namespace |
