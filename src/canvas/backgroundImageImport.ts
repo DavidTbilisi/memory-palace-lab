@@ -1,10 +1,11 @@
 import type { Editor } from "@tldraw/editor";
 import { createShapeId } from "@tldraw/editor";
-import type { TLAssetId, TLShapeId } from "@tldraw/tlschema";
+import type { TLAssetId } from "@tldraw/tlschema";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { message, open } from "@tauri-apps/plugin-dialog";
 import { BaseDirectory, copyFile, mkdir } from "@tauri-apps/plugin-fs";
+import { removeBackground, sendBackgroundToBack } from "./backgroundImage";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 
 type BackgroundAsset = {
@@ -137,20 +138,6 @@ function fitImageToViewport(width: number, height: number, viewport: { x: number
   };
 }
 
-function removeExistingBackgroundShapes(editor: Editor) {
-  const backgroundShapeIds: TLShapeId[] = [];
-  for (const shapeId of editor.getCurrentPageShapeIds()) {
-    const shape = editor.getShape(shapeId);
-    if (!shape || shape.type !== "image") continue;
-    const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
-    if (!meta.mpBackground) continue;
-    backgroundShapeIds.push(shape.id);
-  }
-  if (backgroundShapeIds.length > 0) {
-    editor.deleteShapes(backgroundShapeIds);
-  }
-}
-
 async function notifyBackgroundImageError(messageText: string) {
   if (isTauriRuntime()) {
     try {
@@ -170,7 +157,9 @@ export async function insertBackgroundImageFromFile(editor: Editor, palaceId: st
     const asset = await selectBackgroundAsset(palaceId);
     if (!asset) return;
 
-    removeExistingBackgroundShapes(editor);
+    // Replacing must drop the previous background; it is locked, so a plain
+    // deleteShapes would skip it and the images would stack.
+    removeBackground(editor);
 
     const assetId = `asset:${crypto.randomUUID()}` as TLAssetId;
     editor.createAssets([
@@ -220,7 +209,10 @@ export async function insertBackgroundImageFromFile(editor: Editor, palaceId: st
         altText: "Palace background",
       },
     });
-    editor.sendToBack([shapeId]);
+    // The shape is created locked, and tldraw ignores locked shapes when
+    // reordering, so this must bypass the lock or the image lands on top of
+    // the graph.
+    sendBackgroundToBack(editor, [shapeId]);
     editor.setSelectedShapes([]);
   } catch (error) {
     console.error("Failed to insert background image", error);

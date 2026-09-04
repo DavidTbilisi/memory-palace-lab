@@ -139,3 +139,122 @@ test("atlas path groups palaces into nested places", async ({ page }) => {
   await expect(page.getByText("Quadratics", { exact: true })).toBeVisible();
 });
 
+/** 1x1 red PNG; enough for the background picker, which only needs a decodable image. */
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+type BackgroundProbe = {
+  ids: string[];
+  locked: boolean;
+  x: number;
+  behindEveryNode: boolean;
+  /** Screen point over the background that does not hit a node (for dragging). */
+  dragPoint: { x: number; y: number } | null;
+};
+
+/** Reads the background shape(s) through the dev store hook. */
+function probeBackground(page: Page): Promise<BackgroundProbe> {
+  return page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    type Shape = { id: string; type: string; index: string; isLocked: boolean; x: number; meta?: Record<string, unknown> };
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => Shape | undefined;
+        getShapePageBounds: (id: string) => { x: number; y: number; w: number; h: number } | undefined;
+        getShapeAtPoint: (point: { x: number; y: number }, opts: { hitInside: boolean; hitLocked: boolean }) => Shape | undefined;
+        pageToScreen: (point: { x: number; y: number }) => { x: number; y: number };
+      } | null;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const shapes = Array.from(editor.getCurrentPageShapeIds())
+      .map((id) => editor.getShape(id))
+      .filter((shape): shape is Shape => !!shape);
+    const backgrounds = shapes.filter((shape) => shape.type === "image" && !!shape.meta?.mpBackground);
+    const nodes = shapes.filter((shape) => shape.type === "geo" && !!shape.meta?.mpNodeId);
+    const first = backgrounds[0];
+    let dragPoint: { x: number; y: number } | null = null;
+    if (first) {
+      const bounds = editor.getShapePageBounds(first.id);
+      if (bounds) {
+        outer: for (let row = 1; row < 10; row += 1) {
+          for (let col = 1; col < 10; col += 1) {
+            const point = { x: bounds.x + (bounds.w * col) / 10, y: bounds.y + (bounds.h * row) / 10 };
+            const hit = editor.getShapeAtPoint(point, { hitInside: true, hitLocked: true });
+            if (hit?.id === first.id) {
+              dragPoint = editor.pageToScreen(point);
+              break outer;
+            }
+          }
+        }
+      }
+    }
+    return {
+      ids: backgrounds.map((shape) => shape.id),
+      locked: backgrounds.every((shape) => shape.isLocked),
+      x: first?.x ?? 0,
+      behindEveryNode: !!first && nodes.every((node) => first.index < node.index),
+      dragPoint,
+    };
+  });
+}
+
+test("palace background can be set, adjusted, locked, replaced, and removed", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /create tutorial palace/i }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+
+  // One node placed before the background proves the image lands behind it.
+  await page.locator(".tl-canvas").dblclick({ position: { x: 240, y: 200 } });
+  await expect(page.locator("#mp-title")).toHaveValue("New node");
+  await page.keyboard.press("Escape");
+  await expect.poll(() => countNodeShapes(page)).toBe(1);
+  const nodeCount = 1;
+
+  // The picker is a detached <input type="file">; Playwright still sees the chooser.
+  const firstChooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Set background" }).click();
+  await (await firstChooser).setFiles({ name: "bg.png", mimeType: "image/png", buffer: TINY_PNG });
+
+  await expect(page.getByRole("button", { name: "Replace background" })).toBeVisible();
+  await expect.poll(async () => (await probeBackground(page)).ids.length).toBe(1);
+  const placed = await probeBackground(page);
+  expect(placed.locked).toBe(true);
+  expect(placed.behindEveryNode).toBe(true);
+
+  // Adjust: unlock, then drag it somewhere else.
+  await page.getByRole("button", { name: "Adjust background" }).click();
+  await expect(page.getByRole("button", { name: "Lock background" })).toBeVisible();
+  const editable = await probeBackground(page);
+  expect(editable.locked).toBe(false);
+  expect(editable.dragPoint).not.toBeNull();
+  const from = editable.dragPoint!;
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 120, from.y + 60, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(async () => (await probeBackground(page)).x).not.toBe(editable.x);
+
+  // Lock: clicks pass through again and the image stays behind the nodes.
+  await page.getByRole("button", { name: "Lock background" }).click();
+  await expect(page.getByRole("button", { name: "Adjust background" })).toBeVisible();
+  const locked = await probeBackground(page);
+  expect(locked.locked).toBe(true);
+  expect(locked.behindEveryNode).toBe(true);
+
+  // Replace swaps the image instead of stacking a second one.
+  const secondChooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Replace background" }).click();
+  await (await secondChooser).setFiles({ name: "bg2.png", mimeType: "image/png", buffer: TINY_PNG });
+  await expect.poll(async () => (await probeBackground(page)).ids).not.toEqual(locked.ids);
+  expect((await probeBackground(page)).ids).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Remove background" }).click();
+  await expect(page.getByRole("button", { name: "Set background" })).toBeVisible();
+  expect((await probeBackground(page)).ids).toHaveLength(0);
+  expect(await countNodeShapes(page)).toBe(nodeCount);
+});
