@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { usePalaceStore } from "../store/palaceStore";
+import { confirmDestructive } from "../utils/confirmDestructive";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
@@ -19,8 +20,12 @@ export function RoutePanel({ onHoverHintChange }: Props) {
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const setWalkRoute = usePalaceStore((s) => s.setWalkRoute);
   const addRoute = usePalaceStore((s) => s.addRoute);
-  const addLocusForSelectedRoute = usePalaceStore((s) => s.addLocusForSelectedRoute);
+  const addLocusForSelectedRoute = usePalaceStore(
+    (s) => s.addLocusForSelectedRoute,
+  );
   const updateRouteName = usePalaceStore((s) => s.updateRouteName);
+  const moveRoute = usePalaceStore((s) => s.moveRoute);
+  const deleteRoute = usePalaceStore((s) => s.deleteRoute);
   const updateLocusLabel = usePalaceStore((s) => s.updateLocusLabel);
   const moveLocus = usePalaceStore((s) => s.moveLocus);
   const deleteLocus = usePalaceStore((s) => s.deleteLocus);
@@ -31,9 +36,16 @@ export function RoutePanel({ onHoverHintChange }: Props) {
   const [activeRouteName, setActiveRouteName] = useState("");
 
   const activeRoute = walkRouteId ?? routes[0]?.id ?? null;
-  const activeRouteRecord = routes.find((route) => route.id === activeRoute) ?? null;
+  const activeRouteRecord =
+    routes.find((route) => route.id === activeRoute) ?? null;
+  const activeRouteIndex = routes.findIndex(
+    (route) => route.id === activeRoute,
+  );
   const routeLoci = useMemo(
-    () => loci.filter((l) => l.routeId === activeRoute).sort((a, b) => a.orderIndex - b.orderIndex),
+    () =>
+      loci
+        .filter((l) => l.routeId === activeRoute)
+        .sort((a, b) => a.orderIndex - b.orderIndex),
     [loci, activeRoute],
   );
   const activeWalkNodeId = routeLoci[walkIndex]?.nodeId ?? null;
@@ -50,7 +62,10 @@ export function RoutePanel({ onHoverHintChange }: Props) {
       if (!shape || shape.type !== "geo") continue;
       const meta = shape.meta as MemoryPalaceMeta;
       if (!meta.mpNodeId) continue;
-      map.set(meta.mpNodeId, meta.mpTitle?.trim() || resolveMemoryNodeTitle(shape));
+      map.set(
+        meta.mpNodeId,
+        meta.mpTitle?.trim() || resolveMemoryNodeTitle(shape),
+      );
     }
     return map;
   })();
@@ -64,7 +79,10 @@ export function RoutePanel({ onHoverHintChange }: Props) {
     if (!sh || sh.type !== "geo") return;
     const m = sh.meta as MemoryPalaceMeta;
     if (!m.mpNodeId) return;
-    addLocusForSelectedRoute(m.mpNodeId, m.mpTitle?.trim() || resolveMemoryNodeTitle(sh));
+    addLocusForSelectedRoute(
+      m.mpNodeId,
+      m.mpTitle?.trim() || resolveMemoryNodeTitle(sh),
+    );
   };
 
   const commitActiveRouteName = () => {
@@ -82,7 +100,11 @@ export function RoutePanel({ onHoverHintChange }: Props) {
             className="mt-1 block min-w-[140px] rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100"
             value={activeRoute ?? ""}
             onChange={(e) => setWalkRoute(e.target.value || null)}
-            onMouseEnter={() => onHoverHintChange?.("Routes dropdown: choose which route receives new loci and walk steps.")}
+            onMouseEnter={() =>
+              onHoverHintChange?.(
+                "Routes dropdown: choose which route receives new loci and walk steps.",
+              )
+            }
             onMouseLeave={() => onHoverHintChange?.(null)}
           >
             {routes.length === 0 ? <option value="">(none)</option> : null}
@@ -96,19 +118,68 @@ export function RoutePanel({ onHoverHintChange }: Props) {
         {activeRoute ? (
           <div>
             <Label className="text-xs">Route details</Label>
-            <Input
-              aria-label="Selected route name"
-              className="mt-1 h-8 w-44 text-xs"
-              value={activeRouteName}
-              onBlur={commitActiveRouteName}
-              onChange={(e) => setActiveRouteName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  commitActiveRouteName();
-                  e.currentTarget.blur();
+            <div className="mt-1 flex items-center gap-1">
+              <Input
+                aria-label="Selected route name"
+                className="h-8 w-44 text-xs"
+                value={activeRouteName}
+                onBlur={commitActiveRouteName}
+                onChange={(e) => setActiveRouteName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitActiveRouteName();
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                type="button"
+                variant="ghost"
+                disabled={activeRouteIndex <= 0}
+                aria-label="Move route up"
+                title="Move this route earlier in the list"
+                onClick={() => moveRoute(activeRoute, "up")}
+              >
+                Up
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                variant="ghost"
+                disabled={
+                  activeRouteIndex === -1 ||
+                  activeRouteIndex >= routes.length - 1
                 }
-              }}
-            />
+                aria-label="Move route down"
+                title="Move this route later in the list"
+                onClick={() => moveRoute(activeRoute, "down")}
+              >
+                Down
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                variant="ghost"
+                aria-label="Delete route"
+                title="Delete this route and its loci"
+                onClick={() => {
+                  void (async () => {
+                    const stepCount = routeLoci.length;
+                    const ok = await confirmDestructive(
+                      `Delete route "${activeRouteRecord?.name ?? ""}"${
+                        stepCount > 0
+                          ? ` and its ${stepCount} loci (review schedules included)`
+                          : ""
+                      }? This cannot be undone.`,
+                    );
+                    if (ok) deleteRoute(activeRoute);
+                  })();
+                }}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         ) : null}
         <div className="flex gap-1">
@@ -117,7 +188,11 @@ export function RoutePanel({ onHoverHintChange }: Props) {
             value={routeName}
             onChange={(e) => setRouteName(e.target.value)}
             placeholder="Route name"
-            onMouseEnter={() => onHoverHintChange?.("Enter a new route name before clicking Add route.")}
+            onMouseEnter={() =>
+              onHoverHintChange?.(
+                "Enter a new route name before clicking Add route.",
+              )
+            }
             onMouseLeave={() => onHoverHintChange?.(null)}
           />
           <Button
@@ -125,7 +200,11 @@ export function RoutePanel({ onHoverHintChange }: Props) {
             type="button"
             variant="secondary"
             onClick={() => addRoute(routeName)}
-            onMouseEnter={() => onHoverHintChange?.("Add route: creates an empty ordered path for loci.")}
+            onMouseEnter={() =>
+              onHoverHintChange?.(
+                "Add route: creates an empty ordered path for loci.",
+              )
+            }
             onMouseLeave={() => onHoverHintChange?.(null)}
           >
             Add route
@@ -137,7 +216,9 @@ export function RoutePanel({ onHoverHintChange }: Props) {
           variant="outline"
           onClick={addSelectedNodeToRoute}
           onMouseEnter={() =>
-            onHoverHintChange?.("Add selected node to route: first click a node on canvas, then click this.")
+            onHoverHintChange?.(
+              "Add selected node to route: first click a node on canvas, then click this.",
+            )
           }
           onMouseLeave={() => onHoverHintChange?.(null)}
         >
@@ -145,18 +226,22 @@ export function RoutePanel({ onHoverHintChange }: Props) {
         </Button>
       </div>
       <p className="mt-1 text-xs text-zinc-500">
-        How to create loci: select a route, click a canvas node, then press "Add selected node to route".
+        How to create loci: select a route, click a canvas node, then press "Add
+        selected node to route".
       </p>
       {activeRoute ? (
         <ol className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-zinc-400">
           {routeLoci.map((l, i) => {
-            const title = nodeTitleById.get(l.nodeId) ?? `Node ${l.nodeId.slice(0, 8)}...`;
+            const title =
+              nodeTitleById.get(l.nodeId) ?? `Node ${l.nodeId.slice(0, 8)}...`;
             const isCurrent = walkOpen && l.nodeId === activeWalkNodeId;
             return (
               <li
                 key={l.id}
                 className={`rounded border border-zinc-800 px-2 py-1 ${
-                  isCurrent ? "bg-violet-900/40 text-violet-200" : "bg-zinc-950/40"
+                  isCurrent
+                    ? "bg-violet-900/40 text-violet-200"
+                    : "bg-zinc-950/40"
                 }`}
                 title={l.nodeId}
               >

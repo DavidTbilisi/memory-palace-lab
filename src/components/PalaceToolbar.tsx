@@ -15,12 +15,13 @@ import {
   Sparkles,
   Tag,
   X,
+  Code2,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { AppModeToggle } from "./AppModeToggle";
 import { usePalaceStore } from "../store/palaceStore";
 import type { ToolMode } from "../store/palaceStore";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
+import { shortcutHint } from "../content/shortcuts";
 import { cn } from "../utils/cn";
 
 const tools: { id: ToolMode | "save" | "portal" | "reset" | "refresh"; label: string; icon: typeof MousePointer2 }[] = [
@@ -97,6 +98,8 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
   const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
   const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
+  const dslPaneOpen = usePalaceStore((s) => s.dslPaneOpen);
+  const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
   const availableTags = usePalaceStore((s) => s.availableTags);
   const activeTags = usePalaceStore((s) => s.activeTags);
   const toggleActiveTag = usePalaceStore((s) => s.toggleActiveTag);
@@ -176,7 +179,6 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
 
   return (
     <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
-      <AppModeToggle onHoverHintChange={onHoverHintChange} />
       <div
         className={cn(
           "flex min-w-0 flex-1 items-center gap-1 transition",
@@ -425,6 +427,21 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
             </Button>
           );
         })}
+        <Button
+          size="sm"
+          variant={dslPaneOpen ? "default" : "ghost"}
+          type="button"
+          title={`Toggle DSL editor${shortcutHint("dsl")}`}
+          aria-pressed={dslPaneOpen}
+          onClick={() => setDslPaneOpen(!dslPaneOpen)}
+          onMouseEnter={() =>
+            onHoverHintChange?.("DSL editor: edit the palace as text in a split pane. Changes sync both ways.")
+          }
+          onMouseLeave={() => onHoverHintChange?.(null)}
+        >
+          <Code2 className="h-4 w-4" />
+          <span className="hidden lg:inline">DSL</span>
+        </Button>
         {onOpenRepresent ? (
           <Button
             size="sm"

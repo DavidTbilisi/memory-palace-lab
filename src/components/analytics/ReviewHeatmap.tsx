@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { requestNavigation } from "../../app/navigationEvents";
 import type { HeatmapCell } from "../../domain/services/reviewMetrics";
 import { formatDayKeyLabel } from "../../domain/services/reviewMetrics";
 import { Button } from "../ui/button";
@@ -20,7 +21,7 @@ export function ReviewHeatmap({ cells }: { cells: HeatmapCell[] }) {
             size="sm"
             variant="secondary"
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("mp-open-review"))}
+            onClick={() => requestNavigation("review")}
           >
             Start reviewing
           </Button>

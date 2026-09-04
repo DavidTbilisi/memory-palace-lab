@@ -16,6 +16,7 @@ export type TheSystemDoc = {
 };
 
 const DOC_ORDER = [
+  "app-manual",
   "navigator",
   "skill",
   "design-orientation",
@@ -51,6 +52,7 @@ const DOC_ORDER = [
 ] as const;
 
 const DOC_CATEGORY_BY_SLUG: Record<string, TheSystemCategory> = {
+  "app-manual": "Getting Started",
   navigator: "Getting Started",
   skill: "Getting Started",
   "design-orientation": "Getting Started",

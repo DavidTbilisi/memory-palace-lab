@@ -6,9 +6,11 @@ import { GLOSSARY } from "../domain/glossary";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Open the full glossary (terms + CAST lexicon) in the Library. */
+  onOpenLibrary?: () => void;
 };
 
-export function GlossaryPanel({ open, onOpenChange }: Props) {
+export function GlossaryPanel({ open, onOpenChange, onOpenLibrary }: Props) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -95,6 +97,20 @@ export function GlossaryPanel({ open, onOpenChange }: Props) {
                 </div>
               )}
             </div>
+            {onOpenLibrary ? (
+              <div className="border-t border-zinc-800/80 px-4 py-2 text-right">
+                <button
+                  type="button"
+                  className="text-xs text-violet-300 underline-offset-2 hover:underline"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onOpenLibrary();
+                  }}
+                >
+                  Open full glossary and CAST lexicon in the Library
+                </button>
+              </div>
+            ) : null}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

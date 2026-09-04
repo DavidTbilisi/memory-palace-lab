@@ -51,7 +51,7 @@ function formatSection(label: string, value: string) {
   return `${label}:\n${value.trim() || "Pending"}`;
 }
 
-function createNamedNode(
+export function createNamedNode(
   editor: Editor,
   palaceId: string,
   x: number,

@@ -1,40 +1,65 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
-import { BookOpen, GitBranchPlus, RotateCcw, Route, Target, Wand2 } from "lucide-react";
+import {
+  BookOpen,
+  GitBranchPlus,
+  RotateCcw,
+  Route,
+  Target,
+  Wand2,
+} from "lucide-react";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import { THE_SYSTEM_PIPELINES } from "../content/theSystemPipelines";
 import { materializeTheSystemPipeline } from "../system/materializeTheSystemPipeline";
 import { usePalaceStore } from "../store/palaceStore";
-import { TheSystemLibrary } from "./TheSystemLibrary";
+import { requestNavigation } from "../app/navigationEvents";
+import { isDocPipelineId } from "../system/pipelineFromDoc";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
-type WorkbenchTab = "pipelines" | "docs";
+type Props = {
+  /** Open the pipeline's guide in the Library. */
+  onOpenGuide?: (slug: string) => void;
+};
 
-export function TheSystemWorkbench() {
+export function TheSystemWorkbench({ onOpenGuide }: Props = {}) {
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
   const replaceRoutesAndLoci = usePalaceStore((s) => s.replaceRoutesAndLoci);
   const recordAnalyticsEvent = usePalaceStore((s) => s.recordAnalyticsEvent);
+  const systemDraftTemplate = usePalaceStore((s) => s.systemDraftTemplate) ?? null;
+  const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
+  const templates = useMemo(
+    () => (systemDraftTemplate ? [systemDraftTemplate, ...THE_SYSTEM_PIPELINES] : THE_SYSTEM_PIPELINES),
+    [systemDraftTemplate],
+  );
 
-  const [tab, setTab] = useState<WorkbenchTab>("pipelines");
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string>(THE_SYSTEM_PIPELINES[0]?.id ?? "");
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>(
+    THE_SYSTEM_PIPELINES[0]?.id ?? "",
+  );
   const [sessionTitle, setSessionTitle] = useState("");
   const [focus, setFocus] = useState("");
   const [outcome, setOutcome] = useState("");
-  const [notesByStepId, setNotesByStepId] = useState<Record<string, string>>({});
+  const [notesByStepId, setNotesByStepId] = useState<Record<string, string>>(
+    {},
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"success" | "error">("success");
   const [isMaterializing, setIsMaterializing] = useState(false);
 
   const template = useMemo(
-    () => THE_SYSTEM_PIPELINES.find((candidate) => candidate.id === selectedPipelineId) ?? THE_SYSTEM_PIPELINES[0],
-    [selectedPipelineId],
+    () => templates.find((candidate) => candidate.id === selectedPipelineId) ?? templates[0],
+    [selectedPipelineId, templates],
   );
+
+  // A document sent from the Library takes the stage as soon as it arrives.
+  useEffect(() => {
+    if (systemDraftTemplate) setSelectedPipelineId(systemDraftTemplate.id);
+  }, [systemDraftTemplate]);
 
   const selectedNodeContext = useMemo(() => {
     if (!editorRef || !selectedShapeId) return null;
@@ -84,7 +109,10 @@ export function TheSystemWorkbench() {
       });
 
       const state = usePalaceStore.getState();
-      replaceRoutesAndLoci([...state.routes, result.route], [...state.loci, ...result.loci]);
+      replaceRoutesAndLoci(
+        [...state.routes, result.route],
+        [...state.loci, ...result.loci],
+      );
       usePalaceStore.setState({
         selectedShapeId: result.overviewShapeId,
       });
@@ -105,7 +133,9 @@ export function TheSystemWorkbench() {
       });
 
       editorRef.setSelectedShapes([result.overviewShapeId as TLShapeId]);
-      editorRef.zoomToSelectionIfOffscreen(120, { animation: { duration: 240 } });
+      editorRef.zoomToSelectionIfOffscreen(120, {
+        animation: { duration: 240 },
+      });
 
       const label = sessionTitle.trim() || focus.trim() || template.shortTitle;
       setStatusTone("success");
@@ -114,7 +144,11 @@ export function TheSystemWorkbench() {
       );
     } catch (error) {
       setStatusTone("error");
-      setStatusMessage(error instanceof Error ? error.message : "Failed to materialize the graph run.");
+      setStatusMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to materialize the graph run.",
+      );
     } finally {
       setIsMaterializing(false);
     }
@@ -136,201 +170,270 @@ export function TheSystemWorkbench() {
           System Workbench
         </div>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-400">
-          Turn theSystem into graph-native thinking workflows. Run a framework, capture working notes, and materialize
-          the session into nodes, CAST edges, and a walk route inside the current palace.
+          Turn theSystem into graph-native thinking workflows. Run a framework,
+          capture working notes, and materialize the session into nodes, CAST
+          edges, and a walk route inside the current palace.
         </p>
         <div className="mt-3 flex gap-2">
           <Button
             size="sm"
             type="button"
-            variant={tab === "pipelines" ? "default" : "secondary"}
-            onClick={() => setTab("pipelines")}
+            variant="secondary"
+            onClick={() => onOpenGuide?.(template.docsSlug)}
           >
-            Pipelines
-          </Button>
-          <Button size="sm" type="button" variant={tab === "docs" ? "default" : "secondary"} onClick={() => setTab("docs")}>
-            Docs
+            <BookOpen className="h-4 w-4" />
+            Read the guide
           </Button>
         </div>
       </div>
 
-      {tab === "docs" ? (
-        <div className="min-h-0 flex-1 pt-3">
-          <TheSystemLibrary preferredSlug={template.docsSlug} />
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-6xl px-3">
+            <div className="mb-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+                <Route className="h-4 w-4 text-violet-300" />
+                Pipelines Navigator
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
+                Start with a fixed framework, then turn the run into graph
+                structure.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3 pb-4">
+              {templates.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => setSelectedPipelineId(candidate.id)}
+                  className={`rounded-md border p-3 text-left transition ${
+                    candidate.id === template.id
+                      ? "border-violet-500/60 bg-violet-900/20"
+                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900"
+                  }`}
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                      {isDocPipelineId(candidate.id) ? "From document" : candidate.category}
+                    </div>
+                  <div className="mt-1 text-sm font-medium text-zinc-100">
+                    {candidate.title}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-zinc-400">
+                    {candidate.summary}
+                  </div>
+                  <div className="mt-2 text-[11px] text-zinc-500">
+                    {candidate.steps.length} steps
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
-          <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-6xl px-3">
-              <div className="mb-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-                  <Route className="h-4 w-4 text-violet-300" />
-                  Pipelines Navigator
-                </div>
-                <p className="mt-1 text-xs leading-5 text-zinc-400">
-                  Start with a fixed framework, then turn the run into graph structure.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3 pb-4">
-                {THE_SYSTEM_PIPELINES.map((candidate) => (
-                  <button
-                    key={candidate.id}
-                    type="button"
-                    onClick={() => setSelectedPipelineId(candidate.id)}
-                    className={`rounded-md border p-3 text-left transition ${
-                      candidate.id === template.id
-                        ? "border-violet-500/60 bg-violet-900/20"
-                        : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900"
-                    }`}
-                  >
-                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">{candidate.category}</div>
-                    <div className="mt-1 text-sm font-medium text-zinc-100">{candidate.title}</div>
-                    <div className="mt-1 text-xs leading-5 text-zinc-400">{candidate.summary}</div>
-                    <div className="mt-2 text-[11px] text-zinc-500">{candidate.steps.length} steps</div>
-                  </button>
-                ))}
-              </div>
+
+        <section className="flex min-h-0 flex-1 flex-col rounded-md border border-zinc-800 bg-zinc-900/40 mx-3">
+          <div className="border-b border-zinc-800 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">
+              {template.category}
+            </div>
+            <h2 className="mt-1 text-lg font-semibold text-zinc-100">
+              {template.title}
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-zinc-400">
+              {template.summary}
+            </p>
+            <div className="mt-2 text-xs text-zinc-500">
+              Best for: {template.recommendedFor}
             </div>
           </div>
 
-          <section className="flex min-h-0 flex-1 flex-col rounded-md border border-zinc-800 bg-zinc-900/40 mx-3">
-            <div className="border-b border-zinc-800 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">{template.category}</div>
-              <h2 className="mt-1 text-lg font-semibold text-zinc-100">{template.title}</h2>
-              <p className="mt-1 text-sm leading-6 text-zinc-400">{template.summary}</p>
-              <div className="mt-2 text-xs text-zinc-500">Best for: {template.recommendedFor}</div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-6">
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-                    <Target className="h-4 w-4 text-violet-300" />
-                    Session target
-                  </div>
-                  <div className="mt-3 space-y-3">
-                    <div>
-                      <Label htmlFor="system-session-title">Session title</Label>
-                      <Input
-                        id="system-session-title"
-                        className="mt-1"
-                        value={sessionTitle}
-                        onChange={(event) => setSessionTitle(event.target.value)}
-                        placeholder={`${template.shortTitle} run for this topic`}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="system-session-focus">Topic or problem</Label>
-                      <Textarea
-                        id="system-session-focus"
-                        className="mt-1 min-h-[92px]"
-                        value={focus}
-                        onChange={(event) => setFocus(event.target.value)}
-                        placeholder="What are you trying to understand, solve, or build?"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="system-session-outcome">Desired outcome</Label>
-                      <Textarea
-                        id="system-session-outcome"
-                        className="mt-1 min-h-[92px]"
-                        value={outcome}
-                        onChange={(event) => setOutcome(event.target.value)}
-                        placeholder="What does good output look like for this run?"
-                      />
-                    </div>
-                  </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-6">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                  <Target className="h-4 w-4 text-violet-300" />
+                  Session target
                 </div>
-
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-                    <GitBranchPlus className="h-4 w-4 text-violet-300" />
-                    Graph output
-                  </div>
-                  <div className="mt-3 space-y-3 text-sm text-zinc-300">
-                    <p>{graphSummary}</p>
-                    <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
-                      {selectedNodeContext ? (
-                        <>
-                          Selected node anchor: <span className="text-zinc-200">{selectedNodeContext.title}</span>. The
-                          generated overview node will attach to it with a `focuses on` edge.
-                        </>
-                      ) : (
-                        <>Select a node first if you want the run attached to an existing concept or problem node.</>
-                      )}
-                    </div>
-                    <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
-                      {currentPalace ? (
-                        <>
-                          Current palace: <span className="text-zinc-200">{currentPalace.name}</span>. Route name will
-                          start with <span className="text-zinc-200">{template.routeName}</span>.
-                        </>
-                      ) : (
-                        <>Create or open a palace first. The pipeline engine only emits into an active graph.</>
-                      )}
-                    </div>
-                    <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
-                      Reference doc available in the <span className="text-zinc-200">Docs</span> tab if you need the full
-                      rationale while filling the run.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {template.steps.map((step) => (
-                  <section key={step.id} className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="rounded-full border border-violet-500/60 bg-violet-900/20 px-2 py-0.5 text-[11px] font-semibold text-violet-200">
-                        {step.code}
-                      </div>
-                      <div className="text-sm font-medium text-zinc-100">{step.title}</div>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{step.prompt}</p>
-                    <div className="mt-2 text-xs leading-5 text-zinc-500">{step.hint}</div>
-                    <Textarea
-                      aria-label={`${step.title} notes`}
-                      className="mt-3 min-h-[108px]"
-                      value={notesByStepId[step.id] ?? ""}
-                      onChange={(event) =>
-                        setNotesByStepId((current) => ({
-                          ...current,
-                          [step.id]: event.target.value,
-                        }))
-                      }
-                      placeholder={step.placeholder}
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <Label htmlFor="system-session-title">Session title</Label>
+                    <Input
+                      id="system-session-title"
+                      className="mt-1"
+                      value={sessionTitle}
+                      onChange={(event) => setSessionTitle(event.target.value)}
+                      placeholder={`${template.shortTitle} run for this topic`}
                     />
-                  </section>
-                ))}
+                  </div>
+                  <div>
+                    <Label htmlFor="system-session-focus">
+                      Topic or problem
+                    </Label>
+                    <Textarea
+                      id="system-session-focus"
+                      className="mt-1 min-h-[92px]"
+                      value={focus}
+                      onChange={(event) => setFocus(event.target.value)}
+                      placeholder="What are you trying to understand, solve, or build?"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="system-session-outcome">
+                      Desired outcome
+                    </Label>
+                    <Textarea
+                      id="system-session-outcome"
+                      className="mt-1 min-h-[92px]"
+                      value={outcome}
+                      onChange={(event) => setOutcome(event.target.value)}
+                      placeholder="What does good output look like for this run?"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                  <GitBranchPlus className="h-4 w-4 text-violet-300" />
+                  Graph output
+                </div>
+                <div className="mt-3 space-y-3 text-sm text-zinc-300">
+                  <p>{graphSummary}</p>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
+                    {selectedNodeContext ? (
+                      <>
+                        Selected node anchor:{" "}
+                        <span className="text-zinc-200">
+                          {selectedNodeContext.title}
+                        </span>
+                        . The generated overview node will attach to it with a
+                        `focuses on` edge.
+                      </>
+                    ) : (
+                      <>
+                        Select a node first if you want the run attached to an
+                        existing concept or problem node.
+                      </>
+                    )}
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
+                    {currentPalace ? (
+                      <>
+                        Current palace:{" "}
+                        <span className="text-zinc-200">
+                          {currentPalace.name}
+                        </span>
+                        . Route name will start with{" "}
+                        <span className="text-zinc-200">
+                          {template.routeName}
+                        </span>
+                        .
+                      </>
+                    ) : (
+                      <>
+                        Create or open a palace first. The pipeline engine only
+                        emits into an active graph.
+                      </>
+                    )}
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs leading-5 text-zinc-400">
+                    The full rationale lives in the Library.{" "}
+                    <button
+                      type="button"
+                      className="text-violet-300 underline-offset-2 hover:underline"
+                      onClick={() => onOpenGuide?.(template.docsSlug)}
+                    >
+                      Read the guide
+                    </button>{" "}
+                    while filling the run.
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 px-4 py-3">
-              <div className="text-xs text-zinc-500">
-                {statusMessage ? (
-                  <span className={statusTone === "success" ? "text-emerald-300" : "text-rose-300"}>{statusMessage}</span>
+            <div className="mt-4 space-y-3">
+              {template.steps.map((step) => (
+                <section
+                  key={step.id}
+                  className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="rounded-full border border-violet-500/60 bg-violet-900/20 px-2 py-0.5 text-[11px] font-semibold text-violet-200">
+                      {step.code}
+                    </div>
+                    <div className="text-sm font-medium text-zinc-100">
+                      {step.title}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    {step.prompt}
+                  </p>
+                  <div className="mt-2 text-xs leading-5 text-zinc-500">
+                    {step.hint}
+                  </div>
+                  <Textarea
+                    aria-label={`${step.title} notes`}
+                    className="mt-3 min-h-[108px]"
+                    value={notesByStepId[step.id] ?? ""}
+                    onChange={(event) =>
+                      setNotesByStepId((current) => ({
+                        ...current,
+                        [step.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={step.placeholder}
+                  />
+                </section>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 px-4 py-3">
+            <div className="text-xs text-zinc-500">
+              {statusMessage ? (
+                  <span className={statusTone === "success" ? "text-emerald-300" : "text-rose-300"}>
+                    {statusMessage}
+                    {statusTone === "success" ? (
+                      <button
+                        type="button"
+                        className="ml-2 text-violet-300 underline-offset-2 hover:underline"
+                        onClick={() => {
+                          setRoutePanelOpen(true);
+                          requestNavigation("graph");
+                        }}
+                      >
+                        Show in graph
+                      </button>
+                    ) : null}
+                  </span>
                 ) : (
                   graphSummary
                 )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={resetAnswers}>
-                  <RotateCcw className="h-4 w-4" />
-                  Reset answers
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => setTab("docs")}>
-                  <BookOpen className="h-4 w-4" />
-                  Open docs
-                </Button>
-                <Button type="button" onClick={handleMaterialize} disabled={!currentPalace || !editorRef || isMaterializing}>
-                  <Wand2 className="h-4 w-4" />
-                  {isMaterializing ? "Materializing..." : "Materialize to graph"}
-                </Button>
-              </div>
             </div>
-          </section>
-        </div>
-      )}
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={resetAnswers}>
+                <RotateCcw className="h-4 w-4" />
+                Reset answers
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onOpenGuide?.(template.docsSlug)}
+              >
+                <BookOpen className="h-4 w-4" />
+                Read the guide
+              </Button>
+              <Button
+                type="button"
+                onClick={handleMaterialize}
+                disabled={!currentPalace || !editorRef || isMaterializing}
+              >
+                <Wand2 className="h-4 w-4" />
+                {isMaterializing ? "Materializing..." : "Materialize to graph"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

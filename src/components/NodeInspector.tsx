@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { requestNavigation } from "../app/navigationEvents";
 import { toRichText } from "@tldraw/tlschema";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { applyPortalRefToMeta, nodeKindProps, portalDescriptor, portalRefFromMeta } from "../canvas/palacePortal";
@@ -446,7 +447,7 @@ export function NodeInspector() {
     setAiSuggestion(null);
     const apiKey = typeof window !== "undefined" ? window.localStorage.getItem(AI_KEY_STORAGE)?.trim() : null;
     if (!apiKey) {
-      setAiError("AI encoding requires an API key. Add it in Insights settings.");
+      setAiError("AI encoding requires an API key. Add it in Settings.");
       return;
     }
     setAiLoading(true);
@@ -663,7 +664,7 @@ export function NodeInspector() {
                 <button
                   type="button"
                   className="underline"
-                  onClick={() => window.dispatchEvent(new CustomEvent("mp-open-insights"))}
+                  onClick={() => requestNavigation("settings")}
                 >
                   Open Settings
                 </button>

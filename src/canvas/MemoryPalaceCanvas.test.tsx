@@ -2,23 +2,39 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MemoryPalaceCanvas } from "./MemoryPalaceCanvas";
 
-const { usePalaceStoreMock } = vi.hoisted(() => ({
-  usePalaceStoreMock: vi.fn((selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      setEditor: vi.fn(),
-      setSelectedShapeId: vi.fn(),
-      queueDraftSave: vi.fn(),
-      walkOpen: false,
-      walkRecallMode: false,
-      walkAnswerRevealed: true,
-      walkIndex: 0,
-      walkRouteId: null,
-      loci: [],
-      toolMode: "select",
-      connect: { fromShapeId: null },
-    }),
-  ),
-}));
+const { usePalaceStoreMock } = vi.hoisted(() => {
+  // One shared state object so every selector returns stable references.
+  // Building a fresh object per call handed the component new arrays on
+  // each render, so its badge effects re-ran and set state without end.
+  const state: Record<string, unknown> = {
+    setEditor: vi.fn(),
+    setSelectedShapeId: vi.fn(),
+    setFocusNodeId: vi.fn(),
+    setAvailableTags: vi.fn(),
+    clearActiveTags: vi.fn(),
+    queueDraftSave: vi.fn(),
+    walkOpen: false,
+    walkRecallMode: false,
+    walkAnswerRevealed: true,
+    walkIndex: 0,
+    walkRouteId: null,
+    loci: [],
+    nodes: [],
+    edges: [],
+    activeTags: [],
+    availableTags: [],
+    toolMode: "select",
+    connect: { fromShapeId: null },
+    appMode: "encode",
+    comprehendCruxNodeId: null,
+    focusNodeId: null,
+  };
+  const usePalaceStoreMock = Object.assign(
+    vi.fn((selector: (s: Record<string, unknown>) => unknown) => selector(state)),
+    { getState: () => state },
+  );
+  return { usePalaceStoreMock };
+});
 
 vi.mock("../store/palaceStore", () => ({
   usePalaceStore: usePalaceStoreMock,

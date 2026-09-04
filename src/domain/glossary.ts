@@ -20,7 +20,9 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: "CAST Edge",
-    definition: "A typed semantic connection between nodes — Causal, Associative, Structural, or Temporal — used to model relationships.",
+    definition:
+      "A typed semantic connection between nodes. CAST is four axes — WHO (Character: source role), HOW (Action: effect style), WHAT (Stream: what moves), WHEN (Time: stability) — each picked from four archetypes such as Giant, Mermaid, Mage, Dragon.",
+    also: ["WHO / HOW / WHAT / WHEN"],
   },
   {
     term: "Spaced Repetition",

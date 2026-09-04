@@ -45,11 +45,16 @@ empty. To encode the 4-digit number `2743`, you combine:
 ### 0 — Vision
 | Key | Item | Key | Item |
 |-----|------|-----|------|
-| 0100 | Dinosaur | 0200 | Nobility |
-| 0300 | Moonlight | 0400 | Ravine |
-| 0500 | Lightning | 0600 | Church |
-| 0700 | Concorde | 0800 | Fire |
-| 0900 | Painting | | |
+| 0000 | Snow | 0100 | Dinosaur |
+| 0200 | Nobility | 0300 | Moonlight |
+| 0400 | Ravine | 0500 | Lightning |
+| 0600 | Church | 0700 | Concorde |
+| 0800 | Fire | 0900 | Painting |
+
+`0000` filled 2026-09-03 — the table previously began at `0100`, leaving Vision the
+only category with nine items and the grid one cell short of 100. **Snow** satisfies
+the phonetic rule below (S = 0). Convention: render it **visually** — a white
+snowfield, snow seen falling — never as cold, which is Touch (category 4).
 
 ### 1 — Sound
 | Key | Item | Key | Item |

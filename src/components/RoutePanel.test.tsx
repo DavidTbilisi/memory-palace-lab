@@ -63,8 +63,8 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
   describe("Remove step from route", () => {
     it("should display delete button for each step", () => {
       const { container } = render(<RoutePanel />);
-      const deleteButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("Delete")
+      const deleteButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "").startsWith("Delete locus"),
       );
       expect(deleteButtons.length).toBeGreaterThanOrEqual(3);
     });
@@ -99,8 +99,8 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
       const { container, rerender } = render(<RoutePanel />);
       rerender(<RoutePanel />);
 
-      const deleteButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("Delete")
+      const deleteButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "").startsWith("Delete locus"),
       );
       if (deleteButtons.length > 0) {
         await user.click(deleteButtons[0]);
@@ -112,11 +112,11 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
   describe("Reorder steps within a route", () => {
     it("should display up/down buttons for step movement", () => {
       const { container } = render(<RoutePanel />);
-      const upButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("up")
+      const upButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "").startsWith("Move locus") && (btn.getAttribute("aria-label") ?? "").endsWith("up"),
       );
-      const downButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("down")
+      const downButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "").startsWith("Move locus") && (btn.getAttribute("aria-label") ?? "").endsWith("down"),
       );
       expect(upButtons.length).toBeGreaterThan(0);
       expect(downButtons.length).toBeGreaterThan(0);
@@ -124,16 +124,16 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
 
     it("should disable up button for first step", () => {
       const { container } = render(<RoutePanel />);
-      const upButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("Move locus 1 up")
+      const upButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "") === "Move locus 1 up",
       );
       expect(upButtons[0]?.hasAttribute("disabled")).toBe(true);
     });
 
     it("should disable down button for last step", () => {
       const { container } = render(<RoutePanel />);
-      const downButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("down")
+      const downButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "").startsWith("Move locus") && (btn.getAttribute("aria-label") ?? "").endsWith("down"),
       );
       const lastDownButton = downButtons[downButtons.length - 1];
       expect(lastDownButton?.hasAttribute("disabled")).toBe(true);
@@ -169,8 +169,8 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
       const { container, rerender } = render(<RoutePanel />);
       rerender(<RoutePanel />);
 
-      const upButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("Move locus 2 up")
+      const upButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "") === "Move locus 2 up",
       );
       if (upButtons.length > 0) {
         await user.click(upButtons[0]);
@@ -208,8 +208,8 @@ describe("RoutePanel - Fully Editable Routes (#13)", () => {
       const { container, rerender } = render(<RoutePanel />);
       rerender(<RoutePanel />);
 
-      const downButtons = Array.from(container.querySelectorAll("button")).filter(
-        (btn) => btn.getAttribute("aria-label")?.includes("Move locus 1 down")
+      const downButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+        (btn.getAttribute("aria-label") ?? "") === "Move locus 1 down",
       );
       if (downButtons.length > 0) {
         await user.click(downButtons[0]);

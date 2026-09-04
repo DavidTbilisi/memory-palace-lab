@@ -51,4 +51,17 @@ describe("useReviewMetrics", () => {
     expect(result.current.heatmapCells.length).toBeGreaterThan(300);
     expect(result.current.heatmapCells.some((c) => c.count > 0)).toBe(true);
   });
+
+  it("scopes due count and average interval to the route filter", () => {
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    const { result } = renderHook(() =>
+      useReviewMetrics(
+        [],
+        [locus("a", { routeId: "r1", nextReviewAt: past, interval: 2 }), locus("b", { routeId: "r2", nextReviewAt: past, interval: 8 })],
+        { routeId: "r2" },
+      ),
+    );
+    expect(result.current.dueCount).toBe(1);
+    expect(result.current.averageInterval).toBe(8);
+  });
 });

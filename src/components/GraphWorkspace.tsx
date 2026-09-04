@@ -5,6 +5,7 @@ import { AssessBanner } from "./AssessBanner";
 import { ComprehendOverlay } from "./ComprehendOverlay";
 import { ExternalChangeBanner } from "./ExternalChangeBanner";
 import { GraphEmptyState } from "./GraphEmptyState";
+import { NextUpCard } from "./NextUpCard";
 import { NodeInspector } from "./NodeInspector";
 import { PalaceDslEditor } from "./PalaceDslEditor";
 import { PalaceToolbar } from "./PalaceToolbar";
@@ -69,6 +70,7 @@ export function GraphWorkspace({
           />
         </div>
       ) : null}
+      {currentPalace ? <NextUpCard /> : null}
       {currentPalace ? (
         <div className="flex min-h-0 flex-1">
           {dslPaneOpen ? (

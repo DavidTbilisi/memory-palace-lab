@@ -477,7 +477,10 @@ server.registerResource(
       resources: listTheSystemDocs().map((d) => ({
         uri: `thesystem://${d.slug}`,
         name: d.title,
-        description: `Memory-science doc: ${d.title}`,
+        description:
+          d.origin === "wiki"
+            ? `Neural OS wiki page (mirrored): ${d.title}`
+            : `Memory-science doc: ${d.title}`,
         mimeType: "text/markdown",
       })),
     }),

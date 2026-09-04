@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryPalaceApp } from "./MemoryPalaceApp";
 import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
+import { PRIMARY_GROUPS, defaultPageForGroup, pageById } from "./pages";
 
 // Mock the store
 vi.mock("../store/palaceStore");
@@ -18,13 +19,14 @@ vi.mock("../components/AnalyticsPanel", () => ({
 vi.mock("../components/TheSystemWorkbench", () => ({
   TheSystemWorkbench: () => <div data-testid="system">System</div>,
 }));
-vi.mock("../components/HelpCenterPage", () => ({
-  HelpCenterPage: () => <div data-testid="help">Help</div>,
+vi.mock("../components/LibraryPage", () => ({
+  LibraryPage: () => <div data-testid="library">Library</div>,
 }));
 
 describe("MemoryPalaceApp - Header Navigation (#11)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     vi.mocked(usePalaceStore).mockImplementation((selector) => {
       const state = {
         palaces: [],
@@ -50,27 +52,27 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
         saveCurrent: vi.fn(),
         flushDraftSave: vi.fn().mockResolvedValue(undefined),
         setConnectFrom: vi.fn(),
+        atlasLevelLabels: ["Domain", "Place", "Section"],
+        setAtlasLevelLabels: vi.fn(),
+        loadAARRecords: vi.fn(),
+        dailyReviewGoal: 10,
+        setDailyReviewGoal: vi.fn(),
       };
       return selector(state as unknown as PalaceStore);
     });
   });
 
   describe("Navigation tabs centering", () => {
-    it("should render all 8 navigation tabs", () => {
+    it("should render one primary navigation tab per page group, in registry order", () => {
       const { container } = render(<MemoryPalaceApp />);
 
       const nav = container.querySelector("nav");
-      const buttons = nav?.querySelectorAll("button") || [];
+      const buttons = Array.from(nav?.querySelectorAll("[data-nav-primary]") || []);
 
-      expect(buttons.length).toBe(8);
-      expect(buttons[0]?.textContent).toMatch(/Graph/);
-      expect(buttons[1]?.textContent).toMatch(/Review/);
-      expect(buttons[2]?.textContent).toMatch(/Insights/);
-      expect(buttons[3]?.textContent).toMatch(/System/);
-      expect(buttons[4]?.textContent).toMatch(/Difficulty/);
-      expect(buttons[5]?.textContent).toMatch(/Atlas/);
-      expect(buttons[6]?.textContent).toMatch(/Routes/);
-      expect(buttons[7]?.textContent).toMatch(/Help/);
+      expect(buttons.length).toBe(PRIMARY_GROUPS.length);
+      PRIMARY_GROUPS.forEach((group, index) => {
+        expect(buttons[index]?.textContent).toMatch(new RegExp(pageById(defaultPageForGroup(group)).groupLabel));
+      });
     });
 
     it("should position nav tabs in center of header", () => {
@@ -110,7 +112,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       const { container } = render(<MemoryPalaceApp />);
 
       const nav = container.querySelector("nav");
-      const reviewButton = nav?.querySelectorAll("button")[1]; // Review is index 1
+      const reviewButton = nav?.querySelector('[data-nav-primary="review"]');
 
       if (reviewButton) {
         await user.click(reviewButton);
@@ -123,7 +125,7 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       const { container } = render(<MemoryPalaceApp />);
 
       const nav = container.querySelector("nav");
-      const graphButton = nav?.querySelector("button"); // First button is Graph
+      const graphButton = nav?.querySelector('[data-nav-primary="graph"]');
 
       // Graph tab should be highlighted (default variant)
       const isActive = graphButton?.className.includes("bg-violet") ||
@@ -249,7 +251,9 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
 
         // Navigate to another page and back
         const nav = container.querySelector("nav");
-        const helpButton = nav?.querySelectorAll("button")[6]; // Help is last
+        const helpButton = Array.from(nav?.querySelectorAll("button") ?? []).find((btn) =>
+          /Library/.test(btn.textContent ?? ""),
+        );
 
         if (helpButton) {
           await user.click(helpButton);

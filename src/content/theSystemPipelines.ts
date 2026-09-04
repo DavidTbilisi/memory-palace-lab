@@ -1,7 +1,8 @@
 export type TheSystemPipelineCategory =
   | "Learning Loop"
   | "Comprehension"
-  | "Problem Solving";
+  | "Problem Solving"
+  | "Document";
 
 export type TheSystemPipelineStep = {
   id: string;

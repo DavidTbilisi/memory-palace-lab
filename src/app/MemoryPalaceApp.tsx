@@ -8,14 +8,21 @@ import { AppErrorBanner } from "../components/AppErrorBanner";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { WebModeBanner } from "../components/WebModeBanner";
 import { CastEdgeDialog } from "../components/CastEdgeDialog";
-import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
+import {
+  CommandPalette,
+  type PaletteCommand,
+} from "../components/CommandPalette";
 import { ContextualTipCard } from "../components/ContextualTipCard";
 import { GlossaryPanel } from "../components/GlossaryPanel";
 import { ImportNodesDialog } from "../components/ImportNodesDialog";
 import { PalaceSidebar } from "../components/PalaceSidebar";
 import { RepresentMotifDialog } from "../components/RepresentMotifDialog";
 import { GraphWorkspace } from "../components/GraphWorkspace";
-import { PageContentRouter } from "../components/PageContentRouter";
+import {
+  PageContentRouter,
+  type OpenLibraryTarget,
+} from "../components/PageContentRouter";
+import type { LibraryTarget } from "../components/LibraryPage";
 import { PageNavigationBar } from "../components/PageNavigationBar";
 import { ViewModeToggleGroup } from "../components/ViewModeToggleGroup";
 import { useAssessHint } from "../components/hooks/useAssessHint";
@@ -23,6 +30,10 @@ import { useCommandPalette } from "../components/hooks/useCommandPalette";
 import { useDragResizable } from "../components/hooks/useDragResizable";
 import { useKeyboardShortcuts } from "../components/hooks/useKeyboardShortcuts";
 import { useOnboardingState } from "../components/hooks/useOnboardingState";
+import {
+  useShellLayout,
+  type ViewMode,
+} from "../components/hooks/useShellLayout";
 import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
 import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
 import { SessionSummaryModal } from "../components/SessionSummaryModal";
@@ -32,10 +43,20 @@ import { usePalaceStore } from "../store/palaceStore";
 import {
   DSL_SPLIT_RATIO_STORAGE_KEY,
   loadSplitRatio,
-  pageHint,
-  type AppPage,
 } from "./memoryPalaceAppHelpers";
+import { subscribeNavigation } from "./navigationEvents";
+import { startReviewAt } from "./reviewNavigation";
+import {
+  PAGES,
+  pageHint,
+  pagePaletteId,
+  pagePaletteTitle,
+  resolveNavigationTarget,
+  type NavigationTarget,
+} from "./pages";
 import { useExternalMcpSync } from "./useExternalMcpSync";
+import { createTutorialPalace } from "../system/examplePalaces";
+import { loadWikiIndex } from "../content/wikiLibrary";
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,8 +66,19 @@ export function MemoryPalaceApp() {
   useExternalMcpSync();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState<AppPage>("graph");
-  const graphControls = true;
+  const [libraryTarget, setLibraryTarget] = useState<LibraryTarget | null>(
+    null,
+  );
+  const {
+    currentPage,
+    setCurrentPage,
+    viewMode,
+    showSidebar,
+    setShowSidebar,
+    showInspector,
+    setShowInspector,
+    applyViewMode: applyShellViewMode,
+  } = useShellLayout();
 
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
@@ -55,13 +87,8 @@ export function MemoryPalaceApp() {
   const loci = usePalaceStore((s) => s.loci);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const toolMode = usePalaceStore((s) => s.toolMode);
-  const createPalace = usePalaceStore((s) => s.createPalace);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
-  const setWalkRoute = usePalaceStore((s) => s.setWalkRoute);
-  const setWalkRecallMode = usePalaceStore((s) => s.setWalkRecallMode);
-  const setWalkCueOnly = usePalaceStore((s) => s.setWalkCueOnly);
-  const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const palaces = usePalaceStore((s) => s.palaces);
   const pendingCast = usePalaceStore((s) => s.pendingCast);
@@ -78,60 +105,70 @@ export function MemoryPalaceApp() {
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
-  const { ratio: dslSplitRatio, onSeparatorMouseDown: onDslSeparatorMouseDown } = useDragResizable({
+  const {
+    ratio: dslSplitRatio,
+    onSeparatorMouseDown: onDslSeparatorMouseDown,
+  } = useDragResizable({
     getInitialRatio: loadSplitRatio,
     storageKey: DSL_SPLIT_RATIO_STORAGE_KEY,
   });
 
   const [showOnboarding, setShowOnboarding] = useOnboardingState();
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [showInspector, setShowInspector] = useState(true);
-  const [viewMode, setViewMode] = useState<"balanced" | "focus">("balanced");
   const [representOpen, setRepresentOpen] = useState(false);
 
-  const onRepresentInsert = useCallback(
-    (scaffold: MotifScaffold) => {
-      const editor = usePalaceStore.getState().editorRef;
-      const palace = usePalaceStore.getState().currentPalace;
-      if (!editor || !palace) return;
-      applyMotifScaffold(editor, palace.id, scaffold);
+  const onRepresentInsert = useCallback((scaffold: MotifScaffold) => {
+    const editor = usePalaceStore.getState().editorRef;
+    const palace = usePalaceStore.getState().currentPalace;
+    if (!editor || !palace) return;
+    applyMotifScaffold(editor, palace.id, scaffold);
+  }, []);
+  const [hoverHint, setHoverHint] = useState<string | null>(null);
+
+  const navigateToPage = useCallback(
+    (target: NavigationTarget) => {
+      const resolved = resolveNavigationTarget(target);
+      setCurrentPage(resolved.page);
+      if (resolved.openRoutePanel) {
+        const store = usePalaceStore.getState();
+        store.setRoutePanelOpen(true);
+        store.setToolMode("route");
+      }
+    },
+    [setCurrentPage],
+  );
+
+  /** Open the Library, optionally at a section, entry, and anchor. */
+  const openLibrary = useCallback(
+    (target: OpenLibraryTarget = {}) => {
+      setLibraryTarget((previous) => ({
+        ...target,
+        version: (previous?.version ?? 0) + 1,
+      }));
+      setCurrentPage("library");
+    },
+    [setCurrentPage],
+  );
+
+  const waitForNodeShape = useCallback(
+    async (targetPalaceId: string, nodeId: string) => {
+      const started = Date.now();
+      while (Date.now() - started < 4500) {
+        const state = usePalaceStore.getState();
+        if (state.currentPalace?.id === targetPalaceId && state.editorRef) {
+          for (const shapeId of state.editorRef.getCurrentPageShapeIds()) {
+            const shape = state.editorRef.getShape(shapeId as TLShapeId);
+            const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
+            if (shape?.type === "geo" && meta.mpNodeId === nodeId) {
+              return { editor: state.editorRef, shapeId: shapeId as TLShapeId };
+            }
+          }
+        }
+        await sleep(70);
+      }
+      return null;
     },
     [],
   );
-  const [hoverHint, setHoverHint] = useState<string | null>(null);
-
-  const navigateToPage = useCallback((page: AppPage) => {
-    setCurrentPage(page);
-  }, []);
-
-  const startRouteReview = useCallback(
-    (routeId: string) => {
-      setWalkRoute(routeId);
-      setWalkRecallMode(true);
-      setWalkCueOnly(true);
-      setWalkOpen(true);
-      setCurrentPage("graph");
-    },
-    [setWalkCueOnly, setWalkOpen, setWalkRecallMode, setWalkRoute],
-  );
-
-  const waitForNodeShape = useCallback(async (targetPalaceId: string, nodeId: string) => {
-    const started = Date.now();
-    while (Date.now() - started < 4500) {
-      const state = usePalaceStore.getState();
-      if (state.currentPalace?.id === targetPalaceId && state.editorRef) {
-        for (const shapeId of state.editorRef.getCurrentPageShapeIds()) {
-          const shape = state.editorRef.getShape(shapeId as TLShapeId);
-          const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-          if (shape?.type === "geo" && meta.mpNodeId === nodeId) {
-            return { editor: state.editorRef, shapeId: shapeId as TLShapeId };
-          }
-        }
-      }
-      await sleep(70);
-    }
-    return null;
-  }, []);
 
   const focusNodeCommand = useCallback(
     async (targetPalaceId: string, nodeId: string) => {
@@ -142,9 +179,11 @@ export function MemoryPalaceApp() {
       const target = await waitForNodeShape(targetPalaceId, nodeId);
       if (!target) return;
       target.editor.setSelectedShapes([target.shapeId]);
-      target.editor.zoomToSelectionIfOffscreen(96, { animation: { duration: 260 } });
+      target.editor.zoomToSelectionIfOffscreen(96, {
+        animation: { duration: 260 },
+      });
     },
-    [currentPalace?.id, openPalace, waitForNodeShape],
+    [currentPalace?.id, openPalace, setCurrentPage, waitForNodeShape],
   );
 
   const {
@@ -154,7 +193,14 @@ export function MemoryPalaceApp() {
     trackCommandRun,
     trackNodeVisit,
     nodeCommands,
-  } = useCommandPalette({ currentPalace, nodes, routes, loci, palaces, onFocusNode: focusNodeCommand });
+  } = useCommandPalette({
+    currentPalace,
+    nodes,
+    routes,
+    loci,
+    palaces,
+    onFocusNode: focusNodeCommand,
+  });
 
   const sceneStats = useMemo(() => {
     if (!editorRef) {
@@ -173,7 +219,11 @@ export function MemoryPalaceApp() {
       if (!shape) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (shape.type === "geo" && meta.mpNodeId) nodeCount += 1;
-      if (shape.type === "arrow" && (meta.mpEdgeId || meta.mpSourceNodeId || meta.mpTargetNodeId)) edgeCount += 1;
+      if (
+        shape.type === "arrow" &&
+        (meta.mpEdgeId || meta.mpSourceNodeId || meta.mpTargetNodeId)
+      )
+        edgeCount += 1;
     }
 
     let selectedKind: "node" | "portal" | "edge" | null = null;
@@ -215,13 +265,23 @@ export function MemoryPalaceApp() {
     ],
   );
 
-  const title = useMemo(() => currentPalace?.name ?? "Memory Palace Lab", [currentPalace?.name]);
+  const title = useMemo(
+    () => currentPalace?.name ?? "Memory Palace Lab",
+    [currentPalace?.name],
+  );
   const defaultHint = useMemo(
-    () => pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext),
+    () =>
+      pageHint(currentPage) ?? buildPrimaryContextHint(contextualTipContext),
     [contextualTipContext, currentPage],
   );
 
-  const onCastConfirm = (cast: { ab: string; cd: string; ef: string; gh: string; label?: string }) => {
+  const onCastConfirm = (cast: {
+    ab: string;
+    cd: string;
+    ef: string;
+    gh: string;
+    label?: string;
+  }) => {
     const pending = usePalaceStore.getState().pendingCast;
     const editor = usePalaceStore.getState().editorRef;
     const palace = usePalaceStore.getState().currentPalace;
@@ -238,16 +298,9 @@ export function MemoryPalaceApp() {
     setPendingCast(null);
   };
 
-  const applyViewMode = (mode: "balanced" | "focus") => {
-    setViewMode(mode);
-    if (mode === "balanced") {
-      setShowSidebar(true);
-      setShowInspector(true);
-      return;
-    }
-    setShowSidebar(false);
-    setShowInspector(false);
-    setShowOnboarding(false);
+  const applyViewMode = (mode: ViewMode) => {
+    applyShellViewMode(mode);
+    if (mode === "focus") setShowOnboarding(false);
   };
 
   useEffect(() => {
@@ -286,16 +339,27 @@ export function MemoryPalaceApp() {
     e: () => setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen),
   });
 
-  useEffect(() => {
-    const onOpenInsights = () => setCurrentPage("insights");
-    const onOpenReview = () => setCurrentPage("review");
-    window.addEventListener("mp-open-insights", onOpenInsights as EventListener);
-    window.addEventListener("mp-open-review", onOpenReview as EventListener);
-    return () => {
-      window.removeEventListener("mp-open-insights", onOpenInsights as EventListener);
-      window.removeEventListener("mp-open-review", onOpenReview as EventListener);
-    };
-  }, []);
+  useEffect(
+    () =>
+      subscribeNavigation((detail) => {
+        const resolved = resolveNavigationTarget(detail.target);
+        if (
+          resolved.page === "library" ||
+          detail.librarySlug ||
+          detail.section ||
+          detail.anchor
+        ) {
+          openLibrary({
+            section: detail.section as OpenLibraryTarget["section"],
+            slug: detail.librarySlug,
+            anchor: detail.anchor,
+          });
+          return;
+        }
+        navigateToPage(detail.target);
+      }),
+    [navigateToPage, openLibrary],
+  );
 
   useEffect(() => {
     if (!editorRef || !selectedShapeId) return;
@@ -311,7 +375,15 @@ export function MemoryPalaceApp() {
         id: "action-glossary",
         group: "Actions",
         title: "Open vocabulary glossary",
+        subtitle: "Cmd/Ctrl+D - quick lookup",
         onSelect: () => setGlossaryOpen(true),
+      },
+      {
+        id: "action-glossary-library",
+        group: "Actions",
+        title: "Open glossary and CAST lexicon in the Library",
+        keywords: "glossary cast lexicon who how what when",
+        onSelect: () => openLibrary({ section: "glossary", slug: "terms" }),
       },
       {
         id: "action-import-notes",
@@ -329,91 +401,83 @@ export function MemoryPalaceApp() {
         onSelect: () => setDslPaneOpen(!usePalaceStore.getState().dslPaneOpen),
       },
       {
-        id: "page-graph",
-        group: "Pages",
-        title: "Graph workspace",
-        subtitle: "Edit palace structure",
-        onSelect: () => navigateToPage("graph"),
-      },
-      {
-        id: "page-review",
-        group: "Pages",
-        title: "Review queue",
-        subtitle: "Spaced review scheduling",
-        onSelect: () => navigateToPage("review"),
-      },
-      {
-        id: "page-insights",
-        group: "Pages",
-        title: "Insights dashboard",
-        subtitle: "Memory strength telemetry",
-        onSelect: () => navigateToPage("insights"),
-      },
-      {
-        id: "page-system",
-        group: "Pages",
-        title: "System workbench",
-        subtitle: "Run frameworks as pipelines",
-        onSelect: () => navigateToPage("system"),
-      },
-      {
-        id: "page-atlas",
-        group: "Pages",
-        title: "Atlas hierarchy",
-        subtitle: "Organize palaces by geography",
-        onSelect: () => navigateToPage("atlas"),
-      },
-      {
         id: "page-routes",
         group: "Pages",
-        title: "Route editor",
-        subtitle: "Edit loci and route order",
+        title: "Open Graph: Routes",
+        subtitle: "Route panel beside the canvas",
+        keywords: "route editor loci walk order",
         onSelect: () => navigateToPage("routes"),
       },
-      {
-        id: "page-help",
+      ...PAGES.map<PaletteCommand>((page) => ({
+        id: pagePaletteId(page.id),
         group: "Pages",
-        title: "Help center",
-        subtitle: "Onboarding and guides",
-        onSelect: () => navigateToPage("help"),
-      },
+        title: pagePaletteTitle(page),
+        subtitle: page.palette.subtitle,
+        keywords: page.palette.keywords,
+        onSelect: () => navigateToPage(page.id),
+      })),
       {
         id: "doc-walk-mode",
         group: "Docs",
         title: "Walk Mode - recall-first review",
-        subtitle: "Test before revealing answers",
-        onSelect: () => navigateToPage("help"),
+        subtitle: "Retrieval protocol guide",
+        keywords: "walk recall retrieval protocol",
+        onSelect: () =>
+          openLibrary({ section: "guides", slug: "retrieval-protocol" }),
       },
       {
         id: "doc-cast-edges",
         group: "Docs",
         title: "CAST edges - connection types",
-        subtitle: "Causal, Associative, Structural, Temporal",
-        onSelect: () => navigateToPage("help"),
+        subtitle: "WHO / HOW / WHAT / WHEN axes",
+        keywords: "cast edges who how what when",
+        onSelect: () => openLibrary({ section: "guides", slug: "cast-system" }),
       },
       {
         id: "doc-spaced-review",
         group: "Docs",
         title: "Spaced repetition - scheduling",
-        subtitle: "Review at the right time",
-        onSelect: () => navigateToPage("review"),
+        subtitle: "Wiki: spaced repetition",
+        keywords: "spaced repetition schedule interval review",
+        onSelect: () =>
+          openLibrary({ section: "wiki", slug: "spaced-repetition" }),
       },
       {
         id: "doc-encoding",
         group: "Docs",
         title: "Encoding - vivid memory cues",
-        subtitle: "Transform dry facts into images",
-        onSelect: () => navigateToPage("help"),
+        subtitle: "Concept encoding guide",
+        keywords: "encoding concept vivid cues images",
+        onSelect: () =>
+          openLibrary({ section: "guides", slug: "concept-encoding" }),
       },
       {
         id: "doc-loci",
         group: "Docs",
         title: "Loci - anchor points in palaces",
-        subtitle: "Physical and mental locations",
-        onSelect: () => navigateToPage("help"),
+        subtitle: "Mind palace guide",
+        keywords: "loci locus anchor mind palace",
+        onSelect: () => openLibrary({ section: "guides", slug: "mind-palace" }),
+      },
+      {
+        id: "doc-app-manual",
+        group: "Docs",
+        title: "App manual",
+        subtitle: "Palace, node, edge, portal, route, locus, atlas path",
+        keywords: "manual help how to app guide",
+        onSelect: () => openLibrary({ section: "start", slug: "app-manual" }),
+      },
+      {
+        id: "doc-palace-dsl",
+        group: "Docs",
+        title: "Palace DSL reference",
+        subtitle: "Text format behind the DSL editor",
+        keywords: "dsl syntax reference language",
+        onSelect: () =>
+          openLibrary({ section: "reference", slug: "palace-dsl" }),
       },
     ],
-    [navigateToPage, setDslPaneOpen],
+    [navigateToPage, openLibrary, setDslPaneOpen],
   );
 
   const palacePaletteCommands = useMemo<PaletteCommand[]>(
@@ -440,14 +504,56 @@ export function MemoryPalaceApp() {
         title: `Review route: ${route.name}`,
         subtitle: currentPalace?.name ?? "Current palace",
         keywords: route.name,
-        onSelect: () => startRouteReview(route.id),
+        onSelect: () => {
+          if (currentPalace) void startReviewAt({ palaceId: currentPalace.id, routeId: route.id });
+        },
       })),
-    [currentPalace?.name, routes, startRouteReview],
+    [currentPalace, routes],
   );
 
+  // Wiki pages join the "Docs" group the first time the palette opens; the
+  // index is small (titles + summaries) and bodies stay lazy.
+  const [wikiPaletteCommands, setWikiPaletteCommands] = useState<
+    PaletteCommand[]
+  >([]);
+  useEffect(() => {
+    if (!commandOpen || wikiPaletteCommands.length > 0) return;
+    let cancelled = false;
+    void loadWikiIndex()
+      .then((entries) => {
+        if (cancelled) return;
+        setWikiPaletteCommands(
+          entries.map((entry) => ({
+            id: `wiki-${entry.slug}`,
+            group: "Docs",
+            title: entry.title,
+            subtitle: entry.summary || "Wiki page",
+            keywords: [entry.slug, entry.palace ?? "", "wiki"].join(" "),
+            onSelect: () => openLibrary({ section: "wiki", slug: entry.slug }),
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [commandOpen, openLibrary, wikiPaletteCommands.length]);
+
   const paletteCommands = useMemo(
-    () => [...basePaletteCommands, ...palacePaletteCommands, ...routePaletteCommands, ...nodeCommands],
-    [basePaletteCommands, nodeCommands, palacePaletteCommands, routePaletteCommands],
+    () => [
+      ...basePaletteCommands,
+      ...palacePaletteCommands,
+      ...routePaletteCommands,
+      ...nodeCommands,
+      ...wikiPaletteCommands,
+    ],
+    [
+      basePaletteCommands,
+      nodeCommands,
+      palacePaletteCommands,
+      routePaletteCommands,
+      wikiPaletteCommands,
+    ],
   );
 
   const castOpen = !!pendingCast;
@@ -463,7 +569,9 @@ export function MemoryPalaceApp() {
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (meta.mpSourceNodeId !== pendingCast.sourceNodeId) continue;
       if (meta.mpTargetNodeId === pendingCast.targetNodeId) continue;
-      const text = plainTextFromRichText((shape.props as { richText?: unknown } | undefined)?.richText);
+      const text = plainTextFromRichText(
+        (shape.props as { richText?: unknown } | undefined)?.richText,
+      );
       if (text) labels.push(text);
     }
     return labels;
@@ -472,27 +580,38 @@ export function MemoryPalaceApp() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
-          <div className="flex min-w-0 items-center gap-3">
-            <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">{title}</h1>
-            <span
-              title={`Memory Palace Lab v${APP_VERSION}`}
-              className="shrink-0 rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500"
-            >
-              v{APP_VERSION}
-            </span>
-            <div className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">{hoverHint ?? defaultHint}</div>
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">
+            {title}
+          </h1>
+          <span
+            title={`Memory Palace Lab v${APP_VERSION}`}
+            className="shrink-0 rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500"
+          >
+            v{APP_VERSION}
+          </span>
+          <div id="context-primary-hint" className="hidden w-full max-w-[320px] truncate text-xs text-zinc-400 md:block">
+            {hoverHint ?? defaultHint}
           </div>
+        </div>
 
-          <PageNavigationBar currentPage={currentPage} onNavigate={navigateToPage} onHoverHintChange={setHoverHint} />
+        <PageNavigationBar
+          currentPage={currentPage}
+          onNavigate={navigateToPage}
+          onHoverHintChange={setHoverHint}
+        />
 
-          <ViewModeToggleGroup
-            viewMode={viewMode}
-            onApplyViewMode={applyViewMode}
-            onToggleSidebar={() => setShowSidebar((v) => !v)}
-            onToggleInspector={() => setShowInspector((v) => !v)}
-            onToggleOnboarding={() => setShowOnboarding((v) => !v)}
-            onHoverHintChange={setHoverHint}
-          />
+        <ViewModeToggleGroup
+          viewMode={viewMode}
+          modeToggleDisabled={currentPage !== "graph"}
+          onOpenSettings={() => navigateToPage("settings")}
+          settingsActive={currentPage === "settings"}
+          onApplyViewMode={applyViewMode}
+          onToggleSidebar={() => setShowSidebar((v) => !v)}
+          onToggleInspector={() => setShowInspector((v) => !v)}
+          onToggleOnboarding={() => setShowOnboarding((v) => !v)}
+          onHoverHintChange={setHoverHint}
+        />
       </header>
 
       <AppErrorBanner />
@@ -500,7 +619,9 @@ export function MemoryPalaceApp() {
       <UpdateBanner />
 
       <div className="flex min-h-0 flex-1">
-        {graphControls && showSidebar ? <PalaceSidebar onOpenImport={() => setImportOpen(true)} /> : null}
+        {showSidebar ? (
+          <PalaceSidebar onOpenImport={() => setImportOpen(true)} />
+        ) : null}
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <GraphWorkspace
@@ -512,18 +633,19 @@ export function MemoryPalaceApp() {
             onHoverHintChange={setHoverHint}
             onOpenRepresent={() => setRepresentOpen(true)}
             onCreateTutorialPalace={() => {
-              void createPalace("Tutorial Palace");
+              void createTutorialPalace();
             }}
-            onOpenHelp={() => navigateToPage("help")}
+            onOpenHelp={() => openLibrary()}
             onOpenCommandPalette={() => setCommandOpen(true)}
             onOpenImport={() => setImportOpen(true)}
           />
 
           <PageContentRouter
             currentPage={currentPage}
-            onStartRouteReview={startRouteReview}
+            libraryTarget={libraryTarget}
             onNavigate={navigateToPage}
             onOpenCommandPalette={() => setCommandOpen(true)}
+            onOpenLibrary={openLibrary}
             onOpenPalaceFromAtlas={(palaceId) => {
               const palace = palaces.find((entry) => entry.id === palaceId);
               if (palace) {
@@ -544,9 +666,13 @@ export function MemoryPalaceApp() {
 
       <ContextualTipCard
         context={contextualTipContext}
-        onOpenHelp={() => {
-          navigateToPage("help");
-        }}
+        onOpenLearnRail={() => setShowOnboarding(true)}
+        onOpenLibrary={(target) =>
+          openLibrary({
+            section: target.section as OpenLibraryTarget["section"],
+            slug: target.slug,
+          })
+        }
       />
 
       <CastEdgeDialog
@@ -575,8 +701,17 @@ export function MemoryPalaceApp() {
         onCommandRun={trackCommandRun}
       />
 
-      <GlossaryPanel open={glossaryOpen} onOpenChange={setGlossaryOpen} />
-      <SessionSummaryModal onReviewAnother={() => setCurrentPage("review")} onBackToPalace={() => setCurrentPage("graph")} />
+      <GlossaryPanel
+        open={glossaryOpen}
+        onOpenChange={setGlossaryOpen}
+        onOpenLibrary={() =>
+          openLibrary({ section: "glossary", slug: "terms" })
+        }
+      />
+      <SessionSummaryModal
+        onReviewAnother={() => setCurrentPage("review")}
+        onBackToPalace={() => setCurrentPage("graph")}
+      />
     </div>
   );
 }

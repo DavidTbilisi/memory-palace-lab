@@ -11,6 +11,8 @@ It combines an infinite canvas, CAST semantic edges, route-based recall, spaced 
 - Use a due-based review queue that prioritizes weak or unseen loci.
 - Track local telemetry in the Insights page (node/edge/route/review/session events).
 - Run theSystem pipelines and materialize them into ready-to-walk graph runs.
+- Read everything in one Library: first-session lessons, the curated theSystem guides, the Neural OS wiki mirror, the glossary with the bilingual CAST lexicon, and the Palace DSL reference.
+- Keep preferences in one Settings page: review goal, AI key, idle tips, atlas terminology, backup/restore, updates.
 - Organize multiple palaces with Atlas hierarchy paths (`Domain/Place/Section`).
 - Use portal nodes to jump between palaces and start linked routes.
 - Work safely with draft autosave and explicit save checkpoints.
@@ -35,11 +37,11 @@ It combines an infinite canvas, CAST semantic edges, route-based recall, spaced 
 ### Atlas hierarchy
 ![Atlas hierarchy](docs/screenshots/06-atlas.png)
 
-### Routes editor
+### Routes (in-canvas route panel)
 ![Routes editor](docs/screenshots/07-routes.png)
 
-### Help center
-![Help center](docs/screenshots/08-help-center.png)
+### Library (lessons, guides, wiki, glossary, reference)
+![Library](docs/screenshots/08-help-center.png)
 
 ## Tech Stack
 
@@ -118,6 +120,8 @@ This runs Vite + Tauri and stores palace snapshots and analytics in SQLite via R
 | `npm run build` | Type-check and build production bundle. |
 | `npm run preview` | Preview production web build. |
 | `npm run mcp` | Start the memory-palace MCP server (stdio). |
+| `npm run sync:thesystem` | Re-mirror the curated wiki slice into `theSystem/wiki/`. |
+| `npm run sync:thesystem:check` | Fail if that mirror is out of date (needs a local wiki checkout). |
 | `npm test` | Run Vitest unit/integration tests. |
 | `npm run test:mcp` | Run MCP server tests. |
 | `npm run test:ui` | Run Playwright UI tests. |
@@ -177,6 +181,29 @@ Defaults:
 Optional environment variables:
 - `MP_BASE_URL`
 - `MP_SCREENSHOT_DIR`
+
+## The System Docs
+
+`theSystem/` holds the memory science the app is built on, in two parts:
+
+- **`theSystem/*.md`** — hand-authored lab docs (CAST system, concept encoding, retrieval
+  protocol, the app manual). Written in the app's own voice; edit them here.
+- **`theSystem/wiki/`** — a read-only mirror of a curated slice of the
+  [Neural OS wiki](https://github.com/DavidTbilisi/Neural-OS-Research), which is canonical
+  for that material. **Do not edit these files** — edit the wiki and re-sync.
+
+```bash
+npm run sync:thesystem                          # source defaults to ../Neural-OS-Research
+npm run sync:thesystem -- /path/to/Neural-OS-Research
+NEURAL_OS_WIKI=/path/to/repo npm run sync:thesystem
+node scripts/sync-thesystem.mjs --dry-run       # report only
+```
+
+Which pages get mirrored is curated in `theSystem/wiki-sync.manifest.json`. The sync flattens
+pages to a single directory, rewrites `[[wiki-links]]` to relative markdown links (flattening
+the ones that point outside the mirrored slice), skips fenced code blocks, and stamps each
+page with a `wiki_source:` frontmatter key. Both sets are exposed over MCP as
+`thesystem://{slug}`, with mirrored wiki pages under a `wiki-` slug prefix.
 
 ## Backlog and Delivery Notes
 

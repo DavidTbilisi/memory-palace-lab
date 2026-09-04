@@ -47,7 +47,8 @@ describe("AnalyticsPanel", () => {
     render(<AnalyticsPanel />);
     expect(screen.getByText("Insights")).toBeInTheDocument();
     expect(screen.getByText(/Graph shape \(Step 0\)/)).toBeInTheDocument();
-    expect(screen.getByText("Review Settings")).toBeInTheDocument();
+    expect(screen.queryByText("Review Settings")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByText("Memory Strength Over Time")).toBeInTheDocument();
     expect(screen.getByText(/Review Consistency/)).toBeInTheDocument();
     expect(screen.getByText("What is tracked")).toBeInTheDocument();

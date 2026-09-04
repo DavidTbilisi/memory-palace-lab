@@ -1,0 +1,20 @@
+export type WikiIndexPage = { slug: string; text: string; sourceRel?: string };
+export type WikiIndexEntry = {
+  slug: string;
+  title: string;
+  summary: string;
+  source: string;
+  palace?: string;
+  level?: number;
+  domain?: number;
+  room?: number;
+};
+export function parseFrontmatter(text: string): Record<string, string>;
+export function stripFrontmatter(text: string): string;
+export function stripInlineMarkdown(value: string): string;
+export function extractTitle(slug: string, text: string): string;
+export function humanizeSlug(slug: string): string;
+export function extractSummary(text: string): string;
+export function buildWikiIndex(pages: WikiIndexPage[]): WikiIndexEntry[];
+export const WIKI_INDEX_FILENAME: string;
+export function serializeWikiIndex(entries: WikiIndexEntry[]): string;

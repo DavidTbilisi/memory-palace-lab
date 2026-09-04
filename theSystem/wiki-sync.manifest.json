@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "Curated slice of the Neural OS wiki that gets mirrored into theSystem/wiki/.",
+    "The wiki (github.com/DavidTbilisi/Neural-OS-Research) is canonical; this repo holds a",
+    "read-only snapshot so the desktop build and the MCP server ship the memory science.",
+    "Re-sync with: npm run sync:thesystem",
+    "",
+    "dirs        - walked recursively, every .md mirrored",
+    "files       - individual pages pulled in by path",
+    "excludeDirs - pruned from the recursive walk (drill material, not memory science)"
+  ],
+  "dirs": ["learning-systems", "encoders", "cross-cutting", "logic", "problem-solving"],
+  "files": [
+    "glossary.md",
+    "composability-index.md",
+    "meta-wiki/5-gates-of-comprehension.md",
+    "meta-wiki/web-gym-generation-schema.md",
+    "meta-wiki/software-design-principles-for-neural-os.md"
+  ],
+  "excludeDirs": ["learning-systems/English"]
+}
