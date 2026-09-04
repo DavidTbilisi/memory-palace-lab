@@ -56,13 +56,25 @@ function arraysEqual(a: string[] | undefined, b: string[] | undefined): boolean 
 
 function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta {
   const withPortal = applyPortalRefToMeta(prev, intent.kind, intent.portal);
-  return {
+  const next: MemoryPalaceMeta = {
     ...withPortal,
     mpTitle: intent.title,
     mpContent: intent.content,
-    mpImageUrl: intent.imageUrl ?? undefined,
     mpTags: intent.tags,
   };
+  // tldraw merges meta partials key by key and copies `undefined` values
+  // verbatim, which then fail its JSON validation ("Expected json
+  // serializable value, got undefined"). So: set the image when there is
+  // one, write `null` to clear one the shape already has, and otherwise
+  // leave the key out entirely.
+  if (intent.imageUrl) {
+    next.mpImageUrl = intent.imageUrl;
+  } else if (prev.mpImageUrl) {
+    next.mpImageUrl = null;
+  } else {
+    delete next.mpImageUrl;
+  }
+  return next;
 }
 
 function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolean {
@@ -73,7 +85,7 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalPalaceName !== next.mpPortalPalaceName ||
     prev.mpPortalRouteName !== next.mpPortalRouteName ||
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
-    prev.mpImageUrl !== next.mpImageUrl ||
+    (prev.mpImageUrl ?? null) !== (next.mpImageUrl ?? null) ||
     !arraysEqual(prev.mpTags, next.mpTags)
   );
 }
