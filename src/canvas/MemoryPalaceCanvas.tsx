@@ -14,6 +14,7 @@ import {
   captureSceneAnalyticsSnapshot,
   diffSceneAnalyticsSnapshots,
 } from "./analyticsSceneSnapshot";
+import { isBackgroundShape } from "./backgroundImage";
 import { createGeoMemoryNode } from "./createMemoryShapes";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
@@ -376,6 +377,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             return;
           }
           const hitShape = editor.getShape(hit.id);
+          if (isBackgroundShape(hitShape)) {
+            // Only an unlocked background is hit-testable; the user is
+            // adjusting it, so let tldraw handle the double-click (crop)
+            // instead of dropping a node on top of it.
+            return;
+          }
           if (!isGeoMemory(hitShape)) {
             createGeoMemoryNode(editor, palaceId, point);
             return;

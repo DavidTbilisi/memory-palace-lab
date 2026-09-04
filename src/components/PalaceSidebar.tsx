@@ -1,7 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { requestNavigation } from "../app/navigationEvents";
-import { Image, Plus, RotateCcw, Save, Trash2, Globe } from "lucide-react";
+import { useValue } from "@tldraw/editor";
+import {
+  Globe,
+  Image,
+  ImageOff,
+  Lock,
+  Move,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import type { Palace } from "../domain/entities/types";
+import {
+  getBackgroundState,
+  removeBackground,
+  setBackgroundEditable,
+} from "../canvas/backgroundImage";
 import { insertBackgroundImageFromFile } from "../canvas/backgroundImageImport";
 import {
   composeAtlasPath,
@@ -170,6 +186,13 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const setCurrentPalaceMeta = usePalaceStore((s) => s.setCurrentPalaceMeta);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const editorRef = usePalaceStore((s) => s.editorRef);
+  // Tracks the background shape on the canvas (presence and lock state) so
+  // the controls below follow it, including after undo or a palace switch.
+  const background = useValue(
+    "palace background",
+    () => getBackgroundState(editorRef),
+    [editorRef],
+  );
   const [name, setName] = useState("My palace");
   const [atlasPath, setAtlasPath] = useState("");
   const [currentName, setCurrentName] = useState("");
@@ -314,14 +337,71 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
               className="w-full justify-center"
               type="button"
               disabled={!editorRef || !currentPalace}
+              title={
+                background.present
+                  ? "Choose a different image to place behind the graph"
+                  : "Choose an image to place behind the graph"
+              }
               onClick={() => {
                 if (!editorRef || !currentPalace) return;
                 void insertBackgroundImageFromFile(editorRef, currentPalace.id);
               }}
             >
               <Image className="h-4 w-4" />
-              Set background
+              {background.present ? "Replace background" : "Set background"}
             </Button>
+            {background.present ? (
+              <>
+                <Button
+                  size="sm"
+                  variant={background.editable ? "default" : "secondary"}
+                  className="w-full justify-center"
+                  type="button"
+                  aria-pressed={background.editable}
+                  title={
+                    background.editable
+                      ? "Lock the background so clicks pass through to the graph again"
+                      : "Unlock the background to move, resize, or crop it"
+                  }
+                  onClick={() => {
+                    if (!editorRef) return;
+                    setBackgroundEditable(editorRef, !background.editable);
+                  }}
+                >
+                  {background.editable ? (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      Lock background
+                    </>
+                  ) : (
+                    <>
+                      <Move className="h-4 w-4" />
+                      Adjust background
+                    </>
+                  )}
+                </Button>
+                {background.editable ? (
+                  <p className="px-1 text-[11px] leading-4 text-zinc-500">
+                    Drag the image to move it, use the handles to resize, or
+                    double-click to crop. Lock it when you are done.
+                  </p>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full justify-center"
+                  type="button"
+                  title="Remove the background image from this palace"
+                  onClick={() => {
+                    if (!editorRef) return;
+                    removeBackground(editorRef);
+                  }}
+                >
+                  <ImageOff className="h-4 w-4" />
+                  Remove background
+                </Button>
+              </>
+            ) : null}
             <Button
               size="sm"
               variant="outline"
