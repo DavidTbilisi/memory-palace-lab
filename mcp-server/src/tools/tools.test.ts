@@ -152,6 +152,12 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(snap.loci).toHaveLength(2);
     expect(snap.palace.editorSnapshot).toBeTruthy();
 
+    // Import creates the palace the same way palace_create does: one
+    // palace_created event, tagged with the writing surface.
+    const created = listAnalyticsEvents(ctx.db, { palaceId: imported.palaceId as string, eventType: "palace_created" });
+    expect(created).toHaveLength(1);
+    expect(JSON.parse(created[0]!.payloadJson)).toMatchObject({ name: "Imported Realm", source: "mcp" });
+
     // Re-applying the same DSL changes nothing.
     const again = await dsl.palaceApplyDsl(ctx, { palace: imported.palaceId as string, dsl: doc });
     expect(again.applied).toBe(true);

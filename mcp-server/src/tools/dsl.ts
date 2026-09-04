@@ -4,8 +4,8 @@ import { parseDsl } from "../../../src/domain/services/palaceDsl/parser";
 import { reconcileRoutes } from "../../../src/domain/services/palaceDsl/routeSync";
 import { applyDslToCanvas } from "../../../src/domain/services/palaceDsl/sync";
 import type { DslDiagnostic } from "../../../src/domain/services/palaceDsl/types";
-import { createPalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
+import { palaceCreate } from "./palaces";
 import type { ServerContext } from "./shared";
 import type { SnapshotEditor } from "../snapshotEditor";
 
@@ -97,14 +97,16 @@ export async function palaceImportDsl(ctx: ServerContext, args: { dsl: string; a
     };
   }
 
-  const atlasPath = args.atlasPath ?? parsed.snapshot.atlasPath ?? null;
-  const palace = createPalace(ctx.db, name, atlasPath);
+  const atlasPath = args.atlasPath ?? parsed.snapshot.atlasPath ?? undefined;
+  // Through palaceCreate so the palace_created analytics event and the
+  // live-refresh sentinel happen exactly as for a palace created by hand.
+  const palace = palaceCreate(ctx, { name, atlasPath });
   const applied = await palaceApplyDsl(ctx, { palace: palace.id, dsl: args.dsl });
   return {
     created: true as const,
     palaceId: palace.id,
-    name,
-    atlasPath: atlasPath ?? undefined,
+    name: palace.name,
+    atlasPath: palace.atlasPath,
     ...applied,
   };
 }

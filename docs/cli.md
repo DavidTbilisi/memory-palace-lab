@@ -44,6 +44,26 @@ Palace references accept an id, exact name, or alias, exactly like the MCP tools
 | `analyze` / `crux` / `motifs` / `review <palace>` | Graph analysis, crux with nine-dive questions, motifs, review queue | `graph_*`, `review_queue` |
 | `events [--palace P] [--type T] [--limit N]` | Analytics events, newest first | `analytics_list` |
 
+### METER bridge (needs the database)
+
+| Command | Does |
+| --- | --- |
+| `meter backfill [--data-dir DIR] [--palace REF] [--dry-run] [--json]` | Mirror the app's analytics rows into METER's append-only `events.jsonl` (backlog item 10). Chronological, idempotent, never rewrites a line. |
+
+The log location follows the same precedence as the `meter` CLI in Neural-OS-Research: `--data-dir`, then `$METER_DATA_DIR`, then `<project root>/meter-data` where the project root is the first ancestor of the current directory containing `wiki/` or `.git/`, then `~/.neural-os/meter`. Run it from the wiki checkout, or set the variable, so events land in the wiki's `meter-data/`; the summary prints which rule chose the path.
+
+Idempotency comes from deterministic ids: the primary METER event reuses the app event's id and the latency event derives its id from it, so a second run appends nothing. Each run reports what was appended, what was already present, and which app event types have no mapping.
+
+Mapping (everything else is skipped and counted, on purpose: METER wants signal, not a UI trace):
+
+| App event | layer / operation | metric_type | metric_value | artifact_id | mode |
+| --- | --- | --- | --- | --- | --- |
+| `walk_recall_rated` | performance / review | `hit` (Hard, Good, Easy) or `miss` (Again), plus a separate `latency_ms` event when the reveal time is known | 1 / 0, ms | node | `palace::walk` |
+| `walk_started`, `walk_completed` | performance / review | `walk.started`, `walk.completed` | route length, reviewed count | route | `palace::walk` |
+| `palace_created`, `node_created`, `edge_created`, `route_created`, `system_run_materialized` | encoding / encode | `palace.<event>` | 1 | palace, node, node, route, palace | null |
+
+Conventions mirror the Anki bridge so METER's reports need no changes: `hit`/`miss` feed the Daily Glance hit rate, `latency_ms` events feed its latency line, `mode` gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up. `context` also carries `source`, the app event id and type, palace and route ids, and the app's full payload.
+
 ### DSL files (no database)
 
 | Command | Does |
@@ -89,6 +109,10 @@ bin/palace apply "SOLID Citadel" /tmp/solid.dsl
 # Any script that emits Palace DSL can pipe straight in
 some-generator | bin/palace import -
 
+# Put palace walks and encoding work into METER's Daily Glance beside Anki reviews
+cd ~/code/Neural-OS-Research && ~/code/memory-palace-lab/bin/palace meter backfill --dry-run
+cd ~/code/Neural-OS-Research && ~/code/memory-palace-lab/bin/palace meter backfill
+
 # Translate between theSystem's bit notation and the app's compact token
 bin/palace cast decode "10 11 10 00"
 bin/palace cast encode --who Mage --how Exploding --what Cloud --when "Red cave"
@@ -113,5 +137,6 @@ Fine-grained canvas mutations stay MCP-only for now: `node_create`, `node_update
 | `mcp-server/src/cli/commands.ts` | Verb registry, argument parsing (`node:util` `parseArgs`), dispatch, help |
 | `mcp-server/src/cli/dslVerbs.ts` | `lint` / `fmt` / `hash` over the parser, serializer, and normalize pass |
 | `mcp-server/src/cli/cast.ts` | CAST notation conversion and lexicon rendering |
+| `mcp-server/src/cli/meterVerbs.ts` | METER bridge: data-dir resolution, app-event mapping, idempotent append |
 | `mcp-server/src/cli/cli.test.ts` | In-process tests, including the MCP parity check |
 | `bin/palace` | Bash wrapper for use outside the repo |
