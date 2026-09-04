@@ -113,7 +113,7 @@ Track learning as a system, not a mood. Prefer:
 - **Time** — D1 / D7 / D30 spot checks on cold recall where relevant
 - **ROI** — if extra depth stops paying, maintain instead of pushing
 
-Details: `measurement-framework.md` and the daily log template there.
+Details: `measurement-framework.md` — belts and LPQ read from METER's event log, plus the daily check-in there.
 
 ---
 

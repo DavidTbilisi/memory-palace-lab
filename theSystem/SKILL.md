@@ -261,7 +261,7 @@ Full 100-entry table: `references/sem3-full.md`
 #### 14. Measurement Framework
 - **6 dimensions:** Speed · Accuracy · Depth · Durability · Application · Process
 - Each has 7 belt ranks (White → Black) with quantitative thresholds
-- **Daily 30-second log** + weekly Anki pull + monthly belt tests + quarterly audits
+- **METER's event log** does the measuring (Anki bridge, `palace meter backfill`); daily 30-second check-in + monthly belt tests + quarterly audits
 - **LPQ composite** (geometric mean × 125) for trajectory tracking — range 125–1000
 - Full framework: `references/measurement-framework.md`
 - **Role:** answers "am I actually improving?" with numbers, not vibes. Catches lagging dimensions early.
@@ -417,7 +417,7 @@ When the user wants to create a new deck or encoding scheme:
 - `references/zero-loss-forced-recall.md` — **ZLP + FRS**: physical zero-loss (encode on every drop) + forced recall for obligations (Today Core + triggers)
 - `references/retrieval-protocol.md` — Anki card templates + palace-walk cadence + weak-link repair
 - `references/collisions.md` — Cross-system image-collision rules and disambiguation policy
-- `references/measurement-framework.md` — 6 dimensions + 7 belt ranks + LPQ composite + daily/weekly/monthly/quarterly cadence
+- `references/measurement-framework.md` — 6 dimensions + 7 belt ranks + LPQ composite, read from METER's event log + daily/weekly/monthly/quarterly cadence
 
 ---
 

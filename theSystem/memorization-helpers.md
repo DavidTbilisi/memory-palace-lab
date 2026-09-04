@@ -454,7 +454,7 @@ Each entry answers: **What am I memorizing?** **NEDF** (the method as a concept:
 - **F:** Optimizing LPQ by collapsing five dimensions—self-gaming
 
 **SPEAR (running it)**
-- SPEAR **log line**: Scene=phone note; Preconditions=timer 30s; Execution=enter six scores rough; Alternatives=voice; Repair=admit missing dimension honestly.
+- SPEAR **log line**: Scene=terminal; Preconditions=timer 30s; Execution=`meter pulse checkin` then up to three one-line emits; Alternatives=voice note, emit later; Repair=admit missing dimension honestly.
 
 **Comprehension / stack:** **Recalibrate** uses measurement deltas.
 
