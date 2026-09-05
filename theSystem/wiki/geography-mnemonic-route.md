@@ -25,7 +25,7 @@ wiki_source: wiki/learning-systems/geography-mnemonic-route.md
 - wiki/learning-systems/eye-movement-and-compass-mnemonics.md
 - wiki/learning-systems/person-action-object-system.md
 
-**Last updated**: 2026-05-30
+**Last updated**: 2026-09-05 (drill-ladder rung count cited); 2026-05-30
 
 ---
 
@@ -82,7 +82,7 @@ Worked example — France · Paris:
 
 Retrieval flow: walk to the Europe wall → step 4 → see Napoleon crowning himself with a tower-sceptre → decode: France · Paris.
 
-Worked instance: place-paris (pressure-tests the template under non-bible conditions).
+Worked instance: [place-paris](./place-paris.md) (pressure-tests the template under non-bible conditions).
 
 **Pronunciation hooks** for non-obvious capitals (e.g. Ulaanbaatar, Ouagadougou, Antananarivo) belong in NEDF Name-hook slots; use [SPM](./substitute-word-system.md) to bridge phonology before slotting into the PAO.
 
@@ -148,7 +148,7 @@ marker: default, <lat>, <lng>, <Place name>
 - [[geography-mnemonic-route]]
 ```
 
-(Lifted near-verbatim from bible-bibleworks-workflow § place template. Pressure-test deltas surfaced by place-paris: `tags: bible/place` → `geography/place`; `## Biblical Significance` → `## Significance`; `## Key Events Here` → `## Key Landmarks`; `## People Associated` and `## CAST Connections` dropped for city-as-itself pages.)
+(Lifted near-verbatim from bible-bibleworks-workflow § place template. Pressure-test deltas surfaced by [place-paris](./place-paris.md): `tags: bible/place` → `geography/place`; `## Biblical Significance` → `## Significance`; `## Key Events Here` → `## Key Landmarks`; `## People Associated` and `## CAST Connections` dropped for city-as-itself pages.)
 
 ## Route Pages — For Journeys
 
@@ -240,7 +240,7 @@ Pass-floor: all three answered in under 60 seconds. If you can do (1) and (3) bu
 
 ![World Palace 8-wall floor plan](../diagrams/geography-world-palace.png)
 
-Top-down floor plan of the octagonal World Palace. 8 walls labeled with continent + walking direction; central WORLD PALACE block; the Europe-wall worked example (FRANCE at position 4, Napoleon-crowning-with-Eiffel-sceptre PAO scene) called out in orange; mnemonic block (W·W·P·L); compass congruence rule; 8-rung drill ladder. Cardinal walls in blue (#1971c2), intercardinal in purple (#9c36b5), worked PAO scene in orange (#e8590c). Built via Excalidraw. Default world style for narrative scene expansions of individual PAO loci is [world-velvet-aeon](./world-velvet-aeon.md).
+Top-down floor plan of the octagonal World Palace. 8 walls labeled with continent + walking direction; central WORLD PALACE block; the Europe-wall worked example (FRANCE at position 4, Napoleon-crowning-with-Eiffel-sceptre PAO scene) called out in orange; mnemonic block (W·W·P·L); compass congruence rule; 8-rung drill ladder (rungs numbered per [skill-progression-stages](./skill-progression-stages.md)). Cardinal walls in blue (#1971c2), intercardinal in purple (#9c36b5), worked PAO scene in orange (#e8590c). Built via Excalidraw. Default world style for narrative scene expansions of individual PAO loci is [world-velvet-aeon](./world-velvet-aeon.md).
 
 ## Anti-Patterns
 
@@ -261,7 +261,7 @@ Top-down floor plan of the octagonal World Palace. 8 walls labeled with continen
 - [substitute-word-system](./substitute-word-system.md) (for non-obvious capital phonology)
 - [palace-classification-drill-ladder](./palace-classification-drill-ladder.md) (drill ladder pattern)
 - [meter-overview](./meter-overview.md)
-- place-paris (first non-bible worked place)
+- [place-paris](./place-paris.md) (first non-bible worked place)
 - world-flags-deck (flag-recall instance — the visual-emblem layer this route doesn't cover; same World-Palace chunking, confusability-first encoding)
 
 ---

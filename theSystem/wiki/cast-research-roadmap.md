@@ -18,11 +18,13 @@ wiki_source: wiki/encoders/cast-research-roadmap.md
 - wiki/cast-ingest-summary.md
 - wiki/systems-thinking-foundations.md
 
-**Last updated**: 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 🧭 → 🔌 — the page's own words — “how each upgrade plugs back into the framework”; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-27
+**Last updated**: 2026-09-05 (§5 Graph Compression — links [when-not-to-cast-a-graph](./when-not-to-cast-a-graph.md): the operational form of the ceiling, plus the free shortcut symmetry exploitation implies); 2026-09-04 (first-mention links added for the two terms registered today — [mnemonic-checksum](./mnemonic-checksum.md) / [step-zero-analysis](./step-zero-analysis.md)); 2026-09-04 (edge confidence recorded as an open gap *outside* the five sockets, so the count-shape is untouched); 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 🧭 → 🔌 — the page's own words — “how each upgrade plugs back into the framework”; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-27
 
 **Purpose**: Identify gaps in current CAST system and prioritize research to fill them.
 
 **Status**: Roadmap created 2026-04-30 | **Phase 1 COMPLETE** 2026-05-27 (Axenovich *Graph Theory* KIT ingest — 11 pages under `wiki/graph-theory/`) | Phases 2–5 remain open
+
+**Open gap outside the five sockets** (surfaced 2026-09-04, homed elsewhere so the five-socket count-shape stays intact): **edge confidence** — nothing in CAST marks how sure you are that an edge exists. Named at [nodes-and-edges](./nodes-and-edges.md) §Modifier composition.
 
 ---
 
@@ -52,7 +54,7 @@ wiki_source: wiki/encoders/cast-research-roadmap.md
   - *Application*: Handle complex multi-node feedback systems
 
 **Impact on CAST**: 
-- Automate Step 0 analysis
+- Automate [Step 0 analysis](./step-zero-analysis.md)
 - Smarter node prioritization (not just in-degree)
 - Better cluster detection (natural palace rooms)
 - Formal cycle analysis (beyond "amplifying vs stabilizing")
@@ -169,6 +171,8 @@ wiki_source: wiki/encoders/cast-research-roadmap.md
 ## 5️⃣ Graph Compression (VERY CRITICAL)
 
 **Why it matters**: The biggest scaling problem for CAST is handling massive graphs. Compression is the answer.
+
+**Until it ships**, the ceiling is operational rather than theoretical and is stated as a routing rule by [when-not-to-cast-a-graph](./when-not-to-cast-a-graph.md) — which also notes that *symmetry exploitation* below has a free shortcut the roadmap does not claim: a graph whose edges come from a rule needs no compression at all, because it needs no encoding.
 
 **Learn**:
 - **Subnetwork abstraction** (collapsing groups into single nodes)
@@ -377,7 +381,7 @@ After each phase, we should be able to:
 
 - [CAST Overview](./cast-overview.md) — current system before upgrades
 - [Maturity Levels](./maturity-levels-overview.md) — will evolve as research completes
-- Step 0 Analysis — will be formalized with graph theory
+- [Step 0 Analysis](./step-zero-analysis.md) — will be formalized with graph theory
 
 ---
 

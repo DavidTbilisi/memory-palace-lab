@@ -157,7 +157,7 @@ A **Velvet Aeon Cosmic-mode figure** stands at the center of a stone circle with
 - **No control over — violet sash**, tied to a pillar with **a hand releasing a feather to the wind, palm facing up**
 - **Desire to win — crimson sash**, tied to a pillar with **a single sharp arrow embedded deep in the pillar's stone**, head buried, shaft humming
 
-The figure's face is **strong** (per feedback_image_face_and_hair, because the must-win attitude requires power) with long hair lifted in the circle's wind. The five chains form a **five-pointed inward star**, each chain humming at its own tension. The figure cannot move freely — moving toward any pillar tightens the chains to the other four. The figure stands still in the center, **head tilted slightly upward** — strategic thinking is the act of *not* moving toward any single pillar.
+The figure's face is **strong** (per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md), because the must-win attitude requires power) with long hair lifted in the circle's wind. The five chains form a **five-pointed inward star**, each chain humming at its own tension. The figure cannot move freely — moving toward any pillar tightens the chains to the other four. The figure stands still in the center, **head tilted slightly upward** — strategic thinking is the act of *not* moving toward any single pillar.
 
 ## Memory checksum
 

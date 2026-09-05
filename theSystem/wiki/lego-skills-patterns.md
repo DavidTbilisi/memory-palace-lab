@@ -16,7 +16,7 @@ wiki_source: wiki/encoders/lego-skills-patterns.md
 - CAST and Georgian Node System.md §Lego Skills — pre-encoded graph patterns
 - CAST and Georgian Node System.md §Chunking — cluster detection as compression
 
-**Last updated**: 2026-07-09 — loop-sign checksum sentence + [edge-sign](./edge-sign.md) link (candidate); 2026-07-06 — page authored (was an orphan-by-omission; linked from 6+ pages since the 2026-04-30 CAST ingest).
+**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-07-09 — loop-sign checksum sentence + [edge-sign](./edge-sign.md) link (candidate); 2026-07-06 — page authored (was an orphan-by-omission; linked from 6+ pages since the 2026-04-30 CAST ingest).
 
 ---
 
@@ -45,7 +45,7 @@ This is [chunking](./chunking.md) applied to graph structure — the same move c
 
 **Bridge rule**: always encode the bridge edge with Tier 2 CAST — it is the structurally most valuable edge in the graph, and the one whose loss disconnects everything. (source: CAST and Georgian Node System.md)
 
-The two feedback-loop patterns (spiral, leash) are the CAST-native encodings of the systems-thinking loop archetypes — see archetype-encoding-in-cast and feedback-loops for the systems-dynamics side. With the [edge-sign](./edge-sign.md) modifier (🟡 candidate), the spiral/leash choice becomes *checkable*: walk the loop and multiply the edge signs — an even count of − must land on the spiral, an odd count on the leash.
+The two feedback-loop patterns (spiral, leash) are the CAST-native encodings of the systems-thinking loop archetypes — see archetype-encoding-in-cast and feedback-loop-taxonomy for the systems-dynamics side. With the [edge-sign](./edge-sign.md) modifier (🟡 candidate), the spiral/leash choice becomes *checkable*: walk the loop and multiply the edge signs — an even count of − must land on the spiral, an odd count on the leash.
 
 ## The recognition procedure
 
@@ -65,7 +65,7 @@ When you recognize a pattern:
 - **Chunking** finds *density* — groups more connected internally than externally; each cluster becomes one palace room, and between-cluster edges land on the room threshold. (source: CAST and Georgian Node System.md)
 - **Lego Skills** find *shape* — known topologies inside or across those clusters, each collapsing to one pre-built scene.
 
-Run both during Step 0 analysis, before any animal is assigned: clusters give the rooms, patterns give the chunks, and what remains is the short list of edges that actually need individual encoding.
+Run both during [Step 0 analysis](./step-zero-analysis.md), before any animal is assigned: clusters give the rooms, patterns give the chunks, and what remains is the short list of edges that actually need individual encoding.
 
 ## Automaticity target
 
@@ -95,7 +95,7 @@ The eight cue-objects in a 2×4 grid, each drawn as its miniature topology (node
 - [chunking](./chunking.md) — the density half of graph compression (clusters → rooms)
 - [cast-drill-ladder](./cast-drill-ladder.md) — Stage 4 hosts the `cast::pattern_flash` recognition drill
 - archetype-encoding-in-cast — systems-thinking archetypes expressed through these patterns
-- feedback-loops — the dynamics behind the spiral and the leash
+- feedback-loop-taxonomy — the dynamics behind the spiral and the leash
 - [image-merging](./image-merging.md) — the within-scene compression that pairs with this between-scene compression
 - [nodes-and-edges](./nodes-and-edges.md) — the two-layer model the patterns are built from
 - [edge-sign](./edge-sign.md) — per-edge polarity (🟡 candidate); makes the spiral/leash classification verifiable via the loop-sign checksum

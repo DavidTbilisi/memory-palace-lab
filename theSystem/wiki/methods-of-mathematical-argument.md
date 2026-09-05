@@ -240,7 +240,7 @@ A **scribe** at a stone-tablet desk in [Velvet Aeon](./world-velvet-aeon.md) Mod
 - **Tablet 3**: a row of dominos, all fallen left-to-right, the first one being knocked down by a human finger (Standard induction).
 - **Tablet 4**: the same row of dominos, but each domino is held up by a spring; the human pushes the rightmost domino, which is supported by the cumulative force of all already-fallen ones to its left (Strong induction).
 
-The scribe has the **FRAGILE** face archetype (per feedback_image_face_and_hair) — proof construction is precise, careful, luminous-porcelain rather than power. Hair to the waist; one tear has fallen onto the wet stone of Tablet 3 (the user feedback hair-and-water effect). The four tablets are stacked in the order the methods should be tried.
+The scribe has the **FRAGILE** face archetype (per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md)) — proof construction is precise, careful, luminous-porcelain rather than power. Hair to the waist; one tear has fallen onto the wet stone of Tablet 3 (the user feedback hair-and-water effect). The four tablets are stacked in the order the methods should be tried.
 
 ## Memory checksum
 

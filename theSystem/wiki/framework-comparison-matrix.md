@@ -21,7 +21,7 @@ wiki_source: wiki/encoders/framework-comparison-matrix.md
 - CAST and Georgian Node System.md
 - Concept Encoding Protocol.md
 
-**Last updated**: 2026-08-27 ([PRISM](./prism-pattern-discovery.md) added to the Capture / scoping row — `/validate-idea` keep-with-modification); 2026-08-20 (the six encoders drawn as their count-shape hexagon — [representation-rules](./representation-rules.md) Rule 10 declared instance); 2026-07-03 (Render / Externalization layer added — image-gen + music-gen canonized); 2026-05-12 (METER, Problem-Solving OS, Neural OS Daily Loop added)
+**Last updated**: 2026-09-05 (§The Render / Externalization layer — the Generator column named as the Bridge implementor axis rather than a property of the render-lens Strategy); 2026-09-03 (§Why not one encoder? added under the hexagon — CAST-universalism rejected via `/validate-idea`); 2026-08-27 ([PRISM](./prism-pattern-discovery.md) added to the Capture / scoping row — `/validate-idea` keep-with-modification); 2026-08-20 (the six encoders drawn as their count-shape hexagon — [representation-rules](./representation-rules.md) Rule 10 declared instance); 2026-07-03 (Render / Externalization layer added — image-gen + music-gen canonized); 2026-05-12 (METER, Problem-Solving OS, Neural OS Daily Loop added)
 
 ---
 
@@ -65,7 +65,7 @@ Capture members decide *what is worth encoding and where it goes*. Encoding memb
 
 The six encoders produce a *mental* artifact — a scene, graph, procedure, or person-room held in the mind. The **Render / Externalization layer** is the optional step that turns that mental scene into an **external sensory artifact**: a real image you can look at, or a song you can play. Its payoff is a **second retrieval channel** running parallel to the mental scene — and where the two channels have complementary blind spots they cover each other (the [famous-clocks-mnemonic-song](./famous-clocks-mnemonic-song.md) installs an ordered forward chain the Anki deck can't train, while the deck keeps reverse lookup fast).
 
-**Two confirmed channels, one abstraction.** The layer depends on the *render-lens* abstraction ([Dependency Inversion](./software-design-principles-for-neural-os.md)); each channel is a concrete Strategy selected by output medium, with a Flyweight world-profile as its auto-loaded default:
+**Two confirmed channels, one abstraction.** The layer depends on the *render-lens* abstraction ([Dependency Inversion](./software-design-principles-for-neural-os.md)); each channel is a concrete Strategy selected by output medium, with a Flyweight world-profile as its auto-loaded default. **The Generator column below is a second axis, not a property of the lens** — lens and generator vary independently, which is [GoF Bridge](./software-design-principles-for-neural-os.md) (adopted 2026-09-05); the three image generators sharing one CLAMP lens are the visible instance:
 
 | Channel | Render-lens | Generator | Default world profile | Pipeline |
 |---|---|---|---|---|
@@ -107,6 +107,20 @@ The six encoders produce a *mental* artifact — a scene, graph, procedure, or p
 Reading around the hexagon: **NEDF** one concept · **CAST** a graph · **SPEAR** a procedure · **HEART** a person · **ORACLE** a prediction · **GRACE** a social move.
 
 **Test** (Rule 10): cover the labels. Six seats are visible, so "which encoder am I forgetting?" is answered by looking rather than by recalling — the question this page exists to answer.
+
+### Why not one encoder?
+
+The hexagon invites the obvious follow-up: if every structure can be drawn as a graph, why keep six seats instead of routing everything through [CAST](./cast-overview.md)? Asked and answered (`/validate-idea` 2026-09-03, verdict **reject**) — *representational adequacy is not retrieval leverage*. What an encoder buys is **slot discipline**, the empty slots that refuse to close until the operator supplies what they would otherwise skip, and a graph demands none of them. Cover the labels again and the collapse reads as five empty corners:
+
+| Seat | The slot a graph never asks for |
+|---|---|
+| [NEDF](./nedf-overview.md) | **D** — what is it confused with? · **F** — how does it fail? |
+| [SPEAR](./spear-overview.md) | **A** — what are the branches? · **R** — how do I repair it? |
+| [HEART](./heart-overview.md) | **T** — what do I actually do with this person? (plus the falsifiability requirement) |
+| [ORACLE](./oracle-overview.md) | **C** — what makes the prediction fire *now*? |
+| [GRACE](./grace-overview.md) | where on the 1–5 gradient does this move sit? |
+
+CAST's own node facets are identity · cluster · state · disambiguation; none of them reaches any row above. The cost that surprises is **cognitive overhead**, which rises rather than falls: one encoder looks cheaper to learn, but every encode then needs a palace, an animal, and edge-verbs even for a single term, plus an invention step ("how do I re-express this non-graph thing as a graph?") that is pure System-2 assembly. Full reasoning — and the keepable half, **CAST as composition substrate: HAS-A, not IS-A** — at [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §Singleton; the boundary is stated on [cast-overview](./cast-overview.md) §Adjacent but excluded.
 
 ## By Question Type
 

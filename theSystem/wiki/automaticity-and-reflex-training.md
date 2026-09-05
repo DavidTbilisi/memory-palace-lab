@@ -13,7 +13,7 @@ wiki_source: wiki/learning-systems/automaticity-and-reflex-training.md
 
 **Sources**: `raw/01 Core_Memory/Automaticity.md`, `Automation Protocol` (pasted research document with citations)
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-09-05 (automaticity ladder count corrected — 10 levels, 0–9); 2026-05-12
 
 ---
 
@@ -486,7 +486,7 @@ Dream-rehearsal events go into `wiki/_meta/lucid-data.js` (see sleep-and-cogniti
 - **2026-05-29 learning-canon cross-links**: [ericsson-peak](./ericsson-peak.md) · [deliberate-practice](./deliberate-practice.md) · [practice-is-required-not-optional](./practice-is-required-not-optional.md) (Willingham #5: Whitehead's "civilization advances by what we don't have to think about") · [brown-make-it-stick](./brown-make-it-stick.md) · [mental-models-for-learning](./mental-models-for-learning.md) (what automaticity builds toward)
 
 ## U — See (CAST)
-1. 7 skill primitives × 9 automaticity levels × 3 practice modes
+1. 7 skill primitives × 10 automaticity levels (0–9) × 3 practice modes
 2. Edges: Reflex Card → drill → gym → measurement
 
 ## D — Name (NEDF)

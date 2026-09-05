@@ -13,7 +13,7 @@ wiki_source: wiki/learning-systems/maturity-levels-overview.md
 
 **Sources**: CAST Maturity Levels.md
 
-**Last updated**: 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-04-29
+**Last updated**: 2026-09-04 (ingest-ghost pass: the ten `maturity-N-*` self-links de-linked — this page carries every rung, the sub-pages were never written; two malformed table links repaired; the two unwritten worked examples named as gaps); 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-04-29
 
 ---
 
@@ -29,7 +29,7 @@ wiki_source: wiki/learning-systems/maturity-levels-overview.md
 | **6** | Feedback Loops & Patterns | Pattern recognition | 1-2 weeks | Networks + 1-2 loops | Financial bubble, circular dependency |
 | **7** | Nested Palaces | Tree edge geometry | 1-2 weeks | Pure trees + DAGs | Org chart, file system |
 | **8** | DAGs & Cross-Edges | Multiple parent nodes | 4-6 weeks | DAG with diamonds | Math prerequisites, inheritance |
-| **9** | [[maturity-9-temporal|Temporal & Complex** | Integration & narrative | 4-6 weeks | Any + evolution | Financial crisis, system evolution |
+| **9** | Temporal & Complex | Integration & narrative | 4-6 weeks | Any + evolution | Financial crisis, system evolution |
 | **10** | Mastery & Optimization | Teaching & optimization | 50+ hours ongoing | Any size/type | 100-node systems, novel applications |
 
 ---
@@ -111,7 +111,7 @@ Ask yourself:
 ### Level 3 Example: Web Service
 - 5 nodes, 4 edges, all Tier 1
 - Flat network, no collisions
-- See Web Service Example
+- *(worked example unwritten — the 4-service kitchen graph in [cast-overview](./cast-overview.md) is this one node smaller)*
 
 ### Level 4 Example: City Streets
 - 5 intersections, 8 streets (one-way and two-way)
@@ -128,7 +128,7 @@ Ask yourself:
 - 12 nodes, 2 amplifying feedback loops
 - Temporal evolution (before/during/after)
 - Biography encoding (story arc)
-- See 2008 Financial Crisis Example
+- *(worked example unwritten — st-example-financial-system is an empty 2026-04-30 stub, not a substitute)*
 
 ---
 
@@ -252,13 +252,10 @@ When you're at Level 4, you can read Level 1-4 pages easily. Level 5+ pages will
 ## Related Pages
 
 - [CAST Overview](./cast-overview.md) — full system
-- Level 1: Concept
-- Level 2: Loci Foundation
-- Level 3: Tier 1 Encoding
-- ... (all levels 1-10)
-- Example: Web Service (Level 3)
-- [Example: Math Program (Level 8)](./cast-example-math-program.md)
-- Example: 2008 Crisis (Level 9)
+- The ten rungs are **on this page** (§Quick Reference Table); the per-level `maturity-N-*` pages promised by the 2026-04-30 ingest were never written and are not needed — this page carries each rung plus its deliberate practice
+- [Example: City Streets](./cast-example-city-streets.md) — worked, flat network
+- [Example: Math Program (Level 8)](./cast-example-math-program.md) — worked, DAG
+- *Example: Web Service (Level 3)* and *Example: 2008 Crisis (Level 9)* — **unwritten**; the Level 3 slot is served by the 4-service graph in [cast-overview](./cast-overview.md), the Level 9 slot has no substitute
 
 
 ---

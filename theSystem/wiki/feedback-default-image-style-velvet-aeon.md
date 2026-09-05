@@ -43,11 +43,11 @@ The rule is *default*, not *mandatory*. Override when the scene type calls for a
 
 ## Relationship to the render stack
 
-This is layer 1 of the `feedback_*` render doctrine — it fires after visual-per-concept (there must be a visual) and before the figure rules:
+This is layer 1 of the `feedback_*` render doctrine — it fires after [visual-per-concept](./feedback-visual-per-concept.md) (there must be a visual) and before the figure rules:
 
-1. Visual-per-concept — there must be a visual, and it must show form.
+1. [Visual-per-concept](./feedback-visual-per-concept.md) — there must be a visual, and it must show form.
 2. **Default world** (this page) — render it in Velvet Aeon unless overridden.
-3. [Figure rule](./feedback-image-figure-rule.md) → 4. Face & hair → 5. Noise reduction.
+3. [Figure rule](./feedback-image-figure-rule.md) → 4. [Face & hair](./feedback-image-face-and-hair.md) → 5. [Noise reduction](./feedback-image-noise-reduction.md).
 
 ## Anti-patterns
 
@@ -66,5 +66,5 @@ This is layer 1 of the `feedback_*` render doctrine — it fires after visual-pe
 - [clamp-render-lens](./clamp-render-lens.md) — the CLAMP slots the default populates
 - [remaps](./remaps.md) — the Stage-1 transformation lens that loads the default alongside CLAMP
 - [theater-of-the-mind](./theater-of-the-mind.md) — the identity sub-mode invocation
-- feedback_visual_per_concept — the top-of-stack rule this one follows
+- [feedback-visual-per-concept](./feedback-visual-per-concept.md) — the top-of-stack rule this one follows
 - [once-seen-never-forget-protocol](./once-seen-never-forget-protocol.md) — the Stage-C.4 image modes that define the override alternatives

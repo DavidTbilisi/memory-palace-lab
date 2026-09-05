@@ -8,7 +8,7 @@ wiki_source: wiki/cross-cutting/feedback-image-figure-rule.md
 
 # Figure Rule Feedback — the Woman-and-Creature Figure Doctrine
 
-**Summary**: The parent render rule for *how a human figure is constructed at all* in a Neural OS mnemonic image — the umbrella above its face/hair specialization feedback_image_face_and_hair. Three load-bearing conventions: (1) **fusion** — a figure is a woman archetype fused with an animal/creature, never a plain neutral human; (2) **never neutral** — every figure carries affect (STRONG or FRAGILE), there is no affect-less figure; (3) **architecture over identity** — the scene's structure carries the encoding, the figure's specific identity is secondary. This is the owner of the rule that image-prompts cite as `feedback-image-figure-rule`.
+**Summary**: The parent render rule for *how a human figure is constructed at all* in a Neural OS mnemonic image — the umbrella above its face/hair specialization [feedback-image-face-and-hair](./feedback-image-face-and-hair.md). Three load-bearing conventions: (1) **fusion** — a figure is a woman archetype fused with an animal/creature, never a plain neutral human; (2) **never neutral** — every figure carries affect (STRONG or FRAGILE), there is no affect-less figure; (3) **architecture over identity** — the scene's structure carries the encoding, the figure's specific identity is secondary. This is the owner of the rule that image-prompts cite as `feedback-image-figure-rule`.
 
 **Sources**:
 - User feedback during the visual-encoding design conversations (the `feedback_*` image-rule family).
@@ -35,7 +35,7 @@ The fusion is itself an encoding move: the creature half is a [NEDF](./nedf-over
 
 ## Convention 2 — Never neutral
 
-Every figure is rendered with affect — **STRONG or FRAGILE, never neutral.** The choice and its specs are owned by feedback_image_face_and_hair; this rule's contribution is the *prohibition*: there is no affect-less figure. An expressionless, mode-neutral figure is a figure-rule violation, because a neutral face caches no property of the concept.
+Every figure is rendered with affect — **STRONG or FRAGILE, never neutral.** The choice and its specs are owned by [feedback-image-face-and-hair](./feedback-image-face-and-hair.md); this rule's contribution is the *prohibition*: there is no affect-less figure. An expressionless, mode-neutral figure is a figure-rule violation, because a neutral face caches no property of the concept.
 
 The two archetypes may **both appear within a single identity** if the rehearsal alternates modes:
 
@@ -60,7 +60,7 @@ So the rule does not change *what* a scene depicts (Stage 1 / [REMAPS](./remaps.
 
 ## Relationship to the face/hair rule
 
-| | **Figure rule** (this page) | **Face & Hair rule** (feedback_image_face_and_hair) |
+| | **Figure rule** (this page) | **Face & Hair rule** ([feedback-image-face-and-hair](./feedback-image-face-and-hair.md)) |
 |---|---|---|
 | Scope | the whole figure — fusion, affect-presence, scene-relationship | the face archetype + the hair |
 | Core claim | woman+creature fusion · never neutral · architecture > identity | STRONG/FRAGILE as a Distinguisher · long hair · hair-and-water sorrow effect |
@@ -81,7 +81,7 @@ Reading order: a figure prompt satisfies the figure rule first (what kind of fig
 
 ## Related pages
 
-- feedback_image_face_and_hair — the face/hair specialization this rule delegates to
+- [feedback-image-face-and-hair](./feedback-image-face-and-hair.md) — the face/hair specialization this rule delegates to
 - [world-velvet-aeon](./world-velvet-aeon.md) — the world/style profile loaded alongside these rules
 - [image-pipeline](./image-pipeline.md) — the two-stage pipeline; figure rules are Stage-2 CLAMP direction
 - [clamp-render-lens](./clamp-render-lens.md) · [remaps](./remaps.md) — the render and transformation lenses

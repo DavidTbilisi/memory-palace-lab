@@ -20,7 +20,7 @@ wiki_source: wiki/encoders/delay-encoding-in-cast.md
 
 **Note on provenance**: the CAST raw source says **nothing about delay** — the term does not appear in it. Unlike [edge quantity](./encoding-quantities-in-cast.md), which extends a node-side mechanism the source already specifies, everything below is wiki-side design and is marked as such rather than cited to a source that does not carry it.
 
-**Last updated**: 2026-08-31 — stub filled.
+**Last updated**: 2026-09-04 — §Related pages: first worked instance recorded (st-example-financial-system, maturity mismatch); 2026-08-31 — stub filled.
 
 **Status**: 🟡 **Candidate** — adopted structure, D2 unit imagery pending David's pick, promotion gated (see §Promotion gate).
 
@@ -168,6 +168,7 @@ Otherwise park it, the same standard applied to the codebook layer on 2026-07-06
 ## Related pages
 
 - archetype-encoding-in-cast — where the oscillation reading is named: a lone leash with a long gap *is* the Balancing-with-Delay archetype, one of five loop couplings
+- st-example-financial-system — a worked instance: maturity mismatch passes the Encode test into this modifier, and two gaps of visibly different width in one scene set carry the whole difference between a fast and a slow loop
 - system-delays-and-lags — owner of delay, the perception/decision/response taxonomy, time constants, and the oscillation result; its §CAST Encoding of Delays points here for the mechanism
 - [Edge quantity](./encoding-quantities-in-cast.md) — the sibling modifier; composes via in-flight = rate × delay
 - [edge-sign](./edge-sign.md) — the third modifier; the interceptor sits at the target end, past the gap

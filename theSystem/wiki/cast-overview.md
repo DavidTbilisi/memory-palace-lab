@@ -14,7 +14,7 @@ wiki_source: wiki/encoders/cast-overview.md
 
 **Sources**: CAST and Georgian Node System.md (1570 lines); CAST Maturity Levels.md
 
-**Last updated**: 2026-08-31 — [Edge quantity](./encoding-quantities-in-cast.md) linked as a Tier-2 additive modifier (magnitude), sibling to [edge-sign](./edge-sign.md); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-09 ([edge-sign](./edge-sign.md) added to integrations — candidate polarity variant); 2026-05-07 (retrofit pass: applied [representation-rules](./representation-rules.md) 1+2+3+5+7+8)
+**Last updated**: 2026-09-05 (§Boundary set gained *Reach, stated positively* — CAST covers leverage rungs 12–6 and stops at the same line Meadows draws between rungs 6 and 5); 2026-09-05 (node ceiling corrected 5-100 → 5-50 in §Multi-resolution zoom — contradicted [cast-research-roadmap](./cast-research-roadmap.md) §Impact Timeline, which puts 100+ behind the unstarted graph-compression phase; §When to use CAST gained the [generator test](./when-not-to-cast-a-graph.md) as the question that runs before its five); 2026-09-04 (first-mention links added for the two terms registered today — [mnemonic-checksum](./mnemonic-checksum.md) / [step-zero-analysis](./step-zero-analysis.md)); 2026-09-04 (§Adjacent but excluded gained the *CAST as a progressive level stack* non-feature — `/validate-idea` reject on §S; the vertical form of the previous day's horizontal claim); 2026-09-03 (21 broken links repaired — Tier 1/2 and the ten maturity levels repointed to the pages that actually absorbed them, PAO/REMAPS/SR/graph-theory repointed to their real slugs, and four never-written pages named as gaps instead of linked); 2026-09-03 (§Adjacent but excluded gained the *CAST as universal encoder* non-feature — `/validate-idea` reject); 2026-08-31 — [Edge quantity](./encoding-quantities-in-cast.md) linked as a Tier-2 additive modifier (magnitude), sibling to [edge-sign](./edge-sign.md); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-09 ([edge-sign](./edge-sign.md) added to integrations — candidate polarity variant); 2026-05-07 (retrofit pass: applied [representation-rules](./representation-rules.md) 1+2+3+5+7+8)
 
 ---
 
@@ -140,8 +140,8 @@ Each node is a [Georgian animal](./georgian-animals.md) with four facets:
 
 Each outgoing edge is a verb-scene **anchored to the source node**, not floating between nodes.
 
-- **Tier 1** (verb-only scene): default; one distinctive verb per edge — *hops-onto*, *feeds-paper*, *throws-treat*
-- **Tier 2** (full CAST): used when verbs collide; expands to **C**haracter-**A**ction-**S**tream-**T**ime to disambiguate
+- **Tier 1** ([verb-only scene](./nodes-and-edges.md)): default; one distinctive verb per edge — *hops-onto*, *feeds-paper*, *throws-treat*
+- **Tier 2** ([full CAST](./nodes-and-edges.md)): used when verbs collide; expands to **C**haracter-**A**ction-**S**tream-**T**ime to disambiguate
 
 **Key rule**: edges live ON the source node. When you visit the source animal, its outgoing edges play as gestures. Targets are pointed-to, not co-located.
 
@@ -151,16 +151,16 @@ Each outgoing edge is a verb-scene **anchored to the source node**, not floating
 
 | Level | Focus | Example |
 |---|---|---|
-| 1 | Recognizing connection as the hard part | "Why is this system hard?" |
-| 2 | Simple memory palaces | To-do list in a palace |
-| 3 | Tier 1 verb encoding | API Gateway → Auth |
-| 4 | Flat networks (5-12 nodes) | 10-node web service |
-| 5 | Tier 2 for collisions | Same source, multiple distinct edges |
-| 6 | Loops + Lego-skill patterns | Hub-spoke, cascade, bottleneck |
-| 7 | Nested palaces for trees | Org charts, prereq trees |
-| 8 | DAGs with cross-edges | Math program, diamond patterns |
-| 9 | Temporal graphs | 2008 financial crisis |
-| 10 | Mastery & teaching | Encoding 100-node systems |
+| [1](./maturity-levels-overview.md) | Recognizing connection as the hard part | "Why is this system hard?" |
+| [2](./maturity-levels-overview.md) | Simple memory palaces | To-do list in a palace |
+| [3](./maturity-levels-overview.md) | Tier 1 verb encoding | API Gateway → Auth |
+| [4](./maturity-levels-overview.md) | Flat networks (5-12 nodes) | 10-node web service |
+| [5](./maturity-levels-overview.md) | Tier 2 for collisions | Same source, multiple distinct edges |
+| [6](./maturity-levels-overview.md) | Loops + Lego-skill patterns | Hub-spoke, cascade, bottleneck |
+| [7](./maturity-levels-overview.md) | Nested palaces for trees | Org charts, prereq trees |
+| [8](./maturity-levels-overview.md) | DAGs with cross-edges | Math program, diamond patterns |
+| [9](./maturity-levels-overview.md) | Temporal graphs | 2008 financial crisis |
+| [10](./maturity-levels-overview.md) | Mastery & teaching | Encoding 100-node systems |
 
 See [Maturity Levels](./maturity-levels-overview.md).
 
@@ -177,7 +177,7 @@ See [Maturity Levels](./maturity-levels-overview.md).
 
 ### What breaks CAST
 
-- **Skipping Step 0 analysis** — encoding before understanding the graph produces a palace that doesn't match the structure
+- **Skipping [Step 0 analysis](./step-zero-analysis.md)** — encoding before understanding the graph produces a palace that doesn't match the structure
 - **Edges placed between rooms** instead of at the source — destroys directional retrieval
 - **Same animal for multiple distinct nodes** — collisions; Tier 2 disambiguation can't help if identity is reused
 - **Tier 1 verbs that aren't distinct enough** — *uses* and *calls* and *invokes* will collide; promote to Tier 2
@@ -190,6 +190,12 @@ See [Maturity Levels](./maturity-levels-overview.md).
 - Pure NEDF cards — too local; lose the network structure once node count > 5
 - Formal ER / UML diagrams — accurate but disembodied; CAST insists on palace + scene
 - Mind maps — radial only; CAST handles arbitrary graphs including loops
+- **CAST as universal encoder** — CAST is the *composition substrate*, not a replacement for [NEDF](./nedf-overview.md) / [SPEAR](./spear-overview.md) / [HEART](./heart-overview.md) / [ORACLE](./oracle-overview.md) / [GRACE](./grace-overview.md). Every structure *can* be drawn as a graph; no part of a graph *demands* NEDF's Distinguisher and Failure, SPEAR's Alternatives and Repair, HEART's Treatment, ORACLE's firing trigger, or GRACE's gradient position — and CAST's own node facets (identity · cluster · state · disambiguation) ask for none of them. The rule is **HAS-A, not IS-A**: a NEDF scene *becomes* a node here; a concept is not *therefore* a one-node graph. Rejected via `/validate-idea` 2026-09-03 on [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §L — the substitution does not preserve the retrieval guarantee; full reasoning at that page's §Singleton.
+- **CAST as a progressive level stack** — depth in CAST is opt-in, but it is *not ordered*. The three additive modifiers ([sign](./edge-sign.md) · [quantity](./encoding-quantities-in-cast.md) · [delay](./delay-encoding-in-cast.md)) claim three disjoint positions on one edge and ride it simultaneously; there is no rung to climb (see [nodes-and-edges](./nodes-and-edges.md) §Modifier composition). A `/validate-idea` pass 2026-09-04 proposed a nine-rung nested ladder — anchors ⊂ topology ⊂ CAST ⊂ context ⊂ mechanics ⊂ epistemics ⊂ agency ⊂ systems ⊂ meta — and was **rejected** on [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §S, on the proposal's own summary sentence: it grew CAST "into a general system for remembering complete models", which is the bullet above rotated from horizontal to vertical. Two rungs renamed Tier 1 and Tier 2; one asked CAST to encode things carrying no relation at all, which is not its job; the rest re-parented [ORACLE](./oracle-overview.md), [SPEAR](./spear-overview.md) and the measurement layer underneath CAST. [representation-rules](./representation-rules.md) Rule 10 caught the same thing mechanically — its scope stops at seven members, and a longer set "is really two nested sets or a sequence": here, encoding depth and annotation modifiers wearing one number line.
+
+**Reach, stated positively.** CAST's encodable vocabulary covers Meadows' rungs 12 through 6 — parameters, buffers, stock-and-flow structure, delays, loop polarity, and information flows — and none of rungs 5 through 1, which are rules, self-organization, goals and paradigms. **The ceiling is rung 6**, the highest lever reachable without power over the system's rules. Meadows' own below-rules / above-rules line and this encoder's boundary are the same line, derived independently; see systems-thinking-and-cast-integration §The ladder against the encoder.
+
+Every exclusion above says what CAST is *not*. The positive form — what a full model needs, which parts of it the encoder already carries, and the two-question test that decides — is systems-thinking-and-cast-integration §Two questions, four cells.
 
 ---
 
@@ -212,6 +218,8 @@ Use CAST when the important question is not *"what is this thing?"* but:
 - What breaks if it changes?
 
 If the difficulty is in the thing itself, use [NEDF](./nedf-overview.md). If it's in execution, use [SPEAR](./spear-overview.md). If it's in time-evolving behavior, escalate to temporal CAST or [ORACLE](./oracle-overview.md).
+
+And one question comes *before* all five, because a graph can be the wrong answer even when the material is unmistakably a graph: **does a rule produce the edges?** If it does, the rule is the encode and the edges are a trace of it — see the [generator test](./when-not-to-cast-a-graph.md) for the four cells, the two ceilings, and the three routes a graph can take other than into this page.
 
 ---
 
@@ -239,7 +247,7 @@ Practical: CAST is primarily **Relation + Spatial + State + Priority**, with **P
 |---|---|
 | **Glyph** | Small graph sketch (3-4 connected nodes) |
 | **Line** | "Encode a graph as palace + animal-nodes + verb-edges; edges live at the source." |
-| **Paragraph** | CAST is for static relational graphs (5-100 nodes). Nodes are Georgian animals placed in palace loci; outgoing edges are verb-scenes anchored to the source animal. Tier 1 uses a distinctive verb per edge; Tier 2 (Character-Action-Stream-Time) handles edge collisions. |
+| **Paragraph** | CAST is for static relational graphs (5-50 nodes; 100+ is a target pending the [graph-compression phase](./cast-research-roadmap.md), not a current capability). Nodes are Georgian animals placed in palace loci; outgoing edges are verb-scenes anchored to the source animal. Tier 1 uses a distinctive verb per edge; Tier 2 (Character-Action-Stream-Time) handles edge collisions. |
 | **Page** | This page |
 
 Encoding a graph respects [structure-first](./structure-first.md): encode the top-level structure first, then zoom into sub-nodes (encode step 20; reading the structure before rushing to scenes is CAST Maturity Level 4). This table is CAST's own [zoom-in-zoom-out](./zoom-in-zoom-out.md) — the same relation held at four resolutions, so an empty slot at any level is visible before a label is read.
@@ -250,10 +258,10 @@ Encoding a graph respects [structure-first](./structure-first.md): encode the to
 
 | Example | Type | Nodes | Level | Key lesson |
 |---|---|---|---|---|
-| Web Service | Flat network | 5 | 3-4 | Tier 1, hub identification |
+| Web Service *(unwritten)* | Flat network | 5 | 3-4 | Tier 1, hub identification — the 4-service kitchen graph above is this example at one node smaller |
 | [City Streets](./cast-example-city-streets.md) | Spatial graph | 5 | 4 | Real palace, one-way edges, merge scenes |
 | [University Math Program](./cast-example-math-program.md) | DAG + hierarchy | 13 | 8-9 | Nested palaces, cross-edges, diamond patterns |
-| 2008 Financial Crisis | Temporal + complex | 12 | 9-10 | Feedback loops, biography, temporal evolution |
+| 2008 Financial Crisis *(unwritten)* | Temporal + complex | 12 | 9-10 | Feedback loops, biography, temporal evolution |
 
 ---
 
@@ -262,15 +270,15 @@ Encoding a graph respects [structure-first](./structure-first.md): encode the to
 CAST integrates with:
 
 - [UMTF](./universal-mental-tagging-framework.md) — cross-framework view
-- PAO — natural language of CAST edges
+- [PAO](./person-action-object-system.md) — natural language of CAST edges
 - [Image Merging](./image-merging.md) — compressing node-edge-node into one inseparable scene
 - [Edge Sign](./edge-sign.md) — 🟡 candidate per-edge polarity modifier (+/− on the Stream's arrival); additive OCP variant, canonical Tier 2 slots unchanged
-- REMAPS — quality control for weak scenes
-- Mnemonic Checksum — integrity verification at 4 levels
-- Spaced Repetition — review schedules by structural importance
+- [REMAPS](./remaps.md) — quality control for weak scenes
+- [Scene-level integrity](./image-merging.md) — an incoherent merged scene *is* the checksum (§Incoherence is the checksum). The four-level model this list once promised as `mnemonic-checksum` has no page; only Level 1 (scene) is written
+- [Spaced Repetition](./spaced-repetition.md) — delivery layer; per §UMTF tag stack, hubs and bridges earn the heavier schedule. See [cast-anki-requirements](./cast-anki-requirements.md) for why that schedule lives in topic decks rather than a CAST deck
 - [Lego Skills](./lego-skills-patterns.md) — pre-encoded pattern recognition (8 core patterns)
 - [Chunking](./chunking.md) — cluster detection as compression
-- SCAMPER — simplifying graphs before encoding
+- SCAMPER — simplifying graphs before encoding (external technique; no wiki page yet). The live in-wiki move for the same job is [chunking](./chunking.md) — collapse a cluster before encoding it
 
 ---
 
@@ -286,7 +294,7 @@ CAST integrates with:
 
 ## Constraint and extension notes
 
-- **Graph won't come into focus.** Diagnostic: you have a list of nodes and edges but can't pick a palace, can't see the shape, and the verbs feel interchangeable rather than distinctive. That means you don't yet have a *source graph* to borrow from — the target graph is sitting as text and can't recruit spatial intuition. Run [BRIDGE LOAD](./bridge-load.md) before encoding, biased to BRIDGE's `map`, `flow`, `ecosystem`, or `market` analogy classes (graphs almost always borrow from one of these four families). Slot routing: Source-domain shape (city, factory floor, supply chain, ecosystem) → palace choice + room layout — the analogy *picks the palace* rather than letting the palace be arbitrary; Mapping (target nodes ↔ source parts) → animal/locus assignments per node; Mapping (target edges ↔ source relations) → Tier 1 verb choice per edge (and if two source-relations collide on the same verb, that's the trigger for Tier 2 CAST); Boundary / breakpoints → the *holes* in the graph — what the structure cannot do — already an encoded part of CAST per the "encoding the graph but not the holes" failure mode above. The two-finger / hand-reach mental motion is *the analogy enacted*, not separate. See [composability-index](./composability-index.md) *comprehension-protocol × encoder* row for the cross-encoder mapping.
+- **Graph won't come into focus.** Diagnostic: you have a list of nodes and edges but can't pick a palace, can't see the shape, and the verbs feel interchangeable rather than distinctive. That means you don't yet have a *source graph* to borrow from — the target graph is sitting as text and can't recruit spatial intuition. Run [BRIDGE LOAD](./bridge-load.md) before encoding, biased to BRIDGE's `map`, `flow`, `ecosystem`, or `market` analogy classes (graphs almost always borrow from one of these four families). Slot routing: Source-domain shape (city, factory floor, supply chain, ecosystem) → palace choice + room layout — the analogy *picks the palace* rather than letting the palace be arbitrary; Mapping (target nodes ↔ source parts) → animal/locus assignments per node; Mapping (target edges ↔ source relations) → Tier 1 verb choice per edge (and if two source-relations collide on the same verb, that's the trigger for [Tier 2 CAST](./nodes-and-edges.md)); Boundary / breakpoints → the *holes* in the graph — what the structure cannot do — already an encoded part of CAST per the "encoding the graph but not the holes" failure mode above. The two-finger / hand-reach mental motion is *the analogy enacted*, not separate. See [composability-index](./composability-index.md) *comprehension-protocol × encoder* row for the cross-encoder mapping.
 
 ---
 
@@ -303,6 +311,8 @@ CAST integrates with:
 
 ## Related pages
 
+- meadows-12-leverage-points — the intervention ladder CAST's reach is measured against; the encoder covers rungs 12–6 and stops at Meadows' own below-rules line
+
 - [Edge dynamics](./dynamic-edge-encoding.md) — additive Tier-2 modifier (🟡 candidate) for magnitude *changing over time*; its default is to derive rather than encode, since §System Behavior Patterns makes most variation follow from loop structure
 - [Edge delay](./delay-encoding-in-cast.md) — additive Tier-2 modifier (🟡 candidate) for **latency**: a gap inside the edge scene, never a palace distance — this page's §Palace placement rules already allocate that axis six ways
 - [Edge quantity](./encoding-quantities-in-cast.md) — additive Tier-2 modifier (🟡 candidate) for **magnitude**: how much moves through an edge, and whether it is a rate or a one-shot total. Rides on the Stream; unlocks the flow-balance checksum
@@ -317,7 +327,7 @@ CAST integrates with:
 - [mental-markers-category-importance-order](./mental-markers-category-importance-order.md) — node tagging when nodes blur
 - [orient-method](./orient-method.md) — capture protocol that feeds CAST graphs from live environments
 - [memory-systems](./memory-systems.md) — broader memory architecture
-- graphs-and-systems — graph theory fundamentals
+- graph-theory-overview — graph theory fundamentals
 - unfamiliar-codebase-protocol — Phase A applies CAST to a codebase's architecture directly: modules become nodes, dependency threads become verb-edges, and "what breaks if it changes" is CAST's own trigger question
 
 ---

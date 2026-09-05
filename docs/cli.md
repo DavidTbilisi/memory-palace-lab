@@ -56,6 +56,17 @@ Idempotency comes from deterministic ids: the primary METER event reuses the app
 
 **Live bridge.** The desktop app can mirror events as they happen (Settings › METER bridge). It is on automatically when the app was launched with `METER_DATA_DIR` set, or when a data directory is typed in Settings; otherwise it stays off so the app never creates `~/.neural-os/meter` on its own. The live bridge and `backfill` share the mapping in `src/domain/services/meterBridge.ts` and the same ids, so they never duplicate each other: a row the live bridge could not append (the first failure is shown once in the app) stays in the app's database and the next `backfill` picks it up. Events written by the MCP server or the CLI itself are not mirrored live; `backfill` covers them.
 
+Verified end to end in the desktop app on 2026-09-05: creating a palace, its nodes and edges, then walking a four-locus route produced 21 events that METER's own `Storage` reader accepted, and `meter report daily` showed a `palace::walk` row at 3/4 with a latency line. The canonical METER page in Neural-OS-Research (`wiki/cross-cutting/meter-overview.md`, mirrored in the Library as *meter-overview*) now lists this bridge beside the Anki bridge.
+
+**Trying it without touching real data.** On Linux the app's database follows `XDG_DATA_HOME`, so a scratch launch isolates both the app data and the log:
+
+```bash
+METER_DATA_DIR=/tmp/palace-trial/meter XDG_DATA_HOME=/tmp/palace-trial/data npm run tauri dev
+bin/palace --db /tmp/palace-trial/data/com.memorypalace.lab/memory_palace_lab.sqlite3 list
+```
+
+The tutorial-palace button creates an empty palace; the Learn rail's example palaces come with nodes, edges, and a route to walk.
+
 Mapping (everything else is skipped and counted, on purpose: METER wants signal, not a UI trace):
 
 | App event | layer / operation | metric_type | metric_value | artifact_id | mode |
@@ -64,7 +75,7 @@ Mapping (everything else is skipped and counted, on purpose: METER wants signal,
 | `walk_started`, `walk_completed` | performance / review | `walk.started`, `walk.completed` | route length, reviewed count | route | `palace::walk` |
 | `palace_created`, `node_created`, `edge_created`, `route_created`, `system_run_materialized` | encoding / encode | `palace.<event>` | 1 | palace, node, node, route, palace | null |
 
-Conventions mirror the Anki bridge so METER's reports need no changes: `hit`/`miss` feed the Daily Glance hit rate, `latency_ms` events feed its latency line, `mode` gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up. `context` also carries `source`, the app event id and type, palace and route ids, and the app's full payload.
+Conventions mirror the Anki bridge so METER's reports need no changes: `hit`/`miss` feed the Daily Glance hit rate, `latency_ms` events feed its latency line, `mode` gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up (for `palace.created` the name comes from the event's own payload, since the palace list does not know the new palace yet). `context` also carries `source`, the app event id and type, palace and route ids, and the app's full payload.
 
 ### DSL files (no database)
 

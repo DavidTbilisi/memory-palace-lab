@@ -122,7 +122,7 @@ The 8-phase sub-cycle is finer-grained than the 3 stages but maps inside Experie
 
 A Velvet Aeon Cosmic-mode **triple-arched gateway**, each arch a different shape:
 
-- **Preparation arch** — tall and narrow, framed by **two braziers** (one orange-flame = affective; one blue-flame = cognitive). A woman stands before the arch, **one hand on each brazier**, simultaneous. Her face is **strong** (per feedback_image_face_and_hair; she must want to enter).
+- **Preparation arch** — tall and narrow, framed by **two braziers** (one orange-flame = affective; one blue-flame = cognitive). A woman stands before the arch, **one hand on each brazier**, simultaneous. Her face is **strong** (per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md); she must want to enter).
 - **Experience arch** — wide and asymmetric, **shifting shape** like water. The same woman walks through it, **dragging a long ribbon of memory** behind her (the prior successful life experience). Inside the arch, **shadows of other figures** (analog selves) move alongside her — the metaphor substrate in action.
 - **Reevaluation arch** — circular, **mirror-walled**, surrounded by **9 small floating lanterns** (the [9 dive questions](./nine-dive-question-drill.md)). The woman emerges from this arch carrying a **revised scroll** (the revised strategy). The mirrors reflect her *previous* selves from earlier loops.
 

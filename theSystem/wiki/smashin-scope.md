@@ -16,7 +16,7 @@ wiki_source: wiki/learning-systems/smashin-scope.md
 - Memory Foundation (the Einstein-imagination quotation source within the canonical text)
 - User-provided clipping, 2026-05-22
 
-**Last updated**: 2026-05-22
+**Last updated**: 2026-09-05 (drill-ladder stage count cited); 2026-05-22
 
 ---
 
@@ -109,7 +109,7 @@ Three forces drove the compression:
 
 Two principles from SMASHIN' SCOPE are not present in REMAPS:
 
-- **Imagination** as a slot — reframed as the input substrate that every move operates on. The training-side page is [visualization-training](./visualization-training.md) (8-stage drill ladder from near-zero to persistent inner world), with the [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) companion for the imagery-deficient subgroup. Imagination doesn't need a slot in REMAPS because it doesn't *make* an image more memorable — it is the *raw material* the other six moves shape.
+- **Imagination** as a slot — reframed as the input substrate that every move operates on. The training-side page is [visualization-training](./visualization-training.md) (8-stage drill ladder from near-zero to persistent inner world, numbered on the axis at [skill-progression-stages](./skill-progression-stages.md)), with the [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) companion for the imagery-deficient subgroup. Imagination doesn't need a slot in REMAPS because it doesn't *make* an image more memorable — it is the *raw material* the other six moves shape.
 
 - **Positive Images** as a constraint — actively rejected. The wiki uses grotesque, horror, and disgust imagery where they encode strongly (see for instance the Bible-book seeds for Lamentations, Job, Ezekiel; the peg-matrix scenes that lean into impossibility and absurdity; the Tetris-glyph scenes that include explicit ⊥ contradiction and crashing motion). Buzan's positivity rule is treated here as a culturally calibrated preference, not a memory-optimal constraint. REMAPS Aesthetic explicitly covers "beauty or grotesqueness; anything that captures attention beyond neutral."
 

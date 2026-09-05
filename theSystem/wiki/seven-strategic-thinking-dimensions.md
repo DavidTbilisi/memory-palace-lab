@@ -126,7 +126,7 @@ Sloan opens the framing chapter with the example of childhood obesity. Different
 
 A **Velvet Aeon Cosmic-mode dome** with **two concentric rings** of pillars — **4 tall pillars** on the outer ring (Finance · Risk · Technology · Integrity), **3 shorter pillars** on the inner ring (Business Value · Individual Development · Social Contribution). At the dome's center, a **luminous woman** holds a single small bowl. Each pillar projects a **beam of light toward the bowl**; the 4 outer beams pass *through* the 3 inner beams before reaching the bowl, the outer ring **conditioning** the inner. The bowl's contents change color depending on which beams are dominant.
 
-The woman's face is **fragile/luminous** per feedback_image_face_and_hair (strategy as care, not power). The **Integrity pillar** is the **tallest of the 4 outer**; its beam **illuminates the dust** drifting across the other 6 pillars' beams, revealing whether they are clean or contaminated. Long hair lifted in the dome's wind. One overhead moon as single light source. The 7 pillars are arranged so the outer 4 form a square (NSEW) and the inner 3 form a triangle inside — geometrically distinct, visually paired.
+The woman's face is **fragile/luminous** per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md) (strategy as care, not power). The **Integrity pillar** is the **tallest of the 4 outer**; its beam **illuminates the dust** drifting across the other 6 pillars' beams, revealing whether they are clean or contaminated. Long hair lifted in the dome's wind. One overhead moon as single light source. The 7 pillars are arranged so the outer 4 form a square (NSEW) and the inner 3 form a triangle inside — geometrically distinct, visually paired.
 
 ## Memory checksum
 
