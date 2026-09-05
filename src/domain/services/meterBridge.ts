@@ -173,13 +173,17 @@ export async function mapAppEvent(event: AnalyticsEvent, palaceName: string | nu
   const mapper = APP_EVENT_MAPPERS[event.eventType];
   if (!mapper) return [];
   const payload = parseAnalyticsPayload(event);
+  // palace_created fires before the palace list knows the new palace, so the
+  // name in its own payload is the only source of the topic at that moment.
+  const topic =
+    palaceName ?? (event.eventType === "palace_created" && typeof payload.name === "string" ? payload.name : null);
   const ctx: Record<string, unknown> = {
     source: METER_SOURCE,
     app_event_id: event.id,
     app_event_type: event.eventType,
     palace_id: event.palaceId ?? null,
     route_id: event.routeId ?? null,
-    ...(palaceName ? { topic: palaceName } : {}),
+    ...(topic ? { topic } : {}),
     payload,
   };
   return mapper(event, payload, ctx);
