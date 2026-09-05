@@ -14,10 +14,10 @@ wiki_source: wiki/learning-systems/calendar-memory.md
 **Sources**:
 - raw/Neural OS Book/Calendar.md
 - raw/Neural OS Book/Months.md
-- raw/Neural OS Book/SEM3.md
+- [sem3](./sem3.md) — owner page for the year slot's encoder; `raw/Neural OS Book/SEM3.md` is the format spec behind it
 - raw/03 Tactical_Memory/Jungian 12 Archetypes as Month Mnemonics.md
 
-**Last updated**: 2026-09-02 (the multi-attribute pattern named here now has an owner page — [multi-attribute-encoding](./multi-attribute-encoding.md)); 2026-05-09
+**Last updated**: 2026-09-03 ([SEM3](./sem3.md) now has an owner page, so the year slot links to a method rather than to a raw source; the deck inventory's two SEM3 `TODO` rows were false and are flipped to the decks that actually exist, plus the new production deck); 2026-09-02 (the multi-attribute pattern named here now has an owner page — [multi-attribute-encoding](./multi-attribute-encoding.md)); 2026-05-09
 
 ---
 
@@ -31,7 +31,7 @@ A datetime has four scales (year, month, day, time-of-day). Each scale uses a di
 
 | Scale | Encoder | What it produces | Drill |
 |---|---|---|---|
-| **Year** (4 digits) | SEM3 + Major | sensory prefix `CI` + Major image `XX` | SEM3 prefix Anki deck + Major suffix Anki deck |
+| **Year** (4 digits) | [SEM3](./sem3.md) + Major | sensory prefix `CI` + Major image `XX` | SEM3 prefix Anki deck + Major suffix Anki deck |
 | **Month** (1-12) | [Jungian 12 archetypes](./jungian-12-archetypes-as-month-mnemonics.md) | one fixed archetype scene per month | Jungian-month Anki deck (12 cards) |
 | **Day** (1-31) | [Georgian animal](./georgian-animals.md) | first 31 letters of the Georgian alphabet, one animal per day | Georgian-animals Anki deck, 1-31 subset |
 | **Time-of-day** (HH:MM) | famous clocks (hour) + peg audio × peg matrix (minute) | 1 of 24 famous clocks for the hour (0-23, direct map to `HH`); 1 multimodal percept (rhyme peg × visual peg) for the minute, 1-minute resolution | Famous-clocks Anki deck + `peg` + `peg audio` decks |
@@ -42,10 +42,12 @@ A year is a 4-digit chunk and goes through SEM3 unchanged: first two digits beco
 
 Example: **1859** → `18` (Sound, item 8) + `59` (Major peg) → one scene where sound-8 is the atmosphere and Major-59 is the prop.
 
-This page does not redefine SEM3 or the Major system. Drill them via dedicated Anki decks; for the format itself, see the source.
+This page does not redefine SEM3 or the Major system. Drill them via dedicated Anki decks; for the method itself, see the owner page.
 
+- Owner page: [sem3](./sem3.md) — the `CI` + `XX` format, and the derivation rule that makes the prefix grid cheap (the item digit is its own first Major consonant, so 80 of the 100 cells regenerate rather than being stored)
 - Format reference: `raw/Neural OS Book/SEM3.md`
-- **SEM3 prefix deck** — 100 cards covering all `CI` 00-99 cells (build with `tools/reflex-anki`)
+- **SEM3 prefix decks** — `001 Memory::015 Beyond 100 (SEM3)` (99 cards, cell ↔ item) and `001 Memory::017 SEM3 + Major` (100 cards, merged prefix + prop). Both exist and carry review history
+- **SEM3 production deck** — `tools/reflex-anki/examples/sem3_reflexes.yaml`, 31 cards drilling 4-digit → scene and scene → 4-digit under time pressure, plus the rule and its two ordinal exceptions
 - **Major suffix deck** — 100 cards covering all `XX` 00-99 pegs (build with `tools/reflex-anki`)
 
 The page-author rule: never inline SEM3 prefix tables or Major peg tables on calendar pages — always link to the deck.
@@ -163,8 +165,10 @@ This method depends on six decks. Some already exist; the rest are the build que
 
 | Deck | Status | Cards | Notes |
 |---|---|---|---|
-| Major suffix (00-99) | TODO | 100 | prerequisite for SEM3 |
-| SEM3 prefix (CI 00-99) | TODO | 100 | sensory category × item |
+| Major suffix (00-99) | TODO | 100 | prerequisite for [SEM3](./sem3.md) |
+| SEM3 prefix (CI 00-99) | **exists** — `015 Beyond 100 (SEM3)` | 99 + `00` fill | sensory category × item; `00` = Vision · Snow, added 2026-09-03 to close the grid |
+| SEM3 + Major merged | **exists** — `017 SEM3 + Major` | 100 | prefix + prop on one note; `Number / SEM3 / MajorWord / MajorImage` |
+| SEM3 production reflexes | **exists** — `tools/reflex-anki/examples/sem3_reflexes.yaml` | 31 | 4 digits → scene and back, timed; drills the rule rather than the cells |
 | Jungian months | TODO | 12 | month ↔ archetype |
 | Georgian animals | exists (CAST) | 33 | drill 1-31 subset for day fluency |
 | Famous clocks | TODO | 24 | hour (0-23) ↔ clock ↔ city ↔ era ↔ visual hook; melodic companion [famous-clocks-mnemonic-song](./famous-clocks-mnemonic-song.md) |

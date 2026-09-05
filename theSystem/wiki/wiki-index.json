@@ -427,7 +427,7 @@
   {
     "slug": "cast-example-city-streets",
     "title": "Example: City Streets",
-    "summary": "Level 4 worked CAST example — a 5-intersection neighborhood block encoded as a real spatial palace. Demonstrates one-way vs. two-way streets (directed edges cost differently depending on which you have) and shows that merge points (several streets converging on one corner) need no special notation — they just fall out of ordinary in-degree. Companion to Web Service (Level 3) and University Math Program (Level 8).",
+    "summary": "Level 4 worked CAST example — a 5-intersection neighborhood block encoded as a real spatial palace. Demonstrates one-way vs. two-way streets (directed edges cost differently depending on which you have) and shows that merge points (several streets converging on one corner) need no special notation — they just fall out of ordinary in-degree. Companion to Web Service (unwritten) (Level 3) and University Math Program (Level 8).",
     "source": "wiki/encoders/cast-example-city-streets.md",
     "palace": "strategic-memory",
     "level": 4,
@@ -436,7 +436,7 @@
   {
     "slug": "cast-example-math-program",
     "title": "Example: University Math Program",
-    "summary": "Level 8 worked CAST example — a 13-course prerequisite DAG encoded as three nested palace rooms (tracks), with three clean diamond patterns, two explicit cross-edges joining the tracks, and one Tier 2 promotion where a source's verb bundle collides. The first example on the ladder to combine nested hierarchy (Level 7) with Tier 2 collision handling (Level 5) in a single graph. Companion to City Streets (Level 4) and 2008 Financial Crisis (Level 9).",
+    "summary": "Level 8 worked CAST example — a 13-course prerequisite DAG encoded as three nested palace rooms (tracks), with three clean diamond patterns, two explicit cross-edges joining the tracks, and one Tier 2 promotion where a source's verb bundle collides. The first example on the ladder to combine nested hierarchy (Level 7) with Tier 2 collision handling (Level 5) in a single graph. Companion to City Streets (Level 4) and 2008 Financial Crisis (unwritten) (Level 9).",
     "source": "wiki/encoders/cast-example-math-program.md",
     "palace": "strategic-memory",
     "level": 8,
@@ -1159,7 +1159,7 @@
   {
     "slug": "feedback-image-figure-rule",
     "title": "Figure Rule Feedback — the Woman-and-Creature Figure Doctrine",
-    "summary": "The parent render rule for how a human figure is constructed at all in a Neural OS mnemonic image — the umbrella above its face/hair specialization feedbackimagefaceandhair. Three load-bearing conventions: (1) fusion — a figure is a woman archetype fused with an animal/creature, never a plain neutral human; (2) never neutral — every figure carries affect (STRONG or FRAGILE), there is no affect-less figure; (3) architecture over identity — the scene's structure carries the encoding, the figure's specific identity is secondary. This is the owner of the rule that image-prompts cite as feedback-image-figure-rule.",
+    "summary": "The parent render rule for how a human figure is constructed at all in a Neural OS mnemonic image — the umbrella above its face/hair specialization feedback-image-face-and-hair. Three load-bearing conventions: (1) fusion — a figure is a woman archetype fused with an animal/creature, never a plain neutral human; (2) never neutral — every figure carries affect (STRONG or FRAGILE), there is no affect-less figure; (3) architecture over identity — the scene's structure carries the encoding, the figure's specific identity is secondary. This is the owner of the rule that image-prompts cite as feedback-image-figure-rule.",
     "source": "wiki/cross-cutting/feedback-image-figure-rule.md",
     "palace": "meta-knowledge",
     "level": 7,
@@ -2097,6 +2097,15 @@
     "room": 9
   },
   {
+    "slug": "mnemonic-checksum",
+    "title": "Mnemonic Checksum — graph integrity at four nested levels",
+    "summary": "The principle that a well-built scene breaks obviously when a piece is missing, applied at four nested levels of a CAST graph — scene · bundle · cluster · graph. Each level makes one class of loss visible at recall time rather than silently absent. This page is the owner of the four levels; image-merging implements Level 1 and edge-sign's loop-sign check joins the family without renumbering it.",
+    "source": "wiki/encoders/mnemonic-checksum.md",
+    "palace": "strategic-memory",
+    "level": 7,
+    "domain": 10
+  },
+  {
     "slug": "mnemonic-methods-master",
     "title": "Mnemonic Methods Master Reference",
     "summary": "The canonical reference for which mnemonic method to use, when, and how to measure whether it's working. Ranks the methods Neural OS supports by their actual leverage per domain, lists the operational contract for each, and routes users to the right method based on what they are trying to remember rather than which method sounds clever. This is the answer to \"of all the mnemonic methods, which one fits this material?\"",
@@ -2468,7 +2477,7 @@
   {
     "slug": "peg-system",
     "title": "Peg System",
-    "summary": "The trunk method that this wiki's five peg sets are instances of — a fixed, pre-drilled set of ordered anchors installed before any material arrives, so encoding becomes a lookup into an existing structure instead of the construction of a new one. Its defining move is the inversion of effort: the expensive work is done once, in advance, on content-free anchors; at encode time only the binding remains. Sibling to memory-palace, and distinguished from it by what carries the order — a peg set carries order in its index, a palace carries it in a route.",
+    "summary": "The trunk method that this wiki's six peg sets are instances of — a fixed, pre-drilled set of ordered anchors installed before any material arrives, so encoding becomes a lookup into an existing structure instead of the construction of a new one. Its defining move is the inversion of effort: the expensive work is done once, in advance, on content-free anchors; at encode time only the binding remains. Sibling to memory-palace, and distinguished from it by what carries the order — a peg set carries order in its index, a palace carries it in a route.",
     "source": "wiki/learning-systems/peg-system.md",
     "palace": "meta-knowledge",
     "level": 6,
@@ -3065,6 +3074,16 @@
     "room": 2
   },
   {
+    "slug": "sem3",
+    "title": "SEM3",
+    "summary": "The sensory-prefix encoder for 4-digit chunks — the first two digits pick how the scene is experienced (CI, a sensory category × item), the last two supply the concrete prop as a Major image (XX). Its non-obvious property, and the reason this page exists, is that the 100 prefix items are generated rather than stored: the item digit I is recoverable from the item word's own first Major consonant, so decoding is deterministic and encoding is self-checking. Sibling to peg-audio-visual-matrix — both multiply two 10-item indices into 100 single percepts — and distinguished from it by what the two axes do: the matrix's axes are two co-equal pegs, SEM3's are a modifier and a prop.",
+    "source": "wiki/learning-systems/sem3.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 3
+  },
+  {
     "slug": "semantic-input-cheat-sheet",
     "title": "Semantic Input Cheat Sheet",
     "summary": "A compact operational cheat sheet that unifies semantic-reading-system and semantic-listening-system into one fast decision guide for text and live speech.",
@@ -3389,6 +3408,15 @@
     "level": 3,
     "domain": 10,
     "room": 15
+  },
+  {
+    "slug": "step-zero-analysis",
+    "title": "Step 0 Analysis — read the graph before encoding any of it",
+    "summary": "The four checks that run before a single Georgian animal is assigned — in-degree · bridges · feedback loops · edge-tier classification. Encoding a misunderstood graph wastes the whole encode, because the palace ends up shaped like your misreading rather than like the system. This page owns the four checks and the deterministic letter-assignment rule that falls out of the first one.",
+    "source": "wiki/encoders/step-zero-analysis.md",
+    "palace": "strategic-memory",
+    "level": 7,
+    "domain": 10
   },
   {
     "slug": "sticker-number-sense-curriculum",
@@ -4006,6 +4034,16 @@
     "level": 6,
     "domain": 10,
     "room": 8
+  },
+  {
+    "slug": "when-not-to-cast-a-graph",
+    "title": "When Not to CAST a Graph",
+    "summary": "The prior question CAST never asks about itself — does a rule produce the edges? If one does, the rule is the encode and the edges are its trace, and this holds no matter how large the graph is. Plus the two ceilings (node count, and the density reformulation that says the real budget is scenes) and the three cells where graph-shaped material routes to another encoder.",
+    "source": "wiki/encoders/when-not-to-cast-a-graph.md",
+    "palace": "meta-knowledge",
+    "level": 6,
+    "domain": 10,
+    "room": 1
   },
   {
     "slug": "wiki-ingest-meta-pattern",

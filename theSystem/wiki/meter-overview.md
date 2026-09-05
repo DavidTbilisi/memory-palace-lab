@@ -23,7 +23,7 @@ wiki_source: wiki/cross-cutting/meter-overview.md
 - [grace-overview](./grace-overview.md)
 - Design conversation, 2026-05-07
 
-**Last updated**: 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-07 (v0.1.0 tooling at `tools/meter/` + Anki bridge at `tools/meter-anki-addon/`)
+**Last updated**: 2026-09-05 (§Tooling — *Memory Palace Lab bridge* subsection: the desktop app mirrors walks and encoding into `events.jsonl` live and `palace meter backfill` covers history, the second automatic writer beside the Anki bridge); 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-07 (v0.1.0 tooling at `tools/meter/` + Anki bridge at `tools/meter-anki-addon/`)
 
 ---
 
@@ -421,6 +421,17 @@ The CLI is the foundational primitive. Future tooling (Lifecycle sweep automatio
 The Anki add-on at [`tools/meter-anki-addon/`](../tools/meter-anki-addon/) emits events automatically on every card review. It hooks `reviewer_did_show_question` (for latency baseline) and `reviewer_did_answer_card` (writes the event), pulls `mode` from `oracle::*` / `grace::*` tags, and surfaces lifecycle state from `lifecycle::*` tags. The bridge writes the same JSONL schema as the `meter` CLI, so reports include Anki review events alongside manual `meter emit` and `meter pulse checkin` events.
 
 Install: copy the directory into Anki's add-ons folder (Tools → Add-ons → "View Files..."), edit `config.json` to point at your METER `data_dir`, and restart Anki. The add-on is read-only with respect to your collection — it never modifies cards, notes, or decks. Verified end-to-end: 27 logic tests pass; events written by the add-on are read by the `meter` CLI without any conversion; per-mode floor-breach escalations fire correctly.
+
+### Memory Palace Lab bridge: `memory-palace-lab` (2026-09-05)
+
+The [memory palace](./memory-palace-architecture-for-neural-os.md) app is the second tool that writes METER events without being asked. Two paths share one mapping (`src/domain/services/meterBridge.ts` in that repo), so they never duplicate each other:
+
+- **Live** — the desktop app appends to `events.jsonl` as each analytics row is saved (Settings › METER bridge). It turns itself on when the app was launched with `METER_DATA_DIR` set or a data directory was typed in Settings, and otherwise stays off, so a machine that never asked for METER never gets a `~/.neural-os/meter`. A failed append is shown once in the app; the row stays in the app's database for the backfill.
+- **Backfill** — `palace meter backfill` (the app's CLI, `docs/cli.md` there) replays the app's analytics history in chronological order. Same data-dir precedence as `meter` (`METER_DATA_DIR`, then the project root's `meter-data/`, then `~/.neural-os/meter`), append-only, idempotent through deterministic ids, run from this checkout so events land in `meter-data/`.
+
+What it emits, mirroring the Anki bridge so the reports needed no change: every rated locus of a walk is a `hit` (Hard, Good, Easy) or `miss` (Again) on the `performance` layer, `operation: review`, plus a separate `latency_ms` event from the time to reveal; walk start and completion are `walk.started` / `walk.completed`; palace, node, edge and route creation are `palace.*` events on the `encoding` layer. `mode` is `palace::walk`, which gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up. Chatty UI events (open, save, autosave, walk steps) are deliberately not mirrored.
+
+Verified 2026-09-05 end to end in the desktop app: a build session and a four-locus walk produced 21 events, all accepted by `meter.storage.Storage`, and Daily Glance showed `palace::walk n=10 hits=3/4` with a latency line. The same repo also wires `palace lint` into this wiki's PostToolUse and pre-commit hooks (`.claude/palace-lint-hook.py`), so a committed `.dsl` palace file is always parseable.
 
 ## Related Pages
 

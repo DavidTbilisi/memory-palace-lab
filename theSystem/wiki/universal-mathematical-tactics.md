@@ -196,7 +196,7 @@ A four-quarter **heraldic shield** in Velvet Aeon Mode-Cosmic register: pale-gol
 - **Bottom-left quarter**: a wooden **cubbyhole grid** (3×4) with one cubby containing two folded letters, the rest containing one each (Pigeonhole).
 - **Bottom-right quarter**: a heavy **brass dial** locked in one position with three rotational keys around it; the dial does not turn (Invariant).
 
-The shield is held by a figure with **STRONG** face archetype (per feedback_image_face_and_hair) — the four tactics are *power moves*, not fragile ones. Hair flows past the waist. Long-exposure feel; the climber, the mirror, the cubbies, the dial all share the single warm light.
+The shield is held by a figure with **STRONG** face archetype (per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md)) — the four tactics are *power moves*, not fragile ones. Hair flows past the waist. Long-exposure feel; the climber, the mirror, the cubbies, the dial all share the single warm light.
 
 ## Systematic enumeration — a meta-tactic, not promoted (added 2026-05-24)
 

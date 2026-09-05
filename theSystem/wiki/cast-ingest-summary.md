@@ -15,7 +15,7 @@ wiki_source: wiki/encoders/cast-ingest-summary.md
 - raw/CAST/CAST and Georgian Node System.md
 - raw/CAST/CAST Maturity Levels.md
 
-**Last updated**: 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 📋 → 🧾 — an itemised receipt of one completed run: what landed, what is pending, what is blocked; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-04-30
+**Last updated**: 2026-09-04 (**status snapshot reconciled** — four "scaffolding in place" pages listed on 2026-04-30 never existed; corrected to where the content actually landed, and the two pages written today added); 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 📋 → 🧾 — an itemised receipt of one completed run: what landed, what is pending, what is blocked; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-04-30
 
 **Ingest Date**: 2026-04-30
 
@@ -60,20 +60,24 @@ The CAST system documentation has been integrated with a **10-level maturity pro
 - [nodes-and-edges](./nodes-and-edges.md) — Two-layer architecture explained
 - [maturity-levels-overview](./maturity-levels-overview.md) — 10-level progression guide with time estimates
 
-### Technique Pages (Scaffolding in Place)
-- tier-1-encoding — Verb-only edge encoding (outline)
-- tier-2-cast — Character-Action-Stream-Time decision guide (outline)
-- step-zero-analysis — Graph analysis before encoding (outline)
-- feedback-loops — Amplifying & stabilizing cycles (outline)
-- [memory-palace](./memory-palace-architecture-for-neural-os.md) — Palace placement rules (outline)
-- hierarchical-graphs — Nested palaces for trees/DAGs (outline)
-- [lego-skills-patterns](./lego-skills-patterns.md) — 8 pre-encoded patterns (outline)
+### Technique Pages — **reconciled 2026-09-04**
 
-### Worked Examples (Pending)
-- cast-example-web-service — 5-node flat network (Level 3)
-- [cast-example-city-streets](./cast-example-city-streets.md) — Spatial graph (Level 4)
-- [cast-example-math-program](./cast-example-math-program.md) — 13-node DAG (Level 8)
-- cast-example-2008-crisis — 12-node temporal graph (Level 9)
+The 2026-04-30 list below claimed seven "scaffolding in place" pages. Four of those slugs were never created; their content landed elsewhere over the following months and this snapshot was never walked back. Corrected state:
+
+- [nodes-and-edges](./nodes-and-edges.md) — owns **both** tiers (verb-only Tier 1, Character-Action-Stream-Time Tier 2). The separate `tier-1-encoding` / `tier-2-cast` pages were never written and are not needed
+- [step-zero-analysis](./step-zero-analysis.md) — graph analysis before encoding. **Written 2026-09-04**, four months after being listed here
+- feedback-loop-taxonomy — amplifying & stabilizing cycles (dynamics); [nodes-and-edges](./nodes-and-edges.md) §Feedback Loops owns their CAST encoding. `feedback-loops` was never written
+- [memory-palace](./memory-palace-architecture-for-neural-os.md) — palace placement rules ✓ exists as listed
+- graph-theory-overview §Trees — trees and DAGs; `hierarchical-graphs` was never written, and nested-palace placement for them sits in the memory-palace page and rungs 7-8 of [maturity-levels-overview](./maturity-levels-overview.md)
+- [lego-skills-patterns](./lego-skills-patterns.md) — 8 pre-encoded patterns ✓ exists as listed
+- [mnemonic-checksum](./mnemonic-checksum.md) — four-level graph integrity. Never listed here at all, cited as an owner by two live pages, **written 2026-09-04**
+
+### Worked Examples — 2 of 4 written
+
+- *cast-example-web-service* — 5-node flat network (Level 3). **Still unwritten**; nearest live stand-in is the 4-service kitchen graph in [cast-overview](./cast-overview.md)
+- [cast-example-city-streets](./cast-example-city-streets.md) — spatial graph (Level 4) ✓ written
+- [cast-example-math-program](./cast-example-math-program.md) — 13-node DAG (Level 8) ✓ written
+- *cast-example-2008-crisis* — 12-node temporal graph (Level 9). **Still unwritten**; st-example-financial-system holds the systems-thinking half but is an empty 2026-04-30 stub
 
 ---
 

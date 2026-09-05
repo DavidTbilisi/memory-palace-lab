@@ -10,11 +10,11 @@ wiki_source: wiki/encoders/cast-example-city-streets.md
 
 # Example: City Streets
 
-**Summary**: Level 4 worked [CAST](./cast-overview.md) example — a 5-intersection neighborhood block encoded as a real spatial palace. Demonstrates one-way vs. two-way streets (directed edges cost differently depending on which you have) and shows that merge points (several streets converging on one corner) need no special notation — they just fall out of ordinary in-degree. Companion to Web Service (Level 3) and [University Math Program](./cast-example-math-program.md) (Level 8).
+**Summary**: Level 4 worked [CAST](./cast-overview.md) example — a 5-intersection neighborhood block encoded as a real spatial palace. Demonstrates one-way vs. two-way streets (directed edges cost differently depending on which you have) and shows that merge points (several streets converging on one corner) need no special notation — they just fall out of ordinary in-degree. Companion to *Web Service* (unwritten) (Level 3) and [University Math Program](./cast-example-math-program.md) (Level 8).
 
 **Sources**: Synthesized worked example built to the spec in [maturity-levels-overview](./maturity-levels-overview.md) ("Level 4 Example: City Streets — 5 intersections, 8 streets, one-way and two-way, real-world palace"); encoding conventions per [georgian-animals](./georgian-animals.md) and [nodes-and-edges](./nodes-and-edges.md).
 
-**Last updated**: 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
+**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
 
 ---
 
@@ -145,9 +145,9 @@ Tan = the geometric hub (in-degree 2). Green = the actual in-degree winner and m
 - [georgian-animals](./georgian-animals.md) — the in-degree assignment rule used in Step 1
 - [nodes-and-edges](./nodes-and-edges.md) — the two-layer model (nodes, Tier 1 edges) this page applies
 - [maturity-levels-overview](./maturity-levels-overview.md) — Level 4 in the 10-level progression
-- Level 4: Small Flat Networks
-- Step 0 Analysis — in-degree calculation, generalized
-- Example: Web Service (Level 3) — simpler sibling, no two-way edges
+- [maturity-levels-overview](./maturity-levels-overview.md) §Quick Reference Table — Level 4: Small Flat Networks
+- [Step 0 Analysis](./step-zero-analysis.md) — in-degree calculation, generalized
+- *Example: Web Service (Level 3)* — the simpler sibling (no two-way edges) promised by the 2026-04-30 ingest and never written; the 4-service kitchen graph in [cast-overview](./cast-overview.md) is the nearest live stand-in
 - [Example: University Math Program (Level 8)](./cast-example-math-program.md) — next sibling up, adds hierarchy and Tier 2
 - [neighborhood-palace](./neighborhood-palace.md) — the production-scale version of this exact idea (real streets, cabbie-grade fluency)
 

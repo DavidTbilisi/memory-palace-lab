@@ -13,7 +13,7 @@ wiki_source: wiki/problem-solving/pigeonhole-principle.md
 
 **Sources**: [burger-heart-of-mathematics](./burger-heart-of-mathematics.md) Ch 2.1 (pp. 95–104, "Counting — How the Pigeonhole Principle Leads to Precision Through Estimation"); [problem-solving-three-levels](./problem-solving-three-levels.md) (Zeitz S/T/T registry where pigeonhole appears as a tactic).
 
-**Last updated**: 2026-05-27 — created during the Burger ingest as the owner page for the previously-named-but-orphan tactic.
+**Last updated**: 2026-09-05 (automaticity ladder count corrected — 10 levels, 0–9); 2026-05-27 — created during the Burger ingest as the owner page for the previously-named-but-orphan tactic.
 
 ---
 
@@ -47,7 +47,7 @@ The principle is *substrate-independent*. Some load-bearing wiki uses:
 | **[memory-palace](./memory-palace.md)** | If a palace has N loci and you encode N+1 distinct items in it, some locus carries 2+ items — a collision in the encoding-overlay sense. (Counter: keep N > items-encoded by ≥30%.) |
 | **[spaced-repetition](./spaced-repetition.md)** | In any 7-day window, an Anki deck with k cards/day at SM-2 default intervals will repeat at least one card-class twice if k > 7 — useful when designing leech-detection thresholds. |
 | **network-fundamentals / osi-7-layer-model** | With n+1 hosts contending for n MAC-address slots in a CAM table, at least one slot must be reused or evicted — drives ARP cache aging policy. |
-| **[automaticity-and-reflex-training](./automaticity-and-reflex-training.md)** | Across the wiki's 9 automaticity levels and 5 skill-types (Sense B of [five-elements-mapping-reconciliation](./five-elements-mapping-reconciliation.md)), 46 slot-pairs exist; pigeonhole guarantees that drilling 47+ skills must reuse at least one (level × skill-type) slot. |
+| **[automaticity-and-reflex-training](./automaticity-and-reflex-training.md)** | Across the wiki's 10 automaticity levels (0–9) and 5 skill-types (Sense B of [five-elements-mapping-reconciliation](./five-elements-mapping-reconciliation.md)), 46 slot-pairs exist; pigeonhole guarantees that drilling 47+ skills must reuse at least one (level × skill-type) slot. |
 
 ---
 

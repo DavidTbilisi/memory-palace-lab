@@ -19,7 +19,7 @@ wiki_source: wiki/encoders/edge-sign.md
 - [nodes-and-edges](./nodes-and-edges.md) §Feedback Loops — the loop-level polarity encoding (amplifying/stabilizing holds) this extends downward to single edges
 - [lego-skills-patterns](./lego-skills-patterns.md) — the spiral/leash pattern pair whose choice this modifier makes verifiable
 
-**Last updated**: 2026-08-31 — [Edge quantity](./encoding-quantities-in-cast.md) registered as the sibling additive modifier; §Related pages notes how the two compose (quantity on the Stream body, the interceptor at the target end). Spec prose unchanged; 2026-07-09 (evening) — added §Worked micro-examples for David's four live arenas (interview · social · new environment · new project) + ASCII visualizations (definition glyph, loop-sign product rule, one diagram per arena); spec prose unchanged. Original: 2026-07-09.
+**Last updated**: 2026-09-04 — §Promotion gate: first evidence toward criterion (1) recorded, from st-example-organizational-behavior; a designed system, so a worked demonstration rather than the field observation the gate wants. 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-08-31 — [Edge quantity](./encoding-quantities-in-cast.md) registered as the sibling additive modifier; §Related pages notes how the two compose (quantity on the Stream body, the interceptor at the target end). Spec prose unchanged; 2026-07-09 (evening) — added §Worked micro-examples for David's four live arenas (interview · social · new environment · new project) + ASCII visualizations (definition glyph, loop-sign product rule, one diagram per arena); spec prose unchanged. Original: 2026-07-09.
 
 **Status**: 🟡 **Candidate** — adopted structure, imagery pending David's pick, promotion gated (see §Promotion gate).
 
@@ -102,7 +102,7 @@ The bar candidate has a free hook: a bar across the stream *is literally a minus
 
 ## The unlock: loop-sign checksum
 
-With signed edges, loop classification becomes **verifiable instead of asserted**: walk any cycle and multiply the edge signs — an even count of − (or none) must land on the **spiral** (amplifying), an odd count on the **leash** (stabilizing). Mismatch = either an edge sign or the pattern choice is wrong. This is a graph-level integrity check that complements the existing four-level mnemonic-checksum (it does not renumber those levels; see [skill-progression-stages](./skill-progression-stages.md) for registered counts). Registered as a candidate composition in [composability-index](./composability-index.md).
+With signed edges, loop classification becomes **verifiable instead of asserted**: walk any cycle and multiply the edge signs — an even count of − (or none) must land on the **spiral** (amplifying), an odd count on the **leash** (stabilizing). Mismatch = either an edge sign or the pattern choice is wrong. This is a graph-level integrity check that complements the existing four-level [mnemonic-checksum](./mnemonic-checksum.md) (it does not renumber those levels; see [skill-progression-stages](./skill-progression-stages.md) for registered counts). Registered as a candidate composition in [composability-index](./composability-index.md).
 
 ```mermaid
 graph LR
@@ -210,7 +210,7 @@ Passive IntegrationSword · Spontaneous, unprompted imagery
 0/2 ▰▰
 ### 4. New project — find the leashes in the codebase
 
-Onboarding: module-call and feed edges are + and stay unmarked; hunt the − edges — feature flag gating a path, validator rejecting input, rate limiter, CI gate blocking merge, review required before deploy. Two payoffs: (a) the − edges are where the system is *safe to touch* — a change downstream of a strong leash is low-blast-radius; (b) the firefighting check: bugs →+ hotfixes →+ tech debt →+ bugs is an all-+ spiral — archetype-1-fixes-that-fail spotted in week one, by sign product alone. If the only − edges on the defect loop are "heroics", the project has no leash; that's your first architectural observation as the new person.
+Onboarding: module-call and feed edges are + and stay unmarked; hunt the − edges — feature flag gating a path, validator rejecting input, rate limiter, CI gate blocking merge, review required before deploy. Two payoffs: (a) the − edges are where the system is *safe to touch* — a change downstream of a strong leash is low-blast-radius; (b) the firefighting check: bugs →+ hotfixes →+ tech debt →+ bugs is an all-+ spiral — archetype-fixes-that-fail spotted in week one, by sign product alone. If the only − edges on the defect loop are "heroics", the project has no leash; that's your first architectural observation as the new person.
 
 ```mermaid
 graph LR
@@ -242,6 +242,8 @@ Within **~4 weeks of first use** on a real encoded graph, at least one of:
 1. a `cast::loop_sign_check` with `match=false` that caught a genuine classification error, or
 2. a real Tier-2 collision that the four canonical slots alone could not break but the sign did.
 
+**Evidence toward (1), 2026-09-04, on a designed system rather than a live one**: st-example-organizational-behavior encodes a team under a delivery metric and finds a loop whose sign flips the forecast. Read unsigned, *cut care → quality falls → defects surface → rework arrives as new tickets* is a chain of corrections and the loop classifies as balancing; read signed, two negatives multiply and it is reinforcing. Same topology, opposite prediction. That is the shape gate (1) asks for — a classification the four canonical slots got wrong and the sign got right — but on a system built to illustrate the point, so it counts as a worked demonstration and not yet as the field observation the gate wants.
+
 Neither → **park** (same treatment as the 2026-07-06 parking of the 2-bit codec layer; see log). Both this gate and the codec parking exist because CAST's current mission is *perceptual* comprehension of large graphs — a mechanism earns its place by doing perceptual work, not by being formally elegant.
 
 ## Not to be confused with
@@ -268,8 +270,8 @@ Neither → **park** (same treatment as the 2026-07-06 parking of the 2-bit code
 - [nodes-and-edges](./nodes-and-edges.md) — edge-layer owner; loop-level polarity holds that this extends downward
 - [lego-skills-patterns](./lego-skills-patterns.md) — spiral/leash, the pattern pair the loop-sign checksum verifies
 - archetype-encoding-in-cast — where signed causal edges come from
-- feedback-loops — the dynamics the signs summarize
-- mnemonic-checksum — the integrity family the loop-sign check joins
+- feedback-loop-taxonomy — the dynamics the signs summarize
+- [mnemonic-checksum](./mnemonic-checksum.md) — the integrity family the loop-sign check joins
 - [cast-drill-ladder](./cast-drill-ladder.md) — hosts the flash pool this would extend 16 → 18
 - [image-merging](./image-merging.md) — merge rule interaction: the interceptor must survive the weld (it cuts the stream *inside* the composite scene)
 

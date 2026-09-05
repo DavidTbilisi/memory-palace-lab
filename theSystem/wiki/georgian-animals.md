@@ -12,7 +12,7 @@ wiki_source: wiki/learning-systems/georgian-animals.md
 
 **Sources**: CAST and Georgian Node System.md (lines 78-119)
 
-**Last updated**: 2026-04-29
+**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-04-29
 
 ---
 
@@ -163,7 +163,7 @@ Aim for under 1 second per animal recall.
 3. **Prioritization**: if you run out of time, you've encoded the most important nodes
 4. **Recognition**: you always start from the same place (the eagle, highest in-degree)
 
-Step 0 analysis includes in-degree sorting as the first step.
+[Step 0 analysis](./step-zero-analysis.md) includes in-degree sorting as the first step.
 
 ---
 
@@ -181,8 +181,8 @@ Each animal-environment pair is chosen for:
 
 - [Nodes & Edges](./nodes-and-edges.md) — how animals become part of the two-layer model
 - Node Encoding — detailed four-slot system
-- Example: Web Service — see animals in a real graph
-- Step 0 Analysis — in-degree calculation
+- [Example: City Streets](./cast-example-city-streets.md) — see animals in a real graph
+- [Step 0 Analysis](./step-zero-analysis.md) — in-degree calculation
 - [Peg System](./peg-system.md) — modifiers using peg numbers
 
 

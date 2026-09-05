@@ -20,7 +20,7 @@ wiki_source: wiki/encoders/dynamic-edge-encoding.md
 
 **Note on provenance**: as with [delay-encoding-in-cast](./delay-encoding-in-cast.md), the CAST raw source carries nothing on edge dynamics. Wiki-side design.
 
-**Last updated**: 2026-08-31 — stub filled.
+**Last updated**: 2026-09-04 — §Related pages: two worked systems recorded where **Dyn0 derive** held (st-example-ecological-system, st-example-organizational-behavior); 2026-08-31 — stub filled.
 
 **Status**: 🟡 **Candidate**, and the thinnest of the three edge modifiers by design — see §Most of this page's brief was already delivered.
 
@@ -129,6 +129,7 @@ Otherwise park it. Given how much of this page routes elsewhere, parking costs a
 - [Edge quantity](./encoding-quantities-in-cast.md) — the thickness this varies; also owns the scope rule and the bottleneck reading the stub misattributed here
 - [Edge delay](./delay-encoding-in-cast.md) — the gap this reads as a time axis; source of the in-flight arithmetic refined above
 - [edge-sign](./edge-sign.md) — the third modifier; polarity, at the target end
+- st-example-ecological-system · st-example-organizational-behavior — two worked systems where **Dyn0 derive** held: the predator–prey wave and the metric/quality divergence are both outputs of loops already in the picture, and neither needed a curve on an edge
 - systems-thinking-foundations — §System Behavior Patterns, the structure→behaviour table behind Dyn0
 - [lego-skills-patterns](./lego-skills-patterns.md) — the loop patterns Dyn0's first check reads
 - [nodes-and-edges](./nodes-and-edges.md) — the two-layer model; the **T** slot lives in Tier 2 there

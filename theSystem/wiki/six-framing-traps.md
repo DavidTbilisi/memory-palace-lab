@@ -142,7 +142,7 @@ A Velvet Aeon Cosmic-mode **stone chamber** with six recesses carved into the wa
 5. **Conformist** — six identical small figures in a tight ring, all facing inward, **none facing the chamber door** (the in-group has its back to the world)
 6. **Over-simplifier** — a figure holding a **complex tangle of colored threads in the left hand** and a **single straight thread in the right**, having **cut the rest** (simplification by amputation)
 
-In the chamber's center, a **luminous woman** (fragile/luminous face per feedback_image_face_and_hair) walks a slow circle around the six statues, holding a **small lantern**. Wherever her lantern touches a statue, the statue **softens momentarily** — the lantern is the [nine-dive-question-drill](./nine-dive-question-drill.md) firing. The chamber's single light source comes from above; no atmospheric noise; the sky outside is empty.
+In the chamber's center, a **luminous woman** (fragile/luminous face per [feedback-image-face-and-hair](./feedback-image-face-and-hair.md)) walks a slow circle around the six statues, holding a **small lantern**. Wherever her lantern touches a statue, the statue **softens momentarily** — the lantern is the [nine-dive-question-drill](./nine-dive-question-drill.md) firing. The chamber's single light source comes from above; no atmospheric noise; the sky outside is empty.
 
 ## Memory checksum
 

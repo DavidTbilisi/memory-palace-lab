@@ -16,7 +16,7 @@ wiki_source: wiki/encoders/image-merging.md
 - CAST and Georgian Node System.md §Image Merging — the strongest edge encoding upgrade
 - CAST and Georgian Node System.md §Image Merging — strongest scenes (city-streets worked example)
 
-**Last updated**: 2026-09-02 (cited as the fusion owner by [multi-attribute-encoding](./multi-attribute-encoding.md); reciprocal link added); 2026-07-06 — page authored (was an orphan-by-omission; linked from cast-overview and nodes-and-edges since the 2026-04-30 CAST ingest).
+**Last updated**: 2026-09-04 (first-mention links added for the two terms registered today — [mnemonic-checksum](./mnemonic-checksum.md) / [step-zero-analysis](./step-zero-analysis.md)); 2026-09-02 (cited as the fusion owner by [multi-attribute-encoding](./multi-attribute-encoding.md); reciprocal link added); 2026-07-06 — page authored (was an orphan-by-omission; linked from cast-overview and nodes-and-edges since the 2026-04-30 CAST ingest).
 
 ---
 
@@ -48,7 +48,7 @@ The rule generalizes past [CAST](./cast-overview.md) edges. Any time one item ca
 
 ## Incoherence is the checksum
 
-If any element is missing from a properly merged scene, the image becomes incoherent — animals no longer interacting, a stream with nowhere to go. That incoherence is a built-in integrity signal: this is Level 1 (scene integrity) of the four-level mnemonic-checksum. (source: CAST and Georgian Node System.md)
+If any element is missing from a properly merged scene, the image becomes incoherent — animals no longer interacting, a stream with nowhere to go. That incoherence is a built-in integrity signal: this is Level 1 (scene integrity) of the four-level [mnemonic-checksum](./mnemonic-checksum.md). (source: CAST and Georgian Node System.md)
 
 The test for a finished merge: **can you remove one element without the image collapsing?** If yes, keep merging.
 
@@ -84,7 +84,7 @@ Comprehension of a large connected graph is bounded by how many *things* the wal
 
 1. What is the merge rule in one sentence? *(don't place elements near each other — merge so one cannot exist without the other)*
 2. Which CAST slot dictates the physical contact between the animals, and which slot wraps the scene? *(Action dictates contact; Time wraps)*
-3. What is the test that a merge is finished? *(removing any element makes the image incoherent — scene-level mnemonic checksum)*
+3. What is the test that a merge is finished? *(removing any element makes the image incoherent — scene-level [mnemonic checksum](./mnemonic-checksum.md))*
 
 ## Visual
 
@@ -94,7 +94,7 @@ Two panels. Left: three separate sketches in a row (eagle / cloud-in-cave / owl)
 
 - [CAST](./cast-overview.md) — the encoder this upgrade belongs to
 - [nodes-and-edges](./nodes-and-edges.md) — Tier 1 / Tier 2 edge scenes that merging compresses
-- mnemonic-checksum — owns the four integrity levels; merging implements Level 1
+- [mnemonic-checksum](./mnemonic-checksum.md) — owns the four integrity levels; merging implements Level 1
 - [REMAPS](./remaps.md) — merging is the M move; full checklist for weak scenes
 - [lego-skills-patterns](./lego-skills-patterns.md) — the between-scene compression this pairs with
 - [chunking](./chunking.md) — cluster-level compression above both

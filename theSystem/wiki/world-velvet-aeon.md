@@ -100,7 +100,7 @@ Velvet Aeon has four operational sub-modes that share substrate but differ in su
 - **M** — Velvet Aeon canonical photoreal-with-painterly-soul; lean Ingres-portrait + Crewdson interior over Delacroix-drama; calm composition, no high-stakes action
 - **P** — **Preserve required**: *sacred memory* + *feminine divinity* (the self-image as the divine portrait being polished). **Preserve forbidden**: *romantic ruin* — primes the failure mechanism; the rubber band yanks toward decay. *Cosmic loneliness* allowed only when rehearsing identity in solitude (writing, prayer, study). *Sorrow as guidance* allowed only when rehearsing a recovery / forgiveness identity scene; never the dominant note
 
-**Figure rules** (extending [figure feedback](./feedback-image-figure-rule.md) and face/hair feedback):
+**Figure rules** (extending [figure feedback](./feedback-image-figure-rule.md) and [face/hair feedback](./feedback-image-face-and-hair.md)):
 - The practitioner's face uses the **STRONG archetype** (angular jaw, piercing gaze) when rehearsing ASM-active identities — public performance, contested negotiation, leadership, decisive action
 - The **FRAGILE archetype** (luminous or porcelain) when rehearsing the relax-substrate identity — quiet creativity, study, prayer, repair from setback
 - Both archetypes are allowed in the same identity if the rehearsal alternates modes (e.g., a leader who is both decisive in public and quiet in study)

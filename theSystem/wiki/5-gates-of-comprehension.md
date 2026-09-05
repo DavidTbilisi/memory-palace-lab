@@ -12,7 +12,7 @@ wiki_source: wiki/meta-wiki/5-gates-of-comprehension.md
 
 **Sources**:
 - raw/templates/01_5GATES_TEMPLATE.md
-- Used in: archetype-1-fixes-that-fail, archetype-2-success-to-the-successful, archetype-3-shifting-the-burden, archetype-4-escalation, archetype-5-limits-to-growth, archetype-6-addiction-eroding-goals, archetype-7-growth-and-underinvestment, archetype-8-tragedy-of-the-commons
+- Used in: archetype-fixes-that-fail, archetype-success-to-successful, archetype-shifting-the-burden, archetype-escalation, archetype-limits-to-growth, archetype-eroding-goals, archetype-growth-and-underinvestment, archetype-tragedy-of-commons
 
 **Last updated**: 2026-05-28
 

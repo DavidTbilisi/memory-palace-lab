@@ -13,7 +13,7 @@ wiki_source: wiki/cross-cutting/image-pipeline.md
 
 **Sources**: Synthesized from [remaps](./remaps.md) and [clamp-render-lens](./clamp-render-lens.md) — no new content. This page exists to make the composition explicit so future readers don't treat the two acronyms as parallel cross-cutting layers when they are sequential stages. 2026-07-02 addition: the `transform → render` generalization (image is one instance; music is the second — see [music-generation-frameworks](./music-generation-frameworks.md)).
 
-**Last updated**: 2026-07-02
+**Last updated**: 2026-09-05 (§The transform → render abstraction — the **Generator** column restored to the table, which had carried three columns for a four-stage abstraction and so hid the visual channel's three interchangeable generators; the lens × generator axis named as [GoF Bridge](./software-design-principles-for-neural-os.md)); 2026-07-02
 
 ---
 
@@ -58,12 +58,12 @@ graph LR
 
 The Image Pipeline is the *first* instance of a more general pattern, not a one-off. The abstraction is **`seed → transform → render → generator`**, and its two middle stages are pluggable by output medium:
 
-| Instance | Transform (Stage 1) | Render lens (Stage 2) | Default world profile |
-|---|---|---|---|
-| **Image** (this page) | [REMAPS](./remaps.md) | [CLAMP](./clamp-render-lens.md) — Camera · Lighting · Aspect · Medium · Preserve | [Velvet Aeon](./world-velvet-aeon.md) |
-| **Music** | [REMAPS](./remaps.md) / [SCAMPER](./creative-thinking-os.md) | **MASTER** — Meter · Arrangement · Space · Timbre · Energy-arc · Restrict (Suno-grounded) | music-profile |
+| Instance | Transform (Stage 1) | Render lens (Stage 2) | Generator (Stage 3) | Default world profile |
+|---|---|---|---|---|
+| **Image** (this page) | [REMAPS](./remaps.md) | [CLAMP](./clamp-render-lens.md) — Camera · Lighting · Aspect · Medium · Preserve | gpt-image · DALL-E · Midjourney | [Velvet Aeon](./world-velvet-aeon.md) |
+| **Music** | [REMAPS](./remaps.md) / [SCAMPER](./creative-thinking-os.md) | **MASTER** — Meter · Arrangement · Space · Timbre · Energy-arc · Restrict (Suno-grounded) | Suno | music-profile |
 
-This is [Dependency Inversion + Strategy](./software-design-principles-for-neural-os.md): the pipeline depends on the *abstraction* "render-lens," and CLAMP (image) and MASTER (audio) are two concrete strategies selected by the output medium. The transform stage is shared — REMAPS's six moves retarget from a mental image onto a musical motif unchanged (retrograde = Reverse, augmentation = Exaggerate, genre-fusion = Merge). A second clean implementation is evidence the `transform → render` split is a real extension point, not an image-only accident. See [music-generation-frameworks](./music-generation-frameworks.md) for the audio instance and [composability-index](./composability-index.md) for the registered unlock.
+This is [Dependency Inversion + Strategy](./software-design-principles-for-neural-os.md): the pipeline depends on the *abstraction* "render-lens," and CLAMP (image) and MASTER (audio) are two concrete strategies selected by the output medium. **The generator is a second axis, not a detail of the first** — the table above carried three columns until 2026-09-05 although the abstraction named in the sentence before it has four stages, which is how the visual channel's three interchangeable generators stayed invisible here. Lens and generator vary independently, and the name for that is [GoF Bridge](./software-design-principles-for-neural-os.md), adopted the same day: a new generator costs no lens work, and a sharper lens costs no generator work. The transform stage is shared — REMAPS's six moves retarget from a mental image onto a musical motif unchanged (retrograde = Reverse, augmentation = Exaggerate, genre-fusion = Merge). A second clean implementation is evidence the `transform → render` split is a real extension point, not an image-only accident. See [music-generation-frameworks](./music-generation-frameworks.md) for the audio instance and [composability-index](./composability-index.md) for the registered unlock.
 
 ## Related pages
 

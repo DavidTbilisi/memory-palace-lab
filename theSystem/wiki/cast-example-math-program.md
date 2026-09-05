@@ -10,11 +10,11 @@ wiki_source: wiki/encoders/cast-example-math-program.md
 
 # Example: University Math Program
 
-**Summary**: Level 8 worked [CAST](./cast-overview.md) example — a 13-course prerequisite DAG encoded as three nested palace rooms (tracks), with three clean [diamond patterns](./lego-skills-patterns.md), two explicit cross-edges joining the tracks, and one Tier 2 promotion where a source's verb bundle collides. The first example on the ladder to combine nested hierarchy (Level 7) with Tier 2 collision handling (Level 5) in a single graph. Companion to [City Streets](./cast-example-city-streets.md) (Level 4) and 2008 Financial Crisis (Level 9).
+**Summary**: Level 8 worked [CAST](./cast-overview.md) example — a 13-course prerequisite DAG encoded as three nested palace rooms (tracks), with three clean [diamond patterns](./lego-skills-patterns.md), two explicit cross-edges joining the tracks, and one Tier 2 promotion where a source's verb bundle collides. The first example on the ladder to combine nested hierarchy (Level 7) with Tier 2 collision handling (Level 5) in a single graph. Companion to [City Streets](./cast-example-city-streets.md) (Level 4) and *2008 Financial Crisis* (unwritten) (Level 9).
 
 **Sources**: Synthesized worked example built to the spec in [maturity-levels-overview](./maturity-levels-overview.md) ("Level 8 Example: University Math Program — 13 courses, prerequisites form a DAG, three diamond patterns, nested palace + cross-edges"); encoding conventions per [georgian-animals](./georgian-animals.md), [nodes-and-edges](./nodes-and-edges.md), and [lego-skills-patterns](./lego-skills-patterns.md).
 
-**Last updated**: 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
+**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
 
 ---
 
@@ -190,10 +190,10 @@ Red = the root (letter #13, walked first). Green = the sink (letter #1, walked l
 - [nodes-and-edges](./nodes-and-edges.md) — Tier 1 / Tier 2 encoding, the collision trigger used in Step 3
 - [lego-skills-patterns](./lego-skills-patterns.md) — the diamond pattern used in Step 4
 - [maturity-levels-overview](./maturity-levels-overview.md) — Level 8 in the 10-level progression
-- Level 8: DAGs & Cross-Edges
-- Level 7: Nested Palaces — the room/hierarchy technique this example depends on
+- [maturity-levels-overview](./maturity-levels-overview.md) §Quick Reference Table — Level 8: DAGs & Cross-Edges
+- [maturity-levels-overview](./maturity-levels-overview.md) §Quick Reference Table — Level 7: Nested Palaces, the room/hierarchy technique this example depends on
 - [Example: City Streets (Level 4)](./cast-example-city-streets.md) — where the in-degree-vs-centrality twist first appears, at flat-network scale
-- Example: 2008 Financial Crisis (Level 9) — next sibling up, adds temporal evolution and feedback loops
+- *Example: 2008 Financial Crisis (Level 9)* — the next sibling up (temporal evolution + feedback loops), promised by the 2026-04-30 ingest and never written. st-example-financial-system holds the slot but is an empty stub of the same date
 
 ---
 

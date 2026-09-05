@@ -39,7 +39,7 @@ The wiki's own prompts state it directly:
 
 ## Why it is an encoding rule, not an aesthetic
 
-The justification is signal-to-noise, not taste. A mnemonic image earns its keep by carrying *retrievable features* — the Distinguisher face (feedback_image_face_and_hair), the encoding architecture ([feedback-image-figure-rule](./feedback-image-figure-rule.md)), the specific props. Atmospheric noise — extra light sources, particle storms, busy weather — adds pixels that carry **no concept information** while competing for attention with the pixels that do. It is extraneous [cognitive load](./working-memory.md) rendered into the image itself.
+The justification is signal-to-noise, not taste. A mnemonic image earns its keep by carrying *retrievable features* — the Distinguisher face ([feedback-image-face-and-hair](./feedback-image-face-and-hair.md)), the encoding architecture ([feedback-image-figure-rule](./feedback-image-figure-rule.md)), the specific props. Atmospheric noise — extra light sources, particle storms, busy weather — adds pixels that carry **no concept information** while competing for attention with the pixels that do. It is extraneous [cognitive load](./working-memory.md) rendered into the image itself.
 
 So the rule is the visual twin of the wiki's extraneous-load discipline: just as [representation-rules](./representation-rules.md) strips notation that doesn't earn its place, noise-reduction strips photons that don't. A second light source is the visual equivalent of a redundant clause.
 
@@ -47,7 +47,7 @@ A secondary effect, owned by [world-velvet-aeon](./world-velvet-aeon.md): the ca
 
 ## Interaction with the hair-and-water effect
 
-Noise-reduction and the hair-and-water sorrow effect can both touch the same frame without conflict: the water effect is a *single, intentional* element (hair-tips in a still pool, one tear on wet stone), not atmospheric noise. The test is the same — every added element must be load-bearing. A still reflecting pool that encodes "sorrow-as-guidance" passes; a rainstorm that encodes nothing fails.
+Noise-reduction and the [hair-and-water sorrow effect](./feedback-image-face-and-hair.md) can both touch the same frame without conflict: the water effect is a *single, intentional* element (hair-tips in a still pool, one tear on wet stone), not atmospheric noise. The test is the same — every added element must be load-bearing. A still reflecting pool that encodes "sorrow-as-guidance" passes; a rainstorm that encodes nothing fails.
 
 ## Anti-patterns
 
@@ -62,8 +62,8 @@ Noise-reduction and the hair-and-water sorrow effect can both touch the same fra
 
 ## Related pages
 
-- feedback_visual_per_concept — the top-of-stack rule (there must be a visual at all)
-- [feedback-image-figure-rule](./feedback-image-figure-rule.md) · feedback_image_face_and_hair — the figure rules this cleans the frame around
+- [feedback-visual-per-concept](./feedback-visual-per-concept.md) — the top-of-stack rule (there must be a visual at all)
+- [feedback-image-figure-rule](./feedback-image-figure-rule.md) · [feedback-image-face-and-hair](./feedback-image-face-and-hair.md) — the figure rules this cleans the frame around
 - [world-velvet-aeon](./world-velvet-aeon.md) — the L-slot single-warm-light discipline this generalizes
 - [clamp-render-lens](./clamp-render-lens.md) — the CLAMP L-slot where this rule is applied
 - [representation-rules](./representation-rules.md) · [working-memory](./working-memory.md) — the extraneous-load discipline this is the visual twin of

@@ -421,7 +421,7 @@ date: <date>
 
 ### Hub-page fork
 
-For dense districts, each hub becomes its own `places/place-<district>-<hub-slug>.md` modelled on places/place-paris — so the hub's Leaflet block can zoom in further, list per-corner landmarks, and carry its REMAPS scene description. The district page links to the hub pages; the hub pages link back. Same fractal pattern as bible: bible-study → place-jerusalem → place-jerusalem-temple-mount.
+For dense districts, each hub becomes its own `places/place-<district>-<hub-slug>.md` modelled on [place-paris](./place-paris.md) — so the hub's Leaflet block can zoom in further, list per-corner landmarks, and carry its REMAPS scene description. The district page links to the hub pages; the hub pages link back. Same fractal pattern as bible: bible-study → place-jerusalem → place-jerusalem-temple-mount.
 
 (Default narrative-scene style for hub REMAPS expansions is [world-velvet-aeon](./world-velvet-aeon.md).)
 

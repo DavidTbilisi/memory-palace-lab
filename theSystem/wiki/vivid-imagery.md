@@ -15,7 +15,7 @@ wiki_source: wiki/learning-systems/vivid-imagery.md
 - `Clippings/Eidetic Memory vs. Photographic Memory Do They Exist.md` (Art of Memory, 2022)
 - Art of Memory forum threads (fetched 2026-05-15)
 
-**Last updated**: 2026-05-15
+**Last updated**: 2026-09-05 (drill-ladder stage count cited); 2026-05-15
 
 ---
 
@@ -69,7 +69,7 @@ Imagery exists on a continuous scale:
 | **Vivid imagery** | Stable, controllable, multi-sensory; can manipulate at will |
 | **Hyperphantasia** | Highly realistic, sometimes involuntary; can become distracting |
 
-All points on this spectrum are **trainable**. See [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) for the constraint-aware encoder adjustments at the low end. See [visualization-training](./visualization-training.md) for the 8-stage drill ladder that moves a user along this spectrum.
+All points on this spectrum are **trainable**. See [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) for the constraint-aware encoder adjustments at the low end. See [visualization-training](./visualization-training.md) for the 8-stage drill ladder (numbered on the axis at [skill-progression-stages](./skill-progression-stages.md)) that moves a user along this spectrum.
 
 ## What Imagery Is Not
 

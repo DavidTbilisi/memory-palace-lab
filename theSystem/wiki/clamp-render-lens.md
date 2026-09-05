@@ -18,7 +18,7 @@ wiki_source: wiki/cross-cutting/clamp-render-lens.md
 - `imgen/Prompts for AI images 10 examples and tips for better results.md` (Meta AI, 2026)
 - `imgen/Complete List of Styles for AI Image Generation (100+ Prompts).md` (Travis Nicholson, 2025)
 
-**Last updated**: 2026-05-22
+**Last updated**: 2026-09-05 (§A — Aspect & use-mode: implementor leak flagged, from the [GoF Bridge](./software-design-principles-for-neural-os.md) adoption); 2026-05-22
 %%  %%
 ---
 
@@ -78,6 +78,8 @@ Two coupled questions: what shape is the output, and what artifact is it?
 - `1536×1024` — HD landscape (slides, banners, infographics)
 - `1536×864` — pitch-deck slide
 - `2560×1440` — 2K reliability ceiling
+
+> **Implementor leak, flagged 2026-09-05.** These five values are gpt-image-2's pixel grid, not the slot's concept. Midjourney expresses the same intent as `--ar 2:3` and has no pixel grid at all, so a lens that declares itself tool-agnostic (§When Not to Use CLAMP) is carrying one implementor's dialect inside an abstraction slot. Surfaced by adopting [GoF Bridge](./software-design-principles-for-neural-os.md), whose invariant is *implementor-specific values do not live in lens slots*; it is the sole counted instance in that pattern's `render.lens_implementor_leak` floor. The A slot's **question** — what shape is the output, and what artifact is it — is abstraction and stays; whether to keep the numbers as a worked gpt-image-2 example or lift them to ratios is this page's call.
 
 **Use-mode** (sets polish register):
 - Ad / campaign · UI mock · infographic · slide · product shot · portrait · concept art · storyboard · logo

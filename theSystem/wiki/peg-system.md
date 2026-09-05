@@ -11,16 +11,16 @@ wiki_source: wiki/learning-systems/peg-system.md
 
 # Peg System
 
-**Summary**: The trunk method that this wiki's five peg sets are instances of — a fixed, pre-drilled set of ordered anchors installed *before* any material arrives, so encoding becomes a lookup into an existing structure instead of the construction of a new one. Its defining move is the inversion of effort: the expensive work is done once, in advance, on content-free anchors; at encode time only the binding remains. Sibling to [memory-palace](./memory-palace.md), and distinguished from it by **what carries the order** — a peg set carries order in its *index*, a palace carries it in a *route*.
+**Summary**: The trunk method that this wiki's six peg sets are instances of — a fixed, pre-drilled set of ordered anchors installed *before* any material arrives, so encoding becomes a lookup into an existing structure instead of the construction of a new one. Its defining move is the inversion of effort: the expensive work is done once, in advance, on content-free anchors; at encode time only the binding remains. Sibling to [memory-palace](./memory-palace.md), and distinguished from it by **what carries the order** — a peg set carries order in its *index*, a palace carries it in a *route*.
 
 **Sources**:
 - `raw/Neural OS Book/Peg System.md` — the book chapter this page abstracts; supplies the structure-before-material framing, the automaticity requirement, and the Loci comparison
 - [buzan-your-memory](./buzan-your-memory.md) — owner of the 12 principles; peg systems are identified there as running on Association (3), Order (10) and Number (7)
 - [mnemonic-methods-master](./mnemonic-methods-master.md) §The Tier 2 Encoder Primitives — where Peg System is registered as a method ("ordered short lists with stable positions; memory palace seed")
 - [soroban-learning-method](./soroban-learning-method.md) §Operation Pegs — where the principle is stated most plainly: *build the structure before the material arrives*
-- The five instance pages listed in §Instances in this wiki, which supplied the shape of the abstraction rather than the reverse
+- The six instance pages listed in §Instances in this wiki, which supplied the shape of the abstraction rather than the reverse
 
-**Last updated**: 2026-08-21 — page created to give the five existing peg sets a trunk; promoted from a ghost reference in [soroban-learning-method](./soroban-learning-method.md) and [georgian-animals](./georgian-animals.md); §Architecture fit records the validation pass (verdict **keep**).
+**Last updated**: 2026-09-03 — [sem3](./sem3.md) registered as the sixth instance: its `CI` prefix grid passes the three-part test and is the second instance of the multiply-two-10-indices construction [peg-audio-visual-matrix](./peg-audio-visual-matrix.md) introduced. The §Architecture fit note below anticipated exactly this case (*"a sixth peg set extends the trunk without altering it"*); checksum 3 and the §Visual shape updated accordingly, pentagon → hexagon. Earlier 2026-08-21 — page created to give the five existing peg sets a trunk; promoted from a ghost reference in [soroban-learning-method](./soroban-learning-method.md) and [georgian-animals](./georgian-animals.md); §Architecture fit records the validation pass (verdict **keep**).
 
 ---
 
@@ -46,7 +46,7 @@ A peg set carries order in the **index**. Peg 7 means seven wherever you meet it
 
 The practical consequence is the one [mnemonic-methods-master](./mnemonic-methods-master.md) already records: a peg set is a **palace seed**. Pegs give random access within a small numbered range; a palace gives unbounded length at sequential cost. Reach for the peg set when the list is short and the positions matter; reach for the palace when the list is long and the walk is cheap.
 
-## Instances in this wiki — the five sets under this trunk
+## Instances in this wiki — the six sets under this trunk
 
 Each of these is a peg set in the sense above, and each owns its own index, image family and binding rule. This page owns none of their content; it names what they share.
 
@@ -57,6 +57,7 @@ Each of these is a peg set in the sense above, and each owns its own index, imag
 | [dozenal-edge-peg](./dozenal-edge-peg.md) | the cube's 12 edges | self-describing addresses | the peg *computes* its own slot: `digit = 4·axis + position` |
 | [braille-face-peg](./braille-face-peg.md) | the cube's 6 faces | one index, four skins | a built-in checksum — opposite faces sum to 7 |
 | [onset-peg-alphabet](./onset-peg-alphabet.md) | recurring word-onsets | one frozen image per onset | a peg set over a *linguistic* index rather than a numeric one |
+| [sem3](./sem3.md) | `00`–`99` (category × item) | ten sensory registers × ten items each | the frozen image is *derived*, not stored — the item digit is its own first Major consonant, so 80 of the 100 cells regenerate from a rule |
 
 Two neighbours are peg-*adjacent* but are not peg sets. [major-system-for-mathematical-notation](./major-system-for-mathematical-notation.md) is a **phonetic encoding**, not an index — it converts digits to sounds and so generates images on demand rather than storing a fixed one per slot; peg sets are commonly built *on top of* it. [PAO](./person-action-object-system.md) is a **slot grammar** for compressing three digits into one scene, and it composes with a peg set rather than replacing it.
 
@@ -77,12 +78,12 @@ Recall is correct if all four close:
 
 1. **Three parts, or it is not a peg set** — fixed index · frozen image per slot · binding rule. Name a set and name its three; a missing part is the diagnosis.
 2. **The palace split runs one way** — order lives in the *index* for pegs, in the *route* for a palace. If you had to walk to answer "what was seventh?", you were using a palace.
-3. **Five instances hang under this trunk** — the two matrix pages, the two cube pegs, the onset alphabet. Fewer than five means one has been forgotten; more means a new one was added and this table was not updated.
+3. **Six instances hang under this trunk** — the two matrix pages, the two cube pegs, the onset alphabet, the SEM3 prefix grid. Fewer than six means one has been forgotten; more means a new one was added and this table was not updated.
 4. **Capacity equals index size** — a set holds exactly as many items as it has slots. If a claimed capacity exceeds the index, two indices are being multiplied, and you should be able to name both.
 
 ## Visual
 
-Draw the trunk relation as a **pentagon**, per [representation-rules](./representation-rules.md) Rule 10 — five instances, five vertices, this page's 🪝 at the centre with a spoke to each. An empty vertex is then the checksum: a peg set that exists in the wiki but has not been hung here shows as a gap in the outline before any label is read.
+Draw the trunk relation as a **hexagon**, per [representation-rules](./representation-rules.md) Rule 10 — six instances, six vertices, this page's 🪝 at the centre with a spoke to each. An empty vertex is then the checksum: a peg set that exists in the wiki but has not been hung here shows as a gap in the outline before any label is read.
 
 Inside the centre node, the three parts sit as a **triangle** — index · image · binding — the count-shape at n=3, so the two cardinalities are legible at a glance and never merge into one blob.
 
@@ -90,7 +91,7 @@ The palace distinction is drawn as the one contrast that carries it: a numbered 
 
 ## Measurement
 
-This page mints **no new [METER](./meter-overview.md) namespace**. A peg set is measured through the instance that owns it — the drill ladders and promotion gates already defined on the five pages above, all of which cite [skill-progression-stages](./skill-progression-stages.md) for their stage counts. Adding a `peg::*` event stream here would make a trunk page pretend to be a framework; per the closed-spine rule this page is a **concept**, not a new encoder.
+This page mints **no new [METER](./meter-overview.md) namespace**. A peg set is measured through the instance that owns it — the drill ladders and promotion gates already defined on the six pages above, all of which cite [skill-progression-stages](./skill-progression-stages.md) for their stage counts. Adding a `peg::*` event stream here would make a trunk page pretend to be a framework; per the closed-spine rule this page is a **concept**, not a new encoder.
 
 ## Architecture fit — validated 2026-08-21, verdict **keep**
 
@@ -114,7 +115,7 @@ Run against the three architecture pages CLAUDE.md §Idea validation names, beca
 - [mnemonic-methods-master](./mnemonic-methods-master.md) — the registry that routes material to a method; registers Peg System as a Tier 2 encoder primitive
 - [buzan-your-memory](./buzan-your-memory.md) — owner of the 12 principles; supplies the Association / Order / Number reading of what a peg set actually exploits
 - [remaps](./remaps.md) — owner of the transformation moves most instances use as their binding rule
-- [peg-audio-visual-matrix](./peg-audio-visual-matrix.md) · [peg-matrix-remaps-scenes](./peg-matrix-remaps-scenes.md) · [dozenal-edge-peg](./dozenal-edge-peg.md) · [braille-face-peg](./braille-face-peg.md) · [onset-peg-alphabet](./onset-peg-alphabet.md) — the five instances
+- [peg-audio-visual-matrix](./peg-audio-visual-matrix.md) · [peg-matrix-remaps-scenes](./peg-matrix-remaps-scenes.md) · [dozenal-edge-peg](./dozenal-edge-peg.md) · [braille-face-peg](./braille-face-peg.md) · [onset-peg-alphabet](./onset-peg-alphabet.md) · [sem3](./sem3.md) — the six instances
 - [soroban-learning-method](./soroban-learning-method.md) — states the principle at §Operation Pegs and applies it to move types rather than to digits
 - [georgian-animals](./georgian-animals.md) — uses peg numbers as modifiers; an applied consumer of the method
 - [calendar-reflex](./calendar-reflex.md) — runs on an existing peg set as substrate rather than defining its own

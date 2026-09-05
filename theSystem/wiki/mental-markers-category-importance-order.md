@@ -16,7 +16,7 @@ wiki_source: wiki/logic/mental-markers-category-importance-order.md
 - [chunking](./chunking.md)
 - [UMTF](./universal-mental-tagging-framework.md)
 
-**Last updated**: 2026-05-05
+**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-05-05
 
 ---
 
@@ -94,7 +94,7 @@ Now the place is no longer a label. It is a position in a script.
 
 ## Behavior tags for graphs
 
-When the structure is a graph rather than a route (see hierarchical-graphs), mental markers extend naturally. Each node carries a *navigation role*: (source: New Environments.md)
+When the structure is a graph rather than a route (see graph-theory-overview §Trees), mental markers extend naturally. Each node carries a *navigation role*: (source: New Environments.md)
 
 - default path
 - alternative path
@@ -133,7 +133,7 @@ The marker triple is independent of the "new environment" use case. It applies t
 - [UMTF](./universal-mental-tagging-framework.md)
 - [Memory Palace](./memory-palace-architecture-for-neural-os.md)
 - [CAST](./cast-overview.md)
-- hierarchical-graphs
+- graph-theory-overview — trees and DAGs, the graph structures this extends to
 - [vocabulary-word-type-routing](./vocabulary-word-type-routing.md) — owner of МегаЛоция, the class-level (environment-re-skin) counterpart to this page's per-item Category tag
 
 

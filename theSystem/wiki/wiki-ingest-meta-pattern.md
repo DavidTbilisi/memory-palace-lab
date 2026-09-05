@@ -13,7 +13,7 @@ wiki_source: wiki/logic/wiki-ingest-meta-pattern.md
 
 **Sources**:
 - [logic-ingest-retrospective](./logic-ingest-retrospective.md) — Wave 6 retrospective (covered Waves 1-6).
-- All 9 wave entries in wiki/log.md (2026-05-25).
+- All 9 wave entries in log (2026-05-25).
 - [composability-index](./composability-index.md) — pattern + unlock registry shaped by the ingest.
 - The 60 logic-domain pages produced across the 9 waves.
 - The user's standing feedback memories (mnemonics + checksums + visuals required; cross-tradition unlocks valued; depth-first per domain).
@@ -301,13 +301,13 @@ Future multi-wave ingests should:
 |---|---|
 | [logic-ingest-retrospective](./logic-ingest-retrospective.md) | Wave 6 retrospective; precursor to this meta-page |
 | [composability-index](./composability-index.md) | Architectural-primitive registry; promotion mechanism described here |
-| wiki/log.md | All 9 wave log entries |
-| wiki/index.md | Logic-domain coverage; Wave 1-9 subsections |
-| wiki/glossary.md | Logic-layer glossary; Wave-specific sub-sections |
+| log | All 9 wave log entries |
+| index | Logic-domain coverage; Wave 1-9 subsections |
+| [glossary](./glossary.md) | Logic-layer glossary; Wave-specific sub-sections |
 | [memory-paradox](./memory-paradox.md) | Take-seriously-but-hold-lightly applied to the ingest pipeline itself |
 | [recognition-gym-pattern](./recognition-gym-pattern.md) · [internal-limits-pattern](./internal-limits-pattern.md) · [cross-tradition-convergence-pattern](./cross-tradition-convergence-pattern.md) | 3 architectural primitives promoted by the 9-wave run |
 | [logic-atomic-design](./logic-atomic-design.md) | Hub for the entire logic domain |
-| CLAUDE.md (top-level) §Ingest workflow | Single-wave version of the ingest pipeline; this meta-page extends it to multi-wave |
+| `CLAUDE.md` (top-level) §Ingest workflow | Single-wave version of the ingest pipeline; this meta-page extends it to multi-wave |
 
 ## METER integration
 
@@ -341,6 +341,6 @@ Future multi-wave ingests should:
 - [logic-atomic-design](./logic-atomic-design.md) — domain hub
 - [memory-paradox](./memory-paradox.md) — take-seriously-but-hold-lightly applied to the ingest pipeline
 - [recognition-gym-pattern](./recognition-gym-pattern.md) · [internal-limits-pattern](./internal-limits-pattern.md) · [cross-tradition-convergence-pattern](./cross-tradition-convergence-pattern.md) — promoted primitives
-- CLAUDE.md §Ingest workflow — single-wave pipeline; this page extends to multi-wave
+- `CLAUDE.md` §Ingest workflow — single-wave pipeline; this page extends to multi-wave
 - All 60 logic-domain pages — see [logic-atomic-design](./logic-atomic-design.md) §Reading paths
 - [glossary](./glossary.md) — Logic layer registration (wave-types · saturation signature · promotion mechanism · F-D-B-S-E sequence)

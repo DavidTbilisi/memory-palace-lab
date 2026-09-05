@@ -233,9 +233,9 @@ Among the 6 substrate-thesis cases, Russell uniquely survived to 97. His 4 prote
 - [composability-index](./composability-index.md) — pattern + unlock registry
 - [memory-paradox](./memory-paradox.md) — the meta-rule that ran throughout
 - [meter-overview](./meter-overview.md) — measurement layer applied uniformly
-- wiki/log.md — log entries for Waves 1-6
-- wiki/glossary.md — Logic layer with ~150 registered terms
-- wiki/index.md — Logic-domain subsection coverage
+- log — log entries for Waves 1-6
+- [glossary](./glossary.md) — Logic layer with ~150 registered terms
+- index — Logic-domain subsection coverage
 - [logic-among-the-atomic-design-domains](./logic-among-the-atomic-design-domains.md) — cross-hub synthesis from this ingest
 - [hypostasis-elenchos-and-tlp-show-vs-say](./hypostasis-elenchos-and-tlp-show-vs-say.md) — cross-tradition convergence META-insight
 - [logicians-madness-substrate-thesis](./logicians-madness-substrate-thesis.md) — biographical-cluster pattern

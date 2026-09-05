@@ -12,7 +12,7 @@ wiki_source: wiki/encoders/nodes-and-edges.md
 
 **Sources**: CAST and Georgian Node System.md (lines 30-42; §CAST cheat sheet for the Tier 2 option set); 2026-08-31 `/validate-idea` session (edge codes)
 
-**Last updated**: 2026-08-31 — §Edge codes added (the Tier-2 codebook unparked and switched from 2-bit to two-letter form; `/validate-idea` keep-with-modification); 2026-07-09 Polarity note added to Tier 2 section + [edge-sign](./edge-sign.md) links (candidate variant); 2026-04-30 original.
+**Last updated**: 2026-09-05 — §Modifier composition: **loop gain** named as a second open gap, surfaced by filing Meadows' leverage rungs against the encoder (rungs 8 and 7 are gain rungs; CAST owns polarity and not magnitude around a cycle). 2026-09-04 — §Layer 1: break-the-isomorphism rule added, from st-example-ecological-system (an encoding that mirrors its subject has no error detection). 2026-09-04 (ingest-ghost pass: tier-1/tier-2 self-links de-linked to their own sections, `major-system`/`pao`/`names-and-faces`/`loci` repointed to real owners, `feedback-loops` → feedback-loop-taxonomy, web-service example → [cast-example-city-streets](./cast-example-city-streets.md)); 2026-09-04 — §Modifier composition added: the three additive modifiers stated as a lattice (disjoint positions, no order), the "cheapest mark that discriminates" rule promoted to cover all three, depth-as-a-nested-ladder rejected via `/validate-idea`, and edge confidence named as the open gap; 2026-08-31 — §Edge codes added (the Tier-2 codebook unparked and switched from 2-bit to two-letter form; `/validate-idea` keep-with-modification); 2026-07-09 Polarity note added to Tier 2 section + [edge-sign](./edge-sign.md) links (candidate variant); 2026-04-30 original.
 
 ---
 
@@ -43,6 +43,8 @@ Node Scene = [Animal] + [Environment] + [Adjective] + [Optional Modifier]
 **Result**: *A sharp eagle on a mountain peak*
 
 The scene should be **vivid and distinctive**. You should see it instantly in your mind's eye.
+
+**When the domain is already animals, places or actions, break the isomorphism deliberately.** Encoding a *hare* node as a hare leaves the mnemonic layer transparent — it is storing nothing the subject matter did not already supply, and worse, it removes error detection: a mis-recalled scene and a correct one are equally plausible, because any animal doing anything to any other animal is a believable meadow. Distinctiveness is what makes a palace checkable, and it comes from the image being *implausible*. Push the identity into the Environment and Adjective slots and let the animal be wrong on purpose. Worked instance: st-example-ecological-system §Step-by-step CAST encoding, where grass is a flattened bear on a kitchen floor and the lynx is a tortoise on a snowdrift.
 
 ---
 
@@ -96,6 +98,34 @@ Different verbs, different streams, different characters. Zero ambiguity.
 **Quantity note**: none of the four Tier 2 slots carries a magnitude either, so `Eagle feeds Pig` reads the same at two rows an hour and forty thousand a second. [Edge quantity](./encoding-quantities-in-cast.md) (🟡 candidate) covers this on the **Stream** — scale it for a comparative reading, weld a peg into it for an exact one, wrap it in a vessel when the edge moves a one-shot total rather than a rate. Also additive: no canonical slot changes. Note the division of labour with the node side — an edge carries a *rate*, a node carries a *level*.
 
 **Delay note**: nor does any Tier 2 slot carry *latency* — `Eagle feeds Pig` reads the same at a millisecond and at next quarter, and per system-delays-and-lags that difference is what turns a stable loop into an oscillating one. [Edge delay](./delay-encoding-in-cast.md) (🟡 candidate) puts it in the **gap** the Stream crosses before it lands — scene-internal geometry, so the palace's spatial axis (already allocated six ways by the placement rules) is untouched. Note the trap: the **T** slot is *stability*, not latency. Also additive.
+
+### Modifier composition (three positions, no order)
+
+The three notes above are **not a ladder**. Each modifier claims a *different position on the same edge*, so all three can mark one edge at once and none of them requires any other:
+
+```
+   SOURCE  ==[ thickness = how much ]==(  gap = how long  )==  ✂  ─>  TARGET
+                    quantity                   delay          edge-sign
+                  (stream body)              (air time)      (target end)
+```
+
+*(diagram from [delay-encoding-in-cast](./delay-encoding-in-cast.md) §Composition with the other modifiers, promoted here because it is the law for all three, not a fact about delay)*
+
+The worst edge in any system is therefore one readable picture — **thick stream, long gap, interceptor**: high-volume, slow, inhibitory. Seen, not derived.
+
+**The composition law.** Modifiers are *disjoint in position* and *independent in use*. There is no order to learn, no prerequisite to earn, and no level to reach. Marking one never invalidates an unmarked edge — that is what "additive" means on all three pages, and it is [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §O.
+
+**Which to reach for** is §I of the same page, stated once here for all three: **use the cheapest mark that discriminates.** An unmarked Tier 1 verb is the default and usually the correct answer; [encoding-quantities-in-cast](./encoding-quantities-in-cast.md) applies the identical rule inside its own cost-ordered tiers. Depth is opt-in **per edge**, never per graph.
+
+**Rejected — depth as a nested stack.** A 2026-09-04 `/validate-idea` proposed replacing this with one ordered ladder (anchors ⊂ topology ⊂ CAST ⊂ context ⊂ mechanics ⊂ …). It fails on the three modifiers already written: [edge-sign](./edge-sign.md)'s mechanism sits inside the Tier 2 scene while its payoff is the loop-sign checksum; [quantity](./encoding-quantities-in-cast.md) rides *inside* the Stream, beneath the rung meant to contain it; [delay](./delay-encoding-in-cast.md) is defined by explicitly *not* being the **T** slot. None of the three has a single rung, which is the diagnostic for a foreign axis ([software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §Registries shard on their own retrieval axis). Full reasoning at [cast-overview](./cast-overview.md) §Adjacent but excluded.
+
+**Four modifiers, three positions.** [Edge dynamics](./dynamic-edge-encoding.md) is the fourth registered modifier and does not appear in the diagram, because it claims no position of its own: its default is *Dyn0 derive*, and the case that survives (`Dyn1`) is read as the **shape of the material along the delay gap** — a second reading of a mark that is already there. A modifier that needs another modifier to exist is not a fourth edge position, and the count is three either way you ask.
+
+**Whether to reach for any of them at all** is one step upstream of *which*, and is answered by the Encode test §Two questions, four cells: a property earns a mark only when it *varies edge to edge* and *cannot be re-derived from the picture*. All three notes above already state their own version of it — Q0 volume, D0 decompose, Dyn0 derive are the same instruction four times, and the square is their general form.
+
+**Open, unclaimed.** No modifier carries **confidence** — how sure you are the edge exists at all. [ORACLE](./oracle-overview.md) owns confidence for predictions; nothing owns it for structure. Note that the three edge positions are already taken, which is weak evidence that doubt belongs to the node or the graph rather than to the arrow. Named here as a gap, not designed. **Independently confirmed 2026-09-04**: an epidemic model reached the same hole from the other side — an imperfect test leaves doubt about a *node's state*, never about whether the contact edge exists (systems-thinking-and-cast-integration §What is genuinely missing). Two routes, one answer, and both put doubt on the node.
+
+**Open, unclaimed (2).** No modifier carries **loop gain** — how hard a feedback loop pushes, as opposed to which way it pushes. [edge-sign](./edge-sign.md) multiplies polarity around a cycle and yields the loop's *sign*; [encoding-quantities-in-cast](./encoding-quantities-in-cast.md) carries per-edge rate and checks it with the flow-balance checksum at a **node**. Nothing composes magnitude around a cycle, so there is no loop analogue of the loop-sign checksum. Gain passes both Encode-test questions — it varies loop to loop and no unmarked graph recovers it — so it belongs in the encode cell and has no owner. Surfaced 2026-09-05 by filing Meadows' rungs against the encoder: rungs 8 and 7 are both gain rungs and both came back half-owned (systems-thinking-and-cast-integration §The ladder against the encoder). Named as a gap, not designed.
 
 ### Edge codes (written shorthand for a Tier 2 scene)
 
@@ -184,7 +214,7 @@ Don't encode source + edge + target as three separate images.
 
 **After**: *Eagle's talons grip a stream of grain flowing into Pig's open mouth, so tightly entwined that neither could be separated*
 - One image where all three elements are inseparable
-- If any element is missing, the scene collapses (mnemonic checksum)
+- If any element is missing, the scene collapses ([mnemonic checksum](./mnemonic-checksum.md))
 
 ---
 
@@ -261,11 +291,11 @@ The Giordano school also supplies the fix CAST states only informally: the **П�
 
 | You're encoding | Use |
 |---|---|
-| A single number | Major system or PAO |
-| A single concept | Concept encoding or Names and Faces |
-| A list in order | Loci (simple palace) |
-| A relation between two things | Tier 1 verb scene (this page) |
-| Multiple similar relations | Tier 2 full CAST (this page) |
+| A single number | [Major system](./mnemonic-methods-master.md) or [PAO](./person-action-object-system.md) |
+| A single concept | Concept encoding or [Names and Faces](./name-face-fast-encode.md) |
+| A list in order | [Loci](./memory-palace-architecture-for-neural-os.md) (simple palace) |
+| A relation between two things | **Tier 1 verb scene** (§Tier 1 Encoding, this page) |
+| Multiple similar relations | **Tier 2 full CAST** (§Tier 2 Encoding, this page) |
 | A whole network | Full [CAST system](./cast-overview.md) with palace |
 
 ---
@@ -275,15 +305,13 @@ The Giordano school also supplies the fix CAST states only informally: the **П�
 - [Edge dynamics](./dynamic-edge-encoding.md) — the fourth and thinnest edge modifier: a varying rate read as the profile of material in the delay gap. Not a peer of the other three — mostly it routes back to the **T** slot, the loop patterns, or the gap
 - [UMTF](./universal-mental-tagging-framework.md) — how node and edge slots fit into a broader tag taxonomy
 - [Georgian Animals](./georgian-animals.md) — identity system
-- Tier 1 Encoding — verb-only scenes
-- Tier 2 CAST — collision handling
 - [Memory Palace](./memory-palace-architecture-for-neural-os.md) — where nodes are placed
-- Feedback Loops — cycle encoding
+- Feedback Loops — the cycle *dynamics*; §Feedback Loops on this page owns their CAST encoding
 - [Image Merging](./image-merging.md) — compressing node-edge-node
 - [Edge Sign](./edge-sign.md) — per-edge polarity modifier (🟡 candidate); extends the loop-level holds above down to single edges
 - [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) — §Registries shard on their own retrieval axis is why the bit form is *derived* from the letter form rather than maintained beside it
-- Step 0 Analysis — how to analyze before encoding
-- Example: Web Service — see it in action
+- [Step 0 Analysis](./step-zero-analysis.md) — how to analyze before encoding
+- [Example: City Streets](./cast-example-city-streets.md) — the two-layer model on a real graph
 
 
 ---
