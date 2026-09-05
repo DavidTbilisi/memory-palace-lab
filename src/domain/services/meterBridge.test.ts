@@ -80,6 +80,12 @@ describe("METER mapping", () => {
     expect(await mapAppEvent(appEvent({ payload: {} }), null)).toEqual([]);
   });
 
+  it("takes the topic of a palace_created event from its own payload when the name is not known yet", async () => {
+    const created = appEvent({ eventType: "palace_created", eventGroup: "palace", payload: { name: "Fresh Palace" } });
+    expect((await mapAppEvent(created, null))[0]!.context).toMatchObject({ topic: "Fresh Palace" });
+    expect((await mapAppEvent(created, "Known Name"))[0]!.context).toMatchObject({ topic: "Known Name" });
+  });
+
   it("maps walk and encode events, and leaves chatty state events out", async () => {
     expect((await mapAppEvent(appEvent({ eventType: "walk_started", payload: { routeLength: 7 } }), null))[0]).toMatchObject({
       layer: "performance", operation: "review", metric_type: "walk.started", metric_value: 7, artifact_id: "route-1",
