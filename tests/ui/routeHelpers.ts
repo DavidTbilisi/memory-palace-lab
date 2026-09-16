@@ -99,6 +99,56 @@ export async function openTutorialPalace(page: Page) {
   if (await learnClose.isVisible()) await learnClose.click();
 }
 
+/**
+ * Ctrl+scroll over a node, as a user zooms toward it: positive steps zoom in, negative zoom
+ * out. tldraw caps the zoom change of each wheel event, so this sends one event per step.
+ */
+export async function zoomTowardsNode(page: Page, title: string, steps: number) {
+  const center = await nodeCenter(page, title);
+  await page.mouse.move(center.x, center.y);
+  await page.keyboard.down("Control");
+  for (let step = 0; step < Math.abs(steps); step += 1) {
+    await page.mouse.wheel(0, steps > 0 ? -100 : 100);
+  }
+  await page.keyboard.up("Control");
+}
+
+export type CanvasView = { zoom: number; x: number; y: number; w: number; h: number };
+
+/** The canvas camera: zoom level and the page area the canvas shows. */
+export function canvasView(page: Page): Promise<CanvasView> {
+  return page.evaluate(() => {
+    type Editor = {
+      getZoomLevel: () => number;
+      getViewportPageBounds: () => { x: number; y: number; w: number; h: number };
+    };
+    const store = (window as { __mp_store?: { getState: () => { editorRef: Editor | null } } }).__mp_store;
+    const editor = store?.getState().editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const { x, y, w, h } = editor.getViewportPageBounds();
+    return { zoom: editor.getZoomLevel(), x, y, w, h };
+  });
+}
+
+/**
+ * How the canvas shows an area saved earlier: "fitted" when it is centered, entirely visible,
+ * and fills the canvas in at least one direction (the canvas may have changed shape since).
+ */
+export async function howCanvasShows(page: Page, saved: CanvasView): Promise<string> {
+  const now = await canvasView(page);
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+  const problems = [
+    !near(now.x + now.w / 2, saved.x + saved.w / 2) || !near(now.y + now.h / 2, saved.y + saved.h / 2)
+      ? "off center"
+      : null,
+    now.w < saved.w - 1 || now.h < saved.h - 1 ? "cropped" : null,
+    !near(now.w, saved.w) && !near(now.h, saved.h) ? "zoomed out too far" : null,
+  ].filter(Boolean);
+  return problems.length === 0
+    ? "fitted"
+    : `${problems.join(", ")}: showing ${JSON.stringify(now)}, saved ${JSON.stringify(saved)}`;
+}
+
 /** Click nodes in Route mode, pausing so separate clicks are never read as a double click. */
 export async function clickStops(page: Page, titles: readonly string[]) {
   for (const title of titles) {

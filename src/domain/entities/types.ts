@@ -100,6 +100,19 @@ export interface Locus {
   nextReviewAt?: string;
   repetitions?: number;
   lastReviewedAt?: string | null;
+  /** What a walk shows at this stop; without one it zooms to the node. */
+  view?: StopView | null;
+}
+
+/**
+ * A stop's saved view: the page area that was visible, positioned relative to the center of
+ * the stop's node so the view moves with the node.
+ */
+export interface StopView {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export type AnalyticsEventGroup = "palace" | "graph" | "review" | "system";

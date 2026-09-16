@@ -38,7 +38,7 @@ Leave it blank if you don't need grouping.
 |------|-----------------------|
 | **Select** (default) | Click to select a node or edge; drag to pan. |
 | **Connect** | Step 1: click source node (locks it, glows). Step 2: click target node → CAST edge dialog opens. |
-| **Route** | Click nodes in order to append them to the active route (created if the palace has none). Double-clicking empty canvas adds a new node as the next stop. **Done** or Esc ends Route mode. |
+| **Route** | Click nodes in order to append them to the active route (created if the palace has none). Each stop keeps the view you had when you clicked it. Double-clicking empty canvas adds a new node as the next stop. **Done** or Esc ends Route mode. |
 
 Double-click empty canvas → creates a new node at that position.
 
@@ -58,10 +58,13 @@ Double-click empty canvas → creates a new node at that position.
 
 **New route** — press **Route** in the toolbar (or **New route** in the Routes tab), then click nodes in walk order. Each stop gets a number on the canvas and the route is drawn as arrows in its color.
 
+**Framing stops (saved views)** — while Route mode is on, zoom and pan (Ctrl+scroll or pinch to zoom, scroll or Space+drag to pan) before you click each node. The stop keeps that view, like a scene, and a walk moves the canvas to it. The view is saved relative to the node, so it follows the node if you move it. The camera button in the Route mode banner turns this off; stops added while it is off, or with **Add selected**, zoom to their node instead.
+
 **Editing routes** — the **Routes** tab beside the Node Inspector lists every route:
 - Click a route to make it active; double-click its name (or use the ⋯ menu) to rename it.
+- Each stop's camera button saves the current view for that stop. On a stop that has one, it shows the saved view, replaces it with the current view, or removes it (undo is offered).
 - The color dot changes the route's color; the eye hides or shows it on the canvas.
-- Drag a stop's handle (or focus it and use the arrow keys) to move it. Click a stop to jump to its node; double-click to give the stop its own label (leave it empty to follow the node's title).
+- Drag a stop's handle (or focus it and use the arrow keys) to move it. Click a stop to jump to it (its saved view, or its node); double-click to give the stop its own label (leave it empty to follow the node's title).
 - Removing a stop can be undone from the message that follows. Deleting a node removes its stops; undoing the delete brings them back.
 - **Add selected** appends the nodes selected on the canvas, in selection order, left to right, top to bottom, or as the shortest walk.
 
@@ -86,6 +89,7 @@ Atlas tab → Graph button shows all palaces as circles with directed edges for 
 
 Pick a route in the walk bar → **Walk on** (or press the footprints button on a route in the Routes tab).
 
+- The canvas moves to each stop's saved view, or zooms to the stop's node if it has none.
 - Cards show the node title as cue; reveal shows content.
 - Rate: Again / Hard / Good / Easy → updates the locus interval (spaced repetition).
 - Recall mode hides the canvas node label until you reveal.

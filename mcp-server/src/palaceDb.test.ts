@@ -159,6 +159,19 @@ describe("palaceDb", () => {
     expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
   });
 
+  it("keeps a stop's saved view through save and load", () => {
+    const palace = createPalace(db, "Framed");
+    const snap = makeSnapshot(palace.id, palace);
+    const view = { x: -412.5, y: -230, w: 825, h: 460.25 };
+    const loci = [{ ...snap.loci[0]!, view }];
+    saveSnapshot(db, { ...snap, loci });
+
+    expect(loadPalace(db, palace.id)!.loci).toEqual(loci);
+    expect(db.prepare("SELECT settings_json FROM loci").get()).toEqual({
+      settings_json: JSON.stringify({ view }),
+    });
+  });
+
   it("upgrades a database created before route order and settings existed", () => {
     const legacyPath = join(dir, "legacy.sqlite3");
     const legacy = openDb(legacyPath);
@@ -167,6 +180,9 @@ describe("palaceDb", () => {
         alias TEXT, atlas_path TEXT, editor_snapshot TEXT, deleted_at TEXT, purge_at TEXT);
       CREATE TABLE routes (id TEXT PRIMARY KEY NOT NULL, palace_id TEXT NOT NULL, name TEXT NOT NULL);
       INSERT INTO routes (id, palace_id, name) VALUES ('r-b', 'p', 'Beta'), ('r-a', 'p', 'Alpha');
+      CREATE TABLE loci (id TEXT PRIMARY KEY NOT NULL, route_id TEXT NOT NULL, node_id TEXT NOT NULL,
+        order_index INTEGER NOT NULL);
+      INSERT INTO loci (id, route_id, node_id, order_index) VALUES ('l-1', 'r-a', 'n', 0);
     `);
     legacy.close();
 
@@ -178,6 +194,9 @@ describe("palaceDb", () => {
       expect(rows).toEqual([
         { id: "r-a", sort_index: 0, settings_json: "{}" },
         { id: "r-b", sort_index: 0, settings_json: "{}" },
+      ]);
+      expect(upgraded.prepare("SELECT id, settings_json FROM loci").all()).toEqual([
+        { id: "l-1", settings_json: "{}" },
       ]);
     } finally {
       upgraded.close();

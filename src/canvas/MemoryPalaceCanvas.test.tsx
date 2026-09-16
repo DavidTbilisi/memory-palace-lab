@@ -31,6 +31,7 @@ const { usePalaceStoreMock } = vi.hoisted(() => {
     appMode: "encode",
     comprehendCruxNodeId: null,
     focusNodeId: null,
+    focusView: null,
   };
   const usePalaceStoreMock = Object.assign(
     vi.fn((selector: (s: Record<string, unknown>) => unknown) => selector(state)),

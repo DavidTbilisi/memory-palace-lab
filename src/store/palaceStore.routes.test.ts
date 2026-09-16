@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Locus, MemoryNode, MemoryRoute, Palace } from "../domain/entities/types";
 import { usePalaceStore } from "./palaceStore";
+import { loadSaveStopViews } from "./palaceStoreHelpers";
 
 const palace: Palace = { id: "palace-1", name: "Test Palace", alias: null, atlasPath: null, editorSnapshot: null };
 
@@ -53,6 +54,7 @@ function reset(overrides: Partial<ReturnType<typeof usePalaceStore.getState>> = 
     routeNotice: null,
     walkRouteId: "route-a",
     walkRecallMode: false,
+    saveStopViews: true,
     ...overrides,
   });
 }
@@ -165,7 +167,7 @@ describe("removeStop and undo", () => {
     expect(stopIds("route-a")).toEqual(["l1", "l3"]);
     expect(store().routeNotice).toMatchObject({ message: "Removed Node 2 (stop 2)", canUndo: true });
 
-    store().undoRouteRemoval();
+    store().undoRouteChange();
     expect(stopIds("route-a")).toEqual(["l1", "l2", "l3"]);
     expect(store().routeNotice).toBeNull();
   });
@@ -173,12 +175,12 @@ describe("removeStop and undo", () => {
   it("forgets the undo once the notice is dismissed or replaced", () => {
     store().removeStop("l2");
     store().dismissRouteNotice();
-    store().undoRouteRemoval();
+    store().undoRouteChange();
     expect(stopIds("route-a")).toEqual(["l1", "l3"]);
 
     store().removeStop("l1");
     store().addStopsToActiveRoute(["n5"]);
-    store().undoRouteRemoval();
+    store().undoRouteChange();
     expect(stopIds("route-a")).not.toContain("l1");
   });
 
@@ -186,6 +188,80 @@ describe("removeStop and undo", () => {
     usePalaceStore.setState({ walkIndex: 2 });
     store().removeStop("l3");
     expect(store().walkIndex).toBe(1);
+  });
+});
+
+describe("stop views", () => {
+  const view = { x: -300, y: -200, w: 600, h: 400 };
+  const wideView = { x: -800, y: -500, w: 1600, h: 1000 };
+  const stop = (id: string) => store().loci.find((locus) => locus.id === id);
+
+  it("gives a clicked stop the view it was added in", () => {
+    const viewFor = vi.fn(() => view);
+    store().addStopsToActiveRoute(["n5"], { viewFor });
+
+    expect(viewFor).toHaveBeenCalledWith("n5");
+    expect(store().loci.find((locus) => locus.nodeId === "n5")?.view).toEqual(view);
+    expect(store().routeNotice?.message).toBe("Added Node 5 as stop 4 with this view");
+  });
+
+  it("adds the stop without a view when none could be taken", () => {
+    store().addStopsToActiveRoute(["n5"], { viewFor: () => null });
+
+    expect(store().loci.find((locus) => locus.nodeId === "n5")).not.toHaveProperty("view");
+    expect(store().routeNotice?.message).toBe("Added Node 5 as stop 4");
+  });
+
+  it("saves, replaces, and removes a stop's view, each with an undo", () => {
+    store().setStopView("l2", view);
+    expect(stop("l2")?.view).toEqual(view);
+    expect(store().routeNotice).toMatchObject({ message: "Saved the view for stop 2", canUndo: true });
+
+    store().setStopView("l2", wideView);
+    expect(store().routeNotice?.message).toBe("Replaced the view of stop 2");
+    store().undoRouteChange();
+    expect(stop("l2")?.view).toEqual(view);
+
+    store().setStopView("l2", null);
+    expect(stop("l2")).not.toHaveProperty("view");
+    expect(store().routeNotice?.message).toBe("Removed the saved view of stop 2");
+    store().undoRouteChange();
+    expect(stop("l2")?.view).toEqual(view);
+
+    store().setStopView("l2", null);
+    store().dismissRouteNotice();
+    store().undoRouteChange();
+    expect(stop("l2")).not.toHaveProperty("view");
+  });
+
+  it("asks the canvas to show a stop in its saved view, if it has one", () => {
+    store().setStopView("l3", view);
+    store().focusStop("l3");
+    expect(store()).toMatchObject({ focusNodeId: "n3", focusView: view });
+
+    store().setFocusNodeId(null);
+    expect(store()).toMatchObject({ focusNodeId: null, focusView: null });
+
+    store().focusStop("l1");
+    expect(store()).toMatchObject({ focusNodeId: "n1", focusView: null });
+  });
+
+  it("walks from the current stop, view included", () => {
+    store().setStopView("l2", view);
+    store().setWalkOpen(true);
+    store().walkNext();
+
+    expect(store().currentWalkStop()).toMatchObject({ id: "l2", view });
+    expect(store().currentWalkNodeId()).toBe("n2");
+  });
+
+  it("remembers whether Route mode saves views", () => {
+    store().setSaveStopViews(false);
+    expect(store().saveStopViews).toBe(false);
+    expect(loadSaveStopViews()).toBe(false);
+
+    store().setSaveStopViews(true);
+    expect(loadSaveStopViews()).toBe(true);
   });
 });
 

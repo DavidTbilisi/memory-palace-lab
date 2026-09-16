@@ -1,7 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { PalaceRepository } from "../../domain/repositories/palaceRepository";
 import type { AnalyticsEvent, Palace, PalaceSnapshot } from "../../domain/entities/types";
-import { decodeRouteSettings, encodeRouteSettings } from "../../domain/services/routeSettings";
+import {
+  decodeRouteSettings,
+  decodeStopSettings,
+  encodeRouteSettings,
+  encodeStopSettings,
+} from "../../domain/services/routeSettings";
 
 /** Raw JSON matches Rust serde camelCase + `type` for canvas rows. */
 type InvokePalaceSnapshot = {
@@ -54,6 +59,7 @@ type InvokePalaceSnapshot = {
     nextReviewAt?: string;
     repetitions?: number;
     lastReviewedAt?: string | null;
+    settingsJson?: string;
   }>;
 };
 
@@ -128,6 +134,7 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       nextReviewAt: l.nextReviewAt,
       repetitions: l.repetitions,
       lastReviewedAt: l.lastReviewedAt ?? null,
+      ...decodeStopSettings(l.settingsJson),
     })),
   };
 }
@@ -184,6 +191,7 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       nextReviewAt: l.nextReviewAt,
       repetitions: l.repetitions,
       lastReviewedAt: l.lastReviewedAt ?? null,
+      settingsJson: encodeStopSettings(l),
     })),
   };
 }

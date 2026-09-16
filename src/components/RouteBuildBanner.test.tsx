@@ -16,7 +16,13 @@ beforeEach(() => {
       routes: [{ id: "r1", palaceId: "palace-1", name: "Morning walk" }],
       loci: [],
     });
-    usePalaceStore.setState({ editorRef: null, toolMode: "route", walkRouteId: "r1", routeNotice: null });
+    usePalaceStore.setState({
+      editorRef: null,
+      toolMode: "route",
+      walkRouteId: "r1",
+      routeNotice: null,
+      saveStopViews: true,
+    });
   });
 });
 
@@ -24,6 +30,28 @@ describe("RouteBuildBanner", () => {
   it("tells the user what Route mode does", () => {
     render(<RouteBuildBanner />);
     expect(screen.getByRole("status")).toHaveTextContent("Click nodes in walk order to build Morning walk.");
+  });
+
+  it("saves the view with each stop until that is turned off", () => {
+    render(<RouteBuildBanner />);
+    const toggle = screen.getByRole("button", { name: "Save the view with each stop" });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Each stop saves your current view.");
+
+    fireEvent.click(toggle);
+    expect(usePalaceStore.getState().saveStopViews).toBe(false);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("status")).toHaveTextContent("Double-click empty space to add a new node.");
+
+    act(() =>
+      usePalaceStore.setState({
+        saveStopViews: true,
+        loci: [{ id: "l1", routeId: "r1", nodeId: "n1", orderIndex: 0, label: "" }],
+      }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Morning walk: 1 stop. Zoom and pan as needed, then click the next node.",
+    );
   });
 
   it("shows the latest route message instead", () => {

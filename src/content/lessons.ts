@@ -44,6 +44,7 @@ export const LESSONS: readonly Lesson[] = [
     steps: [
       "Press Route in the top toolbar. A route is created for you if the palace has none.",
       "Click memory nodes in the order you want to recall them; each click adds the next numbered stop.",
+      "Zoom and pan before each click to frame the stop like a scene: the stop keeps that view, and walks return to it.",
       "Press Done or Esc when the route is complete. Drag stops in the Routes tab to change the order.",
       "Give each route its own color, and hide the ones you are not rehearsing, from the Routes tab.",
       "Pick the route in the walk bar, turn Walk on, and step through the stops in order.",

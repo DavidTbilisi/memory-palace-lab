@@ -73,7 +73,7 @@ pub struct RouteDto {
     pub palace_id: String,
     pub name: String,
     /// Route color, visibility, and later display settings; decoded on the TypeScript side.
-    #[serde(default = "default_route_settings_json")]
+    #[serde(default = "default_settings_json")]
     pub settings_json: String,
 }
 
@@ -96,6 +96,9 @@ pub struct LocusDto {
     pub repetitions: Option<i64>,
     #[serde(default)]
     pub last_reviewed_at: Option<String>,
+    /// The stop's saved view and later per-stop settings; decoded on the TypeScript side.
+    #[serde(default = "default_settings_json")]
+    pub settings_json: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -136,7 +139,7 @@ fn default_node_meta_json() -> String {
     "{}".to_string()
 }
 
-fn default_route_settings_json() -> String {
+fn default_settings_json() -> String {
     "{}".to_string()
 }
 
@@ -213,7 +216,8 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             ease_factor REAL NOT NULL DEFAULT 2.5,
             next_review_at TEXT,
             repetitions INTEGER NOT NULL DEFAULT 0,
-            last_reviewed_at TEXT
+            last_reviewed_at TEXT,
+            settings_json TEXT NOT NULL DEFAULT '{}'
         );
 
         CREATE TABLE IF NOT EXISTS analytics_events (
@@ -327,8 +331,8 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
-    // Route list order (routes used to load alphabetically) and route display settings.
-    // mcp-server/src/palaceDb.ts applies the same two columns when it opens the database.
+    // Route list order (routes used to load alphabetically), route display settings, and stop
+    // settings. mcp-server/src/palaceDb.ts applies the same columns when it opens the database.
     if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
@@ -336,6 +340,12 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         }
     }
     if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -589,7 +599,7 @@ fn load_routes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<Route
 
 fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDto>> {
     let mut stmt = conn.prepare(
-        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor, l.next_review_at, l.repetitions, l.last_reviewed_at
+        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor, l.next_review_at, l.repetitions, l.last_reviewed_at, l.settings_json
          FROM loci l
          INNER JOIN routes r ON r.id = l.route_id
          WHERE r.palace_id = ?1
@@ -608,6 +618,7 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
                 next_review_at: r.get(7)?,
                 repetitions: r.get(8)?,
                 last_reviewed_at: r.get(9)?,
+                settings_json: r.get(10)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -741,7 +752,7 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
 
     for l in &snap.loci {
         tx.execute(
-            "INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at, settings_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 l.id,
                 l.route_id,
@@ -752,7 +763,8 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
                 l.ease_factor.unwrap_or(2.5),
                 l.next_review_at.as_deref(),
                 l.repetitions.unwrap_or(0),
-                l.last_reviewed_at.as_deref()
+                l.last_reviewed_at.as_deref(),
+                l.settings_json
             ],
         )?;
     }

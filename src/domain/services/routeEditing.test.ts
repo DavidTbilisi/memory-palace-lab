@@ -111,6 +111,16 @@ describe("appendStops", () => {
     const loci = [locus("a", "r", 0)];
     expect(appendStops(loci, "r", ["node-a"]).loci).toBe(loci);
   });
+
+  it("gives each new stop the view returned for its node", () => {
+    const view = { x: -300, y: -200, w: 600, h: 400 };
+    const result = appendStops([locus("a", "r", 0)], "r", ["node-a", "node-x", "node-y"], {
+      viewFor: (nodeId) => (nodeId === "node-x" ? view : null),
+    });
+
+    expect(result.added.map((entry) => entry.view)).toEqual([view, undefined]);
+    expect(result.added[1]).not.toHaveProperty("view");
+  });
 });
 
 describe("moveLocusTo", () => {

@@ -6,8 +6,9 @@
 #   replace a form panel whose Route mode did nothing.
 # Wiki source: memory-palace, mind-palace, neighborhood-palace (reverse walks),
 #   geography-mnemonic-route (split long routes)
-# Status: in progress. Part 1 (builder: panel, canvas paths, click-to-add, color and
-#   visibility, reliability fixes) is delivered with this file; part 2 (@part-2) is next.
+# Status: in progress. Part 1 (builder: panel, canvas paths, click-to-add, saved views per
+#   stop, color and visibility, reliability fixes) is delivered with this file; part 2
+#   (@part-2) is next.
 
 Feature: Route builder
   In order to turn a palace into a walk I can rehearse without fighting the tool
@@ -28,6 +29,27 @@ Feature: Route builder
     And the path and its stop numbers appear on the canvas as the stops are added
     When the user presses Done or Escape
     Then Route mode ends and ordinary selection resumes
+
+  @part-1
+  Scenario: Frame each stop while building, like the scenes of a film
+    Given Route mode is on and saving the view with each stop is on, as it is by default
+    When the user zooms and pans the canvas and then clicks a node
+    Then the new stop keeps that view: the visible area, placed relative to the node
+    And the message says the stop was added with this view
+    When the user walks the route
+    Then the canvas moves to each stop's saved view, fitted to the canvas as it is then
+    And a stop without a saved view zooms to its node, as before
+    When the user turns saving views off in the Route mode banner
+    Then stops added from then on have no saved view, and the choice is remembered
+
+  @part-1
+  Scenario: Change a stop's saved view later
+    Given a stop in the Routes tab
+    When the user presses its camera button
+    Then the current view is saved for that stop, if its node is in sight
+    And for a stop with a saved view, the camera button offers to show the view, replace it with the current view, or remove it
+    And replacing or removing a view can be undone from the message that follows
+    And a node that moved takes its stop's view along with it
 
   @part-1
   Scenario: A node is not added to the same route twice by accident
@@ -60,7 +82,7 @@ Feature: Route builder
   Scenario: Edit a route's stops in place
     Given the active route is expanded
     Then the user can drag a stop, or use the arrow keys on its handle, to move it to any position
-    And clicking a stop selects and zooms to its node
+    And clicking a stop selects its node and shows the stop's saved view, or else zooms to the node
     And a stop shows its node's current title unless the user gave the stop its own label
     And removing a stop can be undone from the message that follows
 
@@ -94,7 +116,7 @@ Feature: Route builder
     And stops whose node no longer exists are not saved
     And editing the palace in the DSL keeps the active route and leaves an unaffected walk running
     And a node listed twice in a DSL route gets two distinct stops
-    And edits made through MCP keep each route's color, visibility, and order
+    And edits made through MCP keep each route's color, visibility, and order, and each stop's saved view
     And the last rating of a walk is recorded with its walk session
 
   @part-2

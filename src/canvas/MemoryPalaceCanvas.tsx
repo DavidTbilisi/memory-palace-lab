@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Link2Off } from "lucide-react";
-import { Tldraw } from "tldraw";
+import { Tldraw, type TLComponents } from "tldraw";
 import type {
   Editor,
   TLGeoShape,
@@ -21,10 +21,13 @@ import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
 import {
+  captureStopView,
   liveMemoryNodeIds,
   memoryNodeIdAt,
   memoryNodeIdsInRecords,
+  memoryNodeShapeId,
   viewportBoxesByNode,
+  zoomToStop,
 } from "./routeCanvas";
 import type { NodeBox } from "./routeOverlayGeometry";
 import { detectMotifs } from "../domain/services/cast/castMotifs";
@@ -38,6 +41,10 @@ import {
   computePalaceDifficulty,
   difficultyLevel,
 } from "../domain/services/palaceDifficulty";
+
+// tldraw lays its top panel out between the page menu and the style panel, so the Route mode
+// banner never sits under either. Module scope keeps the object stable across renders.
+const TLDRAW_COMPONENTS: TLComponents = { TopPanel: RouteBuildBanner };
 
 const DIFFICULTY_BADGE_CLASS: Record<number, string> = {
   1: "border-emerald-300/80 bg-emerald-500/85 text-emerald-50",
@@ -131,6 +138,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const comprehendCruxNodeId = usePalaceStore((s) => s.comprehendCruxNodeId);
   const focusNodeId = usePalaceStore((s) => s.focusNodeId);
+  const focusView = usePalaceStore((s) => s.focusView);
   const setFocusNodeId = usePalaceStore((s) => s.setFocusNodeId);
 
   // A mounted editor should keep its live state. Re-loading from a fresh snapshot on every
@@ -138,7 +146,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const [initialSnapshot] = useState(() => parseEditorSnapshot(editorSnapshot));
 
   const editorRef = useRef<Editor | null>(null);
-  const lastWalkNodeIdRef = useRef<string | null>(null);
+  const lastWalkStopIdRef = useRef<string | null>(null);
   const lastCruxNodeIdRef = useRef<string | null>(null);
   const lastSceneSnapshotRef = useRef<ReturnType<
     typeof captureSceneAnalyticsSnapshot
@@ -367,14 +375,21 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   }, [setAvailableTags]);
 
   // A double click arrives as two pointer_ups on the same node; add that stop once, quietly.
-  // Returns false for that quiet repeat.
+  // Returns false for that quiet repeat. The stop keeps the current view unless that is off.
   const lastCanvasStopRef = useRef<{ nodeId: string; at: number } | null>(null);
   const addStopFromCanvas = useCallback((nodeId: string) => {
     const now = Date.now();
     const last = lastCanvasStopRef.current;
     if (last && last.nodeId === nodeId && now - last.at < 600) return false;
     lastCanvasStopRef.current = { nodeId, at: now };
-    usePalaceStore.getState().addStopsToActiveRoute([nodeId]);
+    const state = usePalaceStore.getState();
+    const editor = editorRef.current;
+    state.addStopsToActiveRoute([nodeId], {
+      viewFor:
+        state.saveStopViews && editor
+          ? (id) => captureStopView(editor, id)
+          : undefined,
+    });
     return true;
   }, []);
 
@@ -579,10 +594,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    const nodeId = usePalaceStore.getState().currentWalkNodeId();
+    const stop = usePalaceStore.getState().currentWalkStop();
+    const nodeId = stop?.nodeId ?? null;
     if (walkOpen) clearActiveTags();
-    if (!walkOpen || !nodeId) {
-      lastWalkNodeIdRef.current = null;
+    if (!walkOpen || !stop) {
+      lastWalkStopIdRef.current = null;
       editor.setHintingShapes([]);
       for (const id of editor.getCurrentPageShapeIds()) {
         const s = editor.getShape(id);
@@ -606,11 +622,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
     if (activeShapeId) {
       editor.setHintingShapes([activeShapeId]);
-      if (lastWalkNodeIdRef.current !== nodeId) {
+      // Move once per stop (a node can be on a route twice, with different views).
+      if (lastWalkStopIdRef.current !== stop.id) {
         editor.stopCameraAnimation();
         editor.setSelectedShapes([activeShapeId]);
-        editor.zoomToSelection({ animation: { duration: 320 } });
-        lastWalkNodeIdRef.current = nodeId;
+        zoomToStop(editor, activeShapeId, stop.view);
+        lastWalkStopIdRef.current = stop.id;
       }
       if (walkRecallMode && !walkAnswerRevealed) {
         editor.setSelectedShapes([]);
@@ -725,23 +742,21 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [comprehendActive, comprehendCruxNodeId, walkOpen]);
 
-  // One-shot node focus (e.g. "Encode this" from Comprehend mode): select + zoom
-  // to the requested node, then clear the request so it doesn't re-fire.
+  // One-shot node focus (e.g. "Encode this" from Comprehend mode, or a stop in the Routes
+  // tab): select the node and show it (in the stop's saved view, if one came with the
+  // request), then clear the request so it doesn't re-fire.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !focusNodeId) return;
-    for (const id of editor.getCurrentPageShapeIds()) {
-      const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
-      if ((s.meta as MemoryPalaceMeta).mpNodeId !== focusNodeId) continue;
+    const shapeId = memoryNodeShapeId(editor, focusNodeId);
+    if (shapeId) {
       editor.stopCameraAnimation();
-      editor.setSelectedShapes([id]);
-      editor.zoomToSelection({ animation: { duration: 320 } });
-      setSelectedShapeId(id);
-      break;
+      editor.setSelectedShapes([shapeId]);
+      zoomToStop(editor, shapeId, focusView);
+      setSelectedShapeId(shapeId);
     }
     setFocusNodeId(null);
-  }, [focusNodeId, setFocusNodeId, setSelectedShapeId]);
+  }, [focusNodeId, focusView, setFocusNodeId, setSelectedShapeId]);
 
   useEffect(() => {
     return () => {
@@ -760,7 +775,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
   return (
     <div className="relative h-full min-h-0 w-full flex-1">
-      <Tldraw snapshot={initialSnapshot} onMount={onMount} />
+      <Tldraw
+        snapshot={initialSnapshot}
+        onMount={onMount}
+        components={TLDRAW_COMPONENTS}
+      />
       <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
         {imageBackgrounds.map((bg) => (
           <img
@@ -782,7 +801,6 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         ))}
       </div>
       <RouteOverlay boxes={nodeBoxes} />
-      <RouteBuildBanner />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button

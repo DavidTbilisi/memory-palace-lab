@@ -10,3 +10,14 @@ body,
 body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
+
+/* tldraw's top panel holds the Route mode banner. Let it fill the room between tldraw's page
+   menu and style panel and shrink there (the banner truncates its message) rather than push
+   the style panel off the canvas. */
+.tlui-layout__top > .tlui-layout__top__center {
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+}

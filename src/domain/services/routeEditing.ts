@@ -1,4 +1,4 @@
-import type { Locus } from "../entities/types";
+import type { Locus, StopView } from "../entities/types";
 import { defaultLocusSchedule } from "./spacedRepetition";
 
 type MoveDirection = "up" | "down";
@@ -59,6 +59,13 @@ export type SkippedStop = { nodeId: string; /** 1-based stop number the node alr
 
 export type AppendStopsResult = { loci: Locus[]; added: Locus[]; skipped: SkippedStop[] };
 
+export type AppendStopsOptions = {
+  makeId?: () => string;
+  nowIso?: string;
+  /** The view each new stop starts with; stops without one zoom to their node. */
+  viewFor?: (nodeId: string) => StopView | null;
+};
+
 /**
  * Append nodes to the end of a route with fresh schedules and no custom label. A node the
  * route already visits is skipped and reported with its existing stop number.
@@ -67,7 +74,7 @@ export function appendStops(
   loci: Locus[],
   routeId: string,
   nodeIds: readonly string[],
-  options: { makeId?: () => string; nowIso?: string } = {},
+  options: AppendStopsOptions = {},
 ): AppendStopsResult {
   const makeId = options.makeId ?? (() => crypto.randomUUID());
   const route = orderedRoute(loci, routeId);
@@ -87,6 +94,7 @@ export function appendStops(
     }
     stopCount += 1;
     positionByNode.set(nodeId, stopCount);
+    const view = options.viewFor?.(nodeId) ?? null;
     added.push({
       id: makeId(),
       routeId,
@@ -94,6 +102,7 @@ export function appendStops(
       orderIndex: nextOrderIndex,
       label: "",
       ...defaultLocusSchedule(options.nowIso),
+      ...(view ? { view } : {}),
     });
     nextOrderIndex += 1;
   }

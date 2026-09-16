@@ -1,11 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  canvasView,
   clickStops,
   countSnapshotNodes,
   createNamedNodes,
+  howCanvasShows,
   nodeCenter,
   openTutorialPalace,
   routeSummary,
+  zoomTowardsNode,
 } from "./routeHelpers";
 
 /** Number of memory-node shapes on the current canvas, read through the dev store hook. */
@@ -378,6 +381,56 @@ test("routes are built by clicking nodes, edited in the Routes tab, and drawn on
     { name: "Route 1", color: "emerald", hidden: false, stops: ["Kitchen sink", "Front door", "Hallway mirror"] },
     { name: "Route 2", color: "violet", hidden: false, stops: ["Kitchen sink"] },
   ]);
+});
+
+test("each stop keeps the view it was added in, and walks return to it", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["Gate", "Porch"]);
+
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  const banner = page.getByTestId("route-build-banner");
+  await expect(banner.getByRole("button", { name: "Save the view with each stop" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // Frame each stop before clicking it: close in on the gate, then pull back for the porch.
+  await zoomTowardsNode(page, "Gate", 3);
+  await clickStops(page, ["Gate"]);
+  await expect(banner).toContainText("Added Gate as stop 1 with this view");
+  const gateView = await canvasView(page);
+
+  await zoomTowardsNode(page, "Gate", -6);
+  await clickStops(page, ["Porch"]);
+  await expect(banner).toContainText("Added Porch as stop 2 with this view");
+  const porchView = await canvasView(page);
+  expect(porchView.zoom).toBeLessThan(gateView.zoom * 0.7);
+  await page.keyboard.press("Escape");
+
+  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it.
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await expect(page.getByText("Step 1/2")).toBeVisible();
+  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await page.getByRole("button", { name: "Next step" }).click();
+  await expect(page.getByText("Step 2/2")).toBeVisible();
+  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await page.keyboard.press("Escape");
+
+  // Clicking a stop in the Routes tab shows its view too, and the views survive a reload.
+  const routeCard = page.getByRole("region", { name: "Route Route 1" });
+  await routeCard.getByRole("button", { name: "Gate", exact: true }).click();
+  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+
+  await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
+  await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Tutorial Palace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  await page.getByRole("tab", { name: /Routes/ }).click();
+  const reloadedCard = page.getByRole("region", { name: "Route Route 1" });
+  await expect(reloadedCard.getByRole("button", { name: "Saved view of stop 2, Porch" })).toBeVisible();
+  await reloadedCard.getByRole("button", { name: "Porch", exact: true }).click();
+  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
 });
 
 const SOLID_CITADEL_DSL = `@SOLID Citadel

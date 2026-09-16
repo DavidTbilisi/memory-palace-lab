@@ -1,5 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  Camera,
   Check,
   ChevronDown,
   Eye,
@@ -19,7 +20,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { memoryNodeCenter, selectedMemoryNodePoints } from "../canvas/routeCanvas";
+import { captureStopView, memoryNodeCenter, selectedMemoryNodePoints } from "../canvas/routeCanvas";
 import { ROUTE_COLORS, type Locus, type MemoryRoute } from "../domain/entities/types";
 import { countDueLoci } from "../domain/services/dueQueue";
 import {
@@ -287,6 +288,83 @@ function StopLabelEditor({
   );
 }
 
+/**
+ * A stop's saved view. Without one, the camera button saves the current view; with one, it
+ * opens a menu to show, replace, or remove it.
+ */
+function StopViewControl({
+  stop,
+  number,
+  label,
+  color,
+  missing,
+}: {
+  stop: Locus;
+  number: number;
+  label: string;
+  color: string;
+  missing: boolean;
+}) {
+  const editorRef = usePalaceStore((s) => s.editorRef);
+  const setStopView = usePalaceStore((s) => s.setStopView);
+  const focusStop = usePalaceStore((s) => s.focusStop);
+  const showRouteNotice = usePalaceStore((s) => s.showRouteNotice);
+  const canCapture = !missing && editorRef !== null;
+
+  const saveCurrentView = () => {
+    if (!editorRef) return;
+    const view = captureStopView(editorRef, stop.nodeId);
+    if (view) setStopView(stop.id, view);
+    else showRouteNotice(`Move the canvas so ${label} is in view, then save the view`);
+  };
+  const buttonClass =
+    "rounded p-0.5 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 disabled:pointer-events-none disabled:opacity-40";
+
+  if (!stop.view) {
+    return (
+      <button
+        type="button"
+        aria-label={`Save the current view for stop ${number}, ${label}`}
+        title="Save the current zoom and position for this stop. Walks return to it."
+        disabled={!canCapture}
+        onClick={saveCurrentView}
+        className={cn(buttonClass, "text-zinc-600 hover:text-zinc-200")}
+      >
+        <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          aria-label={`Saved view of stop ${number}, ${label}`}
+          title="Walks show this stop in its saved view"
+          className={buttonClass}
+          style={{ color }}
+        >
+          <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content sideOffset={4} align="end" className={menuContentClass}>
+          <DropdownMenu.Item className={menuItemClass} disabled={missing} onSelect={() => focusStop(stop.id)}>
+            Show saved view
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className={menuItemClass} disabled={!canCapture} onSelect={saveCurrentView}>
+            Replace with current view
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className={menuItemClass} onSelect={() => setStopView(stop.id, null)}>
+            Remove saved view
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
 type DragState = { locusId: string; from: number; slot: number };
 
 /** Index a dragged stop ends up at when dropped into `slot` (0..n, before row `slot`). */
@@ -307,7 +385,7 @@ function StopList({
 }) {
   const moveStop = usePalaceStore((s) => s.moveStop);
   const removeStop = usePalaceStore((s) => s.removeStop);
-  const setFocusNodeId = usePalaceStore((s) => s.setFocusNodeId);
+  const focusStop = usePalaceStore((s) => s.focusStop);
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const [drag, setDrag] = useState<DragState | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -428,10 +506,12 @@ function StopList({
                 title={
                   missing
                     ? "This stop's node is not on the canvas. It is dropped when the palace is saved."
-                    : `${label}${custom && title ? ` (node: ${title})` : ""}. Click to show on the canvas, double-click to rename the stop.`
+                    : `${label}${custom && title ? ` (node: ${title})` : ""}. Click to show it on the canvas${
+                        stop.view ? " in its saved view" : ""
+                      }, double-click to rename the stop.`
                 }
                 onClick={() => {
-                  if (!missing) setFocusNodeId(stop.nodeId);
+                  if (!missing) focusStop(stop.id);
                 }}
                 onDoubleClick={() => setEditingId(stop.id)}
                 onKeyDown={(event) => {
@@ -448,6 +528,13 @@ function StopList({
             {due ? (
               <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[10px] font-medium text-amber-300">due</span>
             ) : null}
+            <StopViewControl
+              stop={stop}
+              number={index + 1}
+              label={missing ? "missing node" : label}
+              color={color}
+              missing={missing}
+            />
             <button
               type="button"
               aria-label={`Remove stop ${index + 1}, ${missing ? "missing node" : label}`}
@@ -485,6 +572,7 @@ function RouteCard({
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const building = usePalaceStore((s) => s.toolMode === "route");
+  const saveStopViews = usePalaceStore((s) => s.saveStopViews);
   const setRouteBuilding = usePalaceStore((s) => s.setRouteBuilding);
   const setRouteHidden = usePalaceStore((s) => s.setRouteHidden);
   const updateRouteName = usePalaceStore((s) => s.updateRouteName);
@@ -601,7 +689,8 @@ function RouteCard({
           </div>
           {building ? (
             <p className="mt-1.5 text-[11px] leading-4 text-violet-200/80">
-              Click nodes on the canvas in walk order. Press Esc or Done to finish.
+              Click nodes on the canvas in walk order
+              {saveStopViews ? "; each stop keeps the view you add it in" : ""}. Press Esc or Done to finish.
             </p>
           ) : null}
           <StopList
@@ -624,7 +713,7 @@ function RouteCard({
 function RouteNoticeBar() {
   const notice = usePalaceStore((s) => s.routeNotice);
   const dismiss = usePalaceStore((s) => s.dismissRouteNotice);
-  const undo = usePalaceStore((s) => s.undoRouteRemoval);
+  const undo = usePalaceStore((s) => s.undoRouteChange);
   if (!notice) return null;
   return (
     <div

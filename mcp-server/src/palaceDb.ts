@@ -13,7 +13,12 @@ import type {
   PalacePortalRef,
   PalaceSnapshot,
 } from "../../src/domain/entities/types";
-import { decodeRouteSettings, encodeRouteSettings } from "../../src/domain/services/routeSettings";
+import {
+  decodeRouteSettings,
+  decodeStopSettings,
+  encodeRouteSettings,
+  encodeStopSettings,
+} from "../../src/domain/services/routeSettings";
 
 /**
  * Direct-SQLite port of src-tauri/src/db.rs combined with the row↔domain
@@ -87,7 +92,8 @@ CREATE TABLE IF NOT EXISTS loci (
     ease_factor REAL NOT NULL DEFAULT 2.5,
     next_review_at TEXT,
     repetitions INTEGER NOT NULL DEFAULT 0,
-    last_reviewed_at TEXT
+    last_reviewed_at TEXT,
+    settings_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS analytics_events (
@@ -131,6 +137,7 @@ export function openDb(path: string): DatabaseSync {
 const COLUMN_UPGRADES = [
   "ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
+  "ALTER TABLE loci ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
 ];
 
 export function upgradeSchema(db: DatabaseSync): void {
@@ -346,7 +353,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
     db
       .prepare(
         `SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor,
-                l.next_review_at, l.repetitions, l.last_reviewed_at
+                l.next_review_at, l.repetitions, l.last_reviewed_at, l.settings_json
          FROM loci l
          INNER JOIN routes r ON r.id = l.route_id
          WHERE r.palace_id = ?
@@ -365,6 +372,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
       nextReviewAt: optStr(r, "next_review_at") ?? undefined,
       repetitions: num(r, "repetitions"),
       lastReviewedAt: optStr(r, "last_reviewed_at"),
+      ...decodeStopSettings(optStr(r, "settings_json")),
     }),
   );
 
@@ -451,8 +459,8 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
   });
 
   const insertLocus = db.prepare(
-    `INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at, settings_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const l of snap.loci) {
     insertLocus.run(
@@ -466,6 +474,7 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
       l.nextReviewAt ?? null,
       l.repetitions ?? 0,
       l.lastReviewedAt ?? null,
+      encodeStopSettings(l),
     );
   }
 }

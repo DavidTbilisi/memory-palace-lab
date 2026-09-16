@@ -16,6 +16,7 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
+  StopView,
 } from "../domain/entities/types";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
@@ -43,6 +44,7 @@ import {
   reassignLocusRoute as reassignRouteLocus,
   removeLocus,
   restoreLoci,
+  type AppendStopsOptions,
   type RemovedLocus,
 } from "../domain/services/routeEditing";
 import {
@@ -78,6 +80,8 @@ import {
   safeElapsedMs,
   loadAtlasLevelLabels,
   saveAtlasLevelLabels,
+  loadSaveStopViews,
+  persistSaveStopViews,
 } from "./palaceStoreHelpers";
 
 const repo = getPalaceRepository();
@@ -102,7 +106,7 @@ export type RouteNotice = {
   /** Changes with every notice so the UI can restart its dismiss timer. */
   id: number;
   message: string;
-  /** The notice reports a stop removal that `undoRouteRemoval` can reverse. */
+  /** The notice reports a route edit that `undoRouteChange` can reverse. */
   canUndo: boolean;
 };
 
@@ -142,9 +146,13 @@ export type PalaceStore = {
   comprehendCruxNodeId: string | null;
   /** One-shot request for the canvas to select + zoom to a node, then clear it. */
   focusNodeId: string | null;
+  /** With focusNodeId: a stop's saved view to show instead of zooming to the node. */
+  focusView: StopView | null;
   /** The right-hand panel shows the Routes tab instead of the node inspector. */
   routePanelOpen: boolean;
   routeNotice: RouteNotice | null;
+  /** Route mode saves the current view with each stop you click. A per-viewer preference. */
+  saveStopViews: boolean;
   availableTags: string[];
   activeTags: string[];
   connect: ConnectState;
@@ -237,11 +245,23 @@ export type PalaceStore = {
   /** Route mode: clicking a memory node appends it to the active route (created if missing). */
   setRouteBuilding: (on: boolean) => void;
   /** Append nodes to a route, skipping ones it already visits, and report the result. */
-  addStopsToRoute: (routeId: string, nodeIds: string[]) => void;
-  addStopsToActiveRoute: (nodeIds: string[]) => void;
+  addStopsToRoute: (
+    routeId: string,
+    nodeIds: string[],
+    options?: Pick<AppendStopsOptions, "viewFor">,
+  ) => void;
+  addStopsToActiveRoute: (
+    nodeIds: string[],
+    options?: Pick<AppendStopsOptions, "viewFor">,
+  ) => void;
   moveStop: (locusId: string, toIndex: number) => void;
   removeStop: (locusId: string) => void;
-  undoRouteRemoval: () => void;
+  /** Save, replace, or (with null) remove the view a walk shows at this stop. */
+  setStopView: (locusId: string, view: StopView | null) => void;
+  setSaveStopViews: (on: boolean) => void;
+  /** Ask the canvas to show a stop: its saved view, or else its node. */
+  focusStop: (locusId: string) => void;
+  undoRouteChange: () => void;
   showRouteNotice: (message: string) => void;
   dismissRouteNotice: () => void;
   setRouteColor: (routeId: string, color: RouteColor) => void;
@@ -272,6 +292,7 @@ export type PalaceStore = {
   walkNext: () => void;
   walkPrev: () => void;
   setWalkIndex: (index: number) => void;
+  currentWalkStop: () => Locus | null;
   currentWalkNodeId: () => string | null;
   hydrateFromSnapshot: (
     s: PalaceSnapshot,
@@ -285,15 +306,16 @@ export type PalaceStore = {
 
 export const usePalaceStore = create<PalaceStore>((set, get) => {
   let draftTimer: ReturnType<typeof setTimeout> | null = null;
-  // Undo buffers for route edits; session-only and reset when another palace loads.
-  let lastStopRemoval: RemovedLocus[] | null = null;
+  // Undo for route edits; session-only and reset when another palace loads.
+  let pendingRouteUndo: (() => void) | null = null;
   const detachedStopsByNode = new Map<string, RemovedLocus[]>();
   let routeNoticeCounter = 0;
 
-  const pushRouteNotice = (message: string, canUndo = false) => {
-    if (!canUndo) lastStopRemoval = null;
+  /** Show a route notice; with `undo`, its Undo button runs that until the next notice. */
+  const pushRouteNotice = (message: string, undo?: () => void) => {
+    pendingRouteUndo = undo ?? null;
     routeNoticeCounter += 1;
-    set({ routeNotice: { id: routeNoticeCounter, message, canUndo } });
+    set({ routeNotice: { id: routeNoticeCounter, message, canUndo: !!undo } });
   };
 
   const activeRouteIdOf = (state: Pick<PalaceStore, "walkRouteId" | "routes">) =>
@@ -509,6 +531,25 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     }, DRAFT_SAVE_DELAY_MS);
   };
 
+  /** Put removed stops back, except those whose route has been deleted since. */
+  const restoreRemovedStops = (removed: RemovedLocus[]) => {
+    const { loci, routes } = get();
+    const routeIds = new Set(routes.map((route) => route.id));
+    const restorable = removed.filter((entry) =>
+      routeIds.has(entry.locus.routeId),
+    );
+    if (restorable.length === 0) return;
+    set({ loci: restoreLoci(loci, restorable) });
+    scheduleDraftSave();
+  };
+
+  const withStopView = (locus: Locus, view: StopView | null): Locus => {
+    const next = { ...locus };
+    if (view) next.view = view;
+    else delete next.view;
+    return next;
+  };
+
   return {
     palaces: [],
     trashedPalaces: [],
@@ -530,8 +571,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     appMode: "encode",
     comprehendCruxNodeId: null,
     focusNodeId: null,
+    focusView: null,
     routePanelOpen: false,
     routeNotice: null,
+    saveStopViews: loadSaveStopViews(),
     availableTags: [],
     activeTags: [],
     connect: { fromShapeId: null },
@@ -911,12 +954,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       ),
     setComprehendCruxNodeId: (comprehendCruxNodeId) =>
       set({ comprehendCruxNodeId }),
-    setFocusNodeId: (focusNodeId) => set({ focusNodeId }),
+    setFocusNodeId: (focusNodeId) => set({ focusNodeId, focusView: null }),
     encodeNode: (nodeId) =>
       set({
         appMode: "encode",
         comprehendCruxNodeId: null,
         focusNodeId: nodeId,
+        focusView: null,
       }),
     setRoutePanelOpen: (routePanelOpen) => set({ routePanelOpen }),
     setAvailableTags: (availableTags) => set({ availableTags }),
@@ -983,16 +1027,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       });
     },
 
-    addStopsToActiveRoute(nodeIds) {
+    addStopsToActiveRoute(nodeIds, options) {
       const routeId = activeRouteIdOf(get());
-      if (routeId) get().addStopsToRoute(routeId, nodeIds);
+      if (routeId) get().addStopsToRoute(routeId, nodeIds, options);
     },
 
-    addStopsToRoute(routeId, nodeIds) {
+    addStopsToRoute(routeId, nodeIds, options = {}) {
       const state = get();
       if (nodeIds.length === 0) return;
       if (!state.routes.some((route) => route.id === routeId)) return;
-      const result = appendStops(state.loci, routeId, nodeIds);
+      const result = appendStops(state.loci, routeId, nodeIds, {
+        viewFor: options.viewFor,
+      });
       if (result.added.length > 0) {
         set({ loci: result.loci });
         scheduleDraftSave();
@@ -1019,7 +1065,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             ? `${titleOf(skipped.nodeId)} is already stop ${skipped.position}`
             : `Added ${titleOf(nodeIds[0]!)} as stop ${
                 result.loci.filter((locus) => locus.routeId === routeId).length
-              }`,
+              }${result.added[0]?.view ? " with this view" : ""}`,
         );
         return;
       }
@@ -1048,23 +1094,53 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       scheduleDraftSave();
       const title =
         resolveNodeTitleForAnalytics(removed.locus.nodeId) || "Stop";
-      lastStopRemoval = [removed];
-      pushRouteNotice(`Removed ${title} (stop ${removed.index + 1})`, true);
+      pushRouteNotice(`Removed ${title} (stop ${removed.index + 1})`, () =>
+        restoreRemovedStops([removed]),
+      );
     },
 
-    undoRouteRemoval() {
-      const removal = lastStopRemoval;
-      lastStopRemoval = null;
+    setStopView(locusId, view) {
+      const stop = get().loci.find((locus) => locus.id === locusId);
+      if (!stop) return;
+      const previous = stop.view ?? null;
+      const apply = (next: StopView | null) => {
+        set((state) => ({
+          loci: state.loci.map((locus) =>
+            locus.id === locusId ? withStopView(locus, next) : locus,
+          ),
+        }));
+        scheduleDraftSave();
+      };
+      apply(view);
+      const number =
+        orderedLoci(
+          get().loci.filter((locus) => locus.routeId === stop.routeId),
+        ).findIndex((locus) => locus.id === locusId) + 1;
+      const message = !view
+        ? `Removed the saved view of stop ${number}`
+        : previous
+          ? `Replaced the view of stop ${number}`
+          : `Saved the view for stop ${number}`;
+      pushRouteNotice(message, () => {
+        if (get().loci.some((locus) => locus.id === locusId)) apply(previous);
+      });
+    },
+
+    setSaveStopViews(saveStopViews) {
+      set({ saveStopViews });
+      persistSaveStopViews(saveStopViews);
+    },
+
+    focusStop(locusId) {
+      const stop = get().loci.find((locus) => locus.id === locusId);
+      if (stop) set({ focusNodeId: stop.nodeId, focusView: stop.view ?? null });
+    },
+
+    undoRouteChange() {
+      const undo = pendingRouteUndo;
+      pendingRouteUndo = null;
       set({ routeNotice: null });
-      if (!removal) return;
-      const { loci, routes } = get();
-      const routeIds = new Set(routes.map((route) => route.id));
-      const restorable = removal.filter((entry) =>
-        routeIds.has(entry.locus.routeId),
-      );
-      if (restorable.length === 0) return;
-      set({ loci: restoreLoci(loci, restorable) });
-      scheduleDraftSave();
+      undo?.();
     },
 
     showRouteNotice(message) {
@@ -1072,7 +1148,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     dismissRouteNotice() {
-      lastStopRemoval = null;
+      pendingRouteUndo = null;
       set({ routeNotice: null });
     },
 
@@ -1128,15 +1204,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         (nodeId) => detachedStopsByNode.get(nodeId) ?? [],
       );
       for (const nodeId of nodeIds) detachedStopsByNode.delete(nodeId);
-      if (entries.length === 0) return;
-      const { loci, routes } = get();
-      const routeIds = new Set(routes.map((route) => route.id));
-      const restorable = entries.filter((entry) =>
-        routeIds.has(entry.locus.routeId),
-      );
-      if (restorable.length === 0) return;
-      set({ loci: restoreLoci(loci, restorable) });
-      scheduleDraftSave();
+      if (entries.length > 0) restoreRemovedStops(entries);
     },
 
     addLocusForSelectedRoute(nodeId: string, label = "") {
@@ -1816,20 +1884,23 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       noteWalkStepEntered(clamped > walkIndex ? "next" : "prev");
     },
 
-    currentWalkNodeId() {
+    currentWalkStop() {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return null;
       const list = orderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
       );
-      const loc = locusAtOrderedIndex(list, walkIndex);
-      return loc?.nodeId ?? null;
+      return locusAtOrderedIndex(list, walkIndex) ?? null;
+    },
+
+    currentWalkNodeId() {
+      return get().currentWalkStop()?.nodeId ?? null;
     },
 
     hydrateFromSnapshot(s, options) {
       clearDraftTimer();
-      lastStopRemoval = null;
+      pendingRouteUndo = null;
       detachedStopsByNode.clear();
       const normalizedLoci = normalizeLoci(s.loci);
       set((state) => ({

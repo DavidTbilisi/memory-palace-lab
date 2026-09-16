@@ -201,6 +201,87 @@ describe("RoutesPanel", () => {
     expect(store().toolMode).toBe("route");
   });
 
+  describe("saved views", () => {
+    const view = { x: -400, y: -300, w: 800, h: 600 };
+    let viewport = { x: -300, y: -250, w: 800, h: 600 };
+
+    function seedWithCanvas(stops: Locus[] = loci) {
+      const shapes = nodes.map((node, index) => ({
+        id: `shape:${index}`,
+        type: "geo",
+        meta: { mpNodeId: node.id, mpTitle: node.title },
+        props: {},
+        bounds: { x: index * 300, y: 0, w: 200, h: 100 },
+      }));
+      const editor = {
+        getCurrentPageShapeIds: () => new Set(shapes.map((shape) => shape.id)),
+        getShape: (id: string) => shapes.find((shape) => shape.id === id),
+        getShapePageBounds: (id: string) => shapes.find((shape) => shape.id === id)?.bounds,
+        getViewportPageBounds: () => viewport,
+      };
+      seed({ editorRef: editor as never, loci: stops });
+    }
+    const viewOf = (id: string) => store().loci.find((locus) => locus.id === id)?.view;
+
+    beforeEach(() => {
+      viewport = { x: -300, y: -250, w: 800, h: 600 };
+    });
+
+    it("saves the current view for a stop, then shows, replaces, or removes it", async () => {
+      const user = userEvent.setup();
+      seedWithCanvas();
+      render(<RoutesPanel />);
+
+      await user.click(screen.getByRole("button", { name: "Save the current view for stop 1, Front door" }));
+      expect(viewOf("l1")).toEqual(view);
+      expect(screen.getByRole("status")).toHaveTextContent("Saved the view for stop 1");
+
+      const saved = screen.getByRole("button", { name: "Saved view of stop 1, Front door" });
+      await user.click(saved);
+      await user.click(await screen.findByRole("menuitem", { name: "Show saved view" }));
+      expect(store()).toMatchObject({ focusNodeId: "n1", focusView: view });
+
+      viewport = { x: -100, y: -50, w: 400, h: 300 };
+      await user.click(saved);
+      await user.click(await screen.findByRole("menuitem", { name: "Replace with current view" }));
+      expect(viewOf("l1")).toEqual({ x: -200, y: -100, w: 400, h: 300 });
+
+      await user.click(saved);
+      await user.click(await screen.findByRole("menuitem", { name: "Remove saved view" }));
+      expect(store().loci.find((locus) => locus.id === "l1")).not.toHaveProperty("view");
+      await user.click(screen.getByRole("button", { name: "Undo" }));
+      expect(viewOf("l1")).toEqual({ x: -200, y: -100, w: 400, h: 300 });
+    });
+
+    it("asks for the node to be in sight before saving a view", async () => {
+      const user = userEvent.setup();
+      seedWithCanvas();
+      viewport = { x: 5000, y: 5000, w: 800, h: 600 };
+      render(<RoutesPanel />);
+
+      await user.click(screen.getByRole("button", { name: "Save the current view for stop 2, Coat hook" }));
+      expect(viewOf("l2")).toBeUndefined();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Move the canvas so Coat hook is in view, then save the view",
+      );
+    });
+
+    it("shows a stop in its saved view when the stop is clicked", () => {
+      seedWithCanvas(loci.map((locus) => (locus.id === "l3" ? { ...locus, view } : locus)));
+      render(<RoutesPanel />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Kitchen sink" }));
+      expect(store()).toMatchObject({ focusNodeId: "n3", focusView: view });
+      fireEvent.click(screen.getByRole("button", { name: "Front door" }));
+      expect(store()).toMatchObject({ focusNodeId: "n1", focusView: null });
+    });
+
+    it("cannot take a view without the canvas", () => {
+      render(<RoutesPanel />);
+      expect(screen.getByRole("button", { name: "Save the current view for stop 1, Front door" })).toBeDisabled();
+    });
+  });
+
   it("follows live node titles and flags stops whose node left the canvas", () => {
     const shape = {
       id: "shape:1",
