@@ -102,6 +102,29 @@ describe("WalkModeBar — idle state", () => {
     fireEvent.click(screen.getByRole("button", { name: /toggle walk mode/i }));
     expect(mockFns.setWalkOpen).toHaveBeenCalledWith(true);
   });
+
+  it("picks the route to walk before the walk starts", () => {
+    const setWalkRoute = vi.fn();
+    mockState = buildState({
+      setWalkRoute,
+      routes: [
+        { id: "route-1", name: "Biology Route", palaceId: "palace-1" },
+        { id: "route-2", name: "Chemistry Route", palaceId: "palace-1", color: "amber" },
+      ],
+    });
+    render(<WalkModeBar />);
+
+    const picker = screen.getByRole("combobox", { name: "Walk route" });
+    expect(picker).toHaveValue("route-1");
+    fireEvent.change(picker, { target: { value: "route-2" } });
+    expect(setWalkRoute).toHaveBeenCalledWith("route-2");
+  });
+
+  it("hides the route picker when the palace has no routes", () => {
+    mockState = buildState({ routes: [], loci: [], walkRouteId: null });
+    render(<WalkModeBar />);
+    expect(screen.queryByRole("combobox", { name: "Walk route" })).toBeNull();
+  });
 });
 
 describe("WalkModeBar — walk active", () => {
@@ -124,6 +147,11 @@ describe("WalkModeBar — walk active", () => {
   it("shows route name", () => {
     render(<WalkModeBar />);
     expect(screen.getByText("Biology Route")).toBeInTheDocument();
+  });
+
+  it("keeps the route picker out of the way during a walk", () => {
+    render(<WalkModeBar />);
+    expect(screen.queryByRole("combobox", { name: "Walk route" })).toBeNull();
   });
 
   it("shows step counter", () => {

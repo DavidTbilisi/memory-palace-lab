@@ -72,6 +72,9 @@ pub struct RouteDto {
     pub id: String,
     pub palace_id: String,
     pub name: String,
+    /// Route color, visibility, and later display settings; decoded on the TypeScript side.
+    #[serde(default = "default_route_settings_json")]
+    pub settings_json: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -133,6 +136,10 @@ fn default_node_meta_json() -> String {
     "{}".to_string()
 }
 
+fn default_route_settings_json() -> String {
+    "{}".to_string()
+}
+
 fn default_payload_json() -> String {
     "{}".to_string()
 }
@@ -191,7 +198,9 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS routes (
             id TEXT PRIMARY KEY NOT NULL,
             palace_id TEXT NOT NULL REFERENCES palaces(id) ON DELETE CASCADE,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
+            sort_index INTEGER NOT NULL DEFAULT 0,
+            settings_json TEXT NOT NULL DEFAULT '{}'
         );
 
         CREATE TABLE IF NOT EXISTS loci (
@@ -313,6 +322,20 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         }
     }
     if let Err(err) = conn.execute("ALTER TABLE edges ADD COLUMN alias TEXT NOT NULL DEFAULT ''", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    // Route list order (routes used to load alphabetically) and route display settings.
+    // mcp-server/src/palaceDb.ts applies the same two columns when it opens the database.
+    if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -547,14 +570,17 @@ fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDt
 }
 
 fn load_routes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<RouteDto>> {
-    let mut stmt =
-        conn.prepare("SELECT id, palace_id, name FROM routes WHERE palace_id = ?1 ORDER BY name")?;
+    // Rows saved before sort_index existed all hold 0, so they keep their old alphabetical order.
+    let mut stmt = conn.prepare(
+        "SELECT id, palace_id, name, settings_json FROM routes WHERE palace_id = ?1 ORDER BY sort_index, name",
+    )?;
     let rows = stmt
         .query_map(params![palace_id], |r| {
             Ok(RouteDto {
                 id: r.get(0)?,
                 palace_id: r.get(1)?,
                 name: r.get(2)?,
+                settings_json: r.get(3)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -706,10 +732,10 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
         )?;
     }
 
-    for r in &snap.routes {
+    for (sort_index, r) in snap.routes.iter().enumerate() {
         tx.execute(
-            "INSERT INTO routes (id, palace_id, name) VALUES (?1, ?2, ?3)",
-            params![r.id, r.palace_id, r.name],
+            "INSERT INTO routes (id, palace_id, name, sort_index, settings_json) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![r.id, r.palace_id, r.name, sort_index as i64, r.settings_json],
         )?;
     }
 

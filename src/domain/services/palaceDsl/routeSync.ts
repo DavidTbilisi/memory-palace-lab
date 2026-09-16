@@ -48,8 +48,12 @@ export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResu
     nextRoutes.push(route);
 
     const prevForRoute = existing
-      ? currentLoci.filter((l) => l.routeId === existing.id)
+      ? currentLoci
+          .filter((l) => l.routeId === existing.id)
+          .sort((a, b) => a.orderIndex - b.orderIndex)
       : [];
+    // A node listed twice must map to two stops; reusing one locus id breaks the primary key.
+    const claimedLocusIds = new Set<string>();
 
     intentRoute.loci.forEach((title, idx) => {
       const nodeId = titleToNodeId.get(title);
@@ -67,7 +71,10 @@ export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResu
         });
         return;
       }
-      const matched = prevForRoute.find((l) => l.nodeId === nodeId);
+      const matched = prevForRoute.find(
+        (l) => l.nodeId === nodeId && !claimedLocusIds.has(l.id),
+      );
+      if (matched) claimedLocusIds.add(matched.id);
       const locus: Locus = matched
         ? { ...matched, orderIndex: idx }
         : {

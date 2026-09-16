@@ -146,6 +146,44 @@ describe("palaceDb", () => {
     expect(beta.imageUrl).toBe("https://example.com/x.png");
   });
 
+  it("keeps route order and route settings through save and load", () => {
+    const palace = createPalace(db, "Ordered");
+    const snap = makeSnapshot(palace.id, palace);
+    const routes = [
+      { id: "route-z", palaceId: palace.id, name: "Zulu", color: "rose" as const },
+      { id: "route-a", palaceId: palace.id, name: "Alpha", hidden: true },
+      { id: "route-m", palaceId: palace.id, name: "Mike" },
+    ];
+    saveSnapshot(db, { ...snap, routes, loci: [] });
+
+    expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
+  });
+
+  it("upgrades a database created before route order and settings existed", () => {
+    const legacyPath = join(dir, "legacy.sqlite3");
+    const legacy = openDb(legacyPath);
+    legacy.exec(`
+      CREATE TABLE palaces (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL,
+        alias TEXT, atlas_path TEXT, editor_snapshot TEXT, deleted_at TEXT, purge_at TEXT);
+      CREATE TABLE routes (id TEXT PRIMARY KEY NOT NULL, palace_id TEXT NOT NULL, name TEXT NOT NULL);
+      INSERT INTO routes (id, palace_id, name) VALUES ('r-b', 'p', 'Beta'), ('r-a', 'p', 'Alpha');
+    `);
+    legacy.close();
+
+    const upgraded = openDb(legacyPath);
+    try {
+      const rows = upgraded
+        .prepare("SELECT id, sort_index, settings_json FROM routes ORDER BY sort_index, name")
+        .all();
+      expect(rows).toEqual([
+        { id: "r-a", sort_index: 0, settings_json: "{}" },
+        { id: "r-b", sort_index: 0, settings_json: "{}" },
+      ]);
+    } finally {
+      upgraded.close();
+    }
+  });
+
   it("save is delete-and-reinsert: removed rows disappear", () => {
     const palace = createPalace(db, "P");
     const snap = makeSnapshot(palace.id, palace);

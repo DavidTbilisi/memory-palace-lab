@@ -1,7 +1,13 @@
 import type { ToolMode, PalacePersistenceState } from "../../store/palaceStore";
 
 export type ContextTipSelectedKind = "node" | "portal" | "edge" | null;
-export type ContextTipAction = "open_learn" | "open_library" | "create_node" | "connect_mode" | "start_walk";
+export type ContextTipAction =
+  | "open_learn"
+  | "open_library"
+  | "create_node"
+  | "connect_mode"
+  | "build_route"
+  | "start_walk";
 
 export type ContextualTipContext = {
   hasPalace: boolean;
@@ -33,6 +39,9 @@ export function buildPrimaryContextHint(context: ContextualTipContext) {
   if (context.toolMode === "connect") {
     return "Connect mode is live: click a source node, then a target node to define a CAST edge.";
   }
+  if (context.toolMode === "route") {
+    return "Route mode is on: click nodes in the order you want to walk them. Press Esc when the route is done.";
+  }
   if (context.selectedKind === "portal") {
     return "Portal selected: point it to another palace or route in the inspector to make it useful.";
   }
@@ -43,10 +52,10 @@ export function buildPrimaryContextHint(context: ContextualTipContext) {
     return "These nodes are still isolated. Connect them with CAST so the graph carries meaning, not just labels.";
   }
   if (context.routeCount === 0) {
-    return "Create a route to turn this graph into an ordered recall path, not just a loose concept map.";
+    return "Press Route and click nodes in order to turn this graph into a recall path, not just a loose concept map.";
   }
   if (context.routeCount > 0 && context.locusCount === 0) {
-    return "Select a node and add it to the active route to create the first locus.";
+    return "Press Route, then click nodes in walk order to give the route its first stops.";
   }
   if (context.locusCount > 0 && !context.walkOpen) {
     return "Turn Walk on to rehearse the route and test whether the sequence actually sticks.";
@@ -107,19 +116,19 @@ export function buildEligibleContextTips(context: ContextualTipContext) {
     tips.push({
       id: "create-first-route",
       title: "Build a recall path early",
-      body: "Routes turn a graph into a memory journey. Create one path before adding too many more nodes.",
-      action: "open_library",
-      librarySection: "start",
-      librarySlug: "lessons",
-      ctaLabel: "Show route lesson",
+      body: "Routes turn a graph into a memory journey. Click your nodes in walk order before adding many more.",
+      action: "build_route",
+      ctaLabel: "Build a route",
     });
   }
 
   if (context.routeCount > 0 && context.locusCount === 0) {
     tips.push({
       id: "add-first-locus",
-      title: "Routes need loci to become usable",
-      body: "Select a node on the canvas, then add it to the active route. Until that happens, walk mode has nothing to rehearse.",
+      title: "Routes need stops to become usable",
+      body: "Turn on Route mode and click nodes in the order you want to recall them. Until then, walk mode has nothing to rehearse.",
+      action: "build_route",
+      ctaLabel: "Add stops",
     });
   }
 

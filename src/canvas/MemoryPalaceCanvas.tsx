@@ -15,9 +15,18 @@ import {
   diffSceneAnalyticsSnapshots,
 } from "./analyticsSceneSnapshot";
 import { isBackgroundShape } from "./backgroundImage";
+import { RouteBuildBanner } from "../components/RouteBuildBanner";
 import { createGeoMemoryNode } from "./createMemoryShapes";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
+import { RouteOverlay } from "./RouteOverlay";
+import {
+  liveMemoryNodeIds,
+  memoryNodeIdAt,
+  memoryNodeIdsInRecords,
+  viewportBoxesByNode,
+} from "./routeCanvas";
+import type { NodeBox } from "./routeOverlayGeometry";
 import { detectMotifs } from "../domain/services/cast/castMotifs";
 import {
   MOTIF_ROLE_VISUALS,
@@ -142,6 +151,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   );
   const [imageBackgrounds, setImageBackgrounds] = useState<ImageBackground[]>(
     [],
+  );
+  const [nodeBoxes, setNodeBoxes] = useState<ReadonlyMap<string, NodeBox>>(
+    () => new Map(),
   );
 
   const palaceNodes = usePalaceStore((s) => s.nodes);
@@ -304,6 +316,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     setImageBackgrounds(backgrounds);
   }, []);
 
+  const recomputeNodeBoxes = useCallback(() => {
+    const editor = editorRef.current;
+    setNodeBoxes(editor ? viewportBoxesByNode(editor) : new Map());
+  }, []);
+
   const queueBadgeRefresh = useCallback(() => {
     if (badgeFrameRef.current !== null) return;
     badgeFrameRef.current = window.requestAnimationFrame(() => {
@@ -312,8 +329,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       recomputeMotifBadges();
       recomputeDifficultyBadges();
       recomputeImageBackgrounds();
+      recomputeNodeBoxes();
     });
   }, [
+    recomputeNodeBoxes,
     recomputePortalBadges,
     recomputeMotifBadges,
     recomputeDifficultyBadges,
@@ -347,6 +366,18 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [setAvailableTags]);
 
+  // A double click arrives as two pointer_ups on the same node; add that stop once, quietly.
+  // Returns false for that quiet repeat.
+  const lastCanvasStopRef = useRef<{ nodeId: string; at: number } | null>(null);
+  const addStopFromCanvas = useCallback((nodeId: string) => {
+    const now = Date.now();
+    const last = lastCanvasStopRef.current;
+    if (last && last.nodeId === nodeId && now - last.at < 600) return false;
+    lastCanvasStopRef.current = { nodeId, at: now };
+    usePalaceStore.getState().addStopsToActiveRoute([nodeId]);
+    return true;
+  }, []);
+
   const openPortalDestination = useCallback(async (meta: MemoryPalaceMeta) => {
     const portal = portalRefFromMeta(meta);
     if (!portal?.targetPalaceId) return;
@@ -372,8 +403,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             hitInside: true,
             margin: 8,
           });
+          const building = usePalaceStore.getState().toolMode === "route";
           if (!hit) {
-            createGeoMemoryNode(editor, palaceId, point);
+            const created = createGeoMemoryNode(editor, palaceId, point);
+            // In Route mode a node made on the fly is the next stop.
+            if (building) addStopFromCanvas(created.nodeId);
             return;
           }
           const hitShape = editor.getShape(hit.id);
@@ -384,24 +418,26 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             return;
           }
           if (!isGeoMemory(hitShape)) {
-            createGeoMemoryNode(editor, palaceId, point);
+            const created = createGeoMemoryNode(editor, palaceId, point);
+            if (building) addStopFromCanvas(created.nodeId);
             return;
           }
 
           const hitMeta = (hitShape.meta ?? {}) as MemoryPalaceMeta;
           const hitKind = nodeKindFromMeta(hitMeta);
-          if (hitKind === "portal") {
+          // Route mode is for picking stops, not for travelling through portals.
+          if (hitKind === "portal" && !building) {
             void openPortalDestination(hitMeta);
           }
         }
 
         if (info.type === "pointer" && info.name === "pointer_up") {
           const st = usePalaceStore.getState();
-          if (st.toolMode !== "connect") return;
+          if (st.toolMode !== "connect" && st.toolMode !== "route") return;
           if (editor.inputs.getIsDragging() || editor.inputs.getIsPanning())
             return;
 
-          // Connect mode should react to intentional clicks, not drags.
+          // Connect and Route modes react to intentional clicks, not drags.
           const origin = editor.inputs.getOriginPagePoint();
           const current = editor.inputs.getCurrentPagePoint();
           const movement = Math.hypot(
@@ -411,6 +447,19 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           if (movement > 6) return;
 
           const point = editor.inputs.currentPagePoint;
+          if (st.toolMode === "route") {
+            if (st.walkOpen) return;
+            const nodeId = memoryNodeIdAt(editor, point);
+            if (!nodeId) return;
+            // tldraw has already handled this click and may have opened the node's label for
+            // editing (it keeps editing when you click from label to label); a stop click
+            // should only pick the stop. The quiet repeat of a double click keeps editing.
+            if (addStopFromCanvas(nodeId) && editor.getEditingShapeId()) {
+              editor.complete();
+            }
+            return;
+          }
+
           const hitId = editor.getShapeAtPoint(point, {
             hitInside: true,
             margin: 8,
@@ -456,8 +505,25 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       );
 
       const unsubDraft = editor.store.listen(
-        () => {
+        (entry) => {
           if (usePalaceStore.getState().currentPalace?.id !== palaceId) return;
+          // Deleting a node takes its stops out of every route; undoing the delete puts them back.
+          const removedNodeIds = memoryNodeIdsInRecords(
+            Object.values(entry.changes.removed),
+          );
+          if (removedNodeIds.length > 0) {
+            const live = liveMemoryNodeIds(editor);
+            const gone = removedNodeIds.filter((nodeId) => !live.has(nodeId));
+            if (gone.length > 0) {
+              usePalaceStore.getState().detachStopsForNodes(gone);
+            }
+          }
+          const addedNodeIds = memoryNodeIdsInRecords(
+            Object.values(entry.changes.added),
+          );
+          if (addedNodeIds.length > 0) {
+            usePalaceStore.getState().reattachStopsForNodes(addedNodeIds);
+          }
           const nextSnapshot = captureSceneAnalyticsSnapshot(editor);
           const analyticsDiff = diffSceneAnalyticsSnapshots(
             lastSceneSnapshotRef.current,
@@ -499,6 +565,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       };
     },
     [
+      addStopFromCanvas,
       openPortalDestination,
       palaceId,
       queueBadgeRefresh,
@@ -561,6 +628,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     loci,
     clearActiveTags,
   ]);
+
+  // Entering Route mode ends any label edit, so clicks pick stops and Escape leaves the mode.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (toolMode === "route" && editor?.getEditingShapeId()) editor.complete();
+  }, [toolMode]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -708,6 +781,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           />
         ))}
       </div>
+      <RouteOverlay boxes={nodeBoxes} />
+      <RouteBuildBanner />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button

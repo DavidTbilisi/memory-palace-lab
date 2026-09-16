@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Footprints } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
+import { routeColorHex } from "../domain/services/routeBuilder";
 import { orderedLoci } from "../domain/services/walkService";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { RecallRating } from "../domain/entities/types";
@@ -117,6 +118,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const setWalkIndex = usePalaceStore((s) => s.setWalkIndex);
   const routes = usePalaceStore((s) => s.routes);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
+  const setWalkRoute = usePalaceStore((s) => s.setWalkRoute);
   const loci = usePalaceStore((s) => s.loci);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const editorRef = usePalaceStore((s) => s.editorRef);
@@ -129,7 +131,9 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   );
   const count = currentRouteLoci.length;
   const currentLocus = currentRouteLoci[walkIndex] ?? null;
-  const routeName = routes.find((route) => route.id === effectiveRouteId)?.name ?? "No route";
+  const routeIndex = routes.findIndex((route) => route.id === effectiveRouteId);
+  const route = routeIndex >= 0 ? routes[routeIndex]! : null;
+  const routeColor = route ? routeColorHex(route, routeIndex) : undefined;
 
   const nodeState = useMemo(
     () => resolveCurrentNodeReviewState(currentLocus?.nodeId ?? null, editorRef, snapshotNodes),
@@ -222,6 +226,26 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
         <Footprints className="h-4 w-4" />
         Walk {walkOpen ? "on" : "off"}
       </Button>
+      {/* Picked before a walk; during one the bar needs its width for the cue. */}
+      {routes.length > 0 && !walkOpen ? (
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: routeColor }} />
+          <select
+            aria-label="Walk route"
+            value={effectiveRouteId ?? ""}
+            onChange={(event) => setWalkRoute(event.target.value || null)}
+            onMouseEnter={() => onHoverHintChange?.("Route to walk: Walk on starts at its first stop.")}
+            onMouseLeave={() => onHoverHintChange?.(null)}
+            className="h-8 max-w-44 truncate rounded-md border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100"
+          >
+            {routes.map((route) => (
+              <option key={route.id} value={route.id}>
+                {route.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       {walkOpen ? (
         <>
           <Button
@@ -253,9 +277,9 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
               <span className="rounded bg-violet-700/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-100">
                 {walkRecallMode ? "Recall-first" : "Walk active"}
               </span>
-              <span className="hidden min-w-0 max-w-48 items-center rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300 sm:inline-flex">
-                Route:
-                <span className="ml-1 truncate">{routeName}</span>
+              <span className="hidden min-w-0 max-w-48 items-center gap-1.5 rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300 sm:inline-flex">
+                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: routeColor }} />
+                <span className="truncate">{route?.name ?? "No route"}</span>
               </span>
               <span className="rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">
                 Step {count ? walkIndex + 1 : 0}/{count}

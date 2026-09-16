@@ -37,6 +37,7 @@ export function ContextualTipCard({
   const editorRef = usePalaceStore((s) => s.editorRef);
   const currentPalace = usePalaceStore((s) => s.currentPalace);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
+  const setRouteBuilding = usePalaceStore((s) => s.setRouteBuilding);
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const [currentTip, setCurrentTip] = useState<ContextualTip | null>(null);
   const [lastTipId, setLastTipId] = useState<string | null>(null);
@@ -119,6 +120,10 @@ export function ContextualTipCard({
     }
     if (tip.action === "connect_mode") {
       setToolMode("connect");
+      return;
+    }
+    if (tip.action === "build_route") {
+      setRouteBuilding(true);
       return;
     }
     if (tip.action === "start_walk") {

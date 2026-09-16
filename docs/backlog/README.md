@@ -90,3 +90,13 @@ Ranked by the same ROI logic as `01`–`08`:
 `wiki/assets/confusion-map-fr-seed.json` in the wiki repo. Treat it as ranked alongside `12`
 rather than after `08`.
 
+## Workflow Items
+
+16. [Information Architecture](./16-information-architecture.feature)
+    Why: reference content was split across five unlinked surfaces. Delivered 2026-09.
+
+17. [Route Builder](./17-route-builder.feature)
+    Why: the route is the walk order every review depends on, yet building one took two
+    clicks per stop and routes were invisible on the canvas. Part 1 (builder) ships first;
+    part 2 adds walk direction, review settings, notes, sections, and DSL/MCP support.
+

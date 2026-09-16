@@ -38,7 +38,7 @@ Leave it blank if you don't need grouping.
 |------|-----------------------|
 | **Select** (default) | Click to select a node or edge; drag to pan. |
 | **Connect** | Step 1: click source node (locks it, glows). Step 2: click target node → CAST edge dialog opens. |
-| **Route** | Click nodes in order to append them to the active route. |
+| **Route** | Click nodes in order to append them to the active route (created if the palace has none). Double-clicking empty canvas adds a new node as the next stop. **Done** or Esc ends Route mode. |
 
 Double-click empty canvas → creates a new node at that position.
 
@@ -56,7 +56,16 @@ Double-click empty canvas → creates a new node at that position.
 
 **New portal** — create a node, open the Node Inspector (right panel), set Kind → Portal, then pick the target palace (and optionally a route + node within it).
 
-**New route** — Routes panel → New route → switch to Route mode → click nodes in walk order.
+**New route** — press **Route** in the toolbar (or **New route** in the Routes tab), then click nodes in walk order. Each stop gets a number on the canvas and the route is drawn as arrows in its color.
+
+**Editing routes** — the **Routes** tab beside the Node Inspector lists every route:
+- Click a route to make it active; double-click its name (or use the ⋯ menu) to rename it.
+- The color dot changes the route's color; the eye hides or shows it on the canvas.
+- Drag a stop's handle (or focus it and use the arrow keys) to move it. Click a stop to jump to its node; double-click to give the stop its own label (leave it empty to follow the node's title).
+- Removing a stop can be undone from the message that follows. Deleting a node removes its stops; undoing the delete brings them back.
+- **Add selected** appends the nodes selected on the canvas, in selection order, left to right, top to bottom, or as the shortest walk.
+
+The Node Inspector's **Routes** section lists the routes a node is on and can add it to another.
 
 ---
 
@@ -75,7 +84,7 @@ Atlas tab → Graph button shows all palaces as circles with directed edges for 
 
 ## Review (walk mode)
 
-Routes tab → select a route → Start walk.
+Pick a route in the walk bar → **Walk on** (or press the footprints button on a route in the Routes tab).
 
 - Cards show the node title as cue; reveal shows content.
 - Rate: Again / Hard / Good / Easy → updates the locus interval (spaced repetition).

@@ -92,6 +92,34 @@ describe("reconcileRoutes", () => {
     expect(result.deleted).toEqual({ routes: 1, loci: 1 });
   });
 
+  it("gives a node listed twice two distinct stops and keeps route settings", () => {
+    counter = 0;
+    const currentRoute: MemoryRoute = { id: "r-1", palaceId: PALACE_ID, name: "Loop", color: "rose", hidden: true };
+    const currentLoci: Locus[] = [
+      { id: "l-a1", routeId: "r-1", nodeId: "node-a", orderIndex: 0, label: "start" },
+      { id: "l-b", routeId: "r-1", nodeId: "node-b", orderIndex: 1, label: "" },
+      { id: "l-a2", routeId: "r-1", nodeId: "node-a", orderIndex: 2, label: "end" },
+    ];
+
+    const result = reconcileRoutes({
+      palaceId: PALACE_ID,
+      currentRoutes: [currentRoute],
+      currentLoci,
+      intent: [dslRoute("Loop", ["A", "B", "A", "A"])],
+      titleToNodeId: new Map([
+        ["A", "node-a"],
+        ["B", "node-b"],
+      ]),
+      uuid,
+    });
+
+    expect(result.routes).toEqual([currentRoute]);
+    expect(result.loci.map((l) => l.id)).toEqual(["l-a1", "l-b", "l-a2", "id-1"]);
+    expect(new Set(result.loci.map((l) => l.id)).size).toBe(4);
+    expect(result.loci.map((l) => l.label)).toEqual(["start", "", "end", ""]);
+    expect(result.added).toEqual({ routes: 0, loci: 1 });
+  });
+
   it("emits a diagnostic for a locus referring to an unknown title and skips it", () => {
     const result = reconcileRoutes({
       palaceId: PALACE_ID,
