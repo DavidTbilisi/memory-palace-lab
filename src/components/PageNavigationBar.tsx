@@ -55,10 +55,18 @@ export function PageNavigationBar({
                 )
               }
               onMouseLeave={() => onHoverHintChange(null)}
-              className="relative gap-1.5"
+              className="group relative gap-1.5"
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{label}</span>
+              <span
+                className={
+                  active
+                    ? "text-xs leading-none"
+                    : "text-[0px] leading-none transition-[font-size] group-hover:text-xs"
+                }
+              >
+                {label}
+              </span>
               {group === "review" && dueCount > 0 ? (
                 <span
                   aria-label={`${dueCount} loci due for review`}

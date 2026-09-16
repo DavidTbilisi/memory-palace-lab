@@ -229,7 +229,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
-      <div className="border-b border-zinc-800 p-2">
+      <div className="border-b border-zinc-800/50 p-2">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Palaces
@@ -288,7 +288,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
       </div>
 
       {currentPalace ? (
-        <div className="border-b border-zinc-800 p-2">
+        <div className="border-b border-zinc-800/50 p-2">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Current palace
           </div>

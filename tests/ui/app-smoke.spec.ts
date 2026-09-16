@@ -259,6 +259,43 @@ test("palace background can be set, adjusted, locked, replaced, and removed", as
   expect(await countNodeShapes(page)).toBe(nodeCount);
 });
 
+/** Nodes in the store's last saved snapshot; a draft save refreshes it. */
+function countSnapshotNodes(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    return (store.getState() as { nodes: unknown[] }).nodes.length;
+  });
+}
+
+test("node content format bar shows while editing and formats the selection", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /create tutorial palace/i }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+
+  await page.locator(".tl-canvas").dblclick({ position: { x: 240, y: 200 } });
+  await expect(page.locator("#mp-title")).toHaveValue("New node");
+  // The draft save after creating a node re-syncs the inspector from the canvas; let it land first.
+  await expect.poll(() => countSnapshotNodes(page)).toBe(1);
+
+  const content = page.locator("#mp-content");
+  const bold = page.getByRole("button", { name: "Bold", exact: true });
+  await expect(bold).toHaveCount(0);
+
+  await content.click();
+  await expect(bold).toBeVisible();
+  await page.keyboard.type("Bold me");
+  await page.keyboard.press("Shift+Home");
+  await bold.click();
+  await expect(content.locator("b, strong")).toHaveText("Bold me");
+  await expect(bold).toBeVisible();
+
+  // Leaving the editor hides the bar and keeps the formatting.
+  await page.locator("#mp-title").click();
+  await expect(bold).toHaveCount(0);
+  await expect(content.locator("b, strong")).toHaveText("Bold me");
+});
+
 const SOLID_CITADEL_DSL = `@SOLID Citadel
 @atlas /engineering/oop
 
