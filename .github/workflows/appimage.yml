@@ -69,6 +69,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     container: fedora:44
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
 
@@ -83,19 +86,14 @@ jobs:
           gtk3 mesa-dri-drivers mesa-libEGL mesa-libGL mesa-libgbm dejavu-sans-fonts
           /usr/bin/Xvfb /usr/bin/dbus-run-session /usr/bin/pgrep /usr/bin/setsid
 
-      - name: Load Fedora's Mesa next to the AppImage libraries
+      - name: Check the libraries of the AppImage with the bundled display libraries
         run: |
-          for kind in bundled unbundled; do
-            dir="$(mktemp -d)"
-            image="$(realpath appimages/$kind/*.AppImage)"
-            chmod +x "$image"
-            (cd "$dir" && "$image" --appimage-extract > /dev/null)
-            echo "== $kind: $(cd "$dir/squashfs-root" && find . -name 'libwayland-*' -o -name 'libxkbcommon*' -o -name 'libxcb-*' -o -name 'libXau*' -o -name 'libXdmcp*' | sort | tr '\n' ' ')"
-            for lib in /usr/lib64/libEGL_mesa.so.0 /usr/lib64/libgallium-*.so; do
-              echo "-- $lib, AppImage libraries first:"
-              LD_LIBRARY_PATH="$dir/squashfs-root/usr/lib" ldd -r "$lib" 2>&1 | grep -E "undefined symbol|not found|squashfs-root" || echo "   everything comes from the host"
-            done
-          done
+          if bash scripts/linux/check-appimage-libs.sh appimages/bundled/*.AppImage; then
+            echo "::warning::Fedora's Mesa links against the bundled display libraries, so this job cannot show that removing them helps."
+          fi
+
+      - name: Check the libraries of the AppImage without them
+        run: bash scripts/linux/check-appimage-libs.sh appimages/unbundled/*.AppImage
 
       - name: Start the AppImage with the bundled display libraries
         run: |
@@ -110,4 +108,4 @@ jobs:
         # The workaround for AppImages released before the libraries were removed.
         run: >
           bash scripts/linux/smoke-appimage.sh appimages/bundled/*.AppImage
-          LD_PRELOAD=/usr/lib64/libwayland-client.so.0:/usr/lib64/libwayland-cursor.so.0:/usr/lib64/libwayland-egl.so.1:/usr/lib64/libwayland-server.so.0:/usr/lib64/libxkbcommon.so.0:/usr/lib64/libxcb-randr.so.0:/usr/lib64/libxcb-render.so.0:/usr/lib64/libxcb-shm.so.0:/usr/lib64/libXau.so.6:/usr/lib64/libXdmcp.so.6
+          LD_PRELOAD=/usr/lib64/libwayland-client.so.0:/usr/lib64/libxcb-randr.so.0:/usr/lib64/libxcb-shm.so.0:/usr/lib64/libXau.so.6

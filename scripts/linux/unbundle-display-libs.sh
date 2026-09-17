@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# Takes the display libraries out of the Linux AppImage so it uses the host's copies,
-# then signs the AppImage again for the updater.
+# Takes the display libraries that Mesa loads out of the Linux AppImage, so the app uses
+# the host's copies, then signs the AppImage again for the updater.
 #
-# The AppImage is built on Ubuntu 22.04 and bundles that release's libwayland,
-# libxkbcommon, and a few libxcb/libX libraries. Mesa on newer systems (Fedora 44 ships
-# Mesa 26) cannot load next to those old copies, so WebKitWebProcess aborts on start with
-# "Could not create default EGL display: EGL_BAD_PARAMETER". Every desktop that can show
-# the app already has these libraries.
-# Upstream: https://github.com/tauri-apps/tauri/issues/15976
+# The AppImage is built on Ubuntu 22.04 and bundles that release's libwayland-client and a
+# few X11 libraries. The host's Mesa is loaded next to them, and Mesa on newer systems
+# needs newer versions: Fedora 44's Mesa 26 calls wl_display_create_queue_with_name, which
+# libwayland-client 1.20 lacks. EGL then fails to start, and WebKitWebProcess aborts with
+# "Could not create default EGL display: EGL_BAD_PARAMETER".
+# Every system with Mesa has these libraries, because Mesa needs them itself.
+# scripts/linux/check-appimage-libs.sh finds the libraries that matter.
+#
+# Upstream: https://github.com/tauri-apps/tauri/issues/15976. The list there also has
+# libraries Mesa does not load, such as libwayland-server. The bundled WebKit needs that
+# one, and a system without a Wayland compositor may not have it.
 #
 # Usage: unbundle-display-libs.sh [path/to/app.AppImage]
 #   Without an argument it takes the AppImage of the version in src-tauri/tauri.conf.json.
@@ -17,15 +22,9 @@ set -euo pipefail
 
 DISPLAY_LIBS=(
   libwayland-client.so.0
-  libwayland-cursor.so.0
-  libwayland-egl.so.1
-  libwayland-server.so.0
-  libxkbcommon.so.0
   libxcb-randr.so.0
-  libxcb-render.so.0
   libxcb-shm.so.0
   libXau.so.6
-  libXdmcp.so.6
 )
 
 image="${1:-}"
