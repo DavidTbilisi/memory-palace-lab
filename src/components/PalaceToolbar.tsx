@@ -41,55 +41,11 @@ type Props = {
 
 const IS_TAURI_RUNTIME = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-type ToolbarStatusPopoverProps = {
-  buttonLabel: string;
-  title: string;
-  summary: string;
-  detail: string;
-  icon: typeof MousePointer2;
-  dotClassName: string;
-};
-
 function formatStatusTime(isoTimestamp: string) {
   return new Date(isoTimestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function ToolbarStatusPopover({
-  buttonLabel,
-  title,
-  summary,
-  detail,
-  icon: Icon,
-  dotClassName,
-}: ToolbarStatusPopoverProps) {
-  return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          aria-label={buttonLabel}
-          className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/70 text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-        >
-          <Icon className="h-4 w-4" />
-          <span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${dotClassName}`} />
-        </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          sideOffset={8}
-          align="end"
-          className="z-50 w-[min(280px,88vw)] rounded-2xl border border-zinc-700/80 bg-zinc-950/96 p-3 shadow-[0_20px_70px_rgba(0,0,0,0.55)]"
-        >
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">{title}</div>
-          <div className="mt-2 text-sm font-medium text-zinc-100">{summary}</div>
-          <div className="mt-1 text-sm leading-6 text-zinc-400">{detail}</div>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  );
 }
 
 export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
@@ -151,14 +107,12 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
     : lastCheckpointSavedAt
       ? "Checkpoint saves are the deliberate version you are choosing to keep, separate from background recovery drafts."
       : "No deliberate checkpoint has been saved for this open palace in the current session.";
-  const autoSaveDotClassName =
-    !currentPalace ? "bg-zinc-500" : persistenceState === "dirty" || draftRestored ? "bg-amber-300" : "bg-emerald-300";
-  const checkpointDotClassName =
-    !currentPalace || !lastCheckpointSavedAt || persistenceState === "dirty" || persistenceState === "draft"
-      ? currentPalace
+  const compositeStatusDot =
+    !currentPalace
+      ? "bg-zinc-500"
+      : persistenceState === "dirty" || draftRestored || !lastCheckpointSavedAt || persistenceState === "draft"
         ? "bg-amber-300"
-        : "bg-zinc-500"
-      : "bg-emerald-300";
+        : "bg-emerald-300";
   const refreshFromDisk = async () => {
     await loadPalaces();
     const palace = usePalaceStore.getState().currentPalace;
@@ -197,7 +151,6 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 type="button"
                 title={needsCheckpoint ? "Checkpoint recommended" : "Save checkpoint intentionally"}
                 className={cn(
-                  "relative",
                   needsCheckpoint &&
                     "border border-amber-300/70 bg-amber-400 text-zinc-950 shadow-[0_0_0_1px_rgba(251,191,36,0.25),0_10px_24px_rgba(251,191,36,0.18)] hover:bg-amber-300",
                 )}
@@ -211,12 +164,6 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 }
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
-                {needsCheckpoint ? (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-200 ring-2 ring-zinc-950"
-                  />
-                ) : null}
                 <Icon className="h-4 w-4" />
                 <span className="hidden sm:inline">{needsCheckpoint ? "Checkpoint Now" : "Save Checkpoint"}</span>
               </Button>
@@ -519,30 +466,39 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
         </Popover.Root>
       )}
       <div className="ml-auto flex items-center gap-1.5 border-l border-zinc-800 pl-2">
-        <ToolbarStatusPopover
-          buttonLabel="Storage details"
-          title="Storage"
-          summary={storageSummary}
-          detail={storageDetail}
-          icon={HardDrive}
-          dotClassName="bg-sky-300"
-        />
-        <ToolbarStatusPopover
-          buttonLabel="Auto-save details"
-          title="Auto-save"
-          summary={autoSaveSummary}
-          detail={autoSaveDetail}
-          icon={RefreshCw}
-          dotClassName={autoSaveDotClassName}
-        />
-        <ToolbarStatusPopover
-          buttonLabel="Checkpoint details"
-          title="Checkpoint"
-          summary={checkpointSummary}
-          detail={checkpointDetail}
-          icon={Save}
-          dotClassName={checkpointDotClassName}
-        />
+        <DropdownMenu.Root modal={false}>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              aria-label="Storage and save status"
+              className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/70 text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            >
+              <HardDrive className="h-4 w-4" />
+              <span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${compositeStatusDot}`} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              sideOffset={8}
+              align="end"
+              className="z-50 w-[min(280px,88vw)] rounded-2xl border border-zinc-700/80 bg-zinc-950/96 p-3 shadow-[0_20px_70px_rgba(0,0,0,0.55)]"
+            >
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Storage</div>
+              <div className="mt-2 text-sm font-medium text-zinc-100">{storageSummary}</div>
+              <div className="mt-1 text-sm leading-6 text-zinc-400">{storageDetail}</div>
+              <div className="mt-3 border-t border-zinc-800/50 pt-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Auto-save</div>
+                <div className="mt-2 text-sm font-medium text-zinc-100">{autoSaveSummary}</div>
+                <div className="mt-1 text-sm leading-6 text-zinc-400">{autoSaveDetail}</div>
+              </div>
+              <div className="mt-3 border-t border-zinc-800/50 pt-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Checkpoint</div>
+                <div className="mt-2 text-sm font-medium text-zinc-100">{checkpointSummary}</div>
+                <div className="mt-1 text-sm leading-6 text-zinc-400">{checkpointDetail}</div>
+              </div>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
     </div>
   );

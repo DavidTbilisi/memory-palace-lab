@@ -37,6 +37,18 @@ describe("PageNavigationBar", () => {
     expect(onNavigate).toHaveBeenCalledWith("insights");
   });
 
+  it("expands only the active group's label and collapses the rest until hovered", () => {
+    const { container } = render(<PageNavigationBar currentPage="review" onNavigate={noop} onHoverHintChange={noop} />);
+    const labelOf = (group: string) => container.querySelector(`[data-nav-primary="${group}"] svg + span`);
+    expect(labelOf("review")?.className).toContain("text-xs");
+    // `text-[0px]`, not `text-[0]`: Tailwind reads a unitless arbitrary value as a color.
+    expect(labelOf("graph")?.className.split(" ")).toEqual(
+      expect.arrayContaining(["text-[0px]", "group-hover:text-xs"]),
+    );
+    // A collapsed label still names its button.
+    expect(screen.getByRole("button", { name: /^Graph/ })).toBeInTheDocument();
+  });
+
   it("publishes a hover hint on enter and clears it on leave", async () => {
     const onHoverHintChange = vi.fn();
     const user = userEvent.setup();

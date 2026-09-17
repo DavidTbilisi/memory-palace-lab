@@ -190,6 +190,7 @@ export function NodeInspector() {
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [formatBarVisible, setFormatBarVisible] = useState(false);
 
   useEffect(() => {
     if (palaces.length === 0) {
@@ -575,24 +576,40 @@ export function NodeInspector() {
         </div>
         <div>
           <Label htmlFor="mp-content">Content</Label>
-          <div className="mt-1 rounded-md border border-zinc-700 bg-zinc-900/70">
-            <div className="flex flex-wrap items-center gap-1 border-b border-zinc-800 px-2 py-1">
-              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("bold")}>
-                Bold
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("italic")}>
-                Italic
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("underline")}>
-                Underline
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertUnorderedList")}>
-                Bullets
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertOrderedList")}>
-                Numbered
-              </Button>
-            </div>
+          <div
+            className="mt-1 rounded-md border border-zinc-700 bg-zinc-900/70"
+            onFocus={() => setFormatBarVisible(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setFormatBarVisible(false);
+              }
+            }}
+          >
+            {formatBarVisible && (
+              // Keep focus and the selection in the editor on mouse press: a blur would
+              // save and re-render the content (dropping the selection) and, in WebKit,
+              // where buttons don't take focus on click, hide this bar before the click lands.
+              <div
+                className="flex flex-wrap items-center gap-1 border-b border-zinc-800 px-2 py-1"
+                onMouseDown={(event) => event.preventDefault()}
+              >
+                <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("bold")}>
+                  Bold
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("italic")}>
+                  Italic
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("underline")}>
+                  Underline
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertUnorderedList")}>
+                  Bullets
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => runFormatCommand("insertOrderedList")}>
+                  Numbered
+                </Button>
+              </div>
+            )}
             <div
               id="mp-content"
               ref={contentEditorRef}

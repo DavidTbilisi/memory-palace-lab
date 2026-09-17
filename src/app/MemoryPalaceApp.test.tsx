@@ -167,17 +167,13 @@ describe("MemoryPalaceApp - Header Navigation (#11)", () => {
       }
     });
 
-    it("should show compact status icons and reveal details on click", async () => {
+    it("should show one compact status icon that reveals storage, auto-save, and checkpoint details", async () => {
       const user = userEvent.setup();
       render(<MemoryPalaceApp />);
 
-      await user.click(screen.getByRole("button", { name: "Storage details" }));
+      await user.click(screen.getByRole("button", { name: "Storage and save status" }));
       expect(screen.getByText("Browser storage: local storage")).toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: "Auto-save details" }));
       expect(screen.getByText("Auto-save: idle")).toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: "Checkpoint details" }));
       expect(screen.getByText("Checkpoint: none")).toBeInTheDocument();
     });
   });

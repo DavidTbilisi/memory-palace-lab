@@ -580,13 +580,13 @@ export function MemoryPalaceApp() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="group flex min-w-0 items-center gap-3">
           <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">
             {title}
           </h1>
           <span
             title={`Memory Palace Lab v${APP_VERSION}`}
-            className="shrink-0 rounded border border-zinc-800 bg-zinc-900/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-zinc-500"
+            className="shrink-0 rounded border border-transparent px-1.5 py-0.5 text-[10px] font-medium leading-none text-transparent transition-colors group-hover:border-zinc-800 group-hover:bg-zinc-900/70 group-hover:text-zinc-500"
           >
             v{APP_VERSION}
           </span>
