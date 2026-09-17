@@ -15,6 +15,9 @@ jobs:
         include:
           - platform: ubuntu-22.04
             args: ""
+            # Takes the display libraries out of the AppImage after the build and signs it
+            # again; the bundled copies crash it on newer systems (scripts/linux/unbundle-display-libs.sh).
+            tauriScript: bash scripts/linux/tauri-build.sh
           - platform: windows-latest
             args: ""
           - platform: macos-latest
@@ -55,7 +58,8 @@ jobs:
             file \
             libssl-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            squashfs-tools
 
       - name: Install frontend dependencies
         run: npm ci
@@ -81,7 +85,7 @@ jobs:
             |----------|------|
             | Windows  | `.msi` or `.exe` |
             | macOS    | `.dmg` (universal — Intel + Apple Silicon) |
-            | Linux    | `.AppImage` or `.deb` |
+            | Linux    | `.AppImage`, `.deb`, or `.rpm` |
 
             ### Windows SmartScreen warning
             Windows may show an "unrecognized app" warning because the installer is not yet code-signed.
@@ -89,3 +93,5 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          # Empty on Windows and macOS, where tauri-action runs the Tauri CLI itself.
+          tauriScript: ${{ matrix.tauriScript }}
