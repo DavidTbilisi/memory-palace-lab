@@ -89,12 +89,15 @@ export function buildPalaceSnapshot(
     }
   }
 
+  // A stop whose node is gone has nothing to walk to (and violates loci.node_id on disk).
+  const nodeIds = new Set(nodes.map((node) => node.id));
+
   return {
     palace: { ...palace, editorSnapshot },
     canvasObjects,
     nodes,
     edges,
     routes,
-    loci,
+    loci: loci.filter((locus) => nodeIds.has(locus.nodeId)),
   };
 }

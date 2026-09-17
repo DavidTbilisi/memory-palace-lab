@@ -11,6 +11,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { NodeRouteMemberships } from "./NodeRouteMemberships";
 import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
@@ -503,7 +504,7 @@ export function NodeInspector() {
 
   if (!editorRef || !selectedShapeId) {
     return (
-      <div className="w-72 shrink-0 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
+      <div className="p-3 text-sm text-zinc-500">
         Select a memory node or edge to inspect its metadata.
       </div>
     );
@@ -512,7 +513,7 @@ export function NodeInspector() {
   const sh = editorRef.getShape(selectedShapeId as TLShapeId);
   if (!sh) {
     return (
-      <div className="w-72 shrink-0 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
+      <div className="p-3 text-sm text-zinc-500">
         Select a memory node or edge to inspect its metadata.
       </div>
     );
@@ -536,7 +537,7 @@ export function NodeInspector() {
     };
 
     return (
-      <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
           {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
@@ -661,6 +662,8 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
+        <NodeRouteMemberships nodeId={meta.mpNodeId} />
+
         {nextReviewInfo ? (
           <ReadOnlyMetaField
             id="mp-next-review"
@@ -761,7 +764,7 @@ export function NodeInspector() {
     const target = resolveNodeSummary(editorRef, resolvedEdge.targetNodeId, snapshotNodes);
 
     return (
-      <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Edge</div>
           {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
@@ -812,7 +815,7 @@ export function NodeInspector() {
   }
 
   return (
-    <div className="w-72 shrink-0 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
+    <div className="p-3 text-sm text-zinc-500">
       Not a memory node or edge. Select a node or arrow to inspect it.
     </div>
   );

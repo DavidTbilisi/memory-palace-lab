@@ -75,10 +75,18 @@ export interface MemoryEdge {
   castGh: string;
 }
 
+/** Palette for route paths and stop badges on the canvas. */
+export const ROUTE_COLORS = ["violet", "sky", "emerald", "amber", "rose", "cyan", "orange", "fuchsia"] as const;
+export type RouteColor = (typeof ROUTE_COLORS)[number];
+
 export interface MemoryRoute {
   id: string;
   palaceId: string;
   name: string;
+  /** Unset routes take a palette color from their position in the route list. */
+  color?: RouteColor | null;
+  /** Hidden routes are not drawn on the canvas. */
+  hidden?: boolean;
 }
 
 export interface Locus {
@@ -92,6 +100,19 @@ export interface Locus {
   nextReviewAt?: string;
   repetitions?: number;
   lastReviewedAt?: string | null;
+  /** What a walk shows at this stop; without one it zooms to the node. */
+  view?: StopView | null;
+}
+
+/**
+ * A stop's saved view: the page area that was visible, positioned relative to the center of
+ * the stop's node so the view moves with the node.
+ */
+export interface StopView {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export type AnalyticsEventGroup = "palace" | "graph" | "review" | "system";

@@ -129,9 +129,7 @@ export function MemoryPalaceApp() {
       const resolved = resolveNavigationTarget(target);
       setCurrentPage(resolved.page);
       if (resolved.openRoutePanel) {
-        const store = usePalaceStore.getState();
-        store.setRoutePanelOpen(true);
-        store.setToolMode("route");
+        usePalaceStore.getState().setRoutePanelOpen(true);
       }
     },
     [setCurrentPage],
@@ -300,7 +298,21 @@ export function MemoryPalaceApp() {
 
   const applyViewMode = (mode: ViewMode) => {
     applyShellViewMode(mode);
-    if (mode === "focus") setShowOnboarding(false);
+    if (mode === "focus") {
+      setShowOnboarding(false);
+      usePalaceStore.getState().setRoutePanelOpen(false);
+    }
+  };
+
+  // Opening the Routes tab (toolbar Route, palette, System) brings the side panel back;
+  // hiding the panel resets the tab so the next open can do that again.
+  const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
+  useEffect(() => {
+    if (routePanelOpen) setShowInspector(true);
+  }, [routePanelOpen, setShowInspector]);
+  const toggleSidePanel = () => {
+    if (showInspector) usePalaceStore.getState().setRoutePanelOpen(false);
+    setShowInspector(!showInspector);
   };
 
   useEffect(() => {
@@ -404,7 +416,7 @@ export function MemoryPalaceApp() {
         id: "page-routes",
         group: "Pages",
         title: "Open Graph: Routes",
-        subtitle: "Route panel beside the canvas",
+        subtitle: "Routes tab beside the canvas",
         keywords: "route editor loci walk order",
         onSelect: () => navigateToPage("routes"),
       },
@@ -608,7 +620,7 @@ export function MemoryPalaceApp() {
           settingsActive={currentPage === "settings"}
           onApplyViewMode={applyViewMode}
           onToggleSidebar={() => setShowSidebar((v) => !v)}
-          onToggleInspector={() => setShowInspector((v) => !v)}
+          onToggleInspector={toggleSidePanel}
           onToggleOnboarding={() => setShowOnboarding((v) => !v)}
           onHoverHintChange={setHoverHint}
         />

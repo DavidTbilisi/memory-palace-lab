@@ -1,4 +1,4 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, type MouseEvent as ReactMouseEvent } from "react";
 import { MemoryPalaceCanvas } from "../canvas/MemoryPalaceCanvas";
 import { usePalaceStore } from "../store/palaceStore";
 import { AssessBanner } from "./AssessBanner";
@@ -6,18 +6,28 @@ import { ComprehendOverlay } from "./ComprehendOverlay";
 import { ExternalChangeBanner } from "./ExternalChangeBanner";
 import { GraphEmptyState } from "./GraphEmptyState";
 import { NextUpCard } from "./NextUpCard";
-import { NodeInspector } from "./NodeInspector";
 import { PalaceDslEditor } from "./PalaceDslEditor";
 import { PalaceToolbar } from "./PalaceToolbar";
-import { RoutePanel } from "./RoutePanel";
+import { RightPanel } from "./RightPanel";
 import { WalkModeBar } from "./WalkModeBar";
 import type { AssessHint } from "./hooks/useAssessHint";
 
+/** Route messages fade on their own; one that offers Undo stays up longer. */
+function useRouteNoticeTimeout() {
+  const notice = usePalaceStore((s) => s.routeNotice);
+  const dismiss = usePalaceStore((s) => s.dismissRouteNotice);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(dismiss, notice.canUndo ? 8000 : 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice, dismiss]);
+}
+
 /**
- * The graph editing surface: toolbar, route panel, walk bar, optional Assess
- * banner, and the DSL-pane / canvas / inspector layout (or the empty state
- * when no palace is open). Stays mounted and is shown/hidden via `isActive` so
- * the canvas editor instance is preserved across page navigation.
+ * The graph editing surface: toolbar, walk bar, optional Assess banner, and the
+ * DSL-pane / canvas / side-panel layout (or the empty state when no palace is
+ * open). Stays mounted and is shown/hidden via `isActive` so the canvas editor
+ * instance is preserved across page navigation.
  */
 export function GraphWorkspace({
   isActive,
@@ -50,11 +60,11 @@ export function GraphWorkspace({
   const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
   const canvasReloadKey = usePalaceStore((s) => s.canvasReloadKey);
   const snap = currentPalace?.editorSnapshot;
+  useRouteNoticeTimeout();
 
   return (
     <section className={isActive ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
       <PalaceToolbar onHoverHintChange={onHoverHintChange} onOpenRepresent={onOpenRepresent} />
-      {routePanelOpen ? <RoutePanel onHoverHintChange={onHoverHintChange} /> : null}
       <WalkModeBar onHoverHintChange={onHoverHintChange} />
       <ExternalChangeBanner />
       {assessHint && currentPalace ? (
@@ -96,7 +106,7 @@ export function GraphWorkspace({
               editorSnapshot={snap}
             />
           </div>
-          {comprehendActive ? <ComprehendOverlay /> : showInspector ? <NodeInspector /> : null}
+          {comprehendActive ? <ComprehendOverlay /> : showInspector || routePanelOpen ? <RightPanel /> : null}
         </div>
       ) : (
         <GraphEmptyState

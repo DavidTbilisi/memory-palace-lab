@@ -4,6 +4,7 @@ import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 export const DRAFT_SAVE_DELAY_MS = 900;
 export const DAILY_REVIEW_GOAL_STORAGE_KEY = "mp-daily-review-goal";
 export const ATLAS_LEVEL_LABELS_STORAGE_KEY = "mp-atlas-level-labels";
+export const SAVE_STOP_VIEWS_STORAGE_KEY = "mp-route-save-views";
 export const DEFAULT_DAILY_REVIEW_GOAL = 10;
 
 export const RECALL_RATING_VALUES: Record<RecallRating, number> = {
@@ -68,6 +69,25 @@ export function saveAtlasLevelLabels(labels: readonly string[]) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(ATLAS_LEVEL_LABELS_STORAGE_KEY, JSON.stringify(labels));
+  } catch {
+    // Storage unavailable; the in-memory value still applies for this session.
+  }
+}
+
+/** Whether Route mode saves the current view with each stop. On unless the user turned it off. */
+export function loadSaveStopViews(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(SAVE_STOP_VIEWS_STORAGE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function persistSaveStopViews(on: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SAVE_STOP_VIEWS_STORAGE_KEY, on ? "on" : "off");
   } catch {
     // Storage unavailable; the in-memory value still applies for this session.
   }

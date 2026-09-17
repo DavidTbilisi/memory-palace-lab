@@ -11,6 +11,7 @@ import {
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import { THE_SYSTEM_PIPELINES } from "../content/theSystemPipelines";
+import { nextRouteColor, uniqueRouteName } from "../domain/services/routeBuilder";
 import { materializeTheSystemPipeline } from "../system/materializeTheSystemPipeline";
 import { usePalaceStore } from "../store/palaceStore";
 import { requestNavigation } from "../app/navigationEvents";
@@ -109,10 +110,17 @@ export function TheSystemWorkbench({ onOpenGuide }: Props = {}) {
       });
 
       const state = usePalaceStore.getState();
+      // Running a pipeline twice must not produce two routes with the same name.
+      const route = {
+        ...result.route,
+        name: uniqueRouteName(result.route.name, state.routes),
+        color: result.route.color ?? nextRouteColor(state.routes),
+      };
       replaceRoutesAndLoci(
-        [...state.routes, result.route],
+        [...state.routes, route],
         [...state.loci, ...result.loci],
       );
+      usePalaceStore.getState().setWalkRoute(route.id);
       usePalaceStore.setState({
         selectedShapeId: result.overviewShapeId,
       });

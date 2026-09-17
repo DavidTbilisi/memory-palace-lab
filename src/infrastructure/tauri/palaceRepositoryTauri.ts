@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { PalaceRepository } from "../../domain/repositories/palaceRepository";
 import type { AnalyticsEvent, Palace, PalaceSnapshot } from "../../domain/entities/types";
+import {
+  decodeRouteSettings,
+  decodeStopSettings,
+  encodeRouteSettings,
+  encodeStopSettings,
+} from "../../domain/services/routeSettings";
 
 /** Raw JSON matches Rust serde camelCase + `type` for canvas rows. */
 type InvokePalaceSnapshot = {
@@ -40,6 +46,7 @@ type InvokePalaceSnapshot = {
     id: string;
     palaceId: string;
     name: string;
+    settingsJson?: string;
   }>;
   loci: Array<{
     id: string;
@@ -52,6 +59,7 @@ type InvokePalaceSnapshot = {
     nextReviewAt?: string;
     repetitions?: number;
     lastReviewedAt?: string | null;
+    settingsJson?: string;
   }>;
 };
 
@@ -113,6 +121,7 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       id: r.id,
       palaceId: r.palaceId,
       name: r.name,
+      ...decodeRouteSettings(r.settingsJson),
     })),
     loci: raw.loci.map((l) => ({
       id: l.id,
@@ -125,6 +134,7 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       nextReviewAt: l.nextReviewAt,
       repetitions: l.repetitions,
       lastReviewedAt: l.lastReviewedAt ?? null,
+      ...decodeStopSettings(l.settingsJson),
     })),
   };
 }
@@ -163,10 +173,12 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       castEf: e.castEf,
       castGh: e.castGh,
     })),
+    // Array order is the saved route order (routes.sort_index).
     routes: s.routes.map((r) => ({
       id: r.id,
       palaceId: r.palaceId,
       name: r.name,
+      settingsJson: encodeRouteSettings(r),
     })),
     loci: s.loci.map((l) => ({
       id: l.id,
@@ -179,6 +191,7 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       nextReviewAt: l.nextReviewAt,
       repetitions: l.repetitions,
       lastReviewedAt: l.lastReviewedAt ?? null,
+      settingsJson: encodeStopSettings(l),
     })),
   };
 }

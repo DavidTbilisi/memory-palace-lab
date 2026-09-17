@@ -1,4 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  canvasView,
+  clickStops,
+  countSnapshotNodes,
+  createNamedNodes,
+  howCanvasShows,
+  nodeCenter,
+  openTutorialPalace,
+  routeSummary,
+  zoomTowardsNode,
+} from "./routeHelpers";
 
 /** Number of memory-node shapes on the current canvas, read through the dev store hook. */
 function countNodeShapes(page: Page): Promise<number> {
@@ -66,11 +77,14 @@ test("shell pages and layout workflow", async ({ page }) => {
   await page.locator(".tl-canvas").dblclick({ position: { x: 240, y: 200 } });
   await expect(page.locator("#mp-title")).toHaveValue("New node");
 
-  // The route panel is collapsed by default; the toolbar Route button shows it.
-  await page.locator('button[title="Show route panel"]').click();
-  await page.getByPlaceholder("Route name").fill("Smoke Route");
-  await page.getByRole("button", { name: /add route/i }).click();
-  await expect(page.getByLabel("Active route")).toContainText("Smoke Route");
+  // Routes live in a tab beside the inspector; a new route starts Route mode.
+  await page.getByRole("tab", { name: /Routes/ }).click();
+  await page.getByRole("button", { name: "Create route" }).click();
+  await expect(page.getByRole("region", { name: "Route Route 1" })).toBeVisible();
+  const banner = page.getByTestId("route-build-banner");
+  await expect(banner).toContainText("Click nodes in walk order");
+  await banner.getByRole("button", { name: "Done" }).click();
+  await expect(banner).toHaveCount(0);
 
   await page.locator('button[title="Focus mode"]').click();
   await expect(page.getByRole("heading", { name: "Palaces" })).toHaveCount(0);
@@ -259,15 +273,6 @@ test("palace background can be set, adjusted, locked, replaced, and removed", as
   expect(await countNodeShapes(page)).toBe(nodeCount);
 });
 
-/** Nodes in the store's last saved snapshot; a draft save refreshes it. */
-function countSnapshotNodes(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    return (store.getState() as { nodes: unknown[] }).nodes.length;
-  });
-}
-
 test("node content format bar shows while editing and formats the selection", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
@@ -294,6 +299,138 @@ test("node content format bar shows while editing and formats the selection", as
   await page.locator("#mp-title").click();
   await expect(bold).toHaveCount(0);
   await expect(content.locator("b, strong")).toHaveText("Bold me");
+});
+
+test("routes are built by clicking nodes, edited in the Routes tab, and drawn on the canvas", async ({ page }) => {
+  await openTutorialPalace(page);
+  const titles = ["Front door", "Hallway mirror", "Kitchen sink"];
+  await createNamedNodes(page, titles);
+  await expect.poll(async () => (await routeSummary(page)).length).toBe(0);
+
+  // Route mode: the toolbar button creates "Route 1" and each click adds the next stop.
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  const banner = page.getByTestId("route-build-banner");
+  await expect(banner).toContainText("Click nodes in walk order to build Route 1");
+  await clickStops(page, ["Front door", "Hallway mirror"]);
+  await expect(banner).toContainText("Added Hallway mirror as stop 2");
+  await clickStops(page, ["Front door"]);
+  await expect(banner).toContainText("Front door is already stop 1");
+  await clickStops(page, ["Kitchen sink"]);
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(titles);
+  const sink = await nodeCenter(page, "Kitchen sink");
+
+  const overlay = page.getByTestId("route-overlay");
+  await expect(overlay.locator("[data-route-stop]")).toHaveCount(3);
+  await expect(overlay.locator("[data-route-path] line")).toHaveCount(2);
+
+  await page.keyboard.press("Escape");
+  await expect(banner).toHaveCount(0);
+
+  // Reorder with the keyboard, then remove a stop and undo.
+  const routeCard = page.getByRole("region", { name: "Route Route 1" });
+  await routeCard.getByRole("button", { name: "Move stop 3, Kitchen sink", exact: true }).press("Home");
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual([
+    "Kitchen sink",
+    "Front door",
+    "Hallway mirror",
+  ]);
+  await routeCard.getByRole("button", { name: "Remove stop 2, Front door", exact: true }).click();
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(["Kitchen sink", "Hallway mirror"]);
+  await page.getByTestId("routes-panel").getByRole("button", { name: "Undo" }).click();
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual([
+    "Kitchen sink",
+    "Front door",
+    "Hallway mirror",
+  ]);
+
+  // Color and visibility.
+  await routeCard.getByRole("button", { name: "Color of Route 1: Violet" }).click();
+  await page.getByRole("menuitem", { name: "Emerald" }).click();
+  await expect(overlay.locator("[data-route-path]")).toHaveAttribute("stroke", "#34d399");
+  await routeCard.getByRole("button", { name: "Show Route 1 on the canvas" }).click();
+  await expect(overlay).toHaveCount(0);
+  await routeCard.getByRole("button", { name: "Show Route 1 on the canvas" }).click();
+  await expect(overlay).toHaveCount(1);
+
+  // A second route from the node inspector; the shared node carries both stop numbers.
+  await page.mouse.click(sink.x, sink.y);
+  await page.getByRole("tab", { name: "Node" }).click();
+  await expect(page.locator("#mp-title")).toHaveValue("Kitchen sink");
+  await page.getByRole("button", { name: "Add to route" }).click();
+  await page.getByRole("menuitem", { name: "New route starting here" }).click();
+  await expect.poll(() => routeSummary(page)).toEqual([
+    { name: "Route 1", color: "emerald", hidden: false, stops: ["Kitchen sink", "Front door", "Hallway mirror"] },
+    { name: "Route 2", color: "violet", hidden: false, stops: ["Kitchen sink"] },
+  ]);
+  await expect(overlay.locator("[data-route-stop]")).toHaveCount(4);
+
+  // Walk the first route from the walk bar.
+  await page.getByRole("combobox", { name: "Walk route" }).selectOption({ label: "Route 1" });
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await expect(page.getByText("Step 1/3")).toBeVisible();
+  await expect(page.locator("#walk-cue")).toHaveText("Kitchen sink");
+  await page.keyboard.press("Escape");
+
+  // Colors and order survive a checkpoint and a reload.
+  await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
+  await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Tutorial Palace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  await expect.poll(() => routeSummary(page)).toEqual([
+    { name: "Route 1", color: "emerald", hidden: false, stops: ["Kitchen sink", "Front door", "Hallway mirror"] },
+    { name: "Route 2", color: "violet", hidden: false, stops: ["Kitchen sink"] },
+  ]);
+});
+
+test("each stop keeps the view it was added in, and walks return to it", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["Gate", "Porch"]);
+
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  const banner = page.getByTestId("route-build-banner");
+  await expect(banner.getByRole("button", { name: "Save the view with each stop" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // Frame each stop before clicking it: close in on the gate, then pull back for the porch.
+  await zoomTowardsNode(page, "Gate", 3);
+  await clickStops(page, ["Gate"]);
+  await expect(banner).toContainText("Added Gate as stop 1 with this view");
+  const gateView = await canvasView(page);
+
+  await zoomTowardsNode(page, "Gate", -6);
+  await clickStops(page, ["Porch"]);
+  await expect(banner).toContainText("Added Porch as stop 2 with this view");
+  const porchView = await canvasView(page);
+  expect(porchView.zoom).toBeLessThan(gateView.zoom * 0.7);
+  await page.keyboard.press("Escape");
+
+  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it.
+  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await expect(page.getByText("Step 1/2")).toBeVisible();
+  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await page.getByRole("button", { name: "Next step" }).click();
+  await expect(page.getByText("Step 2/2")).toBeVisible();
+  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await page.keyboard.press("Escape");
+
+  // Clicking a stop in the Routes tab shows its view too, and the views survive a reload.
+  const routeCard = page.getByRole("region", { name: "Route Route 1" });
+  await routeCard.getByRole("button", { name: "Gate", exact: true }).click();
+  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+
+  await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
+  await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Tutorial Palace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  await page.getByRole("tab", { name: /Routes/ }).click();
+  const reloadedCard = page.getByRole("region", { name: "Route Route 1" });
+  await expect(reloadedCard.getByRole("button", { name: "Saved view of stop 2, Porch" })).toBeVisible();
+  await reloadedCard.getByRole("button", { name: "Porch", exact: true }).click();
+  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
 });
 
 const SOLID_CITADEL_DSL = `@SOLID Citadel

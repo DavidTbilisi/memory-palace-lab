@@ -52,8 +52,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
   const toolMode = usePalaceStore((s) => s.toolMode);
   const setToolMode = usePalaceStore((s) => s.setToolMode);
   const comprehendActive = usePalaceStore((s) => s.appMode === "comprehend");
-  const routePanelOpen = usePalaceStore((s) => s.routePanelOpen);
-  const setRoutePanelOpen = usePalaceStore((s) => s.setRoutePanelOpen);
+  const setRouteBuilding = usePalaceStore((s) => s.setRouteBuilding);
   const dslPaneOpen = usePalaceStore((s) => s.dslPaneOpen);
   const setDslPaneOpen = usePalaceStore((s) => s.setDslPaneOpen);
   const availableTags = usePalaceStore((s) => s.availableTags);
@@ -225,7 +224,6 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 }
                 onMouseLeave={() => onHoverHintChange?.(null)}
                 onClick={() => {
-                  setRoutePanelOpen(false);
                   if (!editorRef || !currentPalace) return;
                   const vp = editorRef.getViewportPageBounds();
                   createGeoMemoryNode(
@@ -249,23 +247,22 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
             );
           }
           if (t.id === "route") {
+            const building = toolMode === "route";
             return (
               <Button
                 key={t.id}
                 size="sm"
-                variant={routePanelOpen ? "default" : "secondary"}
+                variant={building ? "default" : "ghost"}
                 type="button"
-                title={routePanelOpen ? "Hide route panel" : "Show route panel"}
-                onClick={() => {
-                  const nextOpen = !routePanelOpen;
-                  setRoutePanelOpen(nextOpen);
-                  setToolMode(nextOpen ? "route" : "select");
-                }}
+                aria-pressed={building}
+                disabled={!currentPalace}
+                title={building ? "Stop adding stops (Esc)" : "Build a route: click nodes in walk order"}
+                onClick={() => setRouteBuilding(!building)}
                 onMouseEnter={() =>
                   onHoverHintChange?.(
-                    routePanelOpen
-                      ? "Route panel open: click to collapse and reclaim canvas space."
-                      : "Route panel collapsed: click to expand route and locus controls.",
+                    building
+                      ? "Route mode: each node you click becomes the next stop. Click Route again or press Esc to finish."
+                      : "Route: click nodes in the order you want to walk them. Creates a route if the palace has none.",
                   )
                 }
                 onMouseLeave={() => onHoverHintChange?.(null)}
@@ -284,10 +281,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                   variant={active ? "default" : "ghost"}
                   type="button"
                   title={t.label}
-                  onClick={() => {
-                    setRoutePanelOpen(false);
-                    setToolMode(t.id as ToolMode);
-                  }}
+                  onClick={() => setToolMode(t.id as ToolMode)}
                   onMouseEnter={() =>
                     onHoverHintChange?.(
                       active
@@ -356,17 +350,8 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
               variant={active ? "default" : "ghost"}
               type="button"
               title={t.label}
-              onClick={() => {
-                setRoutePanelOpen(false);
-                setToolMode(t.id as ToolMode);
-              }}
-              onMouseEnter={() =>
-                onHoverHintChange?.(
-                  t.id === "select"
-                    ? "Select: move/edit shapes and nodes."
-                    : "Route tool: build ordered memory paths with route controls.",
-                )
-              }
+              onClick={() => setToolMode(t.id as ToolMode)}
+              onMouseEnter={() => onHoverHintChange?.("Select: move/edit shapes and nodes.")}
               onMouseLeave={() => onHoverHintChange?.(null)}
             >
               <Icon className="h-4 w-4" />

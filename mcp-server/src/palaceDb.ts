@@ -13,6 +13,12 @@ import type {
   PalacePortalRef,
   PalaceSnapshot,
 } from "../../src/domain/entities/types";
+import {
+  decodeRouteSettings,
+  decodeStopSettings,
+  encodeRouteSettings,
+  encodeStopSettings,
+} from "../../src/domain/services/routeSettings";
 
 /**
  * Direct-SQLite port of src-tauri/src/db.rs combined with the row↔domain
@@ -71,7 +77,9 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE TABLE IF NOT EXISTS routes (
     id TEXT PRIMARY KEY NOT NULL,
     palace_id TEXT NOT NULL REFERENCES palaces(id) ON DELETE CASCADE,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    sort_index INTEGER NOT NULL DEFAULT 0,
+    settings_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS loci (
@@ -84,7 +92,8 @@ CREATE TABLE IF NOT EXISTS loci (
     ease_factor REAL NOT NULL DEFAULT 2.5,
     next_review_at TEXT,
     repetitions INTEGER NOT NULL DEFAULT 0,
-    last_reviewed_at TEXT
+    last_reviewed_at TEXT,
+    settings_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS analytics_events (
@@ -116,7 +125,30 @@ export function openDb(path: string): DatabaseSync {
   // ON DELETE SET NULL would wipe analytics node/route references on every save.
   const db = new DatabaseSync(path, { enableForeignKeyConstraints: false });
   db.exec("PRAGMA busy_timeout = 5000;");
+  upgradeSchema(db);
   return db;
+}
+
+/**
+ * Columns newer app versions add, applied here too so the server can read and write a
+ * database the desktop app has not opened since it was updated. Mirrors db.rs; each ALTER is
+ * skipped when the column (or, for a fresh file, the table) is not there to change.
+ */
+const COLUMN_UPGRADES = [
+  "ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
+  "ALTER TABLE loci ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
+];
+
+export function upgradeSchema(db: DatabaseSync): void {
+  for (const sql of COLUMN_UPGRADES) {
+    try {
+      db.exec(sql);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/duplicate column name|no such table/i.test(message)) throw error;
+    }
+  }
 }
 
 /** Creates the schema for fresh databases (tests). The app's DB already has it. */
@@ -304,13 +336,16 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
 
   const routes = (
     db
-      .prepare("SELECT id, palace_id, name FROM routes WHERE palace_id = ? ORDER BY name")
+      .prepare(
+        "SELECT id, palace_id, name, settings_json FROM routes WHERE palace_id = ? ORDER BY sort_index, name",
+      )
       .all(palaceId) as Row[]
   ).map(
     (r): MemoryRoute => ({
       id: str(r, "id"),
       palaceId: str(r, "palace_id"),
       name: str(r, "name"),
+      ...decodeRouteSettings(optStr(r, "settings_json")),
     }),
   );
 
@@ -318,7 +353,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
     db
       .prepare(
         `SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor,
-                l.next_review_at, l.repetitions, l.last_reviewed_at
+                l.next_review_at, l.repetitions, l.last_reviewed_at, l.settings_json
          FROM loci l
          INNER JOIN routes r ON r.id = l.route_id
          WHERE r.palace_id = ?
@@ -337,6 +372,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
       nextReviewAt: optStr(r, "next_review_at") ?? undefined,
       repetitions: num(r, "repetitions"),
       lastReviewedAt: optStr(r, "last_reviewed_at"),
+      ...decodeStopSettings(optStr(r, "settings_json")),
     }),
   );
 
@@ -415,14 +451,16 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
     );
   }
 
-  const insertRoute = db.prepare("INSERT INTO routes (id, palace_id, name) VALUES (?, ?, ?)");
-  for (const r of snap.routes) {
-    insertRoute.run(r.id, r.palaceId, r.name);
-  }
+  const insertRoute = db.prepare(
+    "INSERT INTO routes (id, palace_id, name, sort_index, settings_json) VALUES (?, ?, ?, ?, ?)",
+  );
+  snap.routes.forEach((r, sortIndex) => {
+    insertRoute.run(r.id, r.palaceId, r.name, sortIndex, encodeRouteSettings(r));
+  });
 
   const insertLocus = db.prepare(
-    `INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at, settings_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const l of snap.loci) {
     insertLocus.run(
@@ -436,6 +474,7 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
       l.nextReviewAt ?? null,
       l.repetitions ?? 0,
       l.lastReviewedAt ?? null,
+      encodeStopSettings(l),
     );
   }
 }

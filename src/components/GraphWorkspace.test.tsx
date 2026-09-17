@@ -5,10 +5,9 @@ import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
 
 vi.mock("../store/palaceStore");
 vi.mock("../canvas/MemoryPalaceCanvas", () => ({ MemoryPalaceCanvas: () => <div data-testid="canvas" /> }));
-vi.mock("./NodeInspector", () => ({ NodeInspector: () => <div data-testid="inspector" /> }));
+vi.mock("./RightPanel", () => ({ RightPanel: () => <div data-testid="inspector" /> }));
 vi.mock("./PalaceDslEditor", () => ({ PalaceDslEditor: () => <div data-testid="dsl" /> }));
 vi.mock("./PalaceToolbar", () => ({ PalaceToolbar: () => <div data-testid="toolbar" /> }));
-vi.mock("./RoutePanel", () => ({ RoutePanel: () => <div data-testid="route-panel" /> }));
 vi.mock("./WalkModeBar", () => ({ WalkModeBar: () => <div data-testid="walk-bar" /> }));
 vi.mock("./NextUpCard", () => ({ NextUpCard: () => <div data-testid="next-up" /> }));
 vi.mock("./GraphEmptyState", () => ({ GraphEmptyState: () => <div data-testid="empty-state" /> }));
@@ -17,6 +16,8 @@ function mockStore(overrides: Partial<Record<keyof PalaceStore, unknown>> = {}) 
   const state: Record<string, unknown> = {
     currentPalace: null,
     routePanelOpen: false,
+    routeNotice: null,
+    dismissRouteNotice: vi.fn(),
     dslPaneOpen: false,
     ...overrides,
   };
@@ -61,6 +62,27 @@ describe("GraphWorkspace", () => {
     mockStore({ currentPalace: { id: "p1", name: "P", createdAt: "x" } });
     render(<GraphWorkspace {...baseProps} showInspector={false} />);
     expect(screen.queryByTestId("inspector")).not.toBeInTheDocument();
+  });
+
+  it("shows the side panel for the Routes tab even when the inspector was hidden", () => {
+    mockStore({ currentPalace: { id: "p1", name: "P", createdAt: "x" }, routePanelOpen: true });
+    render(<GraphWorkspace {...baseProps} showInspector={false} />);
+    expect(screen.getByTestId("inspector")).toBeInTheDocument();
+  });
+
+  it("dismisses a route notice on its own after a while", () => {
+    vi.useFakeTimers();
+    try {
+      const dismissRouteNotice = vi.fn();
+      mockStore({ routeNotice: { id: 1, message: "Removed", canUndo: true }, dismissRouteNotice });
+      render(<GraphWorkspace {...baseProps} />);
+      vi.advanceTimersByTime(7999);
+      expect(dismissRouteNotice).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(dismissRouteNotice).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders the DSL pane and separator when dslPaneOpen is true", () => {

@@ -7,8 +7,7 @@ vi.mock("../store/palaceStore", () => ({
     selector({
       toolMode: "select",
       setToolMode: vi.fn(),
-      routePanelOpen: false,
-      setRoutePanelOpen: vi.fn(),
+      setRouteBuilding: vi.fn(),
       connect: { fromShapeId: null },
       setConnectFrom: vi.fn(),
       saveCurrent: vi.fn(),
@@ -30,8 +29,7 @@ describe("PalaceToolbar", () => {
       selector({
         toolMode: "select",
         setToolMode: vi.fn(),
-        routePanelOpen: false,
-        setRoutePanelOpen: vi.fn(),
+        setRouteBuilding: vi.fn(),
         connect: { fromShapeId: null },
         setConnectFrom: vi.fn(),
         saveCurrent: vi.fn(),
@@ -55,8 +53,7 @@ describe("PalaceToolbar", () => {
       selector({
         toolMode: "select",
         setToolMode: vi.fn(),
-        routePanelOpen: false,
-        setRoutePanelOpen: vi.fn(),
+        setRouteBuilding: vi.fn(),
         connect: { fromShapeId: null },
         setConnectFrom: vi.fn(),
         saveCurrent: vi.fn(),
@@ -81,8 +78,7 @@ describe("PalaceToolbar", () => {
       selector({
         toolMode: "connect",
         setToolMode: vi.fn(),
-        routePanelOpen: false,
-        setRoutePanelOpen: vi.fn(),
+        setRouteBuilding: vi.fn(),
         connect: { fromShapeId: "shape-1" },
         setConnectFrom: vi.fn(),
         saveCurrent: vi.fn(),
@@ -101,14 +97,69 @@ describe("PalaceToolbar", () => {
     expect(screen.getByRole("button", { name: /pick a different source node/i })).toBeInTheDocument();
   });
 
+  it("turns Route mode on and off from the Route button", () => {
+    const setRouteBuilding = vi.fn();
+    const palace = { id: "p1", name: "Palace", createdAt: "2026-04-28T00:00:00.000Z" };
+    const stateWith = (toolMode: string) =>
+      ({
+        toolMode,
+        setToolMode: vi.fn(),
+        setRouteBuilding,
+        connect: { fromShapeId: null },
+        setConnectFrom: vi.fn(),
+        saveCurrent: vi.fn(),
+        persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
+        editorRef: null,
+        currentPalace: palace,
+      }) as never;
+
+    vi.mocked(usePalaceStore).mockImplementation((selector) => selector(stateWith("select")));
+    const { unmount } = render(<PalaceToolbar />);
+    const idle = screen.getByRole("button", { name: /Route/ });
+    expect(idle).toHaveAttribute("aria-pressed", "false");
+    idle.click();
+    expect(setRouteBuilding).toHaveBeenLastCalledWith(true);
+    unmount();
+
+    vi.mocked(usePalaceStore).mockImplementation((selector) => selector(stateWith("route")));
+    render(<PalaceToolbar />);
+    const building = screen.getByRole("button", { name: /Route/ });
+    expect(building).toHaveAttribute("aria-pressed", "true");
+    building.click();
+    expect(setRouteBuilding).toHaveBeenLastCalledWith(false);
+  });
+
+  it("disables the Route button until a palace is open", () => {
+    vi.mocked(usePalaceStore).mockImplementation((selector) =>
+      selector({
+        toolMode: "select",
+        setToolMode: vi.fn(),
+        setRouteBuilding: vi.fn(),
+        connect: { fromShapeId: null },
+        setConnectFrom: vi.fn(),
+        saveCurrent: vi.fn(),
+        persistenceState: "clean",
+        draftRestored: false,
+        lastDraftSavedAt: null,
+        lastCheckpointSavedAt: null,
+        editorRef: null,
+        currentPalace: null,
+      } as never),
+    );
+    render(<PalaceToolbar />);
+    expect(screen.getByRole("button", { name: /Route/ })).toBeDisabled();
+  });
+
   it("exposes a DSL editor toggle with its shortcut in the tooltip", async () => {
     const setDslPaneOpen = vi.fn();
     vi.mocked(usePalaceStore).mockImplementation((selector) =>
       selector({
         toolMode: "select",
         setToolMode: vi.fn(),
-        routePanelOpen: false,
-        setRoutePanelOpen: vi.fn(),
+        setRouteBuilding: vi.fn(),
         dslPaneOpen: false,
         setDslPaneOpen,
         connect: { fromShapeId: null },

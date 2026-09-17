@@ -72,6 +72,9 @@ pub struct RouteDto {
     pub id: String,
     pub palace_id: String,
     pub name: String,
+    /// Route color, visibility, and later display settings; decoded on the TypeScript side.
+    #[serde(default = "default_settings_json")]
+    pub settings_json: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -93,6 +96,9 @@ pub struct LocusDto {
     pub repetitions: Option<i64>,
     #[serde(default)]
     pub last_reviewed_at: Option<String>,
+    /// The stop's saved view and later per-stop settings; decoded on the TypeScript side.
+    #[serde(default = "default_settings_json")]
+    pub settings_json: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -130,6 +136,10 @@ fn default_node_kind() -> String {
 }
 
 fn default_node_meta_json() -> String {
+    "{}".to_string()
+}
+
+fn default_settings_json() -> String {
     "{}".to_string()
 }
 
@@ -191,7 +201,9 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS routes (
             id TEXT PRIMARY KEY NOT NULL,
             palace_id TEXT NOT NULL REFERENCES palaces(id) ON DELETE CASCADE,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
+            sort_index INTEGER NOT NULL DEFAULT 0,
+            settings_json TEXT NOT NULL DEFAULT '{}'
         );
 
         CREATE TABLE IF NOT EXISTS loci (
@@ -204,7 +216,8 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             ease_factor REAL NOT NULL DEFAULT 2.5,
             next_review_at TEXT,
             repetitions INTEGER NOT NULL DEFAULT 0,
-            last_reviewed_at TEXT
+            last_reviewed_at TEXT,
+            settings_json TEXT NOT NULL DEFAULT '{}'
         );
 
         CREATE TABLE IF NOT EXISTS analytics_events (
@@ -313,6 +326,26 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         }
     }
     if let Err(err) = conn.execute("ALTER TABLE edges ADD COLUMN alias TEXT NOT NULL DEFAULT ''", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    // Route list order (routes used to load alphabetically), route display settings, and stop
+    // settings. mcp-server/src/palaceDb.ts applies the same columns when it opens the database.
+    if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE loci ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -547,14 +580,17 @@ fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDt
 }
 
 fn load_routes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<RouteDto>> {
-    let mut stmt =
-        conn.prepare("SELECT id, palace_id, name FROM routes WHERE palace_id = ?1 ORDER BY name")?;
+    // Rows saved before sort_index existed all hold 0, so they keep their old alphabetical order.
+    let mut stmt = conn.prepare(
+        "SELECT id, palace_id, name, settings_json FROM routes WHERE palace_id = ?1 ORDER BY sort_index, name",
+    )?;
     let rows = stmt
         .query_map(params![palace_id], |r| {
             Ok(RouteDto {
                 id: r.get(0)?,
                 palace_id: r.get(1)?,
                 name: r.get(2)?,
+                settings_json: r.get(3)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -563,7 +599,7 @@ fn load_routes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<Route
 
 fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDto>> {
     let mut stmt = conn.prepare(
-        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor, l.next_review_at, l.repetitions, l.last_reviewed_at
+        "SELECT l.id, l.route_id, l.node_id, l.order_index, l.label, l.interval, l.ease_factor, l.next_review_at, l.repetitions, l.last_reviewed_at, l.settings_json
          FROM loci l
          INNER JOIN routes r ON r.id = l.route_id
          WHERE r.palace_id = ?1
@@ -582,6 +618,7 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
                 next_review_at: r.get(7)?,
                 repetitions: r.get(8)?,
                 last_reviewed_at: r.get(9)?,
+                settings_json: r.get(10)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -706,16 +743,16 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
         )?;
     }
 
-    for r in &snap.routes {
+    for (sort_index, r) in snap.routes.iter().enumerate() {
         tx.execute(
-            "INSERT INTO routes (id, palace_id, name) VALUES (?1, ?2, ?3)",
-            params![r.id, r.palace_id, r.name],
+            "INSERT INTO routes (id, palace_id, name, sort_index, settings_json) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![r.id, r.palace_id, r.name, sort_index as i64, r.settings_json],
         )?;
     }
 
     for l in &snap.loci {
         tx.execute(
-            "INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO loci (id, route_id, node_id, order_index, label, interval, ease_factor, next_review_at, repetitions, last_reviewed_at, settings_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 l.id,
                 l.route_id,
@@ -726,7 +763,8 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
                 l.ease_factor.unwrap_or(2.5),
                 l.next_review_at.as_deref(),
                 l.repetitions.unwrap_or(0),
-                l.last_reviewed_at.as_deref()
+                l.last_reviewed_at.as_deref(),
+                l.settings_json
             ],
         )?;
     }

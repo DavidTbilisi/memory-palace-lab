@@ -1,160 +1,88 @@
 import { expect, test } from "@playwright/test";
+import {
+  clickStops,
+  countSnapshotNodes,
+  createNamedNodes,
+  freeCanvasPoints,
+  nodeCenter,
+  openTutorialPalace,
+  routeSummary,
+} from "./routeHelpers";
 
-test("selected node is the one added to route path", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /create tutorial palace/i }).click();
-  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+const titles = ["Alpha", "Bravo", "Charlie"];
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator(".tl-background").first().dblclick({ position: { x: 180, y: 140 } });
+test("Add selected appends the selected nodes in the chosen order", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, titles);
 
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; x?: number; meta?: Record<string, unknown> } | undefined;
-        updateShape: (shape: {
-          id: string;
-          type: "geo";
-          meta: Record<string, unknown>;
-        }) => void;
-        setSelectedShapes: (ids: string[]) => void;
-      } | null;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
+  // An empty route, with Route mode switched back off.
+  await page.getByRole("tab", { name: /Routes/ }).click();
+  await page.getByRole("button", { name: "Create route" }).click();
+  await page.getByTestId("route-build-banner").getByRole("button", { name: "Done" }).click();
 
-    const nodes: Array<{ id: string; x: number; meta: Record<string, unknown> }> = [];
-    for (const id of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(id);
-      if (shape?.type === "geo") {
-        nodes.push({ id, x: shape.x ?? 0, meta: (shape.meta ?? {}) as Record<string, unknown> });
-      }
-    }
-    if (nodes.length < 2) throw new Error("need at least two nodes");
-    nodes.sort((a, b) => a.x - b.x);
+  // Select every node on the canvas, then add them left to right.
+  const [empty] = await freeCanvasPoints(page, 1);
+  await page.mouse.click(empty!.x, empty!.y);
+  await page.keyboard.press("Control+A");
+  const centers = await Promise.all(titles.map(async (title) => ({ title, ...(await nodeCenter(page, title)) })));
+  const leftToRight = [...centers].sort((a, b) => a.x - b.x || a.y - b.y).map((center) => center.title);
 
-    editor.updateShape({ id: nodes[0].id, type: "geo", meta: { ...nodes[0].meta, mpTitle: "Node A" } });
-    editor.updateShape({ id: nodes[1].id, type: "geo", meta: { ...nodes[1].meta, mpTitle: "Node B" } });
-    editor.setSelectedShapes([nodes[0].id]);
-  });
+  const panel = page.getByTestId("routes-panel");
+  await panel.getByRole("button", { name: "Add selected" }).click();
+  await page.getByRole("menuitem", { name: "Left to right" }).click();
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(leftToRight);
+  await expect(panel.getByRole("status")).toHaveText("Added 3 stops");
 
-  await page.getByPlaceholder("Route name").fill("Selection Path");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; x?: number } | undefined;
-        setSelectedShapes: (ids: string[]) => void;
-      } | null;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
-    const nodes: Array<{ id: string; x: number }> = [];
-    for (const id of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(id);
-      if (shape?.type === "geo") nodes.push({ id, x: shape.x ?? 0 });
-    }
-    nodes.sort((a, b) => a.x - b.x);
-    editor.setSelectedShapes([nodes[1].id]);
-  });
-
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-
-  await expect(page.getByLabel("Locus 1 label")).toHaveValue("Node A");
-  await expect(page.getByLabel("Locus 2 label")).toHaveValue("Node B");
+  // Adding them again changes nothing and says why.
+  await panel.getByRole("button", { name: "Add selected" }).click();
+  await page.getByRole("menuitem", { name: "In selection order" }).click();
+  await expect(panel.getByRole("status")).toHaveText("Added 0 stops, skipped 3 already in this route");
+  expect((await routeSummary(page))[0]?.stops).toEqual(leftToRight);
 });
 
-test("route steps can be renamed, reordered, reassigned, and deleted", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /create tutorial palace/i }).click();
-  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+test("deleting a node removes its stop and undo brings it back", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, titles);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator(".tl-background").first().dblclick({ position: { x: 180, y: 140 } });
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  await clickStops(page, titles);
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(titles);
 
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; x?: number; meta?: Record<string, unknown> } | undefined;
-        updateShape: (shape: {
-          id: string;
-          type: "geo";
-          meta: Record<string, unknown>;
-        }) => void;
-        setSelectedShapes: (ids: string[]) => void;
-      } | null;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
+  const bravo = await nodeCenter(page, "Bravo");
+  await page.mouse.click(bravo.x, bravo.y);
+  await page.keyboard.press("Delete");
+  await expect.poll(() => countSnapshotNodes(page)).toBe(2);
+  expect((await routeSummary(page))[0]?.stops).toEqual(["Alpha", "Charlie"]);
+  await expect(page.getByTestId("route-overlay").locator("[data-route-stop]")).toHaveCount(2);
 
-    const nodes: Array<{ id: string; x: number; meta: Record<string, unknown> }> = [];
-    for (const id of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(id);
-      if (shape?.type === "geo") {
-        nodes.push({ id, x: shape.x ?? 0, meta: (shape.meta ?? {}) as Record<string, unknown> });
-      }
-    }
-    if (nodes.length < 2) throw new Error("need at least two nodes");
-    nodes.sort((a, b) => a.x - b.x);
-    editor.updateShape({ id: nodes[0].id, type: "geo", meta: { ...nodes[0].meta, mpTitle: "Node A" } });
-    editor.updateShape({ id: nodes[1].id, type: "geo", meta: { ...nodes[1].meta, mpTitle: "Node B" } });
-    editor.setSelectedShapes([nodes[0].id]);
-  });
-
-  await page.getByPlaceholder("Route name").fill("Editable Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-
-  await page.evaluate(() => {
-    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-    if (!store) throw new Error("missing dev store hook");
-    const state = store.getState() as {
-      editorRef: {
-        getCurrentPageShapeIds: () => Iterable<string>;
-        getShape: (id: string) => { type?: string; x?: number } | undefined;
-        setSelectedShapes: (ids: string[]) => void;
-      } | null;
-    };
-    const editor = state.editorRef;
-    if (!editor) throw new Error("editor not ready");
-    const nodes: Array<{ id: string; x: number }> = [];
-    for (const id of editor.getCurrentPageShapeIds()) {
-      const shape = editor.getShape(id);
-      if (shape?.type === "geo") nodes.push({ id, x: shape.x ?? 0 });
-    }
-    nodes.sort((a, b) => a.x - b.x);
-    editor.setSelectedShapes([nodes[1].id]);
-  });
-
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByLabel("Selected route name").fill("Renamed Route");
-  await page.keyboard.press("Enter");
-  await expect(page.getByLabel("Active route")).toContainText("Renamed Route");
-
-  await page.getByRole("button", { name: "Move locus 2 up" }).click();
-  await expect(page.getByLabel("Locus 1 label")).toHaveValue("Node B");
-  await expect(page.getByLabel("Locus 2 label")).toHaveValue("Node A");
-
-  await page.getByPlaceholder("Route name").fill("Parking Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByLabel("Locus 2 route").selectOption({ label: "Parking Route" });
-  await expect(page.getByLabel("Locus 1 label")).toHaveValue("Node B");
-  await expect(page.getByLabel("Locus 2 label")).toHaveCount(0);
-
-  await page.getByLabel("Active route").selectOption({ label: "Parking Route" });
-  await expect(page.getByLabel("Locus 1 label")).toHaveValue("Node A");
-  await page.getByRole("button", { name: "Delete locus 1" }).click();
-  await expect(page.getByLabel("Locus 1 label")).toHaveCount(0);
+  await page.keyboard.press("Control+Z");
+  await expect.poll(() => countSnapshotNodes(page)).toBe(3);
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(titles);
+  await expect(page.getByTestId("route-overlay").locator("[data-route-stop]")).toHaveCount(3);
 });
 
+test("double-clicking empty canvas in Route mode adds a new node as the next stop", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["Gate"]);
+
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  await clickStops(page, ["Gate"]);
+
+  const [spot] = await freeCanvasPoints(page, 1);
+  await page.mouse.dblclick(spot!.x, spot!.y);
+  await expect.poll(() => countSnapshotNodes(page)).toBe(2);
+  await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(["Gate", "New node"]);
+  await expect(page.getByTestId("route-build-banner")).toContainText("Added New node as stop 2");
+
+  // The new node's label is open for typing; Escape closes it, a second Escape ends Route mode.
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("Porch");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("route-build-banner")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("route-build-banner")).toHaveCount(0);
+
+  const routeCard = page.getByRole("region", { name: "Route Route 1" });
+  await expect(routeCard.getByRole("button", { name: "Porch", exact: true })).toBeVisible();
+});

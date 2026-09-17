@@ -18,6 +18,9 @@ const { usePalaceStoreMock } = vi.hoisted(() => {
     walkAnswerRevealed: true,
     walkIndex: 0,
     walkRouteId: null,
+    routes: [],
+    routeNotice: null,
+    setRouteBuilding: vi.fn(),
     loci: [],
     nodes: [],
     edges: [],
@@ -28,6 +31,7 @@ const { usePalaceStoreMock } = vi.hoisted(() => {
     appMode: "encode",
     comprehendCruxNodeId: null,
     focusNodeId: null,
+    focusView: null,
   };
   const usePalaceStoreMock = Object.assign(
     vi.fn((selector: (s: Record<string, unknown>) => unknown) => selector(state)),
