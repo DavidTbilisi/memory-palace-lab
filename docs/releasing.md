@@ -15,6 +15,7 @@
   - With the bundled Ubuntu 22.04 copies, Fedora 44's Mesa 26 cannot link (`libwayland-client` 1.20 lacks `wl_display_create_queue_with_name`). EGL fails to start, and WebKitWebProcess aborts on start with `Could not create default EGL display: EGL_BAD_PARAMETER` ([tauri#15976](https://github.com/tauri-apps/tauri/issues/15976)).
   - The upstream issue also removes libraries Mesa does not load. Keep `libwayland-server` bundled: WebKit needs it, and systems without a Wayland compositor may not have it.
   - tauri-action uploads the AppImage after the wrapper finishes, so `latest.json` gets the new signature.
+- The AppImage also uses the system's OpenGL libraries. WebKit opens `libGLESv2.so.2` at runtime. If it is missing, WebKitWebProcess aborts with `Couldn't open libGLESv2.so.2`: install `libglvnd-gles` (Fedora) or `libgles2` (Debian, Ubuntu).
 - `.github/workflows/appimage.yml` runs when a pull request changes the Linux packaging. It builds the AppImage and tests it on Fedora 44 in two ways:
   - `scripts/linux/check-appimage-libs.sh` checks the libraries without starting the app.
   - `scripts/linux/smoke-appimage.sh` starts the app and checks that its web process keeps running.

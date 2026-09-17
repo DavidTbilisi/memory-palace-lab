@@ -8,7 +8,8 @@
 #     ("undefined symbol"). Then EGL fails and WebKitWebProcess aborts.
 #   - a library the app or its WebKit processes need that neither the AppImage nor the
 #     system has ("not found"). Then the app does not start.
-#   Exits 1 if it finds either.
+#   - no system OpenGL ES library, which WebKit opens at runtime. Then WebKitWebProcess aborts.
+#   Exits 1 if it finds any of them.
 set -uo pipefail
 
 image="$(realpath "$1")"
@@ -34,6 +35,14 @@ for lib in "${mesa_libs[@]}"; do
     echo "ok: $lib"
   fi
 done
+
+# WebKit's libepoxy opens this library with dlopen, so ldd does not list it.
+if ldconfig -p | grep -q "libGLESv2\.so\.2 "; then
+  echo "ok: libGLESv2.so.2"
+else
+  echo "This system lacks libGLESv2.so.2, which WebKit opens at runtime (Fedora package: libglvnd-gles)"
+  problems=$((problems + 1))
+fi
 
 while IFS= read -r -d '' binary; do
   missing="$(LD_LIBRARY_PATH="$appdir/usr/lib" ldd "$binary" 2>&1 | grep "not found")"

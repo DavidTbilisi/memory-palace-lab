@@ -81,9 +81,10 @@ jobs:
           path: appimages
 
       - name: Install an X server and Fedora's Mesa
+        # libglvnd-gles: WebKit opens libGLESv2 at runtime (Fedora's own webkit2gtk4.1 requires it).
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          gtk3 mesa-dri-drivers mesa-libEGL mesa-libGL mesa-libgbm dejavu-sans-fonts
+          gtk3 mesa-dri-drivers mesa-libEGL mesa-libGL mesa-libgbm libglvnd-gles dejavu-sans-fonts
           /usr/bin/Xvfb /usr/bin/dbus-run-session /usr/bin/pgrep /usr/bin/setsid
 
       - name: Check the libraries of the AppImage with the bundled display libraries
