@@ -1,0 +1,112 @@
+name: AppImage
+
+# Builds the Linux AppImage the way the release does and starts it on the newest Fedora,
+# whose Mesa is much newer than the one on the Ubuntu 22.04 build machine.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/appimage.yml"
+      - ".github/workflows/release.yml"
+      - "scripts/linux/**"
+      - "src-tauri/tauri.conf.json"
+      - "src-tauri/Cargo.toml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Set up Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            file \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            squashfs-tools
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build the AppImage
+        # Without updater artifacts the build does not need the release signing key.
+        run: npx tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Remove the display libraries
+        run: |
+          mkdir -p appimages/bundled appimages/unbundled
+          cp src-tauri/target/release/bundle/appimage/*.AppImage appimages/bundled/
+          bash scripts/linux/unbundle-display-libs.sh
+          cp src-tauri/target/release/bundle/appimage/*.AppImage appimages/unbundled/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimages
+          path: appimages
+          retention-days: 3
+
+  fedora:
+    needs: build
+    runs-on: ubuntu-latest
+    container: fedora:44
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: appimages
+          path: appimages
+
+      - name: Install an X server and Fedora's Mesa
+        # libglvnd-gles: WebKit opens libGLESv2 at runtime (Fedora's own webkit2gtk4.1 requires it).
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          gtk3 mesa-dri-drivers mesa-libEGL mesa-libGL mesa-libgbm libglvnd-gles dejavu-sans-fonts
+          /usr/bin/Xvfb /usr/bin/dbus-run-session /usr/bin/pgrep /usr/bin/setsid
+
+      - name: Check the libraries of the AppImage with the bundled display libraries
+        run: |
+          if bash scripts/linux/check-appimage-libs.sh appimages/bundled/*.AppImage; then
+            echo "::warning::Fedora's Mesa links against the bundled display libraries, so this job cannot show that removing them helps."
+          fi
+
+      - name: Check the libraries of the AppImage without them
+        run: bash scripts/linux/check-appimage-libs.sh appimages/unbundled/*.AppImage
+
+      - name: Start the AppImage with the bundled display libraries
+        run: |
+          if bash scripts/linux/smoke-appimage.sh appimages/bundled/*.AppImage; then
+            echo "::warning::The AppImage with the bundled display libraries did not crash here, so this job cannot show that removing them helps."
+          fi
+
+      - name: Start the AppImage without them
+        run: bash scripts/linux/smoke-appimage.sh appimages/unbundled/*.AppImage
+
+      - name: Start the old AppImage with the host libraries preloaded
+        # The workaround for AppImages released before the libraries were removed.
+        run: >
+          bash scripts/linux/smoke-appimage.sh appimages/bundled/*.AppImage
+          LD_PRELOAD=/usr/lib64/libwayland-client.so.0:/usr/lib64/libxcb-randr.so.0:/usr/lib64/libxcb-shm.so.0:/usr/lib64/libXau.so.6
