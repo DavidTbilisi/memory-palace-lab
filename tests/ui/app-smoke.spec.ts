@@ -481,3 +481,48 @@ test("DSL editor applies a document that creates new nodes", async ({ page }) =>
   await expect(status).not.toContainText("apply failed");
   await expect(status).toContainText(/last applied \d/);
 });
+
+/** The ids the canvas carries. They are primary keys on disk, so they have to stay apart. */
+function memoryIds(page: Page): Promise<{ nodeIds: string[]; objectIds: string[] }> {
+  return page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    const editor = (
+      store.getState() as {
+        editorRef: {
+          getCurrentPageShapeIds: () => Iterable<string>;
+          getShape: (id: string) => { type?: string; meta?: Record<string, string> } | undefined;
+        } | null;
+      }
+    ).editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const nodeIds: string[] = [];
+    const objectIds: string[] = [];
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const meta = editor.getShape(id)?.meta;
+      if (!meta?.mpNodeId || !meta.mpObjectId) continue;
+      nodeIds.push(meta.mpNodeId);
+      objectIds.push(meta.mpObjectId);
+    }
+    return { nodeIds, objectIds };
+  });
+}
+
+test("a node duplicated on the canvas becomes a node of its own", async ({ page }) => {
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["The Law"]);
+  const before = await countSnapshotNodes(page);
+
+  const center = await nodeCenter(page, "The Law");
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await page.getByRole("button", { name: /^Duplicate/ }).click();
+
+  // Copying a shape copies its meta. Without ids of its own, the copy is the same row
+  // twice, and saving the palace fails on "UNIQUE constraint failed: canvas_objects.id".
+  await expect.poll(() => countSnapshotNodes(page)).toBe(before + 1);
+  const { nodeIds, objectIds } = await memoryIds(page);
+  expect(nodeIds).toHaveLength(before + 1);
+  expect(new Set(nodeIds).size).toBe(nodeIds.length);
+  expect(new Set(objectIds).size).toBe(objectIds.length);
+  await expect(page.getByText(/Saving palace .* failed/)).toHaveCount(0);
+});
