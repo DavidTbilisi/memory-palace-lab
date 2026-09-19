@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **The Linux AppImage starts on newer systems again.** On Fedora 44 and other systems with Mesa 26, the AppImage's web page process crashed on start. The AppImage now uses the system's copies of the libraries that Mesa loads (`libwayland-client` and some X11 libraries), not the older copies it bundled.
+
 ## v0.9.0 — 2026-09-17
 
 ### Route builder
