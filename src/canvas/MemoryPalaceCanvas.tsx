@@ -17,6 +17,7 @@ import {
 import { isBackgroundShape } from "./backgroundImage";
 import { RouteBuildBanner } from "../components/RouteBuildBanner";
 import { createGeoMemoryNode } from "./createMemoryShapes";
+import { registerMemoryIdGuard } from "./memoryIds";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
@@ -407,6 +408,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     (editor: Editor) => {
       editorRef.current = editor;
       lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
+      // Duplicating or pasting a node copies its ids; a copy needs its own.
+      const stopIdGuard = registerMemoryIdGuard(editor, () => palaceId);
       setEditor(editor);
       queueBadgeRefresh();
       recomputeAvailableTags();
@@ -570,6 +573,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
       return () => {
         editor.off("event", onEvent);
+        stopIdGuard();
         unsubSel();
         unsubDraft();
         unsubViewport();

@@ -19,6 +19,7 @@ import type {
   StopView,
 } from "../domain/entities/types";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
+import { ensureUniqueMemoryIds } from "../canvas/memoryIds";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import { createAnalyticsEvent } from "../domain/services/analyticsService";
@@ -369,6 +370,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
   const buildCurrentSnapshot = () => {
     const { editorRef, currentPalace, routes, loci } = get();
     if (!editorRef || !currentPalace) return null;
+    // A copy made before the canvas guarded ids carries the ids of the node it came from,
+    // and two rows with one id cannot be saved. Give the copies ids of their own first.
+    ensureUniqueMemoryIds(editorRef, currentPalace.id);
     return buildPalaceSnapshot(
       editorRef,
       currentPalace,

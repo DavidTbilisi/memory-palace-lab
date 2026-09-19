@@ -45,6 +45,7 @@ function fakeEditor(): Editor {
   return {
     getSnapshot: () => ({ store: {}, schema: {} }),
     getCurrentPageShapeIds: () => new Set<string>(),
+    getCurrentPageShapesSorted: () => [],
     getShape: () => undefined,
     getShapePageBounds: () => null,
   } as unknown as Editor;

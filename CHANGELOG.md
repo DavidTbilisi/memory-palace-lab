@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **A copy of a node is a node of its own.** Duplicating or pasting a node on the canvas carried the original's identity, so the palace could not be saved at all: saving stopped with "UNIQUE constraint failed: canvas_objects.id" and every later change stayed unsaved too. Copies now get their own identity as they are made, and a palace that already holds copies is put right the next time it is saved, keeping each copy with its own title and content.
+
 ## v0.9.0 — 2026-09-17
 
 ### Route builder
