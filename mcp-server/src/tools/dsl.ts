@@ -8,6 +8,7 @@ import { withPalaceMutation } from "../palaceWriter";
 import { palaceCreate } from "./palaces";
 import type { ServerContext } from "./shared";
 import type { SnapshotEditor } from "../snapshotEditor";
+import { isMemoryNodeShape } from "../../../src/canvas/memoryNodeShape";
 
 function diagnosticView(d: DslDiagnostic) {
   return {
@@ -23,7 +24,7 @@ function titleToNodeIdFromShapes(editor: SnapshotEditor, palaceId: string): Map<
   const titleToNodeId = new Map<string, string>();
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (!shape || shape.type !== "geo") continue;
+    if (!isMemoryNodeShape(shape)) continue;
     const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
     if (meta.mpPalaceId !== palaceId) continue;
     if (meta.mpTitle && meta.mpNodeId) titleToNodeId.set(meta.mpTitle, meta.mpNodeId);

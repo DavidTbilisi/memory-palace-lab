@@ -2,6 +2,7 @@ import type { Editor } from "@tldraw/editor";
 import type { AnalyticsEventType } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { plainTextFromRichText, resolveMemoryNodeTitle } from "./readShapeText";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 
 type TrackedNode = {
   nodeId: string;
@@ -49,7 +50,7 @@ export function captureSceneAnalyticsSnapshot(editor: Editor): SceneAnalyticsSna
     if (!shape) continue;
     const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
 
-    if (shape.type === "geo" && meta.mpNodeId) {
+    if (isMemoryNodeShape(shape) && meta.mpNodeId) {
       nodes.set(meta.mpNodeId, {
         nodeId: meta.mpNodeId,
         title: resolveMemoryNodeTitle(shape),

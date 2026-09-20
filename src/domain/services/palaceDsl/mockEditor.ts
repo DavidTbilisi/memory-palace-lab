@@ -3,7 +3,7 @@ import type { MemoryPalaceMeta } from "../../../canvas/memoryMeta";
 
 export interface MockShape {
   id: string;
-  type: "geo" | "arrow";
+  type: "geo" | "image" | "arrow";
   x: number;
   y: number;
   meta: MemoryPalaceMeta;
@@ -78,7 +78,7 @@ export class MockEditor {
     meta?: MemoryPalaceMeta;
     props?: Record<string, unknown>;
   }): void {
-    if (shape.type !== "geo" && shape.type !== "arrow") return;
+    if (shape.type !== "geo" && shape.type !== "image" && shape.type !== "arrow") return;
     const meta = shape.meta ?? {};
     assertValidMeta(shape.type, meta);
     this.shapes.set(shape.id, {

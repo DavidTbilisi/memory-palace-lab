@@ -1,6 +1,6 @@
 import type { Editor } from "@tldraw/editor";
 import { createShapeId } from "@tldraw/editor";
-import type { TLShapeId } from "@tldraw/tlschema";
+import type { TLImageShape, TLShapeId } from "@tldraw/tlschema";
 import { toRichText } from "@tldraw/tlschema";
 import type { MemoryNodeKind, PalacePortalRef } from "../domain/entities/types";
 import { CAST_WHO } from "../domain/entities/types";
@@ -132,6 +132,54 @@ export function createGeoMemoryNode(
   });
   editor.select(shapeId);
   return { shapeId, objectId, nodeId };
+}
+
+function imageNodeTitle(editor: Editor, shape: TLImageShape) {
+  const asset = shape.props.assetId
+    ? editor.getAsset(shape.props.assetId)
+    : undefined;
+  const assetName = asset?.type === "image" ? asset.props.name : undefined;
+  // "kitchen.png" reads better as "kitchen"; pasted images have no useful name.
+  const title = (assetName ?? "").replace(/\.[a-z0-9]+$/i, "").trim();
+  return title || "Image";
+}
+
+/**
+ * Node meta for an image shape, so it can take connections, content, tags,
+ * and route loci like a geo node. Returns null when the shape is already a
+ * node or is the palace background.
+ */
+export function imageNodeMeta(
+  editor: Editor,
+  palaceId: string,
+  shape: TLImageShape,
+): MemoryPalaceMeta | null {
+  const prev = (shape.meta ?? {}) as MemoryPalaceMeta;
+  if (prev.mpNodeId || prev.mpBackground) return null;
+  return applyPortalRefToMeta(
+    {
+      ...prev,
+      mpPalaceId: palaceId,
+      mpObjectId: crypto.randomUUID(),
+      mpNodeId: crypto.randomUUID(),
+      mpTitle: imageNodeTitle(editor, shape),
+      mpContent: "",
+    },
+    "memory",
+    null,
+  );
+}
+
+/** Turn an image already on the canvas into a node. */
+export function promoteImageShapeToNode(
+  editor: Editor,
+  palaceId: string,
+  shape: TLImageShape,
+) {
+  const meta = imageNodeMeta(editor, palaceId, shape);
+  if (!meta) return false;
+  editor.updateShape({ id: shape.id, type: "image", meta });
+  return true;
 }
 
 export function createImportedMemoryNodes(

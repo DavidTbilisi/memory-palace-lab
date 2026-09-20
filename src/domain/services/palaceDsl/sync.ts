@@ -6,6 +6,10 @@ import {
   createMemoryArrow,
 } from "../../../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../../../canvas/memoryMeta";
+import {
+  isMemoryNodeShape,
+  type MemoryNodeShapeType,
+} from "../../../canvas/memoryNodeShape";
 import { applyPortalRefToMeta } from "../../../canvas/palacePortal";
 import { encodeCastEdge } from "../../entities/types";
 import type {
@@ -26,6 +30,7 @@ export interface DslApplyOptions {
 
 interface NodeIndexEntry {
   shapeId: string;
+  shapeType: MemoryNodeShapeType;
   mpNodeId: string;
   mpObjectId: string;
   meta: MemoryPalaceMeta;
@@ -114,13 +119,14 @@ export function applyDslToCanvas(
       if (meta.mpPalaceId !== palaceId) continue;
 
       if (
-        shape.type === "geo" &&
+        isMemoryNodeShape(shape) &&
         meta.mpNodeId &&
         meta.mpObjectId &&
         meta.mpTitle
       ) {
         nodesByTitle.set(meta.mpTitle, {
           shapeId: String(shape.id),
+          shapeType: shape.type,
           mpNodeId: meta.mpNodeId,
           mpObjectId: meta.mpObjectId,
           meta,
@@ -165,12 +171,21 @@ export function applyDslToCanvas(
       const existing = nodesByTitle.get(node.title)!;
       const next = nextNodeMeta(existing.meta, node);
       if (!nodeNeedsUpdate(existing.meta, next)) continue;
-      editor.updateShape({
-        id: existing.shapeId as TLShapeId,
-        type: "geo",
-        meta: next,
-        props: { richText: toRichText(node.title) },
-      });
+      // An image node keeps its title in meta only; it has no richText prop.
+      if (existing.shapeType === "image") {
+        editor.updateShape({
+          id: existing.shapeId as TLShapeId,
+          type: "image",
+          meta: next,
+        });
+      } else {
+        editor.updateShape({
+          id: existing.shapeId as TLShapeId,
+          type: "geo",
+          meta: next,
+          props: { richText: toRichText(node.title) },
+        });
+      }
       existing.meta = next;
       result.updated.nodes += 1;
     }
@@ -203,6 +218,7 @@ export function applyDslToCanvas(
         });
         nodesByTitle.set(node.title, {
           shapeId: String(c.shapeId),
+          shapeType: "geo",
           mpNodeId: c.nodeId,
           mpObjectId: c.objectId,
           meta: next,

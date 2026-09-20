@@ -1,6 +1,7 @@
 import type { Editor } from "@tldraw/editor";
 import { toRichText } from "@tldraw/tlschema";
 import { createGeoMemoryNode } from "../../../src/canvas/createMemoryShapes";
+import { nodeShapeHasLabel } from "../../../src/canvas/memoryNodeShape";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
 import type { ServerContext } from "./shared";
@@ -101,18 +102,20 @@ export async function nodeUpdate(
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_update", (m) => {
     const node = resolveNodeRef(m.snapshot.nodes, args.node);
     const shapeId = shapeIdForNode(m.editor, node.id);
+    const shape = m.editor.getShape(shapeId)!;
     const meta: Record<string, unknown> = {};
     const props: Record<string, unknown> = {};
     if (args.title !== undefined) {
       meta.mpTitle = args.title;
-      props.richText = toRichText(args.title);
+      // An image node keeps its title in meta only; it has no richText prop.
+      if (nodeShapeHasLabel(shape)) props.richText = toRichText(args.title);
     }
     if (args.content !== undefined) meta.mpContent = args.content;
     if (args.alias !== undefined) meta.mpAlias = args.alias;
     if (args.tags !== undefined) meta.mpTags = args.tags;
     m.editor.updateShape({
       id: shapeId,
-      type: "geo",
+      type: shape.type,
       meta,
       ...(Object.keys(props).length > 0 ? { props } : {}),
     });

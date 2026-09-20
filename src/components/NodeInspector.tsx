@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestNavigation } from "../app/navigationEvents";
 import { toRichText } from "@tldraw/tlschema";
-import type { TLShapeId } from "@tldraw/tlschema";
+import type { TLImageShape, TLShapeId } from "@tldraw/tlschema";
 import { applyPortalRefToMeta, nodeKindProps, portalDescriptor, portalRefFromMeta } from "../canvas/palacePortal";
 import { plainTextFromRichText, resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
+import { promoteImageShapeToNode } from "../canvas/createMemoryShapes";
+import { isMemoryNodeShape, isNodeCapableShape } from "../canvas/memoryNodeShape";
 import type { MemoryEdge, MemoryNode, MemoryNodeKind, MemoryRoute, PalacePortalRef } from "../domain/entities/types";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
@@ -69,7 +71,7 @@ function resolveNodeSummary(
   if (editorRef) {
     for (const shapeId of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(shapeId as TLShapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = shape.meta as MemoryPalaceMeta;
       if (meta.mpNodeId !== nodeId) continue;
       return {
@@ -230,7 +232,7 @@ export function NodeInspector() {
     }
 
     const meta = sh.meta as MemoryPalaceMeta;
-    if (sh.type === "geo" && meta.mpNodeId) {
+    if (isMemoryNodeShape(sh)) {
       const resolvedTitle = resolveMemoryNodeTitle(sh);
       const resolvedPortal = resolvePortalDraft(meta, snapshotNodes);
       const storedNode = snapshotNodes.find((node) => node.id === meta.mpNodeId);
@@ -359,7 +361,7 @@ export function NodeInspector() {
     if (!selectedShapeId || !editorRef) return null;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return null;
+    if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return null;
     const nowIso = new Date().toISOString();
     const nodeLoci = loci.filter((locus) => locus.nodeId === meta.mpNodeId).map((locus) => normalizeLocusSchedule(locus, nowIso));
     if (nodeLoci.length === 0) return null;
@@ -403,19 +405,29 @@ export function NodeInspector() {
   const applyNodeChanges = useCallback(() => {
     if (!editorRef || !selectedShapeId) return;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
-    if (!shape || shape.type !== "geo") return;
+    if (!isMemoryNodeShape(shape)) return;
     const prev = shape.meta as MemoryPalaceMeta;
     const nextMeta = applyPortalRefToMeta(
       { ...prev, mpTitle: title, mpAlias: alias, mpContent: content },
       nodeKind,
       portalDraft,
     );
-    editorRef.updateShape({
-      id: selectedShapeId as TLShapeId,
-      type: "geo",
-      meta: nextMeta,
-      props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
-    });
+    if (shape.type === "image") {
+      // An image node has no label, colour, or fill props; its title and
+      // kind live in meta alone.
+      editorRef.updateShape({
+        id: selectedShapeId as TLShapeId,
+        type: "image",
+        meta: nextMeta,
+      });
+    } else {
+      editorRef.updateShape({
+        id: selectedShapeId as TLShapeId,
+        type: "geo",
+        meta: nextMeta,
+        props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
+      });
+    }
     flashSavedIndicator();
   }, [alias, content, editorRef, flashSavedIndicator, nodeKind, portalDraft, selectedShapeId, title]);
 
@@ -521,7 +533,7 @@ export function NodeInspector() {
 
   const meta = sh.meta as MemoryPalaceMeta;
 
-  if (sh.type === "geo" && meta.mpNodeId) {
+  if (isMemoryNodeShape(sh)) {
     const openLinkedPalace = async () => {
       if (!portalPalaceId) return;
       setOpeningPortal(true);
@@ -662,7 +674,7 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
-        <NodeRouteMemberships nodeId={meta.mpNodeId} />
+        <NodeRouteMemberships nodeId={sh.meta.mpNodeId} />
 
         {nextReviewInfo ? (
           <ReadOnlyMetaField
@@ -810,6 +822,27 @@ export function NodeInspector() {
         <ReadOnlyMetaField id="mp-edge-a" label="A - Action" value={resolvedEdge.castCd || "None"} />
         <ReadOnlyMetaField id="mp-edge-s" label="S - Stream" value={resolvedEdge.castEf || "None"} />
         <ReadOnlyMetaField id="mp-edge-t" label="T - Time" value={resolvedEdge.castGh || "None"} />
+      </div>
+    );
+  }
+
+  // Images inserted before image nodes existed carry no node identity yet.
+  if (sh.type === "image" && isNodeCapableShape(sh) && currentPalace) {
+    return (
+      <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
+        <div>This image is not a memory node yet.</div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            if (promoteImageShapeToNode(editorRef, currentPalace.id, sh as TLImageShape)) {
+              // Setting the form state also re-renders into the node view.
+              syncFromSelectedShape();
+            }
+          }}
+        >
+          Make it a node
+        </Button>
       </div>
     );
   }

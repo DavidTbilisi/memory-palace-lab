@@ -195,3 +195,73 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(shapesOf(editor).filter((s) => s.type === "arrow")).toHaveLength(1);
   });
 });
+
+describe("applyDslToCanvas with image nodes", () => {
+  function seedImageNode(editor: MockEditor, title: string) {
+    const id = `shape:image-${title}`;
+    editor.createShape({
+      id,
+      type: "image",
+      x: 0,
+      y: 0,
+      meta: {
+        mpPalaceId: PALACE_ID,
+        mpObjectId: `object-${title}`,
+        mpNodeId: `node-${title}`,
+        mpNodeKind: "memory",
+        mpTitle: title,
+        mpContent: "",
+      },
+      props: { w: 320, h: 200, assetId: "asset:1" },
+    });
+    return id;
+  }
+
+  it("updates an image node in place without adding a richText prop", () => {
+    const editor = new MockEditor();
+    const shapeId = seedImageNode(editor, "Kitchen");
+
+    const result = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([memoryNode("Kitchen", { content: "where the recipe lives" })]),
+    );
+
+    expect(result.added.nodes).toBe(0);
+    expect(result.updated.nodes).toBe(1);
+    const shape = editor.getShape(shapeId)!;
+    expect(shape.type).toBe("image");
+    expect(shape.meta.mpNodeId).toBe("node-Kitchen");
+    expect(shape.meta.mpContent).toBe("where the recipe lives");
+    expect(shape.props).not.toHaveProperty("richText");
+  });
+
+  it("connects an image node to a geo node", () => {
+    const editor = new MockEditor();
+    seedImageNode(editor, "Kitchen");
+    editor.seedNode(PALACE_ID, "Recipe", "");
+
+    const result = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("Kitchen", {
+          edges: [
+            {
+              targetTitle: "Recipe",
+              cast: { ab: "", cd: "", ef: "", gh: "" },
+              semantic: { cast: null, alias: null, form: "cast", resolvedCast: null },
+              sourceLine: 0,
+            },
+          ],
+        }),
+        memoryNode("Recipe"),
+      ]),
+    );
+
+    expect(result.added.nodes).toBe(0);
+    expect(result.added.edges).toBe(1);
+    const arrow = shapesOf(editor).find((s) => s.type === "arrow")!;
+    expect(arrow.meta.mpSourceNodeId).toBe("node-Kitchen");
+  });
+});

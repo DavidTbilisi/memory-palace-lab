@@ -7,6 +7,7 @@ import type {
   PalaceSnapshot,
 } from "../../../src/domain/entities/types";
 import type { SnapshotEditor } from "../snapshotEditor";
+import { isMemoryNodeShape } from "../../../src/canvas/memoryNodeShape";
 
 export type ServerContext = {
   db: DatabaseSync;
@@ -48,7 +49,7 @@ export function resolveRouteRef(routes: MemoryRoute[], ref: string): MemoryRoute
 export function shapeIdForNode(editor: SnapshotEditor, nodeId: string): string {
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (shape?.type === "geo" && shape.meta?.mpNodeId === nodeId) return shapeId;
+    if (isMemoryNodeShape(shape) && shape.meta?.mpNodeId === nodeId) return shapeId;
   }
   throw new Error(`No canvas shape found for node "${nodeId}".`);
 }
@@ -70,7 +71,7 @@ export function nextNodePosition(editor: SnapshotEditor): { x: number; y: number
   let topY = Infinity;
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (shape?.type !== "geo") continue;
+    if (!isMemoryNodeShape(shape)) continue;
     const b = editor.getShapePageBounds(shapeId);
     if (!b) continue;
     maxRight = Math.max(maxRight, b.x + b.w);
