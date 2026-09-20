@@ -12,6 +12,7 @@ import {
   type MemoryRoute,
 } from "../domain/entities/types";
 import type { TheSystemPipelineTemplate } from "../content/theSystemPipelines";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 type PipelineAnswers = {
   focus: string;
@@ -76,7 +77,7 @@ function resolveAnchor(editor: Editor, selectedShapeId: string | null) {
     const shape = editor.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
     const bounds = editor.getShapePageBounds(selectedShapeId as TLShapeId);
-    if (shape?.type === "geo" && meta.mpNodeId && bounds) {
+    if (isMemoryNodeShape(shape) && meta.mpNodeId && bounds) {
       return {
         x: bounds.x + bounds.w + 140,
         y: bounds.y + 10,

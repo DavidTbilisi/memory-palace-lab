@@ -2,6 +2,7 @@ import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
 import type { NodeDifficultyOverride } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 
 /**
  * Write a per-node /difficulty override into the tldraw shape that backs the
@@ -16,7 +17,7 @@ export function writeNodeDifficulty(
 ): boolean {
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (!shape || shape.type !== "geo") continue;
+    if (!isMemoryNodeShape(shape)) continue;
     const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
     if (meta.mpNodeId !== nodeId) continue;
     const nextMeta: MemoryPalaceMeta = { ...meta };
@@ -29,7 +30,7 @@ export function writeNodeDifficulty(
     }
     editor.updateShape({
       id: shape.id as TLShapeId,
-      type: "geo",
+      type: shape.type,
       meta: nextMeta,
     });
     return true;

@@ -6,6 +6,7 @@ import { routeColorHex } from "../domain/services/routeBuilder";
 import { orderedLoci } from "../domain/services/walkService";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { RecallRating } from "../domain/entities/types";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -29,7 +30,7 @@ function resolveCurrentNodeReviewState(
   if (editorRef) {
     for (const id of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(id);
-      if (shape?.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = shape.meta as { mpNodeId?: string; mpContent?: string };
       if (meta.mpNodeId !== nodeId) continue;
       return {

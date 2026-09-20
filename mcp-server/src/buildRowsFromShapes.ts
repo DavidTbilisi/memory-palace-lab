@@ -11,6 +11,7 @@ import type {
 } from "../../src/domain/entities/types";
 import type { MemoryPalaceMeta } from "../../src/canvas/memoryMeta";
 import type { SnapshotEditor } from "./snapshotEditor";
+import { isMemoryNodeShape } from "../../src/canvas/memoryNodeShape";
 
 /**
  * Headless port of src/canvas/buildPalaceSnapshot.ts: derive the DB row
@@ -32,7 +33,7 @@ export function buildRowsFromShapes(
     if (!shape) continue;
     const m = (shape.meta ?? {}) as MemoryPalaceMeta;
 
-    if (shape.type === "geo" && m.mpNodeId && m.mpObjectId) {
+    if (isMemoryNodeShape(shape) && m.mpNodeId && m.mpObjectId) {
       const b = editor.getShapePageBounds(shapeId);
       if (!b) continue;
       canvasObjects.push({
@@ -44,7 +45,7 @@ export function buildRowsFromShapes(
         width: b.w,
         height: b.h,
         zIndex: 0,
-        payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: "geo" }),
+        payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: shape.type }),
       });
       nodes.push({
         id: m.mpNodeId,

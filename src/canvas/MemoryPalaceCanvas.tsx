@@ -3,11 +3,14 @@ import { ExternalLink, Link2Off } from "lucide-react";
 import { Tldraw, type TLComponents } from "tldraw";
 import type {
   Editor,
-  TLGeoShape,
   TLEditorSnapshot,
   TLEventInfo,
 } from "@tldraw/editor";
-import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
+import type {
+  TLImageShape,
+  TLShapeId,
+  TLStoreSnapshot,
+} from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
 import {
@@ -16,9 +19,10 @@ import {
 } from "./analyticsSceneSnapshot";
 import { isBackgroundShape } from "./backgroundImage";
 import { RouteBuildBanner } from "../components/RouteBuildBanner";
-import { createGeoMemoryNode } from "./createMemoryShapes";
+import { createGeoMemoryNode, imageNodeMeta } from "./createMemoryShapes";
 import { registerMemoryIdGuard } from "./memoryIds";
 import type { MemoryPalaceMeta } from "./memoryMeta";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
 import {
@@ -93,6 +97,14 @@ type ImageBackground = {
   url: string;
 };
 
+type ImageCaption = {
+  shapeId: TLShapeId;
+  x: number;
+  y: number;
+  maxWidth: number;
+  title: string;
+};
+
 type MotifRoleVisualTone = (typeof MOTIF_ROLE_VISUALS)[MotifRole]["tone"];
 
 const MOTIF_BADGE_CLASS: Record<MotifRoleVisualTone, string> = {
@@ -113,15 +125,6 @@ function parseEditorSnapshot(
   } catch {
     return undefined;
   }
-}
-
-function isGeoMemory(shape: unknown): shape is TLGeoShape {
-  return (
-    typeof shape === "object" &&
-    shape !== null &&
-    (shape as { type?: string }).type === "geo" &&
-    !!(shape as { meta?: MemoryPalaceMeta }).meta?.mpNodeId
-  );
 }
 
 export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
@@ -165,6 +168,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     () => new Map(),
   );
 
+  const [imageCaptions, setImageCaptions] = useState<ImageCaption[]>([]);
+
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const motifRoleByNodeId = useMemo(() => {
@@ -206,7 +211,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: PortalBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (nodeKindFromMeta(meta) !== "portal") continue;
       const bounds = editor.getShapePageBounds(shape.id);
@@ -238,7 +243,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: MotifBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       const nodeId = meta.mpNodeId;
       if (!nodeId) continue;
@@ -270,7 +275,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: DifficultyBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       const nodeId = meta.mpNodeId;
       if (!nodeId) continue;
@@ -330,6 +335,40 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     setNodeBoxes(editor ? viewportBoxesByNode(editor) : new Map());
   }, []);
 
+  // An image node has no label of its own, so its title is drawn under it.
+  const recomputeImageCaptions = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setImageCaptions([]);
+      return;
+    }
+    const captions: ImageCaption[] = [];
+    for (const shapeId of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(shapeId);
+      if (!isMemoryNodeShape(shape) || shape.type !== "image") continue;
+      const title = ((shape.meta ?? {}) as MemoryPalaceMeta).mpTitle?.trim();
+      if (!title) continue;
+      const bounds = editor.getShapePageBounds(shape.id);
+      if (!bounds) continue;
+      const bl = editor.pageToViewport({
+        x: bounds.x,
+        y: bounds.y + bounds.h,
+      });
+      const br = editor.pageToViewport({
+        x: bounds.x + bounds.w,
+        y: bounds.y + bounds.h,
+      });
+      captions.push({
+        shapeId: shape.id,
+        x: (bl.x + br.x) / 2,
+        y: bl.y + 4,
+        maxWidth: Math.max(80, br.x - bl.x),
+        title,
+      });
+    }
+    setImageCaptions(captions);
+  }, []);
+
   const queueBadgeRefresh = useCallback(() => {
     if (badgeFrameRef.current !== null) return;
     badgeFrameRef.current = window.requestAnimationFrame(() => {
@@ -339,6 +378,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       recomputeDifficultyBadges();
       recomputeImageBackgrounds();
       recomputeNodeBoxes();
+      recomputeImageCaptions();
     });
   }, [
     recomputeNodeBoxes,
@@ -346,6 +386,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     recomputeMotifBadges,
     recomputeDifficultyBadges,
     recomputeImageBackgrounds,
+    recomputeImageCaptions,
   ]);
 
   // refresh badges when difficulty changes (graph or spaced-repetition state),
@@ -364,7 +405,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const seen = new Set<string>();
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const tags = (s.meta as MemoryPalaceMeta).mpTags;
       if (tags) for (const t of tags) seen.add(t);
     }
@@ -435,7 +476,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             // instead of dropping a node on top of it.
             return;
           }
-          if (!isGeoMemory(hitShape)) {
+          if (!isMemoryNodeShape(hitShape)) {
             const created = createGeoMemoryNode(editor, palaceId, point);
             if (building) addStopFromCanvas(created.nodeId);
             return;
@@ -484,7 +525,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           })?.id;
           if (!hitId) return;
           const sh = editor.getShape(hitId);
-          if (!sh || sh.type !== "geo") return;
+          if (!isMemoryNodeShape(sh)) return;
           const meta = sh.meta as MemoryPalaceMeta;
           if (!meta.mpNodeId) return;
           if (!st.connect.fromShapeId) {
@@ -512,6 +553,17 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       };
 
       editor.on("event", onEvent);
+
+      // An image the user inserts (paste, drop, media tool) becomes a node.
+      // The palace background carries `mpBackground`, so it is left alone.
+      const unsubImageNodes = editor.sideEffects.registerBeforeCreateHandler(
+        "shape",
+        (shape, source) => {
+          if (source !== "user" || shape.type !== "image") return shape;
+          const meta = imageNodeMeta(editor, palaceId, shape as TLImageShape);
+          return meta ? { ...shape, meta } : shape;
+        },
+      );
 
       const unsubSel = editor.store.listen(
         () => {
@@ -574,6 +626,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       return () => {
         editor.off("event", onEvent);
         stopIdGuard();
+        unsubImageNodes();
         unsubSel();
         unsubDraft();
         unsubViewport();
@@ -606,8 +659,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.setHintingShapes([]);
       for (const id of editor.getCurrentPageShapeIds()) {
         const s = editor.getShape(id);
-        if (s && s.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-          editor.updateShape({ id, type: "geo", opacity: 1 });
+        if (isMemoryNodeShape(s)) {
+          editor.updateShape({ id, type: s.type, opacity: 1 });
         }
       }
       return;
@@ -616,12 +669,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     let activeShapeId: TLShapeId | null = null;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const hi = m.mpNodeId === nodeId;
       if (hi) activeShapeId = id;
-      editor.updateShape({ id, type: "geo", opacity: hi ? 1 : 0.38 });
+      editor.updateShape({ id, type: s.type, opacity: hi ? 1 : 0.38 });
     }
 
     if (activeShapeId) {
@@ -663,8 +716,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         editor.setHintingShapes([]);
         for (const id of editor.getCurrentPageShapeIds()) {
           const s = editor.getShape(id);
-          if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-            editor.updateShape({ id, type: "geo", opacity: 1 });
+          if (isMemoryNodeShape(s)) {
+            editor.updateShape({ id, type: s.type, opacity: 1 });
           }
         }
       }
@@ -674,11 +727,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const memoryIds: TLShapeId[] = [];
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       memoryIds.push(id);
-      editor.updateShape({ id, type: "geo", opacity: 1 });
+      editor.updateShape({ id, type: s.type, opacity: 1 });
     }
 
     if (!connectFromShapeId) {
@@ -696,13 +749,13 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     if (!editor || walkOpen) return;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const match =
         activeTags.length === 0 ||
         (m.mpTags ?? []).some((t) => activeTags.includes(t));
-      editor.updateShape({ id, type: "geo", opacity: match ? 1 : 0.2 });
+      editor.updateShape({ id, type: s.type, opacity: match ? 1 : 0.2 });
     }
   }, [activeTags, walkOpen]);
 
@@ -717,8 +770,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.setHintingShapes([]);
       for (const id of editor.getCurrentPageShapeIds()) {
         const s = editor.getShape(id);
-        if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-          editor.updateShape({ id, type: "geo", opacity: 1 });
+        if (isMemoryNodeShape(s)) {
+          editor.updateShape({ id, type: s.type, opacity: 1 });
         }
       }
       return;
@@ -727,12 +780,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     let cruxShapeId: TLShapeId | null = null;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const isCrux = m.mpNodeId === comprehendCruxNodeId;
       if (isCrux) cruxShapeId = id;
-      editor.updateShape({ id, type: "geo", opacity: isCrux ? 1 : 0.35 });
+      editor.updateShape({ id, type: s.type, opacity: isCrux ? 1 : 0.35 });
     }
 
     if (cruxShapeId) {
@@ -857,6 +910,19 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             </div>
           );
         })}
+        {imageCaptions.map((caption) => (
+          <div
+            key={`caption-${caption.shapeId}`}
+            className="pointer-events-none absolute -translate-x-1/2 select-none truncate rounded bg-zinc-950/75 px-1.5 py-0.5 text-center text-[11px] font-medium leading-tight text-zinc-100"
+            style={{
+              left: caption.x,
+              top: caption.y,
+              maxWidth: caption.maxWidth,
+            }}
+          >
+            {caption.title}
+          </div>
+        ))}
         {difficultyBadges.map((badge) => (
           <div
             key={`difficulty-${badge.shapeId}`}

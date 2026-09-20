@@ -1,6 +1,6 @@
 import { useValue } from "@tldraw/editor";
 import type { Editor } from "@tldraw/editor";
-import type { MemoryPalaceMeta } from "../../canvas/memoryMeta";
+import { isMemoryNodeShape } from "../../canvas/memoryNodeShape";
 import { resolveMemoryNodeTitle } from "../../canvas/readShapeText";
 
 const EMPTY = new Map<string, string>();
@@ -17,9 +17,9 @@ export function useCanvasNodeTitles(editor: Editor | null): ReadonlyMap<string, 
       const titles = new Map<string, string>();
       for (const shapeId of editor.getCurrentPageShapeIds()) {
         const shape = editor.getShape(shapeId);
-        if (!shape || shape.type !== "geo") continue;
-        const nodeId = ((shape.meta ?? {}) as MemoryPalaceMeta).mpNodeId;
-        if (nodeId && !titles.has(nodeId)) titles.set(nodeId, resolveMemoryNodeTitle(shape));
+        if (!isMemoryNodeShape(shape)) continue;
+        const nodeId = shape.meta.mpNodeId;
+        if (!titles.has(nodeId)) titles.set(nodeId, resolveMemoryNodeTitle(shape));
       }
       return titles;
     },

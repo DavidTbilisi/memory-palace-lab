@@ -84,6 +84,7 @@ import {
   loadSaveStopViews,
   persistSaveStopViews,
 } from "./palaceStoreHelpers";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 const repo = getPalaceRepository();
 
@@ -456,7 +457,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     if (editorRef) {
       for (const shapeId of editorRef.getCurrentPageShapeIds()) {
         const shape = editorRef.getShape(shapeId as TLShapeId);
-        if (shape?.type !== "geo") continue;
+        if (!isMemoryNodeShape(shape)) continue;
         const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
         if (meta.mpNodeId !== nodeId) continue;
         return resolveMemoryNodeTitle(shape);
@@ -644,7 +645,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         const titleToNodeId = new Map<string, string>();
         for (const shapeId of editorRef.getCurrentPageShapeIds()) {
           const shape = editorRef.getShape(shapeId);
-          if (!shape || shape.type !== "geo") continue;
+          if (!isMemoryNodeShape(shape)) continue;
           const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
           if (meta.mpPalaceId !== currentPalace.id) continue;
           if (meta.mpTitle && meta.mpNodeId) {

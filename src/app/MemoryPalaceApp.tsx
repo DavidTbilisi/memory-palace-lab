@@ -57,6 +57,7 @@ import {
 import { useExternalMcpSync } from "./useExternalMcpSync";
 import { createTutorialPalace } from "../system/examplePalaces";
 import { loadWikiIndex } from "../content/wikiLibrary";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -156,7 +157,7 @@ export function MemoryPalaceApp() {
           for (const shapeId of state.editorRef.getCurrentPageShapeIds()) {
             const shape = state.editorRef.getShape(shapeId as TLShapeId);
             const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-            if (shape?.type === "geo" && meta.mpNodeId === nodeId) {
+            if (isMemoryNodeShape(shape) && meta.mpNodeId === nodeId) {
               return { editor: state.editorRef, shapeId: shapeId as TLShapeId };
             }
           }
@@ -216,7 +217,7 @@ export function MemoryPalaceApp() {
       const shape = editorRef.getShape(id as TLShapeId);
       if (!shape) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
-      if (shape.type === "geo" && meta.mpNodeId) nodeCount += 1;
+      if (isMemoryNodeShape(shape)) nodeCount += 1;
       if (
         shape.type === "arrow" &&
         (meta.mpEdgeId || meta.mpSourceNodeId || meta.mpTargetNodeId)
@@ -230,7 +231,7 @@ export function MemoryPalaceApp() {
       const selectedMeta = (selectedShape?.meta ?? {}) as MemoryPalaceMeta;
       if (selectedShape?.type === "arrow") {
         selectedKind = "edge";
-      } else if (selectedShape?.type === "geo" && selectedMeta.mpNodeId) {
+      } else if (isMemoryNodeShape(selectedShape)) {
         selectedKind = selectedMeta.mpNodeKind === "portal" ? "portal" : "node";
       }
     }
@@ -377,7 +378,7 @@ export function MemoryPalaceApp() {
     if (!editorRef || !selectedShapeId) return;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return;
+    if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return;
     trackNodeVisit(meta.mpNodeId);
   }, [editorRef, selectedShapeId, trackNodeVisit]);
 

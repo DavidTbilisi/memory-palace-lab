@@ -5,6 +5,7 @@ import type { PalaceSnapshot } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { resolveMemoryNodeTitle } from "./readShapeText";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 
 function metaOf(shape: TLShape): MemoryPalaceMeta {
   return (shape.meta ?? {}) as MemoryPalaceMeta;
@@ -29,7 +30,7 @@ export function buildPalaceSnapshot(
     if (!shape) continue;
     const m = metaOf(shape);
 
-    if (shape.type === "geo") {
+    if (isMemoryNodeShape(shape)) {
       if (m.mpNodeId && m.mpObjectId) {
         const b = editor.getShapePageBounds(shape.id);
         if (!b) continue;
@@ -42,7 +43,7 @@ export function buildPalaceSnapshot(
           width: b.w,
           height: b.h,
           zIndex: 0,
-          payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: "geo" }),
+          payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: shape.type }),
         });
         nodes.push({
           id: m.mpNodeId,

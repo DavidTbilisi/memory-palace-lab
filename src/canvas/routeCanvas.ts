@@ -1,12 +1,11 @@
 import type { Editor, TLShape, TLShapeId } from "@tldraw/editor";
 import type { StopView } from "../domain/entities/types";
 import type { StopPoint } from "../domain/services/routeBuilder";
-import type { MemoryPalaceMeta } from "./memoryMeta";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 import type { NodeBox } from "./routeOverlayGeometry";
 
 function memoryNodeIdOf(shape: TLShape | undefined): string | null {
-  if (!shape || shape.type !== "geo") return null;
-  return ((shape.meta ?? {}) as MemoryPalaceMeta).mpNodeId ?? null;
+  return isMemoryNodeShape(shape) ? shape.meta.mpNodeId : null;
 }
 
 /** Selected memory nodes in selection order, with their page-space centers. */

@@ -111,6 +111,51 @@ describe("SnapshotEditor", () => {
     expect(snap.palace.editorSnapshot).toBe(editor.serialize());
   });
 
+  it("projects an image node into rows and lets it take an edge", async () => {
+    const baseline = await createBaselineSnapshotJson();
+    const editor = new SnapshotEditor(baseline);
+
+    editor.createShape({
+      id: "shape:kitchen",
+      type: "image",
+      x: 40,
+      y: 60,
+      meta: {
+        mpPalaceId: PALACE.id,
+        mpObjectId: "object-kitchen",
+        mpNodeId: "node-kitchen",
+        mpNodeKind: "memory",
+        mpTitle: "Kitchen",
+        mpContent: "where the recipe lives",
+      },
+      props: { w: 320, h: 200 },
+    });
+    const recipe = createGeoMemoryNode(asEditor(editor), PALACE.id, { x: 600, y: 200 }, {
+      title: "Recipe",
+    });
+    createMemoryArrow(
+      asEditor(editor),
+      PALACE.id,
+      "shape:kitchen",
+      recipe.shapeId,
+      "node-kitchen",
+      recipe.nodeId,
+      { ab: "", cd: "", ef: "", gh: "" },
+    );
+
+    const snap = buildRowsFromShapes(editor, PALACE, [], []);
+    const kitchen = snap.nodes.find((n) => n.id === "node-kitchen")!;
+    expect(kitchen.title).toBe("Kitchen");
+    expect(kitchen.content).toBe("where the recipe lives");
+
+    const kitchenObj = snap.canvasObjects.find((c) => c.id === "object-kitchen")!;
+    expect(kitchenObj).toMatchObject({ type: "node", x: 40, y: 60, width: 320, height: 200 });
+    expect(JSON.parse(kitchenObj.payloadJson).shapeType).toBe("image");
+
+    expect(snap.edges).toHaveLength(1);
+    expect(snap.edges[0]!.sourceNodeId).toBe("node-kitchen");
+  });
+
   it("supports the app's DSL apply path end to end", async () => {
     const baseline = await createBaselineSnapshotJson();
     const editor = new SnapshotEditor(baseline);
