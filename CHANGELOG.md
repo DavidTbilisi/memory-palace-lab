@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0 — 2026-09-21
+
+### Images as nodes
+
+- **An image you insert is a node.** Paste, drop, or add an image to the canvas and it behaves like any other node: connect it to other nodes, give it a title and a description, tag it, add it to routes, and walk it. It is titled after its file name, and the title shows as a caption under the image.
+- Images that were already on a canvas can be turned into nodes from the inspector (**Make it a node**). The palace background stays a background.
+- The DSL editor and the MCP server treat image nodes like any other node.
+
 ## v0.9.1 — 2026-09-19
 
 ### Fixes
