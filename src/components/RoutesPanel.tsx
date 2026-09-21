@@ -552,6 +552,32 @@ function StopList({
   );
 }
 
+/** A route's metadata from the DSL (`#difficulty:advanced #prereq:…`), on every card that has any. */
+function RouteMetadataList({ route }: { route: MemoryRoute }) {
+  if (!route.metadata?.length) return null;
+  return (
+    <ul
+      aria-label={`Metadata for ${route.name}`}
+      title="Route metadata. Edit it under the route in the DSL editor."
+      className="flex flex-wrap gap-1 px-2 pb-1.5"
+    >
+      {route.metadata.map(({ key, value }, i) => (
+        <li
+          key={`${key}-${i}`}
+          title={value ? `${key}: ${value}` : key}
+          className="inline-flex min-w-0 max-w-full items-baseline gap-1 rounded-full bg-zinc-800/80 px-2 py-0.5 text-[11px] leading-4"
+        >
+          <span className="shrink-0 text-zinc-500">
+            {key}
+            {value ? ":" : ""}
+          </span>
+          {value ? <span className="truncate text-zinc-200">{value}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RouteCard({
   route,
   index,
@@ -670,6 +696,7 @@ function RouteCard({
         </IconButton>
         <RouteMenu route={route} index={index} total={total} stopCount={stops.length} onRename={startRename} />
       </div>
+      <RouteMetadataList route={route} />
       {active ? (
         <div className="border-t border-zinc-800 px-2 pb-2 pt-1.5">
           <div className="flex gap-1.5">

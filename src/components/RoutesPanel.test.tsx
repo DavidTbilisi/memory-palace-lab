@@ -72,6 +72,38 @@ describe("RoutesPanel", () => {
     expect(within(active).getByText("· 1 due")).toBeInTheDocument();
   });
 
+  it("shows each route's metadata on its card, in order", () => {
+    act(() => {
+      usePalaceStore.setState({
+        routes: [
+          {
+            ...routes[0]!,
+            metadata: [
+              { key: "difficulty", value: "advanced" },
+              { key: "prereq", value: "Gate of SOLID" },
+              { key: "mode", value: null },
+            ],
+          },
+          { ...routes[1]!, metadata: [{ key: "duration", value: "30min" }] },
+        ],
+      });
+    });
+    render(<RoutesPanel />);
+
+    const chips = (routeName: string) =>
+      within(screen.getByRole("list", { name: `Metadata for ${routeName}` }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent);
+    // The inactive route shows its metadata too, not only the open one.
+    expect(chips("Morning walk")).toEqual(["difficulty:advanced", "prereq:Gate of SOLID", "mode"]);
+    expect(chips("Evening review")).toEqual(["duration:30min"]);
+  });
+
+  it("shows no metadata list for a route without metadata", () => {
+    render(<RoutesPanel />);
+    expect(screen.queryByRole("list", { name: /^Metadata for/ })).toBeNull();
+  });
+
   it("opens another route when its name is clicked", () => {
     render(<RoutesPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Evening review" }));
