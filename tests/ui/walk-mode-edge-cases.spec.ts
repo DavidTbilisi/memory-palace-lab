@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { addNode, addSelectedToRoute, createRoute, editSelectedNode, selectAllNodes } from "./nodeHelpers";
 
 // Helper: create tutorial palace and return to root
 async function setupTutorialPalace(page: Parameters<Parameters<typeof test>[1]>[0]) {
@@ -35,8 +36,7 @@ test("walk mode with empty route shows step 0/0 and disables next/prev", async (
   await setupTutorialPalace(page);
 
   // Create a route with no loci
-  await page.getByPlaceholder("Route name").fill("Empty Route");
-  await page.getByRole("button", { name: "Add route" }).click();
+  await createRoute(page, "Empty Route");
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Walk active")).toBeVisible();
@@ -44,11 +44,10 @@ test("walk mode with empty route shows step 0/0 and disables next/prev", async (
   // Empty route → Step 0/0
   await expect(page.getByText(/Step 0\/0/)).toBeVisible();
 
-  // Next and Prev should be present but clicking should not move the index
-  const stateBefore = await getWalkState(page);
-  await page.getByRole("button", { name: "Next step" }).click();
-  const stateAfter = await getWalkState(page);
-  expect(stateAfter.walkIndex).toBe(stateBefore.walkIndex);
+  // Next and Prev are present but disabled, so the index cannot move
+  await expect(page.getByRole("button", { name: "Next step" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Previous step" })).toBeDisabled();
+  expect((await getWalkState(page)).walkIndex).toBe(0);
 });
 
 // ── Single-locus route ────────────────────────────────────────────────────────
@@ -57,21 +56,24 @@ test("single-locus route clamps next and prev at index 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
   // Create a node and add it once
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Solo Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await addNode(page);
+  await createRoute(page, "Solo Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Walk active")).toBeVisible();
   await expect(page.getByText("Step 1/1")).toBeVisible();
 
+  // At the only stop both buttons are disabled; the arrow-key shortcuts still reach the store.
+  await expect(page.getByRole("button", { name: "Next step" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Previous step" })).toBeDisabled();
+
   // Next should clamp at 0 (still Step 1/1)
-  await page.getByRole("button", { name: "Next step" }).click();
+  await page.keyboard.press("ArrowRight");
   await expect(page.getByText("Step 1/1")).toBeVisible();
 
   // Previous should also clamp at 0
-  await page.getByRole("button", { name: "Previous step" }).click();
+  await page.keyboard.press("ArrowLeft");
   await expect(page.getByText("Step 1/1")).toBeVisible();
 
   const state = await getWalkState(page);
@@ -83,19 +85,23 @@ test("single-locus route clamps next and prev at index 0", async ({ page }) => {
 test("rapid next clicks do not advance past the last locus", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Rapid Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // Two stops need two nodes: a route holds each node once.
+  await addNode(page);
+  await addNode(page);
+  await createRoute(page, "Rapid Route");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Step 1/2")).toBeVisible();
 
-  // Click next rapidly 10× — should clamp at last locus
+  // Step next rapidly 10× — should clamp at last locus. The button disables itself at the
+  // last stop, so the rest go through the ArrowRight shortcut, which calls the same action.
   const nextBtn = page.getByRole("button", { name: "Next step" });
-  for (let i = 0; i < 10; i++) {
-    await nextBtn.click();
+  await nextBtn.click();
+  await expect(nextBtn).toBeDisabled();
+  for (let i = 0; i < 9; i++) {
+    await page.keyboard.press("ArrowRight");
   }
 
   await expect(page.getByText("Step 2/2")).toBeVisible();
@@ -106,11 +112,12 @@ test("rapid next clicks do not advance past the last locus", async ({ page }) =>
 test("rapid previous clicks do not go below index 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Rapid Prev Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // Two stops need two nodes: a route holds each node once.
+  await addNode(page);
+  await addNode(page);
+  await createRoute(page, "Rapid Prev Route");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
 
@@ -118,10 +125,13 @@ test("rapid previous clicks do not go below index 0", async ({ page }) => {
   await page.getByRole("button", { name: "Next step" }).click();
   await expect(page.getByText("Step 2/2")).toBeVisible();
 
-  // Click previous rapidly 10× — should clamp at 0
+  // Step back rapidly 10× — should clamp at 0. The button disables itself at the first
+  // stop, so the rest go through the ArrowLeft shortcut, which calls the same action.
   const prevBtn = page.getByRole("button", { name: "Previous step" });
-  for (let i = 0; i < 10; i++) {
-    await prevBtn.click();
+  await prevBtn.click();
+  await expect(prevBtn).toBeDisabled();
+  for (let i = 0; i < 9; i++) {
+    await page.keyboard.press("ArrowLeft");
   }
 
   await expect(page.getByText("Step 1/2")).toBeVisible();
@@ -134,11 +144,12 @@ test("rapid previous clicks do not go below index 0", async ({ page }) => {
 test("closing and reopening walk resets index to 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Reopen Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // Two stops need two nodes: a route holds each node once.
+  await addNode(page);
+  await addNode(page);
+  await createRoute(page, "Reopen Route");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
 
   const toggleBtn = page.getByRole("button", { name: "Toggle walk mode" });
   await toggleBtn.click();
@@ -161,14 +172,11 @@ test("closing and reopening walk resets index to 0", async ({ page }) => {
 test("recall mode: answer stays hidden until Reveal is clicked", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Test cue");
-  await page.locator("#mp-content").fill("Secret answer text");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Test cue", content: "Secret answer text" });
 
-  await page.getByPlaceholder("Route name").fill("Recall Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await createRoute(page, "Recall Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await page.getByRole("button", { name: "Recall-first" }).click();
@@ -182,22 +190,19 @@ test("recall mode: answer stays hidden until Reveal is clicked", async ({ page }
   await expect(page.locator("#walk-answer")).toContainText("Secret answer text");
 
   // Rating buttons appear
-  await expect(page.getByRole("button", { name: "Good" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Hard" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Forgot" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "3 Good" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "2 Hard" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "1 Again" })).toBeVisible();
 });
 
 test("toggling recall mode off shows answer immediately without Reveal", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Open cue");
-  await page.locator("#mp-content").fill("Visible answer text");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Open cue", content: "Visible answer text" });
 
-  await page.getByPlaceholder("Route name").fill("Open Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await createRoute(page, "Open Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
 
@@ -211,10 +216,9 @@ test("toggling recall mode off shows answer immediately without Reveal", async (
 test("walk_started analytics event fires when walk opens", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Analytics Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await addNode(page);
+  await createRoute(page, "Analytics Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Walk active")).toBeVisible();
@@ -236,10 +240,9 @@ test("walk_started analytics event fires when walk opens", async ({ page }) => {
 test("walk_closed analytics event fires when walk closes", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Close Analytics Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await addNode(page);
+  await createRoute(page, "Close Analytics Route");
+  await addSelectedToRoute(page);
 
   const toggleBtn = page.getByRole("button", { name: "Toggle walk mode" });
   await toggleBtn.click();
@@ -266,11 +269,12 @@ test("walk_closed analytics event fires when walk closes", async ({ page }) => {
 test("walkStepEnteredAt is stamped when walk opens and refreshed on next step", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Timing Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // Two stops need two nodes: a route holds each node once.
+  await addNode(page);
+  await addNode(page);
+  await createRoute(page, "Timing Route");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
 
   const before = Date.now();
   await page.getByRole("button", { name: "Toggle walk mode" }).click();

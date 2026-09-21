@@ -1,15 +1,61 @@
 import { expect, test } from "@playwright/test";
+import {
+  addNode,
+  addSelectedToRoute,
+  applyInspector,
+  createRoute,
+  editSelectedNode,
+  openNodeTab,
+  selectAllNodes,
+} from "./nodeHelpers";
+import { createNamedNodes } from "./routeHelpers";
+
+const checkpointButton = { name: /Save Checkpoint|Checkpoint Now/ } as const;
+
+/** The auto-save line of the toolbar's "Storage and save status" dropdown. */
+async function expectAutoSaveStatus(page: import("@playwright/test").Page, status: RegExp) {
+  await page.getByRole("button", { name: "Storage and save status" }).click();
+  await expect(page.getByText(status)).toBeVisible();
+  await page.keyboard.press("Escape");
+}
+
+/**
+ * The Learn panel opens beside a new palace. It leaves little canvas, and the toolbar gets so
+ * narrow that the save-status button lies over "Save Checkpoint".
+ */
+async function closeLearnPanel(page: import("@playwright/test").Page) {
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
+}
 
 async function bootstrapTutorialPalace(page: import("@playwright/test").Page) {
   await page.goto("/");
   await expect(page.getByText("Memory Palace Lab")).toBeVisible();
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Node$/ })).toBeEnabled();
+  await closeLearnPanel(page);
+  await waitForEditorReady(page);
 }
 
-async function doubleClickCanvasAt(page: import("@playwright/test").Page, x: number, y: number) {
-  await page.locator(".tl-background").first().dblclick({ position: { x, y } });
+/**
+ * Close the session summary that ends a walk. Uses Escape, not the summary's "Done" button:
+ * while a node is selected, tldraw's style panel paints over that button and takes the click.
+ */
+async function dismissSessionSummary(page: import("@playwright/test").Page) {
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Session Summary")).not.toBeVisible();
+}
+
+async function expectPersistenceState(page: import("@playwright/test").Page, expected: string) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        if (!store) throw new Error("missing dev store hook");
+        return (store.getState() as { persistenceState: string }).persistenceState;
+      }),
+    )
+    .toBe(expected);
 }
 
 async function queuePendingCast(page: import("@playwright/test").Page, fromIndex: number, toIndex: number) {
@@ -67,10 +113,9 @@ async function waitForEditorReady(page: import("@playwright/test").Page) {
 test("palace save/load workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Gateway Node");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByRole("button", { name: /^Save$/ }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Gateway Node" });
+  await page.getByRole("button", checkpointButton).click();
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Second Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
@@ -87,10 +132,9 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Draft Node");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByText("Draft saved")).toBeVisible();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Draft Node" });
+  await expectAutoSaveStatus(page, /^Auto-save: saved/);
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
@@ -98,8 +142,8 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
 
   await page.getByRole("button", { name: "Draft Palace", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
-  await expect(page.getByText("Draft restored")).toBeVisible();
   await waitForEditorReady(page);
+  await expectAutoSaveStatus(page, /^Auto-save: restored from recovery draft$/);
 
   await page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -123,15 +167,17 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
 test("route and walk workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  // A route holds each node once, so two steps need two nodes.
+  await addNode(page);
+  await addNode(page);
 
-  await page.getByPlaceholder("Route name").fill("Route 1");
-  await page.getByRole("button", { name: "Add route" }).click();
-
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await expect(page.getByLabel("Locus 1 label")).toBeVisible();
-  await expect(page.getByLabel("Locus 2 label")).toBeVisible();
+  await createRoute(page, "Route 1");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
+  const stops = page.getByRole("region", { name: "Route Route 1" }).getByRole("list", { name: "Stops" });
+  await expect(stops.getByRole("listitem")).toHaveCount(2);
+  await expect(stops.getByRole("button", { name: /^Remove stop 1,/ })).toBeVisible();
+  await expect(stops.getByRole("button", { name: /^Remove stop 2,/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Step 1/2")).toBeVisible();
@@ -144,16 +190,14 @@ test("route and walk workflow", async ({ page }) => {
 test("analytics panel shows local review and graph telemetry", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Analytics Node");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Analytics Node" });
 
-  await page.getByPlaceholder("Route name").fill("Telemetry Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await createRoute(page, "Telemetry Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
-  await page.getByRole("button", { name: "Good" }).click();
+  await page.getByRole("button", { name: "3 Good" }).click();
 
   await expect
     .poll(() =>
@@ -174,6 +218,12 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
       recallRated: true,
     });
 
+  // Rating the only stop ends the walk with a session summary.
+  await expect(page.getByText("Session Summary")).toBeVisible();
+  await expect(page.getByText("Route: Telemetry Route")).toBeVisible();
+  await expect(page.getByText("Good: 1")).toBeVisible();
+  await dismissSessionSummary(page);
+
   await page.getByRole("button", { name: /^Insights$/ }).click();
   await expect(page.getByText(/local-first telemetry for encoding and retrieval/i)).toBeVisible();
   await expect(page.getByText("Recent events")).toBeVisible();
@@ -181,35 +231,42 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
   await expect(page.getByText(/graph work: node create\/update, edge create\/update/i)).toBeVisible();
 });
 
-test("spaced review queue surfaces due node and route reviews", async ({ page }) => {
+test("spaced review queue surfaces the due locus with its route and node", async ({ page }) => {
+  // Every rating schedules the next review at least a day out, so the clock is moved on.
+  await page.clock.install();
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Queue Node");
-  await page.locator("#mp-content").fill("Queue content for spaced review.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Queue Node", content: "Queue content for spaced review." });
 
-  await page.getByPlaceholder("Route name").fill("Spaced Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await createRoute(page, "Spaced Route");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await page.getByRole("button", { name: "Recall-first" }).click();
   await page.getByRole("button", { name: "Reveal answer" }).click();
-  await page.getByRole("button", { name: "Fail" }).click();
-  await page.getByRole("button", { name: "Toggle walk mode" }).click();
+  await page.getByRole("button", { name: "1 Again" }).click();
+  // Rating the only stop ends the walk with a session summary.
+  await expect(page.getByText("Session Summary")).toBeVisible();
+  await dismissSessionSummary(page);
 
-  await expect(page.getByRole("button", { name: "2 due" })).toBeVisible();
-  await page.getByRole("button", { name: "2 due" }).click();
+  // The due queue is one entry per route stop. It is built when the app loads, from each
+  // palace's last checkpoint, so the review is checkpointed before the day passes.
+  const reviewNav = page.locator('[data-nav-primary="review"]');
+  await expect(reviewNav.getByLabel(/loci due for review/)).toHaveCount(0);
+  await page.getByRole("button", checkpointButton).click();
+  await expectPersistenceState(page, "clean");
+  await page.clock.fastForward("25:00:00");
+  await page.reload();
+  await expect(reviewNav.getByLabel("1 loci due for review")).toBeVisible();
+  await reviewNav.click();
 
-  await expect(page.getByText("Review Queue", { exact: true })).toBeVisible();
-  const routeCard = page.locator("section").filter({ has: page.getByRole("button", { name: "Review route" }) }).first();
-  const nodeCard = page.locator("section").filter({ has: page.getByRole("button", { name: "Focus node" }) }).first();
-  await expect(routeCard.getByText("Spaced Route", { exact: true })).toBeVisible();
-  await expect(nodeCard.getByText("Queue Node", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review route" })).toBeVisible();
+  await expect(page.getByText("Global Review Queue", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tutorial Palace | Spaced Route | Queue Node")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review now" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Review route" }).click();
+  await page.getByRole("button", { name: "Review now" }).click();
+  await expect(page.getByText("Step 1/1")).toBeVisible();
   await expect(page.getByRole("button", { name: "Recall-first" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reveal answer" })).toBeVisible();
 });
@@ -217,13 +274,12 @@ test("spaced review queue surfaces due node and route reviews", async ({ page })
 test("connect workflow opens and applies CAST", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await doubleClickCanvasAt(page, 180, 140);
+  await createNamedNodes(page, ["Source", "Target"]);
   await queuePendingCast(page, 0, 1);
 
-  await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
   await expect(page.getByLabel("Tier 1 edge verb")).toHaveValue("links");
-  await page.getByRole("button", { name: "Tier 2 (CAST)" }).click();
+  await page.getByRole("button", { name: "Tier 2 (Decoded CAST)" }).click();
   await expect(page.getByText("C bits: 00")).toBeVisible();
   await page.getByLabel("CAST character").selectOption({ index: 1 });
   await expect(page.getByText("C bits: 01")).toBeVisible();
@@ -260,15 +316,14 @@ test("connect workflow opens and applies CAST", async ({ page }) => {
 test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await doubleClickCanvasAt(page, 180, 140);
+  await createNamedNodes(page, ["Source", "Target"]);
   await queuePendingCast(page, 0, 1);
 
-  await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
   await page.getByRole("button", { name: "triggers", exact: true }).click();
   await page.getByRole("button", { name: "depends on", exact: true }).click();
   await expect(page.getByLabel("Tier 1 edge verb")).toHaveValue("triggers; depends on");
-  await expect(page.getByText("triggers · depends on")).toBeVisible();
+  await expect(page.getByText("triggers / depends on")).toBeVisible();
   await page.getByLabel("Tier 1 direction").selectOption("two-way");
   await page.getByRole("button", { name: /create edge/i }).click();
 
@@ -301,8 +356,7 @@ test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
 test("reverse-direction edges curve away from each other", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await doubleClickCanvasAt(page, 180, 140);
+  await createNamedNodes(page, ["Source", "Target"]);
 
   await queuePendingCast(page, 0, 1);
   await page.getByLabel("Tier 1 edge verb").fill("feeds");
@@ -348,8 +402,7 @@ test("reverse-direction edges curve away from each other", async ({ page }) => {
 test("selected edge metadata appears in inspector", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await doubleClickCanvasAt(page, 180, 140);
+  await createNamedNodes(page, ["Source", "Target"]);
 
   await queuePendingCast(page, 0, 1);
   await page.getByLabel("Tier 1 edge verb").fill("feeds");
@@ -386,13 +439,12 @@ test("selected edge metadata appears in inspector", async ({ page }) => {
 test("edge inspector falls back to stored graph data when arrow meta is incomplete", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await doubleClickCanvasAt(page, 180, 140);
+  await createNamedNodes(page, ["Source", "Target"]);
 
   await queuePendingCast(page, 0, 1);
   await page.getByLabel("Tier 1 edge verb").fill("feeds");
   await page.getByRole("button", { name: /create edge/i }).click();
-  await page.getByRole("button", { name: /^Save$/ }).click();
+  await page.getByRole("button", checkpointButton).click();
 
   await page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -444,25 +496,26 @@ test("portal node opens a linked palace and route", async ({ page }) => {
   await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("Georgia/Tbilisi");
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
+  await closeLearnPanel(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Arrival");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByPlaceholder("Route name").fill("Entry Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /^Save$/ }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Arrival" });
+  await createRoute(page, "Entry Route");
+  await addSelectedToRoute(page);
+  await page.getByRole("button", checkpointButton).click();
 
   await page.getByRole("button", { name: "Portal Source", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Portal Source" })).toBeVisible();
 
   await page.getByRole("button", { name: /^Portal$/ }).click();
+  // The side panel is still on the Routes tab from building the target's route.
+  await openNodeTab(page);
   await expect(page.locator("#mp-node-kind")).toHaveValue("portal");
-  await page.locator("#mp-title").fill("Jump to target");
+  await editSelectedNode(page, { title: "Jump to target" });
   await page.getByLabel("Target palace").selectOption({ label: "Georgia/Tbilisi / Portal Target" });
   await expect(page.getByLabel("Target route")).toContainText("Entry Route");
   await page.getByLabel("Target route").selectOption({ label: "Entry Route" });
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await page.getByRole("button", { name: "Open linked palace" }).click();
 
   await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
@@ -472,9 +525,8 @@ test("portal node opens a linked palace and route", async ({ page }) => {
 test("theSystem pipeline materializes into graph workflow state", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Closures");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Closures" });
 
   await page.getByRole("button", { name: /^System$/ }).click();
   await expect(page.getByText("graph-native thinking workflows")).toBeVisible();
@@ -488,7 +540,9 @@ test("theSystem pipeline materializes into graph workflow state", async ({ page 
   await page.getByRole("button", { name: /materialize to graph/i }).click();
 
   await expect(page.getByText(/graph run with 7 nodes/i)).toBeVisible();
-  await expect(page.getByLabel("Active route")).toContainText("Comprehension run: Understanding closures");
+  // The run's route is the palace's only route, so it is the one the graph page offers to walk.
+  await page.getByRole("button", { name: /^Graph$/ }).click();
+  await expect(page.getByRole("combobox", { name: "Walk route" })).toContainText("Comprehension run: Understanding closures");
 
   await page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;

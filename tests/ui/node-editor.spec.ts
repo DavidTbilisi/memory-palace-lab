@@ -1,4 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { addNode, addSelectedToRoute, applyInspector, createRoute, editSelectedNode } from "./nodeHelpers";
+import { routeSummary } from "./routeHelpers";
+
+const saveCheckpointButton = { name: /Save Checkpoint|Checkpoint Now/ } as const;
 
 async function bootstrapPalace(page: import("@playwright/test").Page, name = "Node Test Palace") {
   await page.addInitScript(() => {
@@ -8,14 +12,9 @@ async function bootstrapPalace(page: import("@playwright/test").Page, name = "No
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name })).toBeVisible();
-}
-
-async function createNodeByDoubleClick(page: import("@playwright/test").Page) {
-  await page.locator(".tl-background").first().dblclick({ position: { x: 160, y: 180 } });
-}
-
-async function createNodeByDoubleClickAt(page: import("@playwright/test").Page, x: number, y: number) {
-  await page.locator(".tl-background").first().dblclick({ position: { x, y } });
+  // A new palace opens the Learn panel, which leaves the canvas and the toolbar little room.
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
 }
 
 async function selectNodeByTitle(page: import("@playwright/test").Page, title: string) {
@@ -226,49 +225,50 @@ async function selectFirstArrow(page: import("@playwright/test").Page) {
 test("node title/content editing follows selected node", async ({ page }) => {
   await bootstrapPalace(page, "Node Editing Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Kitchen Sink");
-  await page.locator("#mp-content").fill("Remember detergent, sponge, and sequence.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Kitchen Sink", content: "Remember detergent, sponge, and sequence." });
 
-  await createNodeByDoubleClick(page);
-  await expect(page.locator("#mp-title")).toHaveValue("New node");
-  await page.locator("#mp-title").fill("Front Door");
-  await page.locator("#mp-content").fill("Recall welcome script.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Front Door", content: "Recall welcome script." });
 
   await selectNodeByTitle(page, "Kitchen Sink");
   await expect(page.locator("#mp-title")).toHaveValue("Kitchen Sink");
-  await expect(page.locator("#mp-content")).toHaveValue("Remember detergent, sponge, and sequence.");
+  await expect(page.locator("#mp-content")).toHaveText("Remember detergent, sponge, and sequence.");
 
   await selectNodeByTitle(page, "Front Door");
   await expect(page.locator("#mp-title")).toHaveValue("Front Door");
-  await expect(page.locator("#mp-content")).toHaveValue("Recall welcome script.");
+  await expect(page.locator("#mp-content")).toHaveText("Recall welcome script.");
 });
 
 test("route locus defaults to edited node title", async ({ page }) => {
   await bootstrapPalace(page, "Route Label Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Kitchen Sink");
-  await page.locator("#mp-content").fill("Plates, cups, and glasses.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Kitchen Sink", content: "Plates, cups, and glasses." });
 
-  await page.getByPlaceholder("Route name").fill("Home Route");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // The edited node is still the canvas selection.
+  await createRoute(page, "Home Route");
+  await addSelectedToRoute(page);
 
-  await expect(page.getByLabel("Locus 1 label")).toHaveValue("Kitchen Sink");
+  // The stop has no label of its own, so it is shown under the node's edited title.
+  const route = page.getByTestId("routes-panel").getByRole("region", { name: "Route Home Route" });
+  await expect(route.getByRole("button", { name: "Remove stop 1, Kitchen Sink" })).toBeVisible();
+  await expect(route.getByRole("list", { name: "Stops" }).getByRole("listitem")).toHaveCount(1);
+  await expect.poll(() => routeSummary(page)).toMatchObject([{ name: "Home Route", stops: ["Kitchen Sink"] }]);
+  const stopLabels = await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing dev store hook");
+    return (store.getState() as { loci: { label: string }[] }).loci.map((locus) => locus.label.trim());
+  });
+  expect(stopLabels).toEqual([""]);
 });
 
 test("node title/content persist after save and reopen palace", async ({ page }) => {
   await bootstrapPalace(page, "Persistence Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Server Room");
-  await page.locator("#mp-content").fill("Racks left to right: auth, router, db.");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByRole("button", { name: /^Save$/ }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Server Room", content: "Racks left to right: auth, router, db." });
+  await page.getByRole("button", saveCheckpointButton).click();
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Temporary Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
@@ -280,7 +280,7 @@ test("node title/content persist after save and reopen palace", async ({ page })
   await selectNodeByTitle(page, "Server Room");
   await expect(page.locator("#mp-title")).toBeVisible();
   await expect(page.locator("#mp-title")).toHaveValue("Server Room");
-  await expect(page.locator("#mp-content")).toHaveValue("Racks left to right: auth, router, db.");
+  await expect(page.locator("#mp-content")).toHaveText("Racks left to right: auth, router, db.");
 });
 
 test("aliases persist for palace, node, and edge inspectors", async ({ page }) => {
@@ -290,24 +290,21 @@ test("aliases persist for palace, node, and edge inspectors", async ({ page }) =
   await page.getByRole("button", { name: "Save details" }).click();
   await expect(page.getByText("Alias: AP")).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Gateway");
-  await page.locator("#mp-alias").fill("GW");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Gateway", alias: "GW" });
 
-  await createNodeByDoubleClickAt(page, 520, 260);
-  await page.locator("#mp-title").fill("Database");
-  await page.locator("#mp-alias").fill("DB");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "Database", alias: "DB" });
 
   await queuePendingCast(page, 0, 1);
+  await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
   await page.getByLabel("Tier 1 edge verb").fill("writes");
   await page.getByRole("button", { name: /create edge/i }).click();
   await selectFirstArrow(page);
   await page.locator("#mp-edge-alias").fill("Write path");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
-  await page.getByRole("button", { name: /^Save$/ }).click();
+  await page.getByRole("button", saveCheckpointButton).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Alias Temporary Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Alias Temporary Palace" })).toBeVisible();
@@ -328,31 +325,25 @@ test("aliases persist for palace, node, and edge inspectors", async ({ page }) =
 test("inspector title matches clicked canvas node", async ({ page }) => {
   await bootstrapPalace(page, "Selection Sync Palace");
 
-  await createNodeByDoubleClickAt(page, 180, 160);
-  await expect(page.locator("#mp-title")).toHaveValue("New node");
-  await page.locator("#mp-title").fill("A");
-  await page.locator("#mp-content").fill("Alpha content");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "A", content: "Alpha content" });
 
-  await createNodeByDoubleClickAt(page, 320, 260);
-  await expect(page.locator("#mp-title")).toHaveValue("New node");
-  await page.locator("#mp-title").fill("B");
-  await page.locator("#mp-content").fill("Beta content");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, { title: "B", content: "Beta content" });
 
   await clickNodeByTitle(page, "A");
   await expect(page.locator("#mp-title")).toHaveValue("A");
-  await expect(page.locator("#mp-content")).toHaveValue("Alpha content");
+  await expect(page.locator("#mp-content")).toHaveText("Alpha content");
 
   await clickNodeByTitle(page, "B");
   await expect(page.locator("#mp-title")).toHaveValue("B");
-  await expect(page.locator("#mp-content")).toHaveValue("Beta content");
+  await expect(page.locator("#mp-content")).toHaveText("Beta content");
 });
 
 test("inspector updates after canvas-side rename of selected node", async ({ page }) => {
   await bootstrapPalace(page, "Canvas Rename Sync Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await expect(page.locator("#mp-title")).toHaveValue("New node");
 
   await page.evaluate(() => {

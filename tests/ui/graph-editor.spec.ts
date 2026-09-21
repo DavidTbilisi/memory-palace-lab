@@ -14,6 +14,15 @@
  */
 
 import { expect, test } from "@playwright/test";
+import {
+  addNode,
+  addSelectedToRoute,
+  applyInspector,
+  createRoute,
+  editSelectedNode,
+  openNodeTab,
+} from "./nodeHelpers";
+import { openTutorialPalace, routeSummary } from "./routeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,9 +37,8 @@ async function bootstrapPalace(page: import("@playwright/test").Page, name: stri
 }
 
 async function bootstrapTutorial(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: /create tutorial palace/i }).click();
-  await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  // Closes the Learn panel too, so the canvas has room for new nodes.
+  await openTutorialPalace(page);
 }
 
 async function waitForEditorReady(page: import("@playwright/test").Page) {
@@ -84,10 +92,22 @@ async function getEdgeCount(page: import("@playwright/test").Page) {
   });
 }
 
+/** The store's `edges` are the last saved snapshot; the draft save after an edit refreshes it. */
+async function waitForSavedEdges(page: import("@playwright/test").Page, count: number) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        return (store?.getState() as { edges: unknown[] } | undefined)?.edges.length ?? 0;
+      }),
+    )
+    .toBe(count);
+}
+
 async function queuePendingCast(
   page: import("@playwright/test").Page,
-  fromIndex: number,
-  toIndex: number,
+  fromIndex: number | string,
+  toIndex: number | string,
 ) {
   await page.evaluate(
     ([fi, ti]) => {
@@ -107,16 +127,19 @@ async function queuePendingCast(
       };
       const editor = state.editorRef;
       if (!editor) throw new Error("editor not ready");
-      const nodes: Array<{ shapeId: string; nodeId: string; x: number }> = [];
+      const nodes: Array<{ shapeId: string; nodeId: string; x: number; title: unknown }> = [];
       for (const shapeId of editor.getCurrentPageShapeIds()) {
         const shape = editor.getShape(shapeId);
         const nodeId =
           shape?.type === "geo" ? (shape.meta?.mpNodeId as string | undefined) : undefined;
-        if (nodeId) nodes.push({ shapeId, nodeId, x: shape?.x ?? 0 });
+        if (nodeId) nodes.push({ shapeId, nodeId, x: shape?.x ?? 0, title: shape?.meta?.mpTitle });
       }
       nodes.sort((a, b) => a.x - b.x);
-      const from = nodes[fi!];
-      const to = nodes[ti!];
+      // A number picks by left-to-right position, a string by node title.
+      const pick = (key: number | string | undefined) =>
+        typeof key === "string" ? nodes.find((node) => node.title === key) : nodes[key!];
+      const from = pick(fi);
+      const to = pick(ti);
       if (!from || !to) throw new Error(`need nodes at indices ${fi} and ${ti}`);
       state.setPendingCast({
         fromShapeId: from.shapeId,
@@ -125,8 +148,51 @@ async function queuePendingCast(
         targetNodeId: to.nodeId,
       });
     },
-    [fromIndex, toIndex],
+    [fromIndex, toIndex] as const,
   );
+}
+
+/** The toolbar save button reads "Checkpoint Now" while there are unsaved or draft edits. */
+async function saveCheckpoint(page: import("@playwright/test").Page) {
+  // With the Learn panel open the toolbar is too narrow at 1280px: the storage status
+  // button is laid over the save button and takes the click.
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
+  await page.getByRole("button", { name: /Save Checkpoint|Checkpoint Now/ }).click();
+}
+
+/** Saved content (HTML from the rich-text editor) of the node with this title. */
+function savedContent(page: import("@playwright/test").Page, title: string) {
+  return page.evaluate((t) => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) return "";
+    const state = store.getState() as { nodes: Array<{ title: string; content: string }> };
+    return state.nodes.find((n) => n.title === t)?.content ?? "";
+  }, title);
+}
+
+/** Select the first arrow on the canvas so the inspector shows that edge. */
+async function selectFirstArrow(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing store hook");
+    const state = store.getState() as {
+      editorRef: {
+        getCurrentPageShapeIds: () => Iterable<string>;
+        getShape: (id: string) => { type?: string } | undefined;
+        setSelectedShapes: (ids: string[]) => void;
+      } | null;
+      setSelectedShapeId: (id: string | null) => void;
+    };
+    const editor = state.editorRef;
+    if (!editor) throw new Error("editor not ready");
+    const arrowId = Array.from(editor.getCurrentPageShapeIds()).find(
+      (id) => editor.getShape(id)?.type === "arrow",
+    );
+    if (!arrowId) throw new Error("no arrow found");
+    editor.setSelectedShapes([arrowId]);
+    state.setSelectedShapeId(arrowId);
+  });
 }
 
 async function openDslEditor(page: import("@playwright/test").Page) {
@@ -141,27 +207,41 @@ test.describe("multi-node canvas creation", () => {
     await bootstrapTutorial(page);
     await waitForEditorReady(page);
 
-    const bg = page.locator(".tl-background").first();
-    for (const pos of [{ x: 140, y: 160 }, { x: 300, y: 160 }, { x: 460, y: 160 }]) {
-      await bg.dblclick({ position: pos });
-      await page.waitForTimeout(200);
+    const before = await getNodeCount(page);
+    // Each addNode double-clicks a different free spot on the canvas.
+    for (let i = 0; i < 3; i++) {
+      await addNode(page);
     }
 
-    await expect.poll(() => getNodeCount(page), { timeout: 8000 }).toBeGreaterThanOrEqual(3);
+    await expect.poll(() => getNodeCount(page), { timeout: 8000 }).toBe(before + 3);
+    const positions = await page.evaluate(() => {
+      const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+      const editor = (
+        store?.getState() as {
+          editorRef: {
+            getCurrentPageShapes: () => Array<{ x: number; y: number; meta?: Record<string, unknown> }>;
+          } | null;
+        }
+      ).editorRef;
+      if (!editor) return [];
+      return editor
+        .getCurrentPageShapes()
+        .filter((shape) => !!shape.meta?.mpNodeId)
+        .map((shape) => `${Math.round(shape.x)},${Math.round(shape.y)}`);
+    });
+    expect(new Set(positions).size).toBe(positions.length);
   });
 
   test("inspector updates title for each newly created node", async ({ page }) => {
     await bootstrapTutorial(page);
     await waitForEditorReady(page);
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Alpha");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Alpha" });
 
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
     await expect(page.locator("#mp-title")).toHaveValue("New node");
-    await page.locator("#mp-title").fill("Beta");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await editSelectedNode(page, { title: "Beta" });
 
     // Click Alpha to verify it has its own title
     const alphaShapeId = await page.evaluate(() => {
@@ -195,17 +275,18 @@ test.describe("multi-node canvas creation", () => {
 // ── EDGE CREATION VARIANTS ────────────────────────────────────────────────────
 
 test.describe("edge creation variants", () => {
-  test("Tier 1 verb-only edge is created without CAST values", async ({ page }) => {
+  test("Tier 1 verb-only edge keeps its verb and the default one-way CAST profile", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
+    await addNode(page);
 
     await queuePendingCast(page, 0, 1);
-    await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
     await page.getByLabel("Tier 1 edge verb").fill("requires");
     await page.getByRole("button", { name: /create edge/i }).click();
 
     await expect.poll(() => getEdgeCount(page), { timeout: 8000 }).toBe(1);
+    await waitForSavedEdges(page, 1);
 
     const edge = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -216,31 +297,35 @@ test.describe("edge creation variants", () => {
       return state.edges[0] ?? null;
     });
     expect(edge).not.toBeNull();
-    // Verb-only → all CAST axes empty (0000 → empty strings)
-    expect(edge!.castAb).toBe("");
-    expect(edge!.castCd).toBe("");
-    expect(edge!.castEf).toBe("");
-    expect(edge!.castGh).toBe("");
+    // A Tier 1 edge is labelled with its verb. The dialog never stores empty CAST axes:
+    // a one-way verb edge gets the fixed Tier 1 profile (Giant = one-way source role).
+    expect(edge!.castAb).toBe("Giant");
+    expect(edge!.castCd).toBe("Spreading");
+    expect(edge!.castEf).toBe("Cloud");
+    expect(edge!.castGh).toBe("Blue ocean");
+
+    // The verb is the arrow's label, shown in the edge inspector.
+    await selectFirstArrow(page);
+    await expect(page.locator("#mp-edge-label")).toHaveValue("requires");
   });
 
   test("Tier 2 CAST profile 2222 encodes all four axes at index 2", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
+    await addNode(page);
 
     await queuePendingCast(page, 0, 1);
-    await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
-    await page.getByRole("button", { name: "Tier 2 (CAST)" }).click();
+    await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
+    await page.getByRole("button", { name: "Tier 2 (Decoded CAST)" }).click();
 
     // Select index 2 on all four selectors (Mage / Spreading / Cloud / Green sky)
-    const castSelects = page.getByLabel("CAST character");
-    const count = await castSelects.count();
-    for (let i = 0; i < count; i++) {
-      await castSelects.nth(i).selectOption({ index: 2 });
+    for (const axis of ["CAST character", "CAST action", "CAST stream", "CAST time"]) {
+      await page.getByLabel(axis).selectOption({ index: 2 });
     }
 
     await page.getByRole("button", { name: /create edge/i }).click();
     await expect.poll(() => getEdgeCount(page), { timeout: 8000 }).toBe(1);
+    await waitForSavedEdges(page, 1);
 
     const edge = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -255,12 +340,12 @@ test.describe("edge creation variants", () => {
 
   test("creating three edges between the same pair shows all three in store", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
+    await addNode(page);
 
     for (const verb of ["feeds", "triggers", "blocks"]) {
       await queuePendingCast(page, 0, 1);
-      await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
       await page.getByLabel("Tier 1 edge verb").fill(verb);
       await page.getByRole("button", { name: /create edge/i }).click();
       await page.waitForTimeout(300);
@@ -271,8 +356,8 @@ test.describe("edge creation variants", () => {
 
   test("edge alias is preserved after save and reload", async ({ page }) => {
     await bootstrapPalace(page, "Edge Alias Palace");
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
+    await addNode(page);
 
     await queuePendingCast(page, 0, 1);
     await page.getByLabel("Tier 1 edge verb").fill("depends on");
@@ -301,8 +386,8 @@ test.describe("edge creation variants", () => {
     });
 
     await page.locator("#mp-edge-alias").fill("Critical path");
-    await page.getByRole("button", { name: "Apply" }).click();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await applyInspector(page);
+    await saveCheckpoint(page);
 
     // Switch and come back
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Temp");
@@ -329,32 +414,43 @@ test.describe("edge creation variants", () => {
 test.describe("route locus management", () => {
   test("locus label can be renamed", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Station One");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Station One" });
 
-    await page.getByPlaceholder("Route name").fill("Label Test Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
+    await createRoute(page, "Label Test Route");
+    await addSelectedToRoute(page);
 
-    await expect(page.getByLabel("Locus 1 label")).toHaveValue("Station One");
-    await page.getByLabel("Locus 1 label").fill("Custom Label");
-    await page.getByLabel("Locus 1 label").press("Enter");
+    // A stop is labelled with its node's title until it gets a label of its own.
+    const route = page.getByRole("region", { name: "Route Label Test Route" });
+    const stops = route.getByRole("list", { name: "Stops" }).getByRole("listitem");
+    await expect(stops).toHaveCount(1);
+    await expect(route.getByRole("button", { name: "Remove stop 1, Station One" })).toBeVisible();
 
-    await expect(page.getByLabel("Locus 1 label")).toHaveValue("Custom Label");
+    // Double-click the stop to rename it.
+    await stops.first().getByRole("button", { name: "Station One", exact: true }).dblclick();
+    await route.getByLabel("Label for stop 1").fill("Custom Label");
+    await route.getByLabel("Label for stop 1").press("Enter");
+
+    await expect(route.getByRole("button", { name: "Remove stop 1, Custom Label" })).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+          return (store?.getState() as { loci: Array<{ label: string }> }).loci.map((l) => l.label);
+        }),
+      )
+      .toEqual(["Custom Label"]);
   });
 
   test("two nodes produce two loci in order", async ({ page }) => {
     await bootstrapTutorial(page);
 
-    for (const [title, pos] of [["First", { x: 140, y: 160 }], ["Second", { x: 320, y: 160 }]] as const) {
-      await page.locator(".tl-background").first().dblclick({ position: pos });
-      await page.locator("#mp-title").fill(title);
-      await page.getByRole("button", { name: "Apply" }).click();
+    for (const title of ["First", "Second"]) {
+      await addNode(page);
+      await editSelectedNode(page, { title });
     }
 
-    await page.getByPlaceholder("Route name").fill("Ordered Route");
-    await page.getByRole("button", { name: "Add route" }).click();
+    await createRoute(page, "Ordered Route");
 
     // Add First then Second
     for (const title of ["First", "Second"]) {
@@ -380,23 +476,28 @@ test.describe("route locus management", () => {
           }
         }
       }, title);
-      await page.getByRole("button", { name: /add selected node to route/i }).click();
+      await addSelectedToRoute(page);
     }
 
-    await expect(page.getByLabel("Locus 1 label")).toHaveValue("First");
-    await expect(page.getByLabel("Locus 2 label")).toHaveValue("Second");
+    const route = page.getByRole("region", { name: "Route Ordered Route" });
+    await expect(route.getByRole("list", { name: "Stops" }).getByRole("listitem")).toHaveCount(2);
+    await expect(route.getByRole("button", { name: "Remove stop 1, First" })).toBeVisible();
+    await expect(route.getByRole("button", { name: "Remove stop 2, Second" })).toBeVisible();
+    expect((await routeSummary(page)).find((r) => r.name === "Ordered Route")?.stops).toEqual([
+      "First",
+      "Second",
+    ]);
   });
 
   test("route loci survive save and reload", async ({ page }) => {
     await bootstrapPalace(page, "Locus Persist Palace");
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Anchor Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Anchor Node" });
 
-    await page.getByPlaceholder("Route name").fill("Persist Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await createRoute(page, "Persist Route");
+    await addSelectedToRoute(page);
+    await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(["Anchor Node"]);
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Away Palace");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -412,15 +513,21 @@ test.describe("route locus management", () => {
       return (store.getState() as { loci: Array<{ label: string }> }).loci;
     });
     expect(loci).toHaveLength(1);
-    expect(loci[0]!.label).toBe("Anchor Node");
+    // A stop has no label of its own by default: it shows its node's title.
+    expect(await routeSummary(page)).toMatchObject([{ name: "Persist Route", stops: ["Anchor Node"] }]);
+    await expect(
+      page
+        .getByRole("region", { name: "Route Persist Route" })
+        .getByRole("button", { name: "Remove stop 1, Anchor Node" }),
+    ).toBeVisible();
   });
 
   test("deleting a route removes its loci from store", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.getByPlaceholder("Route name").fill("Route To Delete");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
+    await addNode(page);
+    const routesBefore = (await routeSummary(page)).length;
+    await createRoute(page, "Route To Delete");
+    await addSelectedToRoute(page);
 
     await expect
       .poll(
@@ -435,23 +542,29 @@ test.describe("route locus management", () => {
       )
       .toBeGreaterThan(0);
 
-    // Delete the route
-    const routeDeleteBtn = page.getByRole("button", { name: /delete.*route|remove.*route/i });
-    if ((await routeDeleteBtn.count()) > 0) {
-      await routeDeleteBtn.click();
-      await expect
-        .poll(
-          () =>
-            page.evaluate(() => {
-              const s = (window as { __mp_store?: { getState: () => unknown } }).__mp_store?.getState() as {
-                routes: unknown[];
-              };
-              return s?.routes?.length ?? 0;
-            }),
-          { timeout: 6000 },
-        )
-        .toBe(0);
-    }
+    // Delete the route from its menu; the app asks for confirmation first.
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.getByRole("button", { name: "More actions for Route To Delete" }).click();
+    await page.getByRole("menuitem", { name: "Delete route" }).click();
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const s = (window as { __mp_store?: { getState: () => unknown } }).__mp_store?.getState() as {
+              routes: Array<{ id: string; name: string }>;
+              loci: Array<{ routeId: string }>;
+            };
+            const routeIds = new Set(s.routes.map((r) => r.id));
+            return {
+              routes: s.routes.length,
+              deletedStillThere: s.routes.some((r) => r.name === "Route To Delete"),
+              orphanLoci: s.loci.filter((l) => !routeIds.has(l.routeId)).length,
+            };
+          }),
+        { timeout: 6000 },
+      )
+      .toEqual({ routes: routesBefore, deletedStillThere: false, orphanLoci: 0 });
   });
 });
 
@@ -475,22 +588,22 @@ test.describe("portal node via inspector", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Arrival");
-    await page.getByRole("button", { name: "Apply" }).click();
-    await page.getByPlaceholder("Route name").fill("Entry Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Arrival" });
+    await createRoute(page, "Entry Route");
+    await addSelectedToRoute(page);
+    await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(["Arrival"]);
+    await saveCheckpoint(page);
 
     await page.getByRole("button", { name: "Portal Source", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Portal Source" })).toBeVisible();
 
     await page.getByRole("button", { name: /^Portal$/ }).click();
-    await page.locator("#mp-title").fill("Jump Node");
+    await openNodeTab(page);
+    await editSelectedNode(page, { title: "Jump Node" });
     await page.getByLabel("Target palace").selectOption({ label: "Portal Target" });
     await page.getByLabel("Target route").selectOption({ label: "Entry Route" });
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: "Open linked palace" }).click();
 
     await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
@@ -503,36 +616,38 @@ test.describe("portal node via inspector", () => {
 test.describe("node content and alias", () => {
   test("multi-line content is preserved after Apply", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Multi Line Node");
-    await page.locator("#mp-content").fill("Line one.\nLine two.\nLine three.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Multi Line Node" });
 
-    const content = await page.evaluate(() => {
-      const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-      if (!store) return "";
-      const state = store.getState() as {
-        nodes: Array<{ title: string; content: string }>;
-      };
-      return state.nodes.find((n) => n.title === "Multi Line Node")?.content ?? "";
-    });
+    // Content is a rich-text editor: Enter starts a new line, and the node stores HTML.
+    const editor = page.locator("#mp-content");
+    await editor.click();
+    await page.keyboard.type("Line one.");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Line two.");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Line three.");
+    await applyInspector(page);
+
+    await expect.poll(() => savedContent(page, "Multi Line Node")).toContain("Line three.");
+    const content = await savedContent(page, "Multi Line Node");
     expect(content).toContain("Line one.");
-    expect(content).toContain("Line three.");
+    expect(content).toContain("Line two.");
+    // The three lines are stored as separate lines, not run together.
+    expect(content).not.toMatch(/Line one\.\s*Line two\./);
+    await expect(editor).toHaveText(/Line one\.\s*Line two\.\s*Line three\./, { useInnerText: true });
+    expect((await editor.innerText()).trim().split(/\n+/)).toEqual(["Line one.", "Line two.", "Line three."]);
   });
 
   test("node alias appears in edge source/target labels after apply", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Source Node");
-    await page.locator("#mp-alias").fill("SN");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Source Node", alias: "SN" });
 
-    await page.locator(".tl-background").first().dblclick({ position: { x: 320, y: 180 } });
-    await page.locator("#mp-title").fill("Target Node");
-    await page.locator("#mp-alias").fill("TN");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Target Node", alias: "TN" });
 
-    await queuePendingCast(page, 0, 1);
+    await queuePendingCast(page, "Source Node", "Target Node");
     await page.getByLabel("Tier 1 edge verb").fill("uses");
     await page.getByRole("button", { name: /create edge/i }).click();
 
@@ -627,7 +742,7 @@ test.describe("atlas hierarchy editor", () => {
   test("three-level atlas path segments are displayed in sidebar", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Hierarchy Palace");
-    await page.getByRole("textbox", { name: "Atlas path" }).fill("Science/Biology/Cells");
+    await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("Science/Biology/Cells");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Hierarchy Palace" })).toBeVisible();
 
@@ -639,7 +754,7 @@ test.describe("atlas hierarchy editor", () => {
   test("hierarchy editor renames axis labels and updates path", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Relabel Palace");
-    await page.getByRole("textbox", { name: "Atlas path" }).fill("Domain/Topic/Lesson");
+    await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("Domain/Topic/Lesson");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Relabel Palace" })).toBeVisible();
 
@@ -665,7 +780,7 @@ test.describe("atlas hierarchy editor", () => {
       ["Palace B", "Engineering/Backend/Database"],
     ] as const) {
       await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
-      await page.getByRole("textbox", { name: "Atlas path" }).fill(path);
+      await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill(path);
       await page.getByRole("button", { name: "Create palace" }).click();
       await expect(page.getByRole("heading", { name })).toBeVisible();
     }
@@ -681,9 +796,8 @@ test.describe("atlas hierarchy editor", () => {
 test.describe("theSystem pipeline materialization", () => {
   test("Comprehension Protocol creates route with 6 loci", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Recursion");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Recursion" });
 
     await page.getByRole("button", { name: /^System$/ }).click();
     await page.getByRole("button", { name: "Comprehension Protocol" }).click();
@@ -713,9 +827,8 @@ test.describe("theSystem pipeline materialization", () => {
 
   test("materialized graph adds system_run_materialized analytics event", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator("#mp-title").fill("Promises");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Promises" });
 
     await page.getByRole("button", { name: /^System$/ }).click();
     await page.getByRole("button", { name: "Comprehension Protocol" }).click();
@@ -757,18 +870,30 @@ test.describe("inspector panel", () => {
 
   test("node content field is multi-line and scrollable", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     const contentBox = page.locator("#mp-content");
     await expect(contentBox).toBeVisible();
-    // Verify it is a textarea (multi-line)
-    const tagName = await contentBox.evaluate((el) => el.tagName.toLowerCase());
-    expect(tagName).toBe("textarea");
+    // Content is a rich-text (contenteditable) editor, which takes several lines.
+    await expect(contentBox).toHaveAttribute("contenteditable", "true");
+    await contentBox.click();
+    await page.keyboard.type("First line");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Second line");
+    expect((await contentBox.innerText()).trim().split(/\n+/)).toEqual(["First line", "Second line"]);
+    // Long content scrolls inside the inspector instead of growing the page.
+    const scrolls = await contentBox.evaluate((el) => {
+      for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+        if (/auto|scroll/.test(getComputedStyle(parent).overflowY)) return true;
+      }
+      return false;
+    });
+    expect(scrolls).toBe(true);
   });
 
   test("inspector shows node source/target for selected edge", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
-    await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
+    await addNode(page);
+    await addNode(page);
 
     await queuePendingCast(page, 0, 1);
     await page.getByLabel("Tier 1 edge verb").fill("links");

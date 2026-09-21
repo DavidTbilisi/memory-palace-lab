@@ -1,16 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { addNode, addSelectedToRoute, createRoute, editSelectedNode, selectAllNodes } from "./nodeHelpers";
 
 test("walk mode steps and active state are visible", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.getByPlaceholder("Route name").fill("Walk Demo");
-  await page.getByRole("button", { name: "Add route" }).click();
-
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  // Two stops need two nodes: a route holds each node once.
+  await addNode(page);
+  await addNode(page);
+  await createRoute(page, "Walk Demo");
+  await selectAllNodes(page);
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Walk active")).toBeVisible();
@@ -28,14 +29,14 @@ test("recall-first walk mode hides the answer until reveal and keeps controls st
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
-  await page.locator("#mp-title").fill("Closure cue");
-  await page.locator("#mp-content").fill("A closure keeps access to the lexical environment that created it.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await addNode(page);
+  await editSelectedNode(page, {
+    title: "Closure cue",
+    content: "A closure keeps access to the lexical environment that created it.",
+  });
 
-  await page.getByPlaceholder("Route name").fill("Recall Demo");
-  await page.getByRole("button", { name: "Add route" }).click();
-  await page.getByRole("button", { name: /add selected node to route/i }).click();
+  await createRoute(page, "Recall Demo");
+  await addSelectedToRoute(page);
 
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await page.getByRole("button", { name: "Recall-first" }).click();
