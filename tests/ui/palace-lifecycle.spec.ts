@@ -11,7 +11,7 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { addNode, applyInspector } from "./nodeHelpers";
+import { addNode, addSelectedToRoute, createRoute, editSelectedNode } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,48 @@ async function nodeExists(page: import("@playwright/test").Page, title: string) 
     }
     return false;
   }, title);
+}
+
+type Page = import("@playwright/test").Page;
+
+/** The toolbar save button reads "Checkpoint Now" while there are unsaved or draft edits. */
+async function saveCheckpoint(page: Page) {
+  // With the Learn panel open the toolbar is too narrow at 1280px: the storage status
+  // button is laid over the middle of the save button and takes the click.
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
+  await page.getByRole("button", { name: /Save Checkpoint|Checkpoint Now/ }).click();
+}
+
+/** Auto-save status is only shown inside the "Storage and save status" dropdown. */
+async function expectAutoSaveStatus(page: Page, status: string | RegExp) {
+  await page.getByRole("button", { name: "Storage and save status" }).click();
+  await expect(page.getByRole("menu").getByText(status)).toBeVisible({ timeout: 5000 });
+  await page.keyboard.press("Escape");
+}
+
+/** The sidebar "Trash" section label ("Move to trash" also contains the word). */
+function trashHeading(page: Page) {
+  return page.getByText("Trash", { exact: true });
+}
+
+/** Backup lives on the Settings page now. Leaves the Settings page open. */
+async function exportBackup(page: Page) {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 10000 }),
+    page.getByRole("button", { name: "Backup all palaces" }).click(),
+  ]);
+  return download;
+}
+
+async function routeNames(page: Page) {
+  return page.evaluate(() => {
+    const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+    if (!store) throw new Error("missing store hook");
+    return (store.getState() as { routes: Array<{ name: string }> }).routes.map((r) => r.name);
+  });
 }
 
 // ── CREATE & SWITCH ───────────────────────────────────────────────────────────
@@ -107,10 +149,8 @@ test.describe("palace save and reload", () => {
     await expect(page.getByRole("heading", { name: "Persist Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Persisted Node");
-    await page.locator("#mp-content").fill("This content should survive.");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Persisted Node", content: "This content should survive." });
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other Palace");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -129,9 +169,8 @@ test.describe("palace save and reload", () => {
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Save Event Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Save Event Node" });
+    await saveCheckpoint(page);
 
     await expect
       .poll(() => getAnalyticsEvents(page), { timeout: 8000 })
@@ -155,8 +194,7 @@ test.describe("palace save and reload", () => {
 
     // After adding a node → dirty or draft
     await addNode(page);
-    await page.locator("#mp-title").fill("Trigger Dirty");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Trigger Dirty" });
 
     await expect
       .poll(() =>
@@ -169,7 +207,7 @@ test.describe("palace save and reload", () => {
       )
       .not.toBe("clean");
 
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await saveCheckpoint(page);
 
     await expect
       .poll(() =>
@@ -194,10 +232,9 @@ test.describe("draft autosave and restore", () => {
     await expect(page.getByRole("heading", { name: "Draft Test Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Autosave Node");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Autosave Node" });
 
-    await expect(page.getByText("Draft saved")).toBeVisible({ timeout: 5000 });
+    await expectAutoSaveStatus(page, /^Auto-save: saved/);
   });
 
   test("draft restores after switching palaces without saving", async ({ page }) => {
@@ -207,9 +244,8 @@ test.describe("draft autosave and restore", () => {
     await expect(page.getByRole("heading", { name: "Draft Restore Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Unsaved Node");
-    await applyInspector(page);
-    await expect(page.getByText("Draft saved")).toBeVisible({ timeout: 5000 });
+    await editSelectedNode(page, { title: "Unsaved Node" });
+    await expectAutoSaveStatus(page, /^Auto-save: saved/);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Away Palace");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -217,7 +253,7 @@ test.describe("draft autosave and restore", () => {
 
     await page.getByRole("button", { name: "Draft Restore Palace", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Draft Restore Palace" })).toBeVisible();
-    await expect(page.getByText("Draft restored")).toBeVisible({ timeout: 5000 });
+    await expectAutoSaveStatus(page, "Auto-save: restored from recovery draft");
     await waitForEditorReady(page);
 
     await expect.poll(() => nodeExists(page, "Unsaved Node"), { timeout: 8000 }).toBe(true);
@@ -230,8 +266,7 @@ test.describe("draft autosave and restore", () => {
     await expect(page.getByRole("heading", { name: "Draft Analytics Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Draft Node");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Draft Node" });
 
     await expect
       .poll(() => getAnalyticsEvents(page), { timeout: 10000 })
@@ -270,7 +305,7 @@ test.describe("palace trash, restore, and purge", () => {
     page.on("dialog", (dialog) => void dialog.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 8000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText("Will Be Trashed")).toBeVisible();
   });
 
@@ -283,7 +318,7 @@ test.describe("palace trash, restore, and purge", () => {
     page.on("dialog", (dialog) => void dialog.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 8000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
     await page.getByRole("button", { name: "Restore" }).click();
 
     // Should return to active list
@@ -295,7 +330,7 @@ test.describe("palace trash, restore, and purge", () => {
       .toBe(true);
 
     // Trash section should be gone (or at least not contain this palace)
-    const trashSection = page.getByText("Trash");
+    const trashSection = trashHeading(page);
     const stillInTrash = await trashSection.isVisible();
     if (stillInTrash) {
       await expect(page.locator(".space-y-2").getByText("Will Be Restored")).toHaveCount(0);
@@ -311,7 +346,7 @@ test.describe("palace trash, restore, and purge", () => {
     page.on("dialog", (dialog) => void dialog.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 8000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText("Will Be Purged")).toBeVisible();
 
     await page.getByRole("button", { name: "Delete now" }).click();
@@ -320,7 +355,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect
       .poll(
         async () => {
-          const trashVisible = await page.getByText("Trash").isVisible();
+          const trashVisible = await trashHeading(page).isVisible();
           if (!trashVisible) return true;
           return !(await page.getByText("Will Be Purged").isVisible());
         },
@@ -351,7 +386,7 @@ test.describe("palace trash, restore, and purge", () => {
 
     page.on("dialog", (dialog) => void dialog.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 8000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
     await page.getByRole("button", { name: "Restore" }).click();
 
     await expect
@@ -368,10 +403,7 @@ test.describe("JSON backup export and import", () => {
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 10000 }),
-      page.locator('button[title="Download all palaces as a JSON backup"]').click(),
-    ]);
+    const download = await exportBackup(page);
 
     expect(download.suggestedFilename()).toMatch(/\.json$/);
   });
@@ -381,10 +413,7 @@ test.describe("JSON backup export and import", () => {
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 10000 }),
-      page.locator('button[title="Download all palaces as a JSON backup"]').click(),
-    ]);
+    const download = await exportBackup(page);
 
     const path = await download.path();
     const { readFileSync } = await import("node:fs");
@@ -404,15 +433,11 @@ test.describe("JSON backup export and import", () => {
     await expect(page.getByRole("heading", { name: "Export Source Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Exported Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Exported Node" });
+    await saveCheckpoint(page);
 
     // Export
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 10000 }),
-      page.locator('button[title="Download all palaces as a JSON backup"]').click(),
-    ]);
+    const download = await exportBackup(page);
 
     const exportPath = await download.path();
     const { readFileSync } = await import("node:fs");
@@ -423,13 +448,13 @@ test.describe("JSON backup export and import", () => {
     const exportedPalace = backup.palaces.find((p) => p.palace.name === "Export Source Palace");
     expect(exportedPalace).toBeDefined();
 
-    // Import via file input
-    const fileInput = page.locator('input[type="file"]').last();
-    await fileInput.setInputFiles({
+    // Import via the Settings page file input
+    await page.getByLabel("Backup file").setInputFiles({
       name: "backup.json",
       mimeType: "application/json",
       buffer: Buffer.from(backupContent),
     });
+    await expect(page.getByText(/^Restored \d+ palaces/)).toBeVisible({ timeout: 10000 });
 
     // Wait for import to complete (palace should appear in list)
     await expect
@@ -452,9 +477,8 @@ test.describe("multiple palace isolation", () => {
     await expect(page.getByRole("heading", { name: "Isolation A" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Only In A");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Only In A" });
+    await saveCheckpoint(page);
 
     // Create palace B
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Isolation B");
@@ -474,20 +498,15 @@ test.describe("multiple palace isolation", () => {
     await expect(page.getByRole("heading", { name: "Route Isolation A" })).toBeVisible();
 
     await addNode(page);
-    await page.getByPlaceholder("Route name").fill("Private Route A");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await createRoute(page, "Private Route A");
+    await addSelectedToRoute(page);
+    await expect.poll(() => routeNames(page)).toContain("Private Route A");
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Route Isolation B");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Route Isolation B" })).toBeVisible();
 
-    const routesInB = await page.evaluate(() => {
-      const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
-      if (!store) return [];
-      return (store.getState() as { routes: Array<{ name: string }> }).routes.map((r) => r.name);
-    });
-    expect(routesInB).not.toContain("Private Route A");
+    expect(await routeNames(page)).not.toContain("Private Route A");
   });
 });

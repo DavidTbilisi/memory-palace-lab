@@ -133,7 +133,9 @@ async function typeDsl(page: import("@playwright/test").Page, dsl: string) {
   await cm.click();
   await page.keyboard.press("Control+A");
   await page.keyboard.press("Delete");
-  await cm.pressSequentially(dsl, { delay: 2 });
+  // Insert in one go (what a paste does). Keystroke-by-keystroke entry is covered by
+  // dsl-editor.spec.ts; here it only lets half-typed documents get applied mid-way.
+  await page.keyboard.insertText(dsl);
   await page.locator("body").click();
   await page.waitForTimeout(700);
 }
@@ -275,8 +277,16 @@ test.describe("DSL v2 — max-complexity palace syncs to canvas", () => {
       .filter((l) => l.routeId === mainRouteId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
     expect(mainLoci).toHaveLength(5);
-    expect(mainLoci[0]!.label).toBe("Gate of Patterns");
-    expect(mainLoci[4]!.label).toBe("Plugin System");
+    // DSL-built loci carry an empty label (it is an optional user caption), so the
+    // stop order is checked through the node each locus points at.
+    const titleById = new Map((await readStoreNodes(page)).map((n) => [n.id, n.title]));
+    expect(mainLoci.map((l) => titleById.get(l.nodeId))).toEqual([
+      "Gate of Patterns",
+      "Single Responsibility",
+      "Open Closed",
+      "Change Hydra",
+      "Plugin System",
+    ]);
   });
 });
 
@@ -654,7 +664,7 @@ test.describe("DSL v2 — import declarations !import", () => {
   test("malformed import emits E401 error", async ({ page }) => {
     await bootstrapPalace(page);
     await openDslEditor(page);
-    await typeDsl(page, "@P\n!import missing-as-clause\n\nNode\n");
+    await typeDsl(page, "@P\n!import some path with spaces\n\nNode\n");
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 errors/i);
   });
@@ -690,7 +700,7 @@ test.describe("DSL v2 — core diagnostic codes", () => {
   test("malformed CAST token emits E003 error", async ({ page }) => {
     await bootstrapPalace(page);
     await openDslEditor(page);
-    await typeDsl(page, "@P\n\nAlpha\n>Beta XXXX\n\nBeta\n");
+    await typeDsl(page, "@P\n\nAlpha\n>Beta 5678\n\nBeta\n");
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 errors/i);
   });

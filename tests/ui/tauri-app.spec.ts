@@ -15,8 +15,9 @@
  *   These are conditionally skipped when no Tauri runtime is detected.
  */
 
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { addNode, applyInspector } from "./nodeHelpers";
+import { addNode, editSelectedNode } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,45 @@ async function getIpcCalls(page: Page): Promise<IpcCall[]> {
   });
 }
 
+/** Toolbar checkpoint save; it reads "Checkpoint Now" once a checkpoint is recommended. */
+async function saveCheckpoint(page: Page) {
+  // With the Learn panel open the toolbar is too narrow at 1280px: the storage status
+  // button is laid over the save button and takes the click.
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
+  await page.getByRole("button", { name: /Save Checkpoint|Checkpoint Now/ }).click();
+  // The save is asynchronous; wait for it to land before switching palace or exporting.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+        return (store?.getState() as { persistenceState?: string } | undefined)?.persistenceState;
+      }),
+    )
+    .toBe("clean");
+}
+
+/** The sidebar "Trash" section label ("Move to trash" also contains the word). */
+function trashHeading(page: Page) {
+  return page.getByText("Trash", { exact: true });
+}
+
+/** Backup and restore live on the Settings page. */
+async function openSettings(page: Page) {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+}
+
+/** Download the all-palaces JSON backup from the (open) Settings page and return its text. */
+async function downloadBackup(page: Page) {
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 10000 }),
+    page.getByRole("button", { name: "Backup all palaces" }).click(),
+  ]);
+  const path = await download.path();
+  expect(path).toBeTruthy();
+  return readFileSync(path, "utf8");
+}
 
 async function waitForEditorReady(page: Page) {
   await expect
@@ -104,159 +144,158 @@ async function injectTauriMock(page: Page) {
       return Math.random().toString(36).slice(2) + Date.now().toString(36);
     }
 
-    // Minimal Tauri v2 internals shape
+    /** In-process stand-in for the Rust command handlers (src-tauri/src/commands.rs). */
+    function handle(cmd: string, args: Record<string, unknown>): unknown {
+      switch (cmd) {
+        case "palace_list":
+          return Array.from(palaces.values()).filter((p) => !p.deletedAt);
+
+        case "palace_list_trashed":
+          return Array.from(palaces.values()).filter((p) => !!p.deletedAt);
+
+        case "palace_create": {
+          const id = generateId();
+          const palace: PalaceDto = {
+            id,
+            name: args.name as string,
+            atlasPath: (args.atlasPath as string | null) ?? null,
+            createdAt: new Date().toISOString(),
+          };
+          palaces.set(id, palace);
+          snapshots.set(id, {
+            palace,
+            canvasObjects: [],
+            nodes: [],
+            edges: [],
+            routes: [],
+            loci: [],
+          });
+          return palace;
+        }
+
+        case "palace_load":
+          return snapshots.get(args.palaceId as string) ?? null;
+
+        case "palace_save": {
+          const snap = args.snapshot as Snapshot;
+          const known = palaces.get(snap.palace.id);
+          // Saving never moves a palace in or out of the trash.
+          const palace = { ...snap.palace, deletedAt: known?.deletedAt, purgeAt: known?.purgeAt };
+          snapshots.set(palace.id, { ...snap, palace });
+          palaces.set(palace.id, palace);
+          return null;
+        }
+
+        case "palace_soft_delete": {
+          const p = palaces.get(args.palaceId as string);
+          if (p) {
+            p.deletedAt = new Date().toISOString();
+            const purge = new Date();
+            purge.setDate(purge.getDate() + 30);
+            p.purgeAt = purge.toISOString();
+          }
+          return null;
+        }
+
+        case "palace_restore": {
+          const p = palaces.get(args.palaceId as string);
+          if (p) {
+            p.deletedAt = undefined;
+            p.purgeAt = undefined;
+          }
+          return null;
+        }
+
+        case "palace_purge":
+          palaces.delete(args.palaceId as string);
+          snapshots.delete(args.palaceId as string);
+          return null;
+
+        case "palace_export_json":
+          return JSON.stringify({ version: 1, snapshot: args.snapshot as Snapshot }, null, 2);
+
+        case "palace_import_json":
+          return (JSON.parse(args.json as string) as { version: number; snapshot: Snapshot })
+            .snapshot;
+
+        case "analytics_list": {
+          const newestFirst = analyticsStore.slice().reverse();
+          return typeof args.limit === "number" ? newestFirst.slice(0, args.limit) : newestFirst;
+        }
+
+        case "analytics_append":
+          for (const ev of args.events as AnalyticsEventDto[]) {
+            if (!analyticsStore.find((e) => e.id === ev.id)) analyticsStore.push(ev);
+          }
+          return null;
+
+        case "db_ping":
+          return "3.43.0 (mock)";
+
+        // METER bridge: no METER_DATA_DIR, so the "auto" preference keeps it off.
+        case "meter_default_data_dir":
+          return { dir: "/home/mock/.neural-os/meter", via: "home" };
+        case "meter_append_events":
+          return null;
+
+        // Native confirm (utils/confirmDestructive.ts): the user presses Ok.
+        case "plugin:dialog|message":
+          return "Ok";
+
+        // Updater: already up to date.
+        case "plugin:updater|check":
+          return null;
+
+        case "plugin:event|listen":
+        case "plugin:event|unlisten":
+        case "plugin:event|emit":
+          return 0;
+
+        // plugin:fs (no MCP sentinel file, no watcher) and anything unknown fail the way
+        // the real runtime does; useExternalMcpSync falls back to polling.
+        default:
+          throw new Error(`Command ${cmd} not found`);
+      }
+    }
+
+    // Tauri v2 internals: @tauri-apps/api's invoke() calls __TAURI_INTERNALS__.invoke.
+    const callbacks = new Map<number, (data: unknown) => void>();
+    let nextCallbackId = 1;
     (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: "main" },
-        currentWebview: { label: "main" },
+        currentWebview: { label: "main", windowLabel: "main" },
       },
-      ipc: (msg: {
-        cmd?: string;
-        __TAURI_CALLBACK__?: number;
-        __TAURI_ERROR__?: number;
-        [key: string]: unknown;
-      }) => {
-        const { cmd, __TAURI_CALLBACK__: cbId, __TAURI_ERROR__: errId, ...args } = msg;
-        const callRecord: IpcCall = { cmd: cmd ?? "unknown", args: args as Record<string, unknown> };
-        calls.push(callRecord);
-
-        setTimeout(() => {
-          try {
-            let result: unknown = null;
-
-            switch (cmd) {
-              case "plugin:event|listen":
-              case "plugin:event|unlisten":
-              case "plugin:event|emit":
-                result = 0;
-                break;
-
-              case "palace_list":
-                result = Array.from(palaces.values()).filter((p) => !p.deletedAt);
-                break;
-
-              case "palace_list_trashed":
-                result = Array.from(palaces.values()).filter((p) => !!p.deletedAt);
-                break;
-
-              case "palace_create": {
-                const id = generateId();
-                const palace: PalaceDto = {
-                  id,
-                  name: args.name as string,
-                  atlasPath: (args.atlasPath as string | null) ?? null,
-                  createdAt: new Date().toISOString(),
-                };
-                palaces.set(id, palace);
-                const snap: Snapshot = {
-                  palace,
-                  canvasObjects: [],
-                  nodes: [],
-                  edges: [],
-                  routes: [],
-                  loci: [],
-                };
-                snapshots.set(id, snap);
-                result = palace;
-                break;
-              }
-
-              case "palace_load":
-                result = snapshots.get(args.palaceId as string) ?? null;
-                break;
-
-              case "palace_save": {
-                const snap = args.snapshot as Snapshot;
-                snapshots.set(snap.palace.id, snap);
-                palaces.set(snap.palace.id, snap.palace);
-                result = null;
-                break;
-              }
-
-              case "palace_soft_delete": {
-                const pid = args.palaceId as string;
-                const p = palaces.get(pid);
-                if (p) {
-                  p.deletedAt = new Date().toISOString();
-                  const purge = new Date();
-                  purge.setDate(purge.getDate() + 30);
-                  p.purgeAt = purge.toISOString();
-                }
-                result = null;
-                break;
-              }
-
-              case "palace_restore": {
-                const p = palaces.get(args.palaceId as string);
-                if (p) {
-                  p.deletedAt = undefined;
-                  p.purgeAt = undefined;
-                }
-                result = null;
-                break;
-              }
-
-              case "palace_purge":
-                palaces.delete(args.palaceId as string);
-                snapshots.delete(args.palaceId as string);
-                result = null;
-                break;
-
-              case "palace_export_json": {
-                const snap = args.snapshot as Snapshot;
-                result = JSON.stringify({ version: 1, snapshot: snap }, null, 2);
-                break;
-              }
-
-              case "palace_import_json": {
-                const bundle = JSON.parse(args.json as string) as {
-                  version: number;
-                  snapshot: Snapshot;
-                };
-                result = bundle.snapshot;
-                break;
-              }
-
-              case "analytics_list":
-                result = analyticsStore.slice().reverse();
-                break;
-
-              case "analytics_append": {
-                const events = args.events as AnalyticsEventDto[];
-                for (const ev of events) {
-                  if (!analyticsStore.find((e) => e.id === ev.id)) {
-                    analyticsStore.push(ev);
-                  }
-                }
-                result = null;
-                break;
-              }
-
-              case "db_ping":
-                result = "3.43.0 (mock)";
-                break;
-
-              default:
-                result = null;
+      invoke: (cmd: string, args: Record<string, unknown> = {}) => {
+        calls.push({ cmd, args });
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            try {
+              // Results cross the IPC boundary as JSON, never by reference.
+              const result = handle(cmd, args);
+              resolve(result == null ? null : JSON.parse(JSON.stringify(result)));
+            } catch (err) {
+              reject(err instanceof Error ? err.message : String(err));
             }
-
-            // Invoke the Tauri callback
-            if (cbId != null) {
-              const cb = (
-                window as { [key: string]: ((v: unknown) => void) | undefined }
-              )[`_${cbId}`];
-              cb?.(result);
-            }
-          } catch (err) {
-            if (errId != null) {
-              const cb = (
-                window as { [key: string]: ((v: unknown) => void) | undefined }
-              )[`_${errId}`];
-              cb?.(String(err));
-            }
-          }
-        }, 0);
+          }, 0);
+        });
       },
+      transformCallback: (callback?: (data: unknown) => void, once = false) => {
+        const id = nextCallbackId++;
+        callbacks.set(id, (data) => {
+          if (once) callbacks.delete(id);
+          callback?.(data);
+        });
+        return id;
+      },
+      unregisterCallback: (id: number) => callbacks.delete(id),
+      runCallback: (id: number, data: unknown) => callbacks.get(id)?.(data),
+      callbacks,
+      convertFileSrc: (filePath: string, protocol = "asset") =>
+        `${protocol}://localhost/${encodeURIComponent(filePath)}`,
+    };
+    (window as { __TAURI_EVENT_PLUGIN_INTERNALS__?: unknown }).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: (_event: string, id: number) => callbacks.delete(id),
     };
   });
 }
@@ -271,9 +310,8 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Persist Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Durable Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Durable Node" });
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -330,7 +368,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
 
     page.on("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();
 
     await expect
@@ -350,13 +388,13 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
 
     page.on("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Delete now" }).click();
 
     await expect
       .poll(
         async () => {
-          const trashVisible = await page.getByText("Trash").isVisible();
+          const trashVisible = await trashHeading(page).isVisible();
           if (!trashVisible) return true;
           return !(await page.getByText("Purge Palace").isVisible());
         },
@@ -368,7 +406,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
   test("atlas path is stored and displayed after save", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Atlas Save Palace");
-    await page.getByRole("textbox", { name: "Atlas path" }).fill("Science/Physics");
+    await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("Science/Physics");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Atlas Save Palace" })).toBeVisible();
 
@@ -396,7 +434,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
   test("palace_create is called with correct name and atlasPath", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Tauri Test Palace");
-    await page.getByRole("textbox", { name: "Atlas path" }).fill("/engineering");
+    await page.getByRole("textbox", { name: "Atlas path", exact: true }).fill("/engineering");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Tauri Test Palace" })).toBeVisible();
 
@@ -417,7 +455,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Load Test Palace");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Load Test Palace" })).toBeVisible();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Away");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -444,9 +482,8 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     await expect(page.getByRole("heading", { name: "Save IPC Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("IPC Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "IPC Node" });
+    await saveCheckpoint(page);
 
     await expect
       .poll(() => getIpcCalls(page), { timeout: 8000 })
@@ -509,7 +546,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
 
     page.on("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: /Move to trash/i }).click();
-    await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
+    await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();
 
     await expect
@@ -537,28 +574,36 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
       );
   });
 
-  test("palace_export_json returns well-formed bundle JSON", async ({ page }) => {
+  // The backup no longer goes through palace_export_json: it lists the palaces and loads
+  // each snapshot over IPC, then builds the bundle in the webview.
+  test("backup export loads every palace over IPC into a well-formed bundle", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 10000 }),
-      page.locator('button[title="Download all palaces as a JSON backup"]').click(),
-    ]);
-
-    const path = await download.path();
-    if (path) {
-      const { readFileSync } = await import("node:fs");
-      const raw = readFileSync(path, "utf8");
-      const bundle = JSON.parse(raw) as {
-        version: number;
-        exportedAt: string;
-        palaces: unknown[];
+    const palaceId = await page.evaluate(() => {
+      const s = (window as { __mp_store?: { getState: () => unknown } }).__mp_store?.getState() as {
+        currentPalace?: { id: string } | null;
       };
-      expect(typeof bundle.version).toBe("number");
-      expect(Array.isArray(bundle.palaces)).toBe(true);
-    }
+      return s?.currentPalace?.id ?? null;
+    });
+    expect(palaceId).toBeTruthy();
+
+    await openSettings(page);
+    const loadsBefore = (await getIpcCalls(page)).filter((c) => c.cmd === "palace_load").length;
+    const bundle = JSON.parse(await downloadBackup(page)) as {
+      version: number;
+      exportedAt: string;
+      palaces: Array<{ palace: { id: string; name: string }; nodes: unknown[] }>;
+    };
+
+    expect(typeof bundle.version).toBe("number");
+    expect(Number.isNaN(Date.parse(bundle.exportedAt))).toBe(false);
+    expect(bundle.palaces.map((p) => p.palace.name)).toEqual(["Tutorial Palace"]);
+    expect(Array.isArray(bundle.palaces[0].nodes)).toBe(true);
+
+    const loads = (await getIpcCalls(page)).filter((c) => c.cmd === "palace_load").slice(loadsBefore);
+    expect(loads).toEqual([expect.objectContaining({ args: { palaceId } })]);
   });
 
   test("db_ping command is called (mock returns version string)", async ({ page }) => {
@@ -567,20 +612,16 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     // the mock IPC receives it from any health check the app might perform.
     // The mock always returns "3.43.0 (mock)" for db_ping.
     const pingResult = await page.evaluate(async () => {
-      const internals = (window as { __TAURI_INTERNALS__?: { ipc: (msg: unknown) => void } })
-        .__TAURI_INTERNALS__;
+      const internals = (
+        window as { __TAURI_INTERNALS__?: { invoke: (cmd: string) => Promise<string> } }
+      ).__TAURI_INTERNALS__;
       if (!internals) return null;
-      return new Promise<string>((resolve) => {
-        const cbId = Date.now();
-        (window as Record<string, unknown>)[`_${cbId}`] = (v: unknown) => resolve(v as string);
-        internals.ipc({
-          cmd: "db_ping",
-          __TAURI_CALLBACK__: cbId,
-          __TAURI_ERROR__: cbId + 1,
-        });
-      });
+      return internals.invoke("db_ping");
     });
     expect(pingResult).toBe("3.43.0 (mock)");
+    expect(await getIpcCalls(page)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ cmd: "db_ping" })]),
+    );
   });
 });
 
@@ -637,22 +678,15 @@ test.describe("D — JSON backup roundtrip", () => {
     await expect(page.getByRole("heading", { name: "Roundtrip Palace" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Roundtrip Node");
-    await page.locator("#mp-content").fill("Important content that must survive export.");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, {
+      title: "Roundtrip Node",
+      content: "Important content that must survive export.",
+    });
+    await saveCheckpoint(page);
 
     // Export
-    const [download] = await Promise.all([
-      page.waitForEvent("download", { timeout: 10000 }),
-      page.locator('button[title="Download all palaces as a JSON backup"]').click(),
-    ]);
-
-    const exportPath = await download.path();
-    expect(exportPath).toBeTruthy();
-
-    const { readFileSync } = await import("node:fs");
-    const backupContent = readFileSync(exportPath!, "utf8");
+    await openSettings(page);
+    const backupContent = await downloadBackup(page);
     const backup = JSON.parse(backupContent) as {
       version: number;
       palaces: Array<{ nodes: Array<{ title: string; content: string }> }>;
@@ -668,23 +702,31 @@ test.describe("D — JSON backup roundtrip", () => {
       palaceBackup as { nodes: Array<{ title: string; content: string }> }
     ).nodes.find((n) => n.title === "Roundtrip Node");
     expect(nodeBackup).toBeDefined();
-    expect(nodeBackup!.content).toBe("Important content that must survive export.");
+    // Content is rich-text HTML now; compare its text.
+    expect(nodeBackup!.content.replace(/<[^>]*>/g, "")).toBe(
+      "Important content that must survive export.",
+    );
 
     // Import
-    const fileInput = page.locator('input[type="file"]').last();
-    await fileInput.setInputFiles({
+    await page.getByLabel("Backup file").setInputFiles({
       name: "backup.json",
       mimeType: "application/json",
       buffer: Buffer.from(backupContent),
     });
+    await expect(page.getByText(/^Restored 1 palaces/)).toBeVisible({ timeout: 10000 });
 
+    await page.getByRole("button", { name: "Graph", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Roundtrip Palace", exact: true })).toBeVisible();
     await expect
-      .poll(
-        () =>
-          page.getByRole("button", { name: "Roundtrip Palace", exact: true }).isVisible(),
-        { timeout: 10000 },
+      .poll(() =>
+        page.evaluate(() => {
+          const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+          const nodes = (store?.getState() as { nodes: Array<{ title: string; content: string }> })
+            .nodes;
+          return nodes.find((n) => n.title === "Roundtrip Node")?.content ?? null;
+        }),
       )
-      .toBe(true);
+      .toBe(nodeBackup!.content);
   });
 
   test("importing a malformed backup shows an error", async ({ page }) => {
@@ -692,23 +734,22 @@ test.describe("D — JSON backup roundtrip", () => {
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-    const fileInput = page.locator('input[type="file"]').last();
-    await fileInput.setInputFiles({
+    await openSettings(page);
+    await page.getByLabel("Backup file").setInputFiles({
       name: "bad.json",
       mimeType: "application/json",
       buffer: Buffer.from('{"broken": true, "no_version": "here"}'),
     });
 
-    // The app should show an alert or error message rather than crashing
-    page.on("dialog", async (dialog) => {
-      expect(dialog.message()).toMatch(/import failed/i);
-      await dialog.accept();
-    });
+    // The failure is reported inline on the Settings page (it used to be an alert).
+    await expect(page.getByText(/^Restore failed: Invalid backup file/)).toBeVisible();
 
     // Palace list should be unchanged
+    await page.getByRole("button", { name: "Graph", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Tutorial Palace", exact: true }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
   });
 });
 
@@ -722,8 +763,7 @@ test.describe("E — analytics persistence", () => {
     await expect(page.getByRole("heading", { name: "Analytics Persist A" })).toBeVisible();
 
     await addNode(page);
-    await page.locator("#mp-title").fill("Node A");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Node A" });
 
     const countBefore = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -752,8 +792,7 @@ test.describe("E — analytics persistence", () => {
       await page.getByRole("button", { name: "Create palace" }).click();
       await expect(page.getByRole("heading", { name })).toBeVisible();
       await addNode(page);
-      await page.locator("#mp-title").fill(`Node in ${name}`);
-      await applyInspector(page);
+      await editSelectedNode(page, { title: `Node in ${name}` });
     }
 
     await page.getByRole("button", { name: /^Insights$/ }).click();

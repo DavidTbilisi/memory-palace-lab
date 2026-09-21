@@ -12,7 +12,13 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { addNode, applyInspector } from "./nodeHelpers";
+import {
+  addNode,
+  addSelectedToRoute,
+  createRoute,
+  editSelectedNode,
+  selectAllNodes,
+} from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,28 +60,49 @@ async function getSessionId(page: import("@playwright/test").Page): Promise<stri
   });
 }
 
+/**
+ * With the Learn panel open the toolbar is too narrow at the test viewport: the storage
+ * status button is laid over the checkpoint button and takes the click.
+ */
+async function closeLearnPanel(page: import("@playwright/test").Page) {
+  const learnClose = page.getByRole("button", { name: "Close learn panel" });
+  if (await learnClose.isVisible()) await learnClose.click();
+}
+
+async function saveCheckpoint(page: import("@playwright/test").Page) {
+  await closeLearnPanel(page);
+  await page.getByRole("button", { name: /Save Checkpoint|Checkpoint Now/ }).click();
+}
+
 async function bootstrapTutorial(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+  await closeLearnPanel(page);
 }
 
 // ── SESSION TRACKING ──────────────────────────────────────────────────────────
 
 test.describe("analytics session", () => {
-  test("session ID is a non-empty string", async ({ page }) => {
+  // The analytics session starts when a palace is opened (openPalace), not at page load.
+  test("session ID is a non-empty string once a palace is open", async ({ page }) => {
     await page.goto("/");
+    expect(await getSessionId(page)).toBeNull();
+
+    await bootstrapTutorial(page);
     const sessionId = await getSessionId(page);
     expect(typeof sessionId).toBe("string");
     expect(sessionId!.length).toBeGreaterThan(0);
   });
 
-  test("session ID is consistent within a page load", async ({ page }) => {
-    await page.goto("/");
+  test("session ID is consistent while a palace stays open", async ({ page }) => {
+    await bootstrapTutorial(page);
     const id1 = await getSessionId(page);
+    expect(id1).toBeTruthy();
 
-    await page.getByRole("button", { name: /create tutorial palace/i }).click();
-    await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+    await addNode(page);
+    await editSelectedNode(page, { title: "Session Node" });
+    await waitForEvent(page, "node_updated");
 
     const id2 = await getSessionId(page);
     expect(id1).toBe(id2);
@@ -116,7 +143,7 @@ test.describe("palace analytics events", () => {
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Open Source Palace");
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Open Source Palace" })).toBeVisible();
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await saveCheckpoint(page);
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other");
     await page.getByRole("button", { name: "Create palace" }).click();
@@ -131,9 +158,8 @@ test.describe("palace analytics events", () => {
   test("palace_saved fires on manual save", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Save Test Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Save Test Node" });
+    await saveCheckpoint(page);
 
     await waitForEvent(page, "palace_saved");
 
@@ -179,8 +205,7 @@ test.describe("graph analytics events", () => {
   test("node_created fires when a node is added via inspector", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Analytics Node");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Analytics Node" });
 
     await waitForEvent(page, "node_created");
 
@@ -194,12 +219,10 @@ test.describe("graph analytics events", () => {
   test("node_updated fires when node title is changed", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Original Title");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Original Title" });
 
     // Clear node_created event, then update
-    await page.locator("#mp-title").fill("Updated Title");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Updated Title" });
 
     await waitForEvent(page, "node_updated");
 
@@ -211,7 +234,7 @@ test.describe("graph analytics events", () => {
   test("edge_created fires when an edge is created via CAST panel", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator(".tl-background").first().dblclick({ position: { x: 180, y: 140 } });
+    await addNode(page);
 
     // Queue the pending cast for the two nodes
     await page.evaluate(() => {
@@ -246,7 +269,7 @@ test.describe("graph analytics events", () => {
       });
     });
 
-    await expect(page.getByRole("heading", { name: "CAST edge" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
     await page.getByRole("button", { name: /create edge/i }).click();
 
     await waitForEvent(page, "edge_created");
@@ -258,8 +281,7 @@ test.describe("graph analytics events", () => {
 
   test("route_created fires when a route is added", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByPlaceholder("Route name").fill("Analytics Route");
-    await page.getByRole("button", { name: "Add route" }).click();
+    await createRoute(page, "Analytics Route");
 
     await waitForEvent(page, "route_created");
 
@@ -267,15 +289,16 @@ test.describe("graph analytics events", () => {
     const ev = events.find((e) => e.eventType === "route_created");
     expect(ev!.eventGroup).toBe("graph");
     expect(ev!.routeId).toBeTruthy();
-    expect(JSON.parse(ev!.payloadJson)).toMatchObject({ name: "Analytics Route" });
+    // The event fires at creation, when the route still has its default "Route N" name;
+    // the rename that follows is not part of it.
+    expect(JSON.parse(ev!.payloadJson)).toMatchObject({ name: "Route 1" });
   });
 
   test("locus_added fires when a node is added to a route", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.getByPlaceholder("Route name").fill("Locus Test Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
+    await createRoute(page, "Locus Test Route");
+    await addSelectedToRoute(page);
 
     await waitForEvent(page, "locus_added");
 
@@ -292,12 +315,9 @@ test.describe("walk analytics events", () => {
   async function setupWalk(page: import("@playwright/test").Page) {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Walk Node");
-    await page.locator("#mp-content").fill("Walk answer content.");
-    await applyInspector(page);
-    await page.getByPlaceholder("Route name").fill("Walk Test Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
+    await editSelectedNode(page, { title: "Walk Node", content: "Walk answer content." });
+    await createRoute(page, "Walk Test Route");
+    await addSelectedToRoute(page);
     await page.getByRole("button", { name: "Toggle walk mode" }).click();
     await expect(page.getByText("Walk active")).toBeVisible();
   }
@@ -314,11 +334,12 @@ test.describe("walk analytics events", () => {
 
   test("walk_stepped fires when navigating to next step", async ({ page }) => {
     await bootstrapTutorial(page);
+    // Two steps need two nodes: a route holds each node once.
     await addNode(page);
-    await page.getByPlaceholder("Route name").fill("Stepped Route");
-    await page.getByRole("button", { name: "Add route" }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
-    await page.getByRole("button", { name: /add selected node to route/i }).click();
+    await addNode(page);
+    await createRoute(page, "Stepped Route");
+    await selectAllNodes(page);
+    await addSelectedToRoute(page);
 
     await page.getByRole("button", { name: "Toggle walk mode" }).click();
     await page.getByRole("button", { name: "Next step" }).click();
@@ -337,37 +358,36 @@ test.describe("walk analytics events", () => {
     const events = await getEvents(page);
     const ev = events.find((e) => e.eventType === "walk_answer_revealed");
     expect(ev!.eventGroup).toBe("review");
-    const payload = JSON.parse(ev!.payloadJson) as { revealLatencyMs?: number };
-    expect(typeof payload.revealLatencyMs).toBe("number");
+    const payload = JSON.parse(ev!.payloadJson) as { timeToRevealMs?: number };
+    expect(typeof payload.timeToRevealMs).toBe("number");
   });
 
-  test("walk_recall_rated fires for all four rating buttons", async ({ page }) => {
-    for (const rating of ["Easy", "Good", "Hard", "Forgot"]) {
+  // The buttons carry their shortcut digit: "1 Again", "2 Hard", "3 Good", "4 Easy".
+  // One test per rating: four walk setups do not fit in a single test's timeout.
+  for (const rating of ["Easy", "Good", "Hard", "Again"]) {
+    test(`walk_recall_rated fires for the ${rating} rating button`, async ({ page }) => {
       await bootstrapTutorial(page);
       await addNode(page);
-      await page.locator("#mp-title").fill(`Node for ${rating}`);
-      await page.locator("#mp-content").fill("Content.");
-      await applyInspector(page);
-      await page.getByPlaceholder("Route name").fill(`${rating} Route`);
-      await page.getByRole("button", { name: "Add route" }).click();
-      await page.getByRole("button", { name: /add selected node to route/i }).click();
+      await editSelectedNode(page, { title: `Node for ${rating}`, content: "Content." });
+      await createRoute(page, `${rating} Route`);
+      await addSelectedToRoute(page);
 
       await page.getByRole("button", { name: "Toggle walk mode" }).click();
       await page.getByRole("button", { name: "Recall-first" }).click();
       await page.getByRole("button", { name: "Reveal answer" }).click();
-      await page.getByRole("button", { name: rating }).click();
+      await page.getByRole("button", { name: new RegExp(`^\\d ${rating}$`) }).click();
 
       await waitForEvent(page, "walk_recall_rated");
 
       const events = await getEvents(page);
       const ratingEvents = events.filter((e) => e.eventType === "walk_recall_rated");
-      const latest = ratingEvents[ratingEvents.length - 1]!;
-      expect(latest.eventGroup).toBe("review");
+      expect(ratingEvents).toHaveLength(1);
+      expect(ratingEvents[0]!.eventGroup).toBe("review");
 
-      const payload = JSON.parse(latest.payloadJson) as { rating: string };
-      expect(payload.rating).toBe(rating.toLowerCase() === "forgot" ? "again" : rating.toLowerCase());
-    }
-  });
+      const payload = JSON.parse(ratingEvents[0]!.payloadJson) as { rating: string };
+      expect(payload.rating).toBe(rating.toLowerCase());
+    });
+  }
 
   test("walk_closed fires when walk is toggled off", async ({ page }) => {
     await setupWalk(page);
@@ -379,8 +399,9 @@ test.describe("walk analytics events", () => {
     const events = await getEvents(page);
     const ev = events.find((e) => e.eventType === "walk_closed");
     expect(ev!.eventGroup).toBe("review");
-    const payload = JSON.parse(ev!.payloadJson) as { stepsCompleted?: number };
-    expect(typeof payload.stepsCompleted).toBe("number");
+    const payload = JSON.parse(ev!.payloadJson) as { stepIndex?: number; routeLength?: number };
+    expect(typeof payload.stepIndex).toBe("number");
+    expect(payload.routeLength).toBe(1);
   });
 
   test("all walk events carry palaceId and routeId", async ({ page }) => {
@@ -404,9 +425,8 @@ test.describe("analytics event payload integrity", () => {
   test("all events have valid ISO-8601 createdAt timestamps", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Timestamp Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Timestamp Node" });
+    await saveCheckpoint(page);
 
     const events = await getEvents(page);
     for (const ev of events) {
@@ -418,8 +438,7 @@ test.describe("analytics event payload integrity", () => {
   test("all events have valid JSON payloadJson", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("JSON Node");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "JSON Node" });
 
     const events = await getEvents(page);
     for (const ev of events) {
@@ -430,8 +449,7 @@ test.describe("analytics event payload integrity", () => {
   test("all events have a unique ID", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Unique ID Node");
-    await applyInspector(page);
+    await editSelectedNode(page, { title: "Unique ID Node" });
 
     const events = await getEvents(page);
     const ids = events.map((e) => e.id);
@@ -439,16 +457,15 @@ test.describe("analytics event payload integrity", () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  test("events are ordered chronologically (createdAt ascending)", async ({ page }) => {
+  test("events are ordered newest first (createdAt descending)", async ({ page }) => {
     await bootstrapTutorial(page);
     await addNode(page);
-    await page.locator("#mp-title").fill("Chrono Node");
-    await applyInspector(page);
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSelectedNode(page, { title: "Chrono Node" });
+    await saveCheckpoint(page);
 
     const events = await getEvents(page);
     for (let i = 1; i < events.length; i++) {
-      expect(Date.parse(events[i]!.createdAt)).toBeGreaterThanOrEqual(
+      expect(Date.parse(events[i]!.createdAt)).toBeLessThanOrEqual(
         Date.parse(events[i - 1]!.createdAt),
       );
     }
