@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.0 — 2026-09-21
+
+### Routes
+
+- **Route metadata shows on the route's card.** Tags written under a route in the DSL, such as `#difficulty:advanced #prereq:Gate of SOLID`, now appear as small chips under the route's name in the Routes tab, on every route that has them, so routes can be compared at a glance. Long values are shortened, with the full text on hover. Edit them in the DSL editor.
+
+### Fixes
+
+- The release workflow's final check can now read the draft release it checks; on v0.11.0 it failed for lack of access although the release was complete.
+
 ## v0.11.0 — 2026-09-21
 
 ### Route metadata is kept
