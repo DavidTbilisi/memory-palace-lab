@@ -526,3 +526,43 @@ test("a node duplicated on the canvas becomes a node of its own", async ({ page 
   expect(new Set(objectIds).size).toBe(objectIds.length);
   await expect(page.getByText(/Saving palace .* failed/)).toHaveCount(0);
 });
+
+test("toolbar tools stay clear of the save status button when side panels narrow the bar", async ({ page }) => {
+  // A new palace opens with the Learn panel showing, which leaves the toolbar about half
+  // of a 1280px window. The tools used to run on under the status button, which then took
+  // the clicks meant for Save Checkpoint.
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Narrow Toolbar Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Narrow Toolbar Palace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close learn panel" })).toBeVisible();
+
+  for (const width of [1280, 1024]) {
+    await page.setViewportSize({ width, height: 720 });
+    const covered = await page.evaluate(() => {
+      const status = document.querySelector('button[aria-label="Storage and save status"]')!;
+      const statusBlock = status.parentElement!;
+      const bar = statusBlock.parentElement!;
+      const edge = statusBlock.getBoundingClientRect();
+      return [...bar.querySelectorAll("button")]
+        .filter((button) => !statusBlock.contains(button))
+        .filter((button) => {
+          const box = button.getBoundingClientRect();
+          return box.width > 0 && box.right > edge.left + 1 && box.bottom > edge.top && box.top < edge.bottom;
+        })
+        .map((button) => button.textContent?.trim() || button.title);
+    });
+    expect(covered, `tools under the status button at ${width}px`).toEqual([]);
+  }
+
+  await page.locator('button[title*="heckpoint"]').click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as { __mp_store?: { getState: () => { persistenceState: string } } }).__mp_store!.getState()
+            .persistenceState,
+      ),
+    )
+    .toBe("clean");
+});

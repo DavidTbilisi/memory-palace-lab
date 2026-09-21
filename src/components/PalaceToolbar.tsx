@@ -131,10 +131,14 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
     : "Connect mode is armed. Click the node that starts the relationship.";
 
   return (
-    <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
+    // The bar's width depends on which side panels are open, not on the window, so labels
+    // show by container width (@…), and the tools wrap rather than run under the status
+    // button when even the icons do not fit. A label that does not fit is hidden from
+    // sight only (sr-only), so an icon button keeps its name for screen readers.
+    <div className="@container flex items-center gap-2 border-b border-zinc-800 bg-zinc-950/90 px-2 py-1.5">
       <div
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-1 transition",
+          "flex min-w-0 flex-1 flex-wrap items-center gap-1 transition",
           comprehendActive && "pointer-events-none opacity-40",
         )}
         aria-hidden={comprehendActive}
@@ -164,7 +168,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{needsCheckpoint ? "Checkpoint Now" : "Save Checkpoint"}</span>
+                <span className="sr-only @2xl:not-sr-only">{needsCheckpoint ? "Checkpoint Now" : "Save Checkpoint"}</span>
               </Button>
             );
           }
@@ -185,7 +189,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 }}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden lg:inline">Reset</span>
+                <span className="sr-only @4xl:not-sr-only">Reset</span>
               </Button>
             );
           }
@@ -206,7 +210,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 onClick={() => void refreshFromDisk()}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden lg:inline">{t.label}</span>
+                <span className="sr-only @4xl:not-sr-only">{t.label}</span>
               </Button>
             );
           }
@@ -242,7 +246,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 }}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden lg:inline">Portal</span>
+                <span className="sr-only @4xl:not-sr-only">Portal</span>
               </Button>
             );
           }
@@ -268,7 +272,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                 onMouseLeave={() => onHoverHintChange?.(null)}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden lg:inline">{t.label}</span>
+                <span className="sr-only @4xl:not-sr-only">{t.label}</span>
               </Button>
             );
           }
@@ -292,7 +296,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                   onMouseLeave={() => onHoverHintChange?.(null)}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="hidden lg:inline">{t.label}</span>
+                  <span className="sr-only @4xl:not-sr-only">{t.label}</span>
                 </Button>
                 {active ? (
                   <div
@@ -323,7 +327,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
                     >
                       <Circle className="h-3 w-3" />
                     </span>
-                    <span className="hidden md:inline">{connectStepLabel}</span>
+                    <span className="sr-only @3xl:not-sr-only">{connectStepLabel}</span>
                     {connectFromShapeId ? (
                       <button
                         type="button"
@@ -355,7 +359,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
               onMouseLeave={() => onHoverHintChange?.(null)}
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden lg:inline">{t.label}</span>
+              <span className="sr-only @4xl:not-sr-only">{t.label}</span>
             </Button>
           );
         })}
@@ -372,7 +376,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
           onMouseLeave={() => onHoverHintChange?.(null)}
         >
           <Code2 className="h-4 w-4" />
-          <span className="hidden lg:inline">DSL</span>
+          <span className="sr-only @4xl:not-sr-only">DSL</span>
         </Button>
         {onOpenRepresent ? (
           <Button
@@ -389,7 +393,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
             onMouseLeave={() => onHoverHintChange?.(null)}
           >
             <Sparkles className="h-4 w-4" />
-            <span className="hidden lg:inline">Represent</span>
+            <span className="sr-only @4xl:not-sr-only">Represent</span>
           </Button>
         ) : null}
       </div>
@@ -408,7 +412,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
               <Tag className="h-3 w-3" />
               {activeTags.length > 0
                 ? <span>{activeTags.length === 1 ? `#${activeTags[0]}` : `${activeTags.length} tags`}</span>
-                : <span className="hidden sm:inline">Tags</span>}
+                : <span className="sr-only @2xl:not-sr-only">Tags</span>}
               {activeTags.length > 0 && (
                 <span
                   role="button"
