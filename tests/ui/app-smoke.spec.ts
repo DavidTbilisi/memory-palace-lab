@@ -566,3 +566,60 @@ test("toolbar tools stay clear of the save status button when side panels narrow
     )
     .toBe("clean");
 });
+
+/** Parts of the canvas painted on top anywhere in the window, found by hit-testing a grid. */
+function canvasUiOnTop(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const found = new Set<string>();
+    for (let y = 4; y < innerHeight; y += 16) {
+      for (let x = 4; x < innerWidth; x += 16) {
+        const hit = document.elementFromPoint(x, y);
+        if (!hit?.closest(".tl-container")) continue;
+        found.add(hit.closest("[data-testid]")?.getAttribute("data-testid") ?? hit.className.toString());
+      }
+    }
+    return [...found];
+  });
+}
+
+test("the canvas's own controls stay under the app's dialogs", async ({ page }) => {
+  // tldraw sets no stacking context, so its panels (z-index 300) used to outrank the app's
+  // dialogs (z-50 to z-140): its tools stayed clickable through a dialog, and its style
+  // panel covered the CAST quick reference's Close button.
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["Dialog Source", "Dialog Target"]);
+  expect(await canvasUiOnTop(page), "tldraw controls are visible with no dialog open").toContain("tools.select");
+
+  await page.keyboard.press("Control+K");
+  await expect(page.getByLabel("Command palette search")).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the command palette").toEqual([]);
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() => {
+    type Shape = { id: string; meta?: { mpNodeId?: string; mpTitle?: string } };
+    type State = {
+      editorRef: { getCurrentPageShapeIds: () => Iterable<string>; getShape: (id: string) => Shape | undefined };
+      setPendingCast: (cast: { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string }) => void;
+    };
+    const state = (window as { __mp_store?: { getState: () => State } }).__mp_store!.getState();
+    const byTitle = (title: string) =>
+      [...state.editorRef.getCurrentPageShapeIds()]
+        .map((id) => state.editorRef.getShape(id)!)
+        .find((shape) => shape.meta?.mpTitle === title)!;
+    const [from, to] = [byTitle("Dialog Source"), byTitle("Dialog Target")];
+    state.setPendingCast({
+      fromShapeId: from.id,
+      toShapeId: to.id,
+      sourceNodeId: from.meta!.mpNodeId!,
+      targetNodeId: to.meta!.mpNodeId!,
+    });
+  });
+  await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the connect dialog").toEqual([]);
+
+  await page.getByRole("button", { name: "?" }).click();
+  await expect(page.getByRole("heading", { name: "CAST quick reference" })).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the CAST quick reference").toEqual([]);
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("heading", { name: "CAST quick reference" })).toHaveCount(0);
+});

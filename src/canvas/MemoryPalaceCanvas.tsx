@@ -831,7 +831,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   }, [recomputeMotifBadges, recomputeImageBackgrounds]);
 
   return (
-    <div className="relative h-full min-h-0 w-full flex-1">
+    // `isolate` gives the canvas its own stacking context. tldraw sets none, so its UI
+    // layers (panels 300, toasts 650, header 999) otherwise outrank the app's dialogs
+    // (z-50 to z-140) and stay clickable on top of them.
+    <div className="relative isolate h-full min-h-0 w-full flex-1">
       <Tldraw
         snapshot={initialSnapshot}
         onMount={onMount}
