@@ -227,6 +227,7 @@ Tag rules:
 - Valid characters: letters, digits, `_`, `-`.
 - Duplicates are silently deduplicated.
 - Invalid tokens emit **W008 `tag-syntax`**.
+- A `prereq` value may contain spaces: it runs to the next `#` tag or the end of the line (`#prereq:Gate of SOLID #difficulty:advanced`). Other values end at the first space.
 
 Tags may appear on multiple `#` lines; all are merged into the node's tag list.
 
@@ -368,7 +369,7 @@ Structured tags may appear immediately after a route header, before the first lo
 2 Open Closed Library
 ```
 
-Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot. The `prereq` key is validated against known node titles; unresolved values emit **W701 `route-prereq-unresolved`**.
+Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot. The `prereq` key names a node by its title (spaces included, up to the next `#` tag), its `[id]`, or the id derived from its title (`gate-of-solid`); a route name is also accepted. Values that match none of these emit **W701 `route-prereq-unresolved`**.
 
 ---
 
@@ -491,7 +492,7 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | W305 | `alias-unresolved` | warning | Alias used in edge but not declared |
 | E401 | `import-malformed` | error | `!import` line doesn't parse |
 | E402 | `import-namespace-collision` | error | Two imports use the same namespace |
-| W701 | `route-prereq-unresolved` | warning | `#prereq` value is not a known node |
+| W701 | `route-prereq-unresolved` | warning | `#prereq` value is not a known node (title or id) or route |
 | E801 | `query-verb-unknown` | error | Query verb is not in the recognised set |
 | E802 | `query-path-missing-arg` | error | `?path` requires two node references |
 | W803 | `query-unresolved-node` | warning | Query references an unknown node |

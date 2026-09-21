@@ -426,10 +426,53 @@ describe("parseDsl — route metadata (Feature 7)", () => {
     expect(diagnostics.find((d) => d.code === "route-prereq-unresolved")!.severity).toBe("warning");
   });
 
-  it("does not emit route-prereq-unresolved for a valid prereq", () => {
+  it("does not emit route-prereq-unresolved for a prereq naming a route", () => {
     const text = "@P\n\nA\n\n/Intro\n1 A\n\n/Advanced\n#prereq:Intro\n1 A\n";
     const { diagnostics } = parseDsl(text);
     expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+  });
+
+  it("resolves a prereq naming a node by its multi-word title", () => {
+    // The docs' own example: the value runs on past the spaces in the title.
+    const text = "@P\n\nGate of SOLID\n\nForge\n\n/Advanced Walk\n#difficulty:advanced #prereq:Gate of SOLID\n1 Forge\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+    expect(snapshot.routes[0]!.metadata).toEqual([
+      { key: "difficulty", value: "advanced", raw: "#difficulty:advanced" },
+      { key: "prereq", value: "Gate of SOLID", raw: "#prereq:Gate of SOLID" },
+    ]);
+  });
+
+  it("resolves a prereq naming a node by its declared or derived id", () => {
+    const declared = "@P\n\n[gate] Gate of SOLID\n\n/Walk\n#prereq:gate\n1 Gate of SOLID\n";
+    const derived = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:gate-of-solid\n1 Gate of SOLID\n";
+    for (const text of [declared, derived]) {
+      const { diagnostics } = parseDsl(text);
+      expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+    }
+  });
+
+  it("ends a multi-word prereq at the next #tag", () => {
+    const text = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:Gate of SOLID #mode:linear\n1 Gate of SOLID\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => ({ key, value }))).toEqual([
+      { key: "prereq", value: "Gate of SOLID" },
+      { key: "mode", value: "linear" },
+    ]);
+  });
+
+  it("warns on a multi-word prereq that matches no node, naming the whole value", () => {
+    const text = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:Gate of Patterns\n1 Gate of SOLID\n";
+    const { diagnostics } = parseDsl(text);
+    const warning = diagnostics.find((d) => d.code === "route-prereq-unresolved");
+    expect(warning?.message).toContain('"Gate of Patterns"');
+  });
+
+  it("keeps words after other structured tags as plain tags", () => {
+    // Only prereq values run on; a bare word after #domain:auth is its own tag, as before.
+    const text = "@P\n\nA\n#domain:auth backend\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.tags).toEqual(["domain:auth", "backend"]);
   });
 
   it("plain tags in route metadata are ignored (only structured tags stored)", () => {

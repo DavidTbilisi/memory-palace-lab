@@ -210,16 +210,26 @@ function parseTagsLine(body: string): {
   const tags: string[] = [];
   const structuredTags: DslStructuredTag[] = [];
   const invalid: { token: string; offset: number }[] = [];
-  const tokenRe = /\S+/g;
-  let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(body)) !== null) {
-    const token = m[0]!;
+  const tokens = [...body.matchAll(/\S+/g)];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const m = tokens[i]!;
+    let token = m[0];
     const stripped = token.replace(/^#/, "");
     const colonIdx = stripped.indexOf(":");
     if (colonIdx > 0) {
       // Structured tag: #key:value
       const key = stripped.slice(0, colonIdx).toLowerCase();
-      const value = stripped.slice(colonIdx + 1);
+      let value = stripped.slice(colonIdx + 1);
+      if (key === "prereq") {
+        // A prereq names a node, and titles have spaces: its value runs on to the next
+        // #tag or the end of the line (`#prereq:Gate of SOLID #difficulty:advanced`).
+        let last = i;
+        while (last + 1 < tokens.length && !tokens[last + 1]![0].startsWith("#")) last += 1;
+        const end = tokens[last]!.index + tokens[last]![0].length;
+        token = body.slice(m.index, end);
+        value = token.slice(token.indexOf(":") + 1).trim();
+        i = last;
+      }
       if (/^[a-z][a-z0-9_-]*$/.test(key)) {
         structuredTags.push({ key, value: value || null, raw: token });
         // Also keep in flat tags as "key:value" for backward-compat consumers
@@ -925,16 +935,18 @@ export function parseDsl(text: string): DslParseResult {
     }
   }
 
-  // Feature 7 — validate route prereq metadata tags
+  // Feature 7 — validate route prereq metadata tags. A prereq names a node by title or id
+  // (implicitId is the declared [id], else the title slug); route names, which is how
+  // prereqs first resolved, still count so older files keep validating.
   const routeNames = new Set(snapshot.routes.map((r) => r.name));
   const routeNormNames = new Set(snapshot.routes.map((r) => r.normalizedName));
+  const nodeRefs = new Set(snapshot.nodes.flatMap((n) => [n.title, n.implicitId]));
+  const prereqResolves = (ref: string) => nodeRefs.has(ref) || routeNames.has(ref) || routeNormNames.has(ref);
   for (const route of snapshot.routes) {
     for (const tag of route.metadata) {
-      if (tag.key === "prereq" && tag.value !== null) {
-        if (!routeNames.has(tag.value) && !routeNormNames.has(tag.value)) {
-          diag(diagnostics, "warning", "route-prereq-unresolved", route.sourceLine, 1, 1,
-            `Unresolved route prereq "${tag.value}"`);
-        }
+      if (tag.key === "prereq" && tag.value !== null && !prereqResolves(tag.value)) {
+        diag(diagnostics, "warning", "route-prereq-unresolved", route.sourceLine, 1, 1,
+          `Route prereq "${tag.value}" does not match any node`);
       }
     }
   }
