@@ -5,8 +5,67 @@ on:
     tags:
       - "v*"
 
+env:
+  # Shown on the release page, and copied into latest.json as the update's notes.
+  RELEASE_NOTES: |
+    ## What's new
+    See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+    ## Install
+    Download the installer for your platform from the assets below.
+
+    | Platform | File |
+    |----------|------|
+    | Windows  | `.msi` or `.exe` |
+    | macOS    | `.dmg` (universal — Intel + Apple Silicon) |
+    | Linux    | `.AppImage`, `.deb`, or `.rpm` |
+
+    ### Windows SmartScreen warning
+    Windows may show an "unrecognized app" warning because the installer is not yet code-signed.
+    Click **More info → Run anyway** to proceed. The app is fully open-source.
+
 jobs:
+  # The draft is created once, here, and the build jobs upload into it by id. A draft
+  # cannot be found by its tag, so when each build job looked for the release itself,
+  # jobs that started together each made a draft of their own and split the assets.
+  create-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.draft.outputs.release_id }}
+    steps:
+      - name: Create the draft release (or reuse it when the run is repeated)
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          NOTES: ${{ env.RELEASE_NOTES }}
+        run: |
+          ids=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\") | .id")
+          count=$(printf '%s' "$ids" | grep -c . || true)
+          if [ "$count" -gt 1 ]; then
+            echo "::error::$count releases already exist for $TAG; delete the extra ones and run this again."
+            exit 1
+          fi
+          if [ "$count" -eq 1 ]; then
+            release_id=$ids
+            echo "Reusing release $release_id for $TAG."
+          else
+            release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -X POST \
+              -f tag_name="$TAG" \
+              -f name="Memory Palace Lab $TAG" \
+              -f body="$NOTES" \
+              -F draft=true \
+              -F prerelease=false \
+              --jq .id)
+            echo "Created draft release $release_id for $TAG."
+          fi
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: create-release
     permissions:
       contents: write
     strategy:
@@ -72,26 +131,50 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          # Upload into the draft made by create-release. With releaseId set, tauri-action
+          # does not look for or create a release; tagName is still needed, because a draft's
+          # asset links say "untagged-…" and latest.json must point at the tag instead.
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           tagName: ${{ github.ref_name }}
-          releaseName: "Memory Palace Lab ${{ github.ref_name }}"
-          releaseBody: |
-            ## What's new
-            See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-
-            ## Install
-            Download the installer for your platform from the assets below.
-
-            | Platform | File |
-            |----------|------|
-            | Windows  | `.msi` or `.exe` |
-            | macOS    | `.dmg` (universal — Intel + Apple Silicon) |
-            | Linux    | `.AppImage`, `.deb`, or `.rpm` |
-
-            ### Windows SmartScreen warning
-            Windows may show an "unrecognized app" warning because the installer is not yet code-signed.
-            Click **More info → Run anyway** to proceed. The app is fully open-source.
-          releaseDraft: true
-          prerelease: false
+          releaseBody: ${{ env.RELEASE_NOTES }}
           args: ${{ matrix.args }}
           # Empty on Windows and macOS, where tauri-action runs the Tauri CLI itself.
           tauriScript: ${{ matrix.tauriScript }}
+
+  # Each build job merges its platforms into latest.json, so two jobs that finish at the
+  # same moment can still drop one. An incomplete release must fail here, while it is
+  # still a draft, not reach the in-app updater.
+  verify-release:
+    needs: [create-release, build]
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the draft has every installer and updater platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          release=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
+          names=$(jq -r '.assets[].name' <<<"$release")
+          echo "$names"
+          missing=0
+          for pattern in '\.dmg$' '\.app\.tar\.gz$' '\.msi$' '-setup\.exe$' '\.AppImage$' '\.deb$' '\.rpm$' '^latest\.json$'; do
+            if ! grep -Eq -- "$pattern" <<<"$names"; then
+              echo "::error::No release asset matches $pattern"
+              missing=1
+            fi
+          done
+
+          asset_id=$(jq -r '.assets[] | select(.name == "latest.json") | .id' <<<"$release")
+          if [ -n "$asset_id" ]; then
+            platforms=$(gh api -H "Accept: application/octet-stream" \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" | jq -r '.platforms | keys[]')
+            for platform in darwin-aarch64 darwin-x86_64 linux-x86_64 windows-x86_64; do
+              if ! grep -qx -- "$platform" <<<"$platforms"; then
+                echo "::error::latest.json has no $platform entry"
+                missing=1
+              fi
+            done
+          fi
+          exit "$missing"
