@@ -19,6 +19,7 @@ export function routeList(ctx: ServerContext, args: { palace: string }) {
     routes: snapshot.routes.map((r) => ({
       id: r.id,
       name: r.name,
+      metadata: r.metadata?.length ? r.metadata : undefined,
       loci: orderedLoci(snapshot.loci.filter((l) => l.routeId === r.id)).map((l) => ({
         locusId: l.id,
         nodeId: l.nodeId,

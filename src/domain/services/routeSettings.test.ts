@@ -25,6 +25,26 @@ describe("route settings codec", () => {
     expect(decodeRouteSettings("[1,2]")).toEqual({});
     expect(decodeRouteSettings('{"color":"plaid","hidden":"yes"}')).toEqual({});
   });
+
+  it("round-trips route metadata in order, including empty values", () => {
+    const metadata = [
+      { key: "difficulty", value: "advanced" },
+      { key: "prereq", value: "Gate of SOLID" },
+      { key: "mode", value: null },
+    ];
+    const json = encodeRouteSettings({ color: "sky", metadata });
+    expect(JSON.parse(json)).toEqual({ color: "sky", metadata });
+    expect(decodeRouteSettings(json)).toEqual({ color: "sky", metadata });
+    expect(encodeRouteSettings({ metadata: [] })).toBe("{}");
+  });
+
+  it("keeps only well-formed metadata tags", () => {
+    const json = JSON.stringify({
+      metadata: [{ key: "prereq", value: "Gate" }, { key: "", value: "x" }, { key: "n", value: 3 }, "bad", null],
+    });
+    expect(decodeRouteSettings(json)).toEqual({ metadata: [{ key: "prereq", value: "Gate" }] });
+    expect(decodeRouteSettings('{"metadata":"#prereq:Gate"}')).toEqual({});
+  });
 });
 
 describe("stop settings codec", () => {

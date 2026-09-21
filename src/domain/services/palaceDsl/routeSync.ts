@@ -39,11 +39,13 @@ export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResu
 
   for (const intentRoute of intent) {
     const existing = currentByName.get(intentRoute.name);
-    const route: MemoryRoute = existing ?? {
-      id: uuid(),
-      palaceId,
-      name: intentRoute.name,
-    };
+    const route: MemoryRoute = existing
+      ? { ...existing }
+      : { id: uuid(), palaceId, name: intentRoute.name };
+    // The DSL is the whole intent: a route written without metadata lines has none.
+    const metadata = intentRoute.metadata.map(({ key, value }) => ({ key, value }));
+    if (metadata.length > 0) route.metadata = metadata;
+    else delete route.metadata;
     if (!existing) addedRoutes += 1;
     nextRoutes.push(route);
 

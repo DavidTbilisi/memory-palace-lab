@@ -555,6 +555,44 @@ Beta
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 warnings/i);
   });
+
+  test("route metadata is saved with the route and written back into the DSL", async ({ page }) => {
+    const metadata = [
+      { key: "difficulty", value: "advanced" },
+      { key: "prereq", value: "Gate of SOLID" },
+    ];
+    const routeMetadata = () =>
+      page.evaluate(() => {
+        const state = (window as { __mp_store?: { getState: () => unknown } }).__mp_store!.getState() as {
+          routes: Array<{ name: string; metadata?: unknown }>;
+        };
+        return state.routes.find((route) => route.name === "Advanced Walk")?.metadata ?? null;
+      });
+    // The editor rewrites its text from the saved palace once it loses focus; it joins the
+    // two tag lines into one, so seeing the joined line shows the rewrite kept the metadata.
+    const rewrittenLine = "/Advanced Walk\n#difficulty:advanced #prereq:Gate of SOLID\n1 Gate of SOLID";
+    const editorText = () => page.locator(".cm-content").first().innerText();
+
+    await bootstrapPalace(page);
+    await openDslEditor(page);
+    await typeDsl(
+      page,
+      "@Tutorial Palace\n\nGate of SOLID\n\nForge\n\n/Advanced Walk\n#difficulty:advanced\n#prereq:Gate of SOLID\n1 Gate of SOLID\n2 Forge\n",
+    );
+
+    await expect.poll(routeMetadata).toEqual(metadata);
+    await expect.poll(editorText).toContain(rewrittenLine);
+
+    await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
+    await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: "Tutorial Palace", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+
+    await expect.poll(routeMetadata).toEqual(metadata);
+    if (!(await page.getByTestId("palace-dsl-editor").isVisible())) await openDslEditor(page);
+    await expect.poll(editorText).toContain(rewrittenLine);
+  });
 });
 
 // ── PORTAL NODES ──────────────────────────────────────────────────────────────

@@ -5,8 +5,8 @@ import type { DslRoute } from "./types";
 
 const PALACE_ID = "p-1";
 
-function dslRoute(name: string, loci: string[]): DslRoute {
-  return { name, loci, sourceLine: 0 };
+function dslRoute(name: string, loci: string[], metadata: DslRoute["metadata"] = []): DslRoute {
+  return { name, normalizedName: name.toLowerCase(), metadata, loci, sourceLine: 0 };
 }
 
 let counter = 0;
@@ -118,6 +118,46 @@ describe("reconcileRoutes", () => {
     expect(new Set(result.loci.map((l) => l.id)).size).toBe(4);
     expect(result.loci.map((l) => l.label)).toEqual(["start", "", "end", ""]);
     expect(result.added).toEqual({ routes: 0, loci: 1 });
+  });
+
+  it("takes each route's metadata from the DSL, keeping its other settings", () => {
+    counter = 0;
+    const tags = (...pairs: [string, string][]) => pairs.map(([key, value]) => ({ key, value, raw: `#${key}:${value}` }));
+    const current: MemoryRoute[] = [
+      { id: "r-1", palaceId: PALACE_ID, name: "Deep", color: "rose", metadata: [{ key: "difficulty", value: "beginner" }] },
+      { id: "r-2", palaceId: PALACE_ID, name: "Plain", hidden: true, metadata: [{ key: "mode", value: "linear" }] },
+    ];
+
+    const result = reconcileRoutes({
+      palaceId: PALACE_ID,
+      currentRoutes: current,
+      currentLoci: [],
+      intent: [
+        dslRoute("Deep", ["A"], tags(["difficulty", "advanced"], ["prereq", "Gate of SOLID"])),
+        dslRoute("Plain", ["A"]),
+        dslRoute("Fresh", ["A"], tags(["duration", "30min"])),
+      ],
+      titleToNodeId: new Map([["A", "node-a"]]),
+      uuid,
+    });
+
+    expect(result.routes).toEqual([
+      {
+        id: "r-1",
+        palaceId: PALACE_ID,
+        name: "Deep",
+        color: "rose",
+        metadata: [
+          { key: "difficulty", value: "advanced" },
+          { key: "prereq", value: "Gate of SOLID" },
+        ],
+      },
+      // Written without metadata lines, so it has none now.
+      { id: "r-2", palaceId: PALACE_ID, name: "Plain", hidden: true },
+      { id: "id-3", palaceId: PALACE_ID, name: "Fresh", metadata: [{ key: "duration", value: "30min" }] },
+    ]);
+    // The caller's route objects are not mutated.
+    expect(current[1]!.metadata).toEqual([{ key: "mode", value: "linear" }]);
   });
 
   it("emits a diagnostic for a locus referring to an unknown title and skips it", () => {
