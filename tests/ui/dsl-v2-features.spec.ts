@@ -590,6 +590,10 @@ Beta
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
     await expect.poll(routeMetadata).toEqual(metadata);
+    await page.getByRole("tab", { name: /^Routes/ }).click();
+    await expect(
+      page.getByRole("list", { name: "Metadata for Advanced Walk" }).getByRole("listitem"),
+    ).toHaveText(["difficulty:advanced", "prereq:Gate of SOLID"]);
     if (!(await page.getByTestId("palace-dsl-editor").isVisible())) await openDslEditor(page);
     await expect.poll(editorText).toContain(rewrittenLine);
   });
