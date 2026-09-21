@@ -14,6 +14,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,10 +44,10 @@ async function setupSingleLocus(page: import("@playwright/test").Page, routeName
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Review Subject");
   await page.locator("#mp-content").fill("This is the content to review.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill(routeName);
   await page.getByRole("button", { name: "Add route" }).click();
@@ -188,10 +189,10 @@ test.describe("rating: Easy", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Easy Subject");
     await page.locator("#mp-content").fill("Content.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByPlaceholder("Route name").fill("Easy Interval Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -233,10 +234,10 @@ test.describe("rating: Hard", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Good Baseline");
     await page.locator("#mp-content").fill("Content.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByPlaceholder("Route name").fill("Good Baseline Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();

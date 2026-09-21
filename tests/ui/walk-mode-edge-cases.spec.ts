@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // Helper: create tutorial palace and return to root
 async function setupTutorialPalace(page: Parameters<Parameters<typeof test>[1]>[0]) {
@@ -57,7 +58,7 @@ test("single-locus route clamps next and prev at index 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
   // Create a node and add it once
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Solo Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -83,7 +84,7 @@ test("single-locus route clamps next and prev at index 0", async ({ page }) => {
 test("rapid next clicks do not advance past the last locus", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Rapid Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -106,7 +107,7 @@ test("rapid next clicks do not advance past the last locus", async ({ page }) =>
 test("rapid previous clicks do not go below index 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Rapid Prev Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -134,7 +135,7 @@ test("rapid previous clicks do not go below index 0", async ({ page }) => {
 test("closing and reopening walk resets index to 0", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Reopen Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -161,10 +162,10 @@ test("closing and reopening walk resets index to 0", async ({ page }) => {
 test("recall mode: answer stays hidden until Reveal is clicked", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Test cue");
   await page.locator("#mp-content").fill("Secret answer text");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill("Recall Route");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -190,10 +191,10 @@ test("recall mode: answer stays hidden until Reveal is clicked", async ({ page }
 test("toggling recall mode off shows answer immediately without Reveal", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Open cue");
   await page.locator("#mp-content").fill("Visible answer text");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill("Open Route");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -211,7 +212,7 @@ test("toggling recall mode off shows answer immediately without Reveal", async (
 test("walk_started analytics event fires when walk opens", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Analytics Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -236,7 +237,7 @@ test("walk_started analytics event fires when walk opens", async ({ page }) => {
 test("walk_closed analytics event fires when walk closes", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Close Analytics Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -266,7 +267,7 @@ test("walk_closed analytics event fires when walk closes", async ({ page }) => {
 test("walkStepEnteredAt is stamped when walk opens and refreshed on next step", async ({ page }) => {
   await setupTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.getByPlaceholder("Route name").fill("Timing Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();

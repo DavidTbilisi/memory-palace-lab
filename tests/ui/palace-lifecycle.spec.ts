@@ -11,6 +11,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -105,10 +106,10 @@ test.describe("palace save and reload", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Persist Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Persisted Node");
     await page.locator("#mp-content").fill("This content should survive.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other Palace");
@@ -127,9 +128,9 @@ test.describe("palace save and reload", () => {
     await page.getByRole("button", { name: /create tutorial palace/i }).click();
     await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Save Event Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     await expect
@@ -153,9 +154,9 @@ test.describe("palace save and reload", () => {
     expect(initialState).toBe("clean");
 
     // After adding a node → dirty or draft
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Trigger Dirty");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await expect
       .poll(() =>
@@ -192,9 +193,9 @@ test.describe("draft autosave and restore", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Draft Test Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Autosave Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await expect(page.getByText("Draft saved")).toBeVisible({ timeout: 5000 });
   });
@@ -205,9 +206,9 @@ test.describe("draft autosave and restore", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Draft Restore Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Unsaved Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await expect(page.getByText("Draft saved")).toBeVisible({ timeout: 5000 });
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Away Palace");
@@ -228,9 +229,9 @@ test.describe("draft autosave and restore", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Draft Analytics Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Draft Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await expect
       .poll(() => getAnalyticsEvents(page), { timeout: 10000 })
@@ -402,9 +403,9 @@ test.describe("JSON backup export and import", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Export Source Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Exported Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     // Export
@@ -450,9 +451,9 @@ test.describe("multiple palace isolation", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Isolation A" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Only In A");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     // Create palace B
@@ -472,7 +473,7 @@ test.describe("multiple palace isolation", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Route Isolation A" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.getByPlaceholder("Route name").fill("Private Route A");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();

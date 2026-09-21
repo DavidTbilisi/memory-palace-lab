@@ -12,6 +12,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -129,9 +130,9 @@ test.describe("palace analytics events", () => {
 
   test("palace_saved fires on manual save", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Save Test Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     await waitForEvent(page, "palace_saved");
@@ -177,9 +178,9 @@ test.describe("palace analytics events", () => {
 test.describe("graph analytics events", () => {
   test("node_created fires when a node is added via inspector", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Analytics Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await waitForEvent(page, "node_created");
 
@@ -192,13 +193,13 @@ test.describe("graph analytics events", () => {
 
   test("node_updated fires when node title is changed", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Original Title");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     // Clear node_created event, then update
     await page.locator("#mp-title").fill("Updated Title");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await waitForEvent(page, "node_updated");
 
@@ -209,7 +210,7 @@ test.describe("graph analytics events", () => {
 
   test("edge_created fires when an edge is created via CAST panel", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 180, y: 140 } });
 
     // Queue the pending cast for the two nodes
@@ -271,7 +272,7 @@ test.describe("graph analytics events", () => {
 
   test("locus_added fires when a node is added to a route", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.getByPlaceholder("Route name").fill("Locus Test Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -290,10 +291,10 @@ test.describe("graph analytics events", () => {
 test.describe("walk analytics events", () => {
   async function setupWalk(page: import("@playwright/test").Page) {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Walk Node");
     await page.locator("#mp-content").fill("Walk answer content.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByPlaceholder("Route name").fill("Walk Test Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -313,7 +314,7 @@ test.describe("walk analytics events", () => {
 
   test("walk_stepped fires when navigating to next step", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.getByPlaceholder("Route name").fill("Stepped Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -343,10 +344,10 @@ test.describe("walk analytics events", () => {
   test("walk_recall_rated fires for all four rating buttons", async ({ page }) => {
     for (const rating of ["Easy", "Good", "Hard", "Forgot"]) {
       await bootstrapTutorial(page);
-      await page.getByRole("button", { name: /^Node$/ }).click();
+      await addNode(page);
       await page.locator("#mp-title").fill(`Node for ${rating}`);
       await page.locator("#mp-content").fill("Content.");
-      await page.getByRole("button", { name: "Apply" }).click();
+      await applyInspector(page);
       await page.getByPlaceholder("Route name").fill(`${rating} Route`);
       await page.getByRole("button", { name: "Add route" }).click();
       await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -402,9 +403,9 @@ test.describe("walk analytics events", () => {
 test.describe("analytics event payload integrity", () => {
   test("all events have valid ISO-8601 createdAt timestamps", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Timestamp Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     const events = await getEvents(page);
@@ -416,9 +417,9 @@ test.describe("analytics event payload integrity", () => {
 
   test("all events have valid JSON payloadJson", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("JSON Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     const events = await getEvents(page);
     for (const ev of events) {
@@ -428,9 +429,9 @@ test.describe("analytics event payload integrity", () => {
 
   test("all events have a unique ID", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Unique ID Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     const events = await getEvents(page);
     const ids = events.map((e) => e.id);
@@ -440,9 +441,9 @@ test.describe("analytics event payload integrity", () => {
 
   test("events are ordered chronologically (createdAt ascending)", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Chrono Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     const events = await getEvents(page);

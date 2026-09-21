@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 async function bootstrapPalace(page: import("@playwright/test").Page, name = "Node Test Palace") {
   await page.addInitScript(() => {
@@ -226,16 +227,16 @@ async function selectFirstArrow(page: import("@playwright/test").Page) {
 test("node title/content editing follows selected node", async ({ page }) => {
   await bootstrapPalace(page, "Node Editing Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Kitchen Sink");
   await page.locator("#mp-content").fill("Remember detergent, sponge, and sequence.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await createNodeByDoubleClick(page);
   await expect(page.locator("#mp-title")).toHaveValue("New node");
   await page.locator("#mp-title").fill("Front Door");
   await page.locator("#mp-content").fill("Recall welcome script.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await selectNodeByTitle(page, "Kitchen Sink");
   await expect(page.locator("#mp-title")).toHaveValue("Kitchen Sink");
@@ -249,10 +250,10 @@ test("node title/content editing follows selected node", async ({ page }) => {
 test("route locus defaults to edited node title", async ({ page }) => {
   await bootstrapPalace(page, "Route Label Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Kitchen Sink");
   await page.locator("#mp-content").fill("Plates, cups, and glasses.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill("Home Route");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -264,10 +265,10 @@ test("route locus defaults to edited node title", async ({ page }) => {
 test("node title/content persist after save and reopen palace", async ({ page }) => {
   await bootstrapPalace(page, "Persistence Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Server Room");
   await page.locator("#mp-content").fill("Racks left to right: auth, router, db.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await page.getByRole("button", { name: /^Save$/ }).click();
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Temporary Palace");
@@ -290,22 +291,22 @@ test("aliases persist for palace, node, and edge inspectors", async ({ page }) =
   await page.getByRole("button", { name: "Save details" }).click();
   await expect(page.getByText("Alias: AP")).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Gateway");
   await page.locator("#mp-alias").fill("GW");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await createNodeByDoubleClickAt(page, 520, 260);
   await page.locator("#mp-title").fill("Database");
   await page.locator("#mp-alias").fill("DB");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await queuePendingCast(page, 0, 1);
   await page.getByLabel("Tier 1 edge verb").fill("writes");
   await page.getByRole("button", { name: /create edge/i }).click();
   await selectFirstArrow(page);
   await page.locator("#mp-edge-alias").fill("Write path");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByRole("button", { name: /^Save$/ }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Alias Temporary Palace");
@@ -332,13 +333,13 @@ test("inspector title matches clicked canvas node", async ({ page }) => {
   await expect(page.locator("#mp-title")).toHaveValue("New node");
   await page.locator("#mp-title").fill("A");
   await page.locator("#mp-content").fill("Alpha content");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await createNodeByDoubleClickAt(page, 320, 260);
   await expect(page.locator("#mp-title")).toHaveValue("New node");
   await page.locator("#mp-title").fill("B");
   await page.locator("#mp-content").fill("Beta content");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await clickNodeByTitle(page, "A");
   await expect(page.locator("#mp-title")).toHaveValue("A");
@@ -352,7 +353,7 @@ test("inspector title matches clicked canvas node", async ({ page }) => {
 test("inspector updates after canvas-side rename of selected node", async ({ page }) => {
   await bootstrapPalace(page, "Canvas Rename Sync Palace");
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await expect(page.locator("#mp-title")).toHaveValue("New node");
 
   await page.evaluate(() => {

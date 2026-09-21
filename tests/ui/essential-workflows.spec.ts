@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 async function bootstrapTutorialPalace(page: import("@playwright/test").Page) {
   await page.goto("/");
   await expect(page.getByText("Memory Palace Lab")).toBeVisible();
   await page.getByRole("button", { name: /create tutorial palace/i }).click();
   await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Node$/ })).toBeEnabled();
+  await waitForEditorReady(page);
 }
 
 async function doubleClickCanvasAt(page: import("@playwright/test").Page, x: number, y: number) {
@@ -67,9 +68,9 @@ async function waitForEditorReady(page: import("@playwright/test").Page) {
 test("palace save/load workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Gateway Node");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await page.getByRole("button", { name: /^Save$/ }).click();
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Second Palace");
@@ -87,9 +88,9 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Draft Palace" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Draft Node");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await expect(page.getByText("Draft saved")).toBeVisible();
 
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other Palace");
@@ -123,7 +124,7 @@ test("draft autosave restores unsaved work after switching palaces", async ({ pa
 test("route and walk workflow", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
 
   await page.getByPlaceholder("Route name").fill("Route 1");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -144,9 +145,9 @@ test("route and walk workflow", async ({ page }) => {
 test("analytics panel shows local review and graph telemetry", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Analytics Node");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill("Telemetry Route");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -184,10 +185,10 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
 test("spaced review queue surfaces due node and route reviews", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Queue Node");
   await page.locator("#mp-content").fill("Queue content for spaced review.");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByPlaceholder("Route name").fill("Spaced Route");
   await page.getByRole("button", { name: "Add route" }).click();
@@ -217,7 +218,7 @@ test("spaced review queue surfaces due node and route reviews", async ({ page })
 test("connect workflow opens and applies CAST", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await doubleClickCanvasAt(page, 180, 140);
   await queuePendingCast(page, 0, 1);
 
@@ -260,7 +261,7 @@ test("connect workflow opens and applies CAST", async ({ page }) => {
 test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await doubleClickCanvasAt(page, 180, 140);
   await queuePendingCast(page, 0, 1);
 
@@ -301,7 +302,7 @@ test("connect workflow supports Tier 1 verb edge", async ({ page }) => {
 test("reverse-direction edges curve away from each other", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await doubleClickCanvasAt(page, 180, 140);
 
   await queuePendingCast(page, 0, 1);
@@ -348,7 +349,7 @@ test("reverse-direction edges curve away from each other", async ({ page }) => {
 test("selected edge metadata appears in inspector", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await doubleClickCanvasAt(page, 180, 140);
 
   await queuePendingCast(page, 0, 1);
@@ -386,7 +387,7 @@ test("selected edge metadata appears in inspector", async ({ page }) => {
 test("edge inspector falls back to stored graph data when arrow meta is incomplete", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await doubleClickCanvasAt(page, 180, 140);
 
   await queuePendingCast(page, 0, 1);
@@ -445,9 +446,9 @@ test("portal node opens a linked palace and route", async ({ page }) => {
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Arrival");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await page.getByPlaceholder("Route name").fill("Entry Route");
   await page.getByRole("button", { name: "Add route" }).click();
   await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -462,7 +463,7 @@ test("portal node opens a linked palace and route", async ({ page }) => {
   await page.getByLabel("Target palace").selectOption({ label: "Georgia/Tbilisi / Portal Target" });
   await expect(page.getByLabel("Target route")).toContainText("Entry Route");
   await page.getByLabel("Target route").selectOption({ label: "Entry Route" });
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
   await page.getByRole("button", { name: "Open linked palace" }).click();
 
   await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
@@ -472,9 +473,9 @@ test("portal node opens a linked palace and route", async ({ page }) => {
 test("theSystem pipeline materializes into graph workflow state", async ({ page }) => {
   await bootstrapTutorialPalace(page);
 
-  await page.getByRole("button", { name: /^Node$/ }).click();
+  await addNode(page);
   await page.locator("#mp-title").fill("Closures");
-  await page.getByRole("button", { name: "Apply" }).click();
+  await applyInspector(page);
 
   await page.getByRole("button", { name: /^System$/ }).click();
   await expect(page.getByText("graph-native thinking workflows")).toBeVisible();

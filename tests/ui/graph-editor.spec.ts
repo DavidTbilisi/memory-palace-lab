@@ -14,6 +14,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -154,14 +155,14 @@ test.describe("multi-node canvas creation", () => {
     await bootstrapTutorial(page);
     await waitForEditorReady(page);
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Alpha");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
     await expect(page.locator("#mp-title")).toHaveValue("New node");
     await page.locator("#mp-title").fill("Beta");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     // Click Alpha to verify it has its own title
     const alphaShapeId = await page.evaluate(() => {
@@ -197,7 +198,7 @@ test.describe("multi-node canvas creation", () => {
 test.describe("edge creation variants", () => {
   test("Tier 1 verb-only edge is created without CAST values", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
 
     await queuePendingCast(page, 0, 1);
@@ -225,7 +226,7 @@ test.describe("edge creation variants", () => {
 
   test("Tier 2 CAST profile 2222 encodes all four axes at index 2", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
 
     await queuePendingCast(page, 0, 1);
@@ -255,7 +256,7 @@ test.describe("edge creation variants", () => {
 
   test("creating three edges between the same pair shows all three in store", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
 
     for (const verb of ["feeds", "triggers", "blocks"]) {
@@ -271,7 +272,7 @@ test.describe("edge creation variants", () => {
 
   test("edge alias is preserved after save and reload", async ({ page }) => {
     await bootstrapPalace(page, "Edge Alias Palace");
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
 
     await queuePendingCast(page, 0, 1);
@@ -301,7 +302,7 @@ test.describe("edge creation variants", () => {
     });
 
     await page.locator("#mp-edge-alias").fill("Critical path");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     // Switch and come back
@@ -329,9 +330,9 @@ test.describe("edge creation variants", () => {
 test.describe("route locus management", () => {
   test("locus label can be renamed", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Station One");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.getByPlaceholder("Route name").fill("Label Test Route");
     await page.getByRole("button", { name: "Add route" }).click();
@@ -350,7 +351,7 @@ test.describe("route locus management", () => {
     for (const [title, pos] of [["First", { x: 140, y: 160 }], ["Second", { x: 320, y: 160 }]] as const) {
       await page.locator(".tl-background").first().dblclick({ position: pos });
       await page.locator("#mp-title").fill(title);
-      await page.getByRole("button", { name: "Apply" }).click();
+      await applyInspector(page);
     }
 
     await page.getByPlaceholder("Route name").fill("Ordered Route");
@@ -389,9 +390,9 @@ test.describe("route locus management", () => {
 
   test("route loci survive save and reload", async ({ page }) => {
     await bootstrapPalace(page, "Locus Persist Palace");
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Anchor Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.getByPlaceholder("Route name").fill("Persist Route");
     await page.getByRole("button", { name: "Add route" }).click();
@@ -417,7 +418,7 @@ test.describe("route locus management", () => {
 
   test("deleting a route removes its loci from store", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.getByPlaceholder("Route name").fill("Route To Delete");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -475,9 +476,9 @@ test.describe("portal node via inspector", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Arrival");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByPlaceholder("Route name").fill("Entry Route");
     await page.getByRole("button", { name: "Add route" }).click();
     await page.getByRole("button", { name: /add selected node to route/i }).click();
@@ -490,7 +491,7 @@ test.describe("portal node via inspector", () => {
     await page.locator("#mp-title").fill("Jump Node");
     await page.getByLabel("Target palace").selectOption({ label: "Portal Target" });
     await page.getByLabel("Target route").selectOption({ label: "Entry Route" });
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: "Open linked palace" }).click();
 
     await expect(page.getByRole("heading", { name: "Portal Target" })).toBeVisible();
@@ -503,10 +504,10 @@ test.describe("portal node via inspector", () => {
 test.describe("node content and alias", () => {
   test("multi-line content is preserved after Apply", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Multi Line Node");
     await page.locator("#mp-content").fill("Line one.\nLine two.\nLine three.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     const content = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -522,15 +523,15 @@ test.describe("node content and alias", () => {
 
   test("node alias appears in edge source/target labels after apply", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Source Node");
     await page.locator("#mp-alias").fill("SN");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.locator(".tl-background").first().dblclick({ position: { x: 320, y: 180 } });
     await page.locator("#mp-title").fill("Target Node");
     await page.locator("#mp-alias").fill("TN");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await queuePendingCast(page, 0, 1);
     await page.getByLabel("Tier 1 edge verb").fill("uses");
@@ -681,9 +682,9 @@ test.describe("atlas hierarchy editor", () => {
 test.describe("theSystem pipeline materialization", () => {
   test("Comprehension Protocol creates route with 6 loci", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Recursion");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.getByRole("button", { name: /^System$/ }).click();
     await page.getByRole("button", { name: "Comprehension Protocol" }).click();
@@ -713,9 +714,9 @@ test.describe("theSystem pipeline materialization", () => {
 
   test("materialized graph adds system_run_materialized analytics event", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Promises");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     await page.getByRole("button", { name: /^System$/ }).click();
     await page.getByRole("button", { name: "Comprehension Protocol" }).click();
@@ -757,7 +758,7 @@ test.describe("inspector panel", () => {
 
   test("node content field is multi-line and scrollable", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     const contentBox = page.locator("#mp-content");
     await expect(contentBox).toBeVisible();
     // Verify it is a textarea (multi-line)
@@ -767,7 +768,7 @@ test.describe("inspector panel", () => {
 
   test("inspector shows node source/target for selected edge", async ({ page }) => {
     await bootstrapTutorial(page);
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator(".tl-background").first().dblclick({ position: { x: 300, y: 180 } });
 
     await queuePendingCast(page, 0, 1);

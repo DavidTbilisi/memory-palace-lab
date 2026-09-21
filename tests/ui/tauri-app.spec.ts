@@ -16,6 +16,7 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
+import { addNode, applyInspector } from "./nodeHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -269,9 +270,9 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Persist Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Durable Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Other");
@@ -442,9 +443,9 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Save IPC Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("IPC Node");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     await expect
@@ -635,10 +636,10 @@ test.describe("D — JSON backup roundtrip", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Roundtrip Palace" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Roundtrip Node");
     await page.locator("#mp-content").fill("Important content that must survive export.");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
     await page.getByRole("button", { name: /^Save$/ }).click();
 
     // Export
@@ -720,9 +721,9 @@ test.describe("E — analytics persistence", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Analytics Persist A" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Node$/ }).click();
+    await addNode(page);
     await page.locator("#mp-title").fill("Node A");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await applyInspector(page);
 
     const countBefore = await page.evaluate(() => {
       const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
@@ -750,9 +751,9 @@ test.describe("E — analytics persistence", () => {
       await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
       await page.getByRole("button", { name: "Create palace" }).click();
       await expect(page.getByRole("heading", { name })).toBeVisible();
-      await page.getByRole("button", { name: /^Node$/ }).click();
+      await addNode(page);
       await page.locator("#mp-title").fill(`Node in ${name}`);
-      await page.getByRole("button", { name: "Apply" }).click();
+      await applyInspector(page);
     }
 
     await page.getByRole("button", { name: /^Insights$/ }).click();
