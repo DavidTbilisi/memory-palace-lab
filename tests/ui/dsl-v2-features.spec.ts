@@ -61,7 +61,56 @@ async function readSceneCounts(page: import("@playwright/test").Page): Promise<S
   });
 }
 
+/**
+ * The store's `nodes` and `edges` are the last saved snapshot, refreshed by a debounced draft
+ * save a moment after the canvas changes. Wait until they describe the same graph as the
+ * canvas, so a read right after a DSL apply does not see the graph from before it.
+ */
+async function waitForSavedSnapshot(page: import("@playwright/test").Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          type Meta = Record<string, string | undefined>;
+          const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+          if (!store) throw new Error("missing store hook");
+          const state = store.getState() as {
+            nodes: Array<{ id: string; title: string }>;
+            edges: Array<{ id: string; castAb: string; castCd: string; castEf: string; castGh: string }>;
+            editorRef: {
+              getCurrentPageShapeIds: () => Iterable<string>;
+              getShape: (id: string) => { type?: string; meta?: Meta } | undefined;
+            } | null;
+          };
+          const editor = state.editorRef;
+          if (!editor) return false;
+          const onCanvas = { nodes: [] as string[], edges: [] as string[] };
+          for (const id of editor.getCurrentPageShapeIds()) {
+            const shape = editor.getShape(id);
+            const meta = shape?.meta ?? {};
+            if ((shape?.type === "geo" || shape?.type === "image") && meta.mpNodeId) {
+              onCanvas.nodes.push(`${meta.mpNodeId}|${meta.mpTitle ?? ""}`);
+            }
+            if (shape?.type === "arrow" && meta.mpEdgeId) {
+              onCanvas.edges.push(
+                `${meta.mpEdgeId}|${meta.castAb ?? ""}${meta.castCd ?? ""}${meta.castEf ?? ""}${meta.castGh ?? ""}`,
+              );
+            }
+          }
+          const saved = {
+            nodes: state.nodes.map((n) => `${n.id}|${n.title}`),
+            edges: state.edges.map((e) => `${e.id}|${e.castAb}${e.castCd}${e.castEf}${e.castGh}`),
+          };
+          const same = (a: string[], b: string[]) => [...a].sort().join("\n") === [...b].sort().join("\n");
+          return same(onCanvas.nodes, saved.nodes) && same(onCanvas.edges, saved.edges);
+        }),
+      { message: "saved snapshot caught up with the canvas", timeout: 10000 },
+    )
+    .toBe(true);
+}
+
 async function readStoreNodes(page: import("@playwright/test").Page) {
+  await waitForSavedSnapshot(page);
   return page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing store hook");
@@ -85,6 +134,7 @@ async function readStoreNodes(page: import("@playwright/test").Page) {
 }
 
 async function readStoreEdges(page: import("@playwright/test").Page) {
+  await waitForSavedSnapshot(page);
   return page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing store hook");
