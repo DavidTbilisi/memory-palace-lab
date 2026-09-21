@@ -21,6 +21,25 @@ import {
 //   (other)  → node title
 // ---------------------------------------------------------------------------
 
+/**
+ * Class for each token of a tag line (`body` starts at the `#`), following the parser:
+ * `#tag` and `#key:value` are tags, and a `#prereq:` value runs on to the next `#tag`,
+ * because it names a node and titles have spaces.
+ */
+export function tagLineTokens(body: string): { from: number; to: number; cls: string }[] {
+  const out: { from: number; to: number; cls: string }[] = [];
+  let inPrereq = false;
+  for (const m of body.matchAll(/\S+/g)) {
+    const token = m[0];
+    if (token.startsWith("#")) inPrereq = false;
+    const isTag =
+      inPrereq || /^#[A-Za-z0-9_-]+$/.test(token) || /^#[A-Za-z][A-Za-z0-9_-]*:\S*$/.test(token);
+    if (/^#prereq:/i.test(token)) inPrereq = true;
+    out.push({ from: m.index, to: m.index + token.length, cls: isTag ? "cm-dsl-tag" : "cm-dsl-invalid" });
+  }
+  return out;
+}
+
 function buildDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const { from, to } of view.visibleRanges) {
@@ -84,16 +103,8 @@ function addLineDecorations(
   }
 
   if (body.startsWith("#")) {
-    const tokenRegex = /\S+/g;
-    let m: RegExpExecArray | null;
-    while ((m = tokenRegex.exec(body)) !== null) {
-      const token = m[0];
-      mark(
-        builder,
-        bodyStart + m.index,
-        bodyStart + m.index + token.length,
-        /^#[A-Za-z0-9_-]+$/.test(token) ? "cm-dsl-tag" : "cm-dsl-invalid",
-      );
+    for (const token of tagLineTokens(body)) {
+      mark(builder, bodyStart + token.from, bodyStart + token.to, token.cls);
     }
     return;
   }
