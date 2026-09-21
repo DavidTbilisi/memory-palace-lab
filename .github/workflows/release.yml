@@ -147,7 +147,9 @@ jobs:
   verify-release:
     needs: [create-release, build]
     permissions:
-      contents: read
+      # Only reads, but GitHub hides draft releases from tokens without write access:
+      # with contents: read the API answers 403 "Resource not accessible by integration".
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Check the draft has every installer and updater platform
