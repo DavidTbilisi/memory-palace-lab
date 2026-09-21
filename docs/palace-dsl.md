@@ -369,7 +369,7 @@ Structured tags may appear immediately after a route header, before the first lo
 2 Open Closed Library
 ```
 
-Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot. The `prereq` key names a node by its title (spaces included, up to the next `#` tag), its `[id]`, or the id derived from its title (`gate-of-solid`); a route name is also accepted. Values that match none of these emit **W701 `route-prereq-unresolved`**.
+Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot, are saved with the route when the DSL is applied, and are written back on one line under the route header when the palace is exported to DSL. `route_list` in the MCP server returns them too. The `prereq` key names a node by its title (spaces included, up to the next `#` tag), its `[id]`, or the id derived from its title (`gate-of-solid`); a route name is also accepted. Values that match none of these emit **W701 `route-prereq-unresolved`**.
 
 ---
 

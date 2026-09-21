@@ -78,6 +78,10 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
   for (const route of snapshot.routes) {
     lines.push("");
     lines.push(`/${route.name}`);
+    if (route.metadata?.length) {
+      // Every tag starts with "#", which is also where a multi-word #prereq value ends.
+      lines.push(route.metadata.map(({ key, value }) => `#${key}:${value ?? ""}`).join(" "));
+    }
     const ordered = (lociByRoute.get(route.id) ?? [])
       .slice()
       .sort((a, b) => a.orderIndex - b.orderIndex);

@@ -159,6 +159,22 @@ describe("palaceDb", () => {
     expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
   });
 
+  it("keeps route metadata through save and load", () => {
+    const palace = createPalace(db, "Tagged");
+    const snap = makeSnapshot(palace.id, palace);
+    const metadata = [
+      { key: "difficulty", value: "advanced" },
+      { key: "prereq", value: "Gate of SOLID" },
+    ];
+    const routes = [{ id: "route-t", palaceId: palace.id, name: "Tagged", color: "sky" as const, metadata }];
+    saveSnapshot(db, { ...snap, routes, loci: [] });
+
+    expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
+    expect(db.prepare("SELECT settings_json FROM routes").get()).toEqual({
+      settings_json: JSON.stringify({ color: "sky", metadata }),
+    });
+  });
+
   it("keeps a stop's saved view through save and load", () => {
     const palace = createPalace(db, "Framed");
     const snap = makeSnapshot(palace.id, palace);

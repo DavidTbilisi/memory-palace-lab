@@ -183,6 +183,31 @@ describe("serializeDsl", () => {
     expect(out).toContain("/Walk\n1 A\n2 B\n");
   });
 
+  it("writes route metadata under the route header, and the parser reads it back", () => {
+    const metadata = [
+      { key: "prereq", value: "Gate of SOLID" },
+      { key: "difficulty", value: "advanced" },
+      { key: "mode", value: null },
+    ];
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [
+        { id: "n-0", objectId: "o-0", title: "Gate of SOLID", content: "", kind: "memory", portal: null },
+      ],
+      edges: [],
+      routes: [{ id: "r-0", palaceId: "p", name: "Advanced Walk", metadata }],
+      loci: [{ id: "l-0", routeId: "r-0", nodeId: "n-0", orderIndex: 0, label: "" }],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain("/Advanced Walk\n#prereq:Gate of SOLID #difficulty:advanced #mode:\n1 Gate of SOLID\n");
+
+    const { snapshot, diagnostics } = parseDsl(out);
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => ({ key, value }))).toEqual(metadata);
+    expect(snapshot.routes[0]!.loci).toEqual(["Gate of SOLID"]);
+  });
+
   it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },

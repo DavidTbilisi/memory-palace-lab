@@ -79,6 +79,12 @@ export interface MemoryEdge {
 export const ROUTE_COLORS = ["violet", "sky", "emerald", "amber", "rose", "cyan", "orange", "fuchsia"] as const;
 export type RouteColor = (typeof ROUTE_COLORS)[number];
 
+/** A `#key:value` tag written under a route's header in the DSL, e.g. `#prereq:Gate of SOLID`. */
+export interface RouteMetadataTag {
+  key: string;
+  value: string | null;
+}
+
 export interface MemoryRoute {
   id: string;
   palaceId: string;
@@ -87,6 +93,8 @@ export interface MemoryRoute {
   color?: RouteColor | null;
   /** Hidden routes are not drawn on the canvas. */
   hidden?: boolean;
+  /** Route metadata from the DSL (`#difficulty:advanced #prereq:…`), in the order written. */
+  metadata?: RouteMetadataTag[];
 }
 
 export interface Locus {

@@ -3,11 +3,12 @@ import {
   type Locus,
   type MemoryRoute,
   type RouteColor,
+  type RouteMetadataTag,
   type StopView,
 } from "../entities/types";
 
 /** Route fields stored together in the `routes.settings_json` column. */
-export type RouteSettings = Pick<MemoryRoute, "color" | "hidden">;
+export type RouteSettings = Pick<MemoryRoute, "color" | "hidden" | "metadata">;
 
 /** Stop fields stored together in the `loci.settings_json` column. */
 export type StopSettings = Pick<Locus, "view">;
@@ -32,7 +33,14 @@ export function encodeRouteSettings(route: RouteSettings): string {
   const settings: Record<string, unknown> = {};
   if (route.color) settings.color = route.color;
   if (route.hidden) settings.hidden = true;
+  if (route.metadata?.length) settings.metadata = route.metadata.map(({ key, value }) => ({ key, value }));
   return JSON.stringify(settings);
+}
+
+function isMetadataTag(value: unknown): value is RouteMetadataTag {
+  if (!value || typeof value !== "object") return false;
+  const { key, value: tagValue } = value as Record<string, unknown>;
+  return typeof key === "string" && key !== "" && (typeof tagValue === "string" || tagValue === null);
 }
 
 /** Tolerant reader: malformed JSON or unknown values fall back to the defaults. */
@@ -42,6 +50,10 @@ export function decodeRouteSettings(json: string | null | undefined): RouteSetti
   const settings: RouteSettings = {};
   if (isRouteColor(raw.color)) settings.color = raw.color;
   if (raw.hidden === true) settings.hidden = true;
+  if (Array.isArray(raw.metadata)) {
+    const metadata = raw.metadata.filter(isMetadataTag).map(({ key, value }) => ({ key, value }));
+    if (metadata.length > 0) settings.metadata = metadata;
+  }
   return settings;
 }
 
