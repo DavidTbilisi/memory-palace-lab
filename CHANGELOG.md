@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.11.0 — 2026-09-21
+
+### Route metadata is kept
+
+- **Route tags are saved with the route.** Tags you write under a route header in the DSL editor, such as `#difficulty:advanced #prereq:Gate of SOLID`, used to vanish as soon as the editor lost focus. They are now saved with the route, survive a reload, and are written back into the DSL (on one line under the route header). The MCP server's `route_list` returns them too.
+- **`#prereq` names a node, as the docs say.** A prerequisite can be a node's title — spaces included, up to the next `#` tag — its `[id]`, or the id made from its title. Route names still work. Before, only route names were accepted and a value stopped at the first space.
+- The DSL editor no longer marks `#key:value` tags such as `#difficulty:advanced` as invalid.
+
+### Fixes
+
+- **Save Checkpoint can be clicked in a narrow window.** With the Learn panel open (as it is for a new palace) the toolbar ran on under the storage status button, which took the clicks meant for Save Checkpoint. Button labels now follow the toolbar's own width and the tools wrap when even the icons don't fit.
+- **Dialogs stay on top of the canvas controls.** tldraw's menus, tool bar and style panel showed through the app's dialogs and could be clicked through them; the style panel covered the Close button of the CAST quick reference. The canvas now keeps its controls beneath dialogs.
+- Releases are built into a single draft: the release workflow could create two drafts for one version and split the installers between them.
+
 ## v0.10.0 — 2026-09-21
 
 ### Images as nodes
