@@ -1,7 +1,9 @@
 @import "tailwindcss";
 /* Tailwind scans the whole repo for class names, and in dev a change to any scanned file
-   reloads every open page. Saving a UI spec mid-run wiped the palace under the running tests. */
+   reloads every open page. Saving a UI spec mid-run wiped the palace under the running tests,
+   and saving an MCP server file did the same. Neither folder holds styled markup. */
 @source not "../tests";
+@source not "../mcp-server";
 
 html,
 body,
