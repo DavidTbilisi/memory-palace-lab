@@ -418,11 +418,15 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
 
   // A double click arrives as two pointer_ups on the same node; add that stop once, quietly.
   // Returns false for that quiet repeat. The stop keeps the current view unless that is off.
+  // The window is generous (not just the ~500ms OS double-click threshold): under CPU load the
+  // second pointer_up can be dispatched well after tldraw's own double_click recognition fires,
+  // and since this only ever suppresses a same-node repeat, a wide window costs nothing — a
+  // real second click on the same node is already a no-op in appendStops either way.
   const lastCanvasStopRef = useRef<{ nodeId: string; at: number } | null>(null);
   const addStopFromCanvas = useCallback((nodeId: string) => {
     const now = Date.now();
     const last = lastCanvasStopRef.current;
-    if (last && last.nodeId === nodeId && now - last.at < 600) return false;
+    if (last && last.nodeId === nodeId && now - last.at < 2000) return false;
     lastCanvasStopRef.current = { nodeId, at: now };
     const state = usePalaceStore.getState();
     const editor = editorRef.current;
