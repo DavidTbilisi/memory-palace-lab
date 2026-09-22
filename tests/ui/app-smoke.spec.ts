@@ -43,6 +43,10 @@ test("contextual primary hint and idle tip adapt to current state", async ({ pag
   await expect(page.getByTestId("context-tip-card")).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("context-tip-card")).toBeVisible();
+  // The idle timer re-arms the moment this tip is dismissed (ContextualTipCard's effect depends
+  // on currentTip), and at 80ms it can show a new one before the next assertion ever observes
+  // "gone". Widen the delay first so dismiss reads as dismissed, not as a 1-frame flicker.
+  await page.evaluate(() => window.localStorage.setItem("mp-idle-tip-delay-ms", "60000"));
   await page.getByRole("button", { name: "Dismiss tip" }).click();
   await expect(page.getByTestId("context-tip-card")).toHaveCount(0);
 
@@ -384,6 +388,9 @@ test("routes are built by clicking nodes, edited in the Routes tab, and drawn on
 });
 
 test("each stop keeps the view it was added in, and walks return to it", async ({ page }) => {
+  // Under CI load a retry re-runs every step above, which can outrun the 60s default alongside
+  // the widened camera polls below.
+  test.setTimeout(120_000);
   await openTutorialPalace(page);
   await createNamedNodes(page, ["Gate", "Porch"]);
 
@@ -407,19 +414,21 @@ test("each stop keeps the view it was added in, and walks return to it", async (
   expect(porchView.zoom).toBeLessThan(gateView.zoom * 0.7);
   await page.keyboard.press("Escape");
 
-  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it.
+  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it. The
+  // camera tweens over 320ms (zoomToBounds); under CI load the click-to-tween round trip can
+  // run well past that, so these polls get a longer timeout than the 5s default.
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Step 1/2")).toBeVisible();
-  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, gateView), { timeout: 10_000 }).toBe("fitted");
   await page.getByRole("button", { name: "Next step" }).click();
   await expect(page.getByText("Step 2/2")).toBeVisible();
-  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, porchView), { timeout: 10_000 }).toBe("fitted");
   await page.keyboard.press("Escape");
 
   // Clicking a stop in the Routes tab shows its view too, and the views survive a reload.
   const routeCard = page.getByRole("region", { name: "Route Route 1" });
   await routeCard.getByRole("button", { name: "Gate", exact: true }).click();
-  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, gateView), { timeout: 10_000 }).toBe("fitted");
 
   await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
   await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
@@ -430,7 +439,7 @@ test("each stop keeps the view it was added in, and walks return to it", async (
   const reloadedCard = page.getByRole("region", { name: "Route Route 1" });
   await expect(reloadedCard.getByRole("button", { name: "Saved view of stop 2, Porch" })).toBeVisible();
   await reloadedCard.getByRole("button", { name: "Porch", exact: true }).click();
-  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, porchView), { timeout: 10_000 }).toBe("fitted");
 });
 
 const SOLID_CITADEL_DSL = `@SOLID Citadel

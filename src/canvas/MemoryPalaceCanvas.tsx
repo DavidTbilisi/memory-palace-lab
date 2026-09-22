@@ -416,18 +416,24 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [setAvailableTags]);
 
-  // A double click arrives as two pointer_ups on the same node; add that stop once, quietly.
-  // Returns false for that quiet repeat. The stop keeps the current view unless that is off.
-  // The window is generous (not just the ~500ms OS double-click threshold): under CPU load the
-  // second pointer_up can be dispatched well after tldraw's own double_click recognition fires,
-  // and since this only ever suppresses a same-node repeat, a wide window costs nothing — a
-  // real second click on the same node is already a no-op in appendStops either way.
-  const lastCanvasStopRef = useRef<{ nodeId: string; at: number } | null>(null);
-  const addStopFromCanvas = useCallback((nodeId: string) => {
-    const now = Date.now();
-    const last = lastCanvasStopRef.current;
-    if (last && last.nodeId === nodeId && now - last.at < 2000) return false;
-    lastCanvasStopRef.current = { nodeId, at: now };
+  // tldraw can deliver a double click's trailing pointer_up after the double_click event it
+  // derives from, so the node that double_click just created can reach the pointer_up handler
+  // below too. Track only that: a node this hook created, not yet claimed by its pointer_up.
+  // Consumed on first match, not just time-limited, so a deliberate later click on the same
+  // node (e.g. re-clicking an existing stop to see "already a stop") is never swallowed — only
+  // that one paired pointer_up is. The window is generous because under CPU load the pointer_up
+  // can lag well behind double_click.
+  const justCreatedStopRef = useRef<{ nodeId: string; at: number } | null>(null);
+  const addStopFromCanvas = useCallback((nodeId: string, source: "double_click" | "pointer_up") => {
+    if (source === "pointer_up") {
+      const pending = justCreatedStopRef.current;
+      if (pending && pending.nodeId === nodeId && Date.now() - pending.at < 2000) {
+        justCreatedStopRef.current = null;
+        return false;
+      }
+    } else {
+      justCreatedStopRef.current = { nodeId, at: Date.now() };
+    }
     const state = usePalaceStore.getState();
     const editor = editorRef.current;
     state.addStopsToActiveRoute([nodeId], {
@@ -470,7 +476,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           if (!hit) {
             const created = createGeoMemoryNode(editor, palaceId, point);
             // In Route mode a node made on the fly is the next stop.
-            if (building) addStopFromCanvas(created.nodeId);
+            if (building) addStopFromCanvas(created.nodeId, "double_click");
             return;
           }
           const hitShape = editor.getShape(hit.id);
@@ -482,7 +488,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           }
           if (!isMemoryNodeShape(hitShape)) {
             const created = createGeoMemoryNode(editor, palaceId, point);
-            if (building) addStopFromCanvas(created.nodeId);
+            if (building) addStopFromCanvas(created.nodeId, "double_click");
             return;
           }
 
@@ -517,7 +523,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             // tldraw has already handled this click and may have opened the node's label for
             // editing (it keeps editing when you click from label to label); a stop click
             // should only pick the stop. The quiet repeat of a double click keeps editing.
-            if (addStopFromCanvas(nodeId) && editor.getEditingShapeId()) {
+            if (addStopFromCanvas(nodeId, "pointer_up") && editor.getEditingShapeId()) {
               editor.complete();
             }
             return;
