@@ -78,11 +78,23 @@ function classify(
 ): SyncAction {
   if (remote?.unreadable) return { kind: "unreadable", palaceId };
 
-  // Hard-deleted here. The tombstone remembers the revision the palace was at, which is what
-  // separates "this was deleted" from "someone edited it after the delete".
-  if (tombstone && !local) {
+  // A tombstone means somebody hard-deleted this palace — here, or on another device whose
+  // tombstone we just read. The recorded revision is what separates "this was deleted" from
+  // "someone edited it after the delete".
+  if (tombstone) {
+    if (local) {
+      // Deleted elsewhere but still present here. Dropping local work on the strength of a
+      // tombstone is only safe while that work is exactly what was already synced.
+      const localChanged = !base || local.contentHash !== base.baseHash;
+      if (localChanged) {
+        return { kind: "conflict", palaceId, reason: "deleted-there-edited-here" };
+      }
+      return { kind: "pull-delete", palaceId };
+    }
     if (!remote) return { kind: "in-sync", palaceId };
-    if (remote.rev > tombstone.rev) return { kind: "conflict", palaceId, reason: "deleted-here-edited-there" };
+    if (remote.rev > tombstone.rev) {
+      return { kind: "conflict", palaceId, reason: "deleted-here-edited-there" };
+    }
     return { kind: "push-delete", palaceId };
   }
 

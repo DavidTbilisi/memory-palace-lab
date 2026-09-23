@@ -189,6 +189,24 @@ export async function unlockVault(
   }
 }
 
+/**
+ * Whether an already-derived key belongs to this vault. The engine checks this before doing
+ * anything, so the wrong key fails loudly and immediately rather than turning every palace
+ * into an "unreadable file" and reporting a vault full of data as nothing to do.
+ */
+export async function verifyVaultKey(key: CryptoKey, descriptor: VaultDescriptor): Promise<boolean> {
+  try {
+    const plaintext = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: fromBase64(descriptor.verifier.iv) as BufferSource },
+      key,
+      fromBase64(descriptor.verifier.ciphertext) as BufferSource,
+    );
+    return new TextDecoder().decode(plaintext) === VERIFIER_PLAINTEXT;
+  } catch {
+    return false;
+  }
+}
+
 export function parseVaultDescriptor(text: string): VaultDescriptor | null {
   let parsed: unknown;
   try {
