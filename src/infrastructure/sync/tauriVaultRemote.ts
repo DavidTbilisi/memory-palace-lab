@@ -10,6 +10,7 @@ type InvokeVaultEntry = {
   relPath: string;
   size: number;
   headerLine: string | null;
+  modifiedMs: number | null;
 };
 
 /**
@@ -30,6 +31,7 @@ export function createTauriVaultRemote(): VaultRemote {
         relPath: entry.relPath,
         size: entry.size,
         headerLine: entry.headerLine,
+        modifiedMs: entry.modifiedMs,
       }));
     },
     async read(dir, relPath) {

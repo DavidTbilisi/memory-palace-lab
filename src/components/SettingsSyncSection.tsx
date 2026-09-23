@@ -22,6 +22,8 @@ export function SettingsSyncSection() {
   const disconnect = useSyncStore((s) => s.disconnect);
   const setDeviceName = useSyncStore((s) => s.setDeviceName);
   const syncNow = useSyncStore((s) => s.syncNow);
+  const reclaimSpace = useSyncStore((s) => s.reclaimSpace);
+  const garbage = useSyncStore((s) => s.garbage);
 
   const [folderDraft, setFolderDraft] = useState("");
   const [passphrase, setPassphrase] = useState("");
@@ -168,6 +170,15 @@ export function SettingsSyncSection() {
         </button>
         <button
           type="button"
+          disabled={busy}
+          onClick={() => void reclaimSpace()}
+          title="Delete images in the folder that no palace uses any more"
+          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+        >
+          Reclaim space
+        </button>
+        <button
+          type="button"
           onClick={disconnect}
           className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
         >
@@ -177,8 +188,61 @@ export function SettingsSyncSection() {
 
       {conflicts.length > 0 ? <SyncConflictList /> : null}
 
+      {garbage ? <GarbageSummary /> : null}
       {report ? <SyncReportSummary /> : null}
       {error ? <div className="text-xs text-red-300">{error}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * What reclaiming space did — or why it declined. A refusal is stated as "could not check",
+ * never as "nothing to do": telling someone their vault is tidy when it was merely
+ * unreadable is the one outcome here that would mislead.
+ */
+function GarbageSummary() {
+  const garbage = useSyncStore((s) => s.garbage);
+  const dismiss = useSyncStore((s) => s.dismissReport);
+  if (!garbage) return null;
+
+  const body =
+    garbage.refused === "undownloaded" ? (
+      <span className="text-amber-200/80">
+        Your sync app has not finished downloading the folder, so nothing was deleted. Try
+        again once it has caught up.
+      </span>
+    ) : garbage.refused === "unreadable" ? (
+      <span className="text-amber-200/80">
+        Some files in the folder could not be read, so nothing was deleted — an image that
+        looks unused might belong to one of them.
+      </span>
+    ) : garbage.removed.length === 0 ? (
+      <>
+        Nothing to reclaim.
+        {garbage.keptRecent > 0
+          ? ` ${garbage.keptRecent} recently added image(s) were left for now, in case a palace using them is still on its way.`
+          : ""}
+      </>
+    ) : (
+      <>
+        Removed {garbage.removed.length} unused image(s), freeing{" "}
+        {Math.max(1, Math.round(garbage.reclaimedBytes / 1024))} KB.
+        {garbage.keptRecent > 0 ? ` ${garbage.keptRecent} more were too recent to remove yet.` : ""}
+      </>
+    );
+
+  return (
+    <div className="rounded border border-zinc-700 bg-zinc-900/60 p-2 text-xs text-zinc-300">
+      <div className="flex items-start gap-2">
+        <span className="min-w-0 flex-1">{body}</span>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="shrink-0 rounded border border-zinc-600 px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }

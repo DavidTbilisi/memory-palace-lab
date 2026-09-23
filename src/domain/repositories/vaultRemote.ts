@@ -19,6 +19,11 @@ export type VaultScanEntry = {
    * report", never "absent".
    */
   headerLine: string | null;
+  /**
+   * Last-modified time in milliseconds since the epoch, where the filesystem will say. Used
+   * only as a safety margin when reclaiming space, never for a sync decision.
+   */
+  modifiedMs?: number | null;
 };
 
 export type VaultProbe = {

@@ -48,6 +48,7 @@ describe("syncStore", () => {
       conflicts: [],
       choices: {},
       report: null,
+      garbage: null,
       error: null,
       lastSyncedAt: null,
     });
@@ -124,6 +125,29 @@ describe("syncStore", () => {
     // to be sitting in that folder.
     window.localStorage.setItem(SYNC_VAULT_DIR_KEY, "/vault");
     expect(loadSyncConnection()).toBeNull();
+  });
+
+  it("reports a refusal to reclaim space as such, not as an empty vault", async () => {
+    await useSyncStore.getState().connect("/vault", "shared passphrase");
+    // A placeholder the sync app has not downloaded: its palace could refer to any image.
+    remote.seed("palaces/still-downloading.mpv.icloud", "");
+
+    await useSyncStore.getState().reclaimSpace();
+
+    const { garbage } = useSyncStore.getState();
+    expect(garbage?.refused).toBe("undownloaded");
+    expect(garbage?.removed).toEqual([]);
+  });
+
+  it("refuses to reclaim space while locked rather than failing silently", async () => {
+    await useSyncStore.getState().connect("/vault", "shared passphrase");
+    useSyncStore.setState({ status: "locked" });
+    setVaultRemoteFactory(() => remote); // clears the session key
+
+    await useSyncStore.getState().reclaimSpace();
+
+    expect(useSyncStore.getState().error).toMatch(/passphrase/i);
+    expect(useSyncStore.getState().garbage).toBeNull();
   });
 
   it("disconnecting forgets the vault without touching it", async () => {

@@ -225,6 +225,14 @@
     return { palaceId, title };
   };
 
+  /** Deletes vault images no palace refers to any more. */
+  steps.reclaim = async () => {
+    const store = syncStore();
+    await store.getState().reclaimSpace();
+    const state = store.getState();
+    return { status: state.status, error: state.error, garbage: state.garbage };
+  };
+
   /** Moves a palace to the trash, the way the Library's delete does. */
   steps.softDelete = async ({ palaceId }) => {
     const { getPalaceRepository } = await load.repo();

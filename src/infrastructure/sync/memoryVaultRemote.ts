@@ -24,12 +24,15 @@ export type MemoryVaultRemote = VaultRemote & {
   truncateNext(relPath: string): void;
   /** Fail the next read or write once. */
   failNext(op: "read" | "write", message: string): void;
+  /** Backdate a file, so the grace period on reclaiming space can be exercised. */
+  ageFile(relPath: string, modifiedMs: number): void;
   /** Count of writes, to assert that a settled vault is written to zero times. */
   writeCount: number;
 };
 
 export function createMemoryVaultRemote(seedFiles: Record<string, string> = {}): MemoryVaultRemote {
   const files = new Map<string, string>(Object.entries(seedFiles));
+  const modified = new Map<string, number>();
   const truncateOnce = new Set<string>();
   let failReadOnce: string | null = null;
   let failWriteOnce: string | null = null;
@@ -47,6 +50,9 @@ export function createMemoryVaultRemote(seedFiles: Record<string, string> = {}):
     failNext(op, message) {
       if (op === "read") failReadOnce = message;
       else failWriteOnce = message;
+    },
+    ageFile(relPath, modifiedMs) {
+      modified.set(relPath, modifiedMs);
     },
 
     async init(dir) {
@@ -79,6 +85,7 @@ export function createMemoryVaultRemote(seedFiles: Record<string, string> = {}):
           relPath,
           size: contents.length,
           headerLine: newline < 0 ? null : contents.slice(0, newline),
+          modifiedMs: modified.get(relPath) ?? null,
         });
       }
       return entries.sort((a, b) => a.relPath.localeCompare(b.relPath));

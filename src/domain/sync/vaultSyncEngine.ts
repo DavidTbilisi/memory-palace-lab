@@ -87,6 +87,31 @@ export type SyncReport = {
   assetsPulled: number;
 };
 
+/**
+ * Why a run reclaimed nothing. Both mean "the evidence was incomplete", never "there was
+ * nothing to do" — the difference matters, because the second would invite the user to
+ * conclude their vault is tidy when it is merely unreadable.
+ */
+export type GarbageRefusal = "unreadable" | "undownloaded";
+
+export type GarbageReport = {
+  /** Images the vault holds. */
+  assets: number;
+  /** Content hashes deleted. */
+  removed: string[];
+  reclaimedBytes: number;
+  /** Unreferenced images still inside the grace period, left for a later run. */
+  keptRecent: number;
+  refused: GarbageRefusal | null;
+};
+
+/**
+ * How long an unreferenced image is left alone before it can be deleted. Sized for a
+ * folder-sync client replicating a palace and its images independently, with a wide margin:
+ * the window that matters is minutes, and a week costs only disk space.
+ */
+export const ASSET_GRACE_DAYS = 7;
+
 export type SyncStateStore = {
   load(): Promise<{
     states: SyncBase[];
@@ -120,11 +145,14 @@ export type VaultSyncDeps = {
   deviceName: string;
   now?: () => Date;
   streamRetentionDays?: number;
+  /** Overridable so the grace period can be exercised without waiting a week. */
+  assetGraceDays?: number;
 };
 
 export function createVaultSyncEngine(deps: VaultSyncDeps) {
   const now = deps.now ?? (() => new Date());
   const retentionDays = deps.streamRetentionDays ?? DEFAULT_STREAM_RETENTION_DAYS;
+  const retentionMs = (deps.assetGraceDays ?? ASSET_GRACE_DAYS) * 24 * 60 * 60 * 1000;
 
   async function scan(): Promise<VaultScanResult> {
     const entries = await deps.remote.scan(deps.dir);
@@ -729,5 +757,97 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       .join("");
   }
 
-  return { scan, plan, apply, conflictsOf };
+  /**
+   * Deletes images in the vault that no palace refers to any more — what is left behind when
+   * a palace is purged, or when its background is replaced.
+   *
+   * Deleting is irreversible and the vault is the only copy those bytes have in common, so
+   * the whole of this function is a safety argument:
+   *
+   *  - **An unreadable file means stop.** A palace that could not be parsed might refer to
+   *    anything, so its images cannot be told from rubbish. The same goes for a vault still
+   *    downloading: an `.icloud` placeholder is not even listed, so its references are
+   *    invisible. Either one abandons the run rather than deleting on partial evidence.
+   *  - **Recently written images are left alone.** A folder-sync client replicates files
+   *    independently, so another device's new palace and its images arrive separately and in
+   *    no fixed order. An image can sit here for minutes looking unreferenced simply because
+   *    the palace that needs it has not landed yet. The grace period covers that window with
+   *    room to spare.
+   *  - **Local palaces count too.** A palace pulled before its image finished downloading
+   *    still says `mpvault://<hash>`, waiting. Deleting that hash would strand it for good.
+   *  - **Nothing on this device is touched**, only the vault. Any device that still holds a
+   *    palace using an image re-uploads it on its next push, because `pushAssets` sends
+   *    whatever the vault is missing.
+   */
+  async function collectGarbage(): Promise<GarbageReport> {
+    const scanned = await scan();
+    const probe = await deps.remote.probe(deps.dir);
+
+    const report: GarbageReport = {
+      assets: scanned.remoteAssets.size,
+      removed: [],
+      reclaimedBytes: 0,
+      keptRecent: 0,
+      refused: null,
+    };
+
+    if (scanned.skipped.length > 0) {
+      report.refused = "unreadable";
+      return report;
+    }
+    if (probe.undownloadedFiles > 0) {
+      report.refused = "undownloaded";
+      return report;
+    }
+
+    const referenced = new Set<string>();
+    for (const remote of scanned.remote) {
+      const payload = await readPalacePayload(remote.palaceId);
+      if (!payload) {
+        // It listed cleanly a moment ago and will not open now. Something is changing under
+        // us; that is not a moment to be deleting things.
+        report.refused = "unreadable";
+        return report;
+      }
+      for (const hash of collectVaultAssetHashes(payload.snapshot)) referenced.add(hash);
+    }
+    for (const palace of [
+      ...(await deps.repo.listPalaces()),
+      ...(await deps.repo.listTrashedPalaces()),
+    ]) {
+      const snapshot = await deps.repo.loadPalace(palace.id);
+      if (!snapshot) continue;
+      for (const hash of collectVaultAssetHashes(snapshot)) referenced.add(hash);
+    }
+
+    const cutoff = now().getTime() - retentionMs;
+    const sizeByHash = new Map<string, { size: number; modifiedMs: number | null }>();
+    for (const entry of await deps.remote.scan(deps.dir)) {
+      const info = classifyVaultPath(entry.relPath);
+      if (info?.kind === "asset") {
+        sizeByHash.set(info.contentHash, {
+          size: entry.size,
+          modifiedMs: entry.modifiedMs ?? null,
+        });
+      }
+    }
+
+    for (const hash of scanned.remoteAssets) {
+      if (referenced.has(hash)) continue;
+      const meta = sizeByHash.get(hash);
+      // An unknown age is treated as new. Guessing "old" here would delete on the strength
+      // of a filesystem that declined to answer.
+      if (meta?.modifiedMs == null || meta.modifiedMs > cutoff) {
+        report.keptRecent += 1;
+        continue;
+      }
+      await deps.remote.remove(deps.dir, vaultPaths.asset(hash));
+      report.removed.push(hash);
+      report.reclaimedBytes += meta.size;
+    }
+
+    return report;
+  }
+
+  return { scan, plan, apply, conflictsOf, collectGarbage };
 }

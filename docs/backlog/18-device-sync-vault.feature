@@ -19,6 +19,9 @@
 #   restored it and then deleted it again on the next sync (the tombstone was never
 #   withdrawn); and standing by the purge did nothing at all (there was no local palace to
 #   push), leaving the question to be re-asked for ever. All fixed and covered below.
+#   Asset garbage collection, deferred at the outset, landed 2026-09-23 as a deliberate
+#   "Reclaim space" action rather than part of a sync: it deletes irreversibly and sometimes
+#   declines to run, neither of which belongs in a routine push.
 
 Feature: Device sync vault
   In order to build a palace on one machine and review it on another
@@ -104,6 +107,49 @@ Feature: Device sync vault
     Given a palace with a background image
     When I sync
     Then neither the image data nor even its file type is readable in the folder
+
+  # Reclaiming space
+
+  Scenario: Deleting images no palace uses any more
+    Given a palace was purged, leaving its background behind in the folder
+    When I reclaim space
+    Then the image is deleted from the folder
+    And my own copy of it on this device is left alone
+    # Only the vault is tidied. Any device still holding a palace that uses an image
+    # re-uploads it on its next push, because a push sends whatever the vault is missing.
+
+  Scenario: An image a palace still uses
+    Given a palace with a background
+    When I reclaim space
+    Then the image is kept, however old it is
+
+  Scenario: An image that has only just arrived
+    Given an unused image added moments ago
+    When I reclaim space
+    Then it is kept, and I am told it was too recent to remove
+    # A folder-sync client replicates a palace and its images independently and in no fixed
+    # order, so an image can sit here looking unused simply because the palace that needs it
+    # has not landed yet.
+
+  Scenario: An image a palace here is still waiting for
+    Given a palace pulled before its image had downloaded
+    When I reclaim space
+    Then the image is kept
+    # That palace still refers to the image by content hash, waiting for it. Deleting it
+    # would strand the palace for good.
+
+  Scenario Outline: Refusing to delete on incomplete evidence
+    Given <situation>
+    When I reclaim space
+    Then nothing is deleted
+    And I am told why, rather than that there was nothing to do
+    # Telling someone their folder is tidy when it was merely unreadable is the one outcome
+    # here that would mislead.
+
+    Examples:
+      | situation                                        |
+      | a file in the folder that will not parse         |
+      | a folder that has not finished downloading       |
 
   # Conflicts
 

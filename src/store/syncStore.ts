@@ -8,6 +8,7 @@ import {
 import {
   createVaultSyncEngine,
   type ConflictChoice,
+  type GarbageReport,
   type SyncReport,
 } from "../domain/sync/vaultSyncEngine";
 import type { SyncAction } from "../domain/sync/syncPlan";
@@ -57,6 +58,8 @@ export type SyncStore = {
   conflicts: Extract<SyncAction, { kind: "conflict" }>[];
   choices: Record<string, ConflictChoice>;
   report: SyncReport | null;
+  /** Result of the last "reclaim space" run, shown until dismissed. */
+  garbage: GarbageReport | null;
   error: string | null;
 
   connect(dir: string, passphrase: string): Promise<void>;
@@ -65,6 +68,7 @@ export type SyncStore = {
   setDeviceName(name: string): void;
   chooseConflict(palaceId: string, choice: ConflictChoice): void;
   syncNow(): Promise<void>;
+  reclaimSpace(): Promise<void>;
   dismissReport(): void;
 };
 
@@ -99,6 +103,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   conflicts: [],
   choices: {},
   report: null,
+  garbage: null,
   error: null,
 
   async connect(dir, passphrase) {
@@ -162,6 +167,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       conflicts: [],
       choices: {},
       report: null,
+      garbage: null,
       error: null,
       lastSyncedAt: null,
     });
@@ -240,7 +246,27 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
     }
   },
 
+  /**
+   * Deletes images in the vault that no palace refers to any more. Deliberately a separate
+   * button rather than part of a sync: it deletes, it cannot be undone, and it sometimes
+   * declines to run, none of which belongs in a routine "Sync now".
+   */
+  async reclaimSpace() {
+    const { dir } = get();
+    if (!dir || !sessionKey) {
+      set({ status: "locked", error: "Enter your passphrase first." });
+      return;
+    }
+    set({ status: "working", error: null, garbage: null });
+    try {
+      const garbage = await engineFor(dir, sessionKey).collectGarbage();
+      set({ status: "ready", garbage, error: null });
+    } catch (error) {
+      set({ status: "error", error: messageOf(error) });
+    }
+  },
+
   dismissReport() {
-    set({ report: null });
+    set({ report: null, garbage: null });
   },
 }));

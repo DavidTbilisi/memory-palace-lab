@@ -36,6 +36,11 @@ pub struct VaultEntryDto {
     /// First line only. None when the file is empty, not UTF-8, or the line is implausibly
     /// long — all of which mean "skip and report", never "absent".
     pub header_line: Option<String>,
+    /// Last-modified time in milliseconds since the epoch, or None where the filesystem will
+    /// not say. Used only as a safety margin when reclaiming space — never for a sync
+    /// decision, which is why no peer's clock is involved: this is the local filesystem's
+    /// account of when the file appeared here.
+    pub modified_ms: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -190,6 +195,11 @@ pub fn vault_list(dir: String) -> Result<Vec<VaultEntryDto>, String> {
             rel_path: rel,
             size: meta.len(),
             header_line: read_first_line(&path),
+            modified_ms: meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as u64),
         });
     }
 

@@ -80,8 +80,16 @@ Verified by hand on 2026-09-23, in this order:
 | Purge here, edited there, keep-mine | the deletion is carried out and the question is not re-asked |
 | Purge here, edited there, take-theirs | the palace returns **and survives the next sync** |
 
+| Reclaim space, image just added | kept, reported as too recent |
+| Reclaim space, image backdated a week | deleted from the vault; this device's own copy untouched |
+| Reclaim space, image still in use | kept, however old |
+| Reclaim space with a placeholder or a truncated file present | refused, and said so |
+
 A soft delete keeps its ciphertext in the vault so it can still be restored, and the header
 does not say it was deleted — the folder does not reveal that a palace was removed, only that
 one changed.
+
+`touch -d '8 days ago' <vault>/assets/*.mpv` is how to get past the grace period without
+waiting; `printf '' > <vault>/palaces/x.mpv.icloud` plants an undownloaded placeholder.
 
 Everything in the feature file has now been driven at least once.

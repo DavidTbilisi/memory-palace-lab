@@ -101,8 +101,19 @@ function makeDevice(name: string, remote: MemoryVaultRemote, key: CryptoKey): De
     },
     deviceId: `device-${name}`,
     deviceName: name,
+    // A day, so a test can backdate a file by two and be past it.
+    assetGraceDays: 1,
   });
   return device;
+}
+
+/** Backdates every image in the vault past the grace period. */
+function ageAssets(remote: MemoryVaultRemote, days = 2) {
+  for (const relPath of remote.files.keys()) {
+    if (relPath.startsWith("assets/")) {
+      remote.ageFile(relPath, Date.now() - days * 24 * 60 * 60 * 1000);
+    }
+  }
 }
 
 /** Puts a background image on a device and points the palace's canvas at it. */
@@ -628,6 +639,141 @@ describe("vaultSyncEngine (two devices, one vault)", () => {
       // The reference is left pointing where it always did rather than being dropped.
       const pushed = remote.files.get(vaultPaths.palace(seeded.palace.id))!;
       expect(pushed).toBeDefined();
+    });
+  });
+
+  describe("reclaiming space", () => {
+    const PIXELS = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 9, 9, 9, 9]);
+
+    /** A vault holding one purged palace's image, with nothing referring to it. */
+    async function orphanedImage(): Promise<string> {
+      const seeded = await seedPalace(a, "Short-lived");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+      await b.sync();
+
+      await purgeLocally(a, seeded.palace.id);
+      await a.sync();
+      await b.sync();
+
+      const assets = [...remote.files.keys()].filter((p) => p.startsWith("assets/"));
+      expect(assets).toHaveLength(1);
+      return assets[0];
+    }
+
+    it("deletes an image no palace refers to any more", async () => {
+      const asset = await orphanedImage();
+      ageAssets(remote);
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.removed).toHaveLength(1);
+      expect(report.reclaimedBytes).toBeGreaterThan(0);
+      expect(remote.files.has(asset)).toBe(false);
+    });
+
+    it("keeps an image a palace still uses", async () => {
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+      await b.sync();
+      ageAssets(remote);
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.removed).toEqual([]);
+      expect([...remote.files.keys()].some((p) => p.startsWith("assets/"))).toBe(true);
+    });
+
+    it("waits out the grace period before deleting anything", async () => {
+      const asset = await orphanedImage();
+      // Not backdated: as far as this run can tell the image arrived moments ago, and the
+      // palace that needs it may simply not have replicated yet.
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.removed).toEqual([]);
+      expect(report.keptRecent).toBe(1);
+      expect(remote.files.has(asset)).toBe(true);
+    });
+
+    it("refuses to delete anything when a file in the vault will not parse", async () => {
+      const asset = await orphanedImage();
+      ageAssets(remote);
+      // A palace caught mid-write refers to images we cannot see.
+      remote.seed(vaultPaths.palace("11111111-1111-1111-1111-111111111111"), "half a fi");
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.refused).toBe("unreadable");
+      expect(report.removed).toEqual([]);
+      expect(remote.files.has(asset)).toBe(true);
+    });
+
+    it("refuses on a damaged file that is not a palace at all", async () => {
+      // A half-written tombstone carries no image references, so nothing would be missed by
+      // pressing on. The rule is deliberately blunter than that: anything in the vault this
+      // run could not account for means the evidence is incomplete, and an irreversible
+      // delete is not worth a finer judgement.
+      const asset = await orphanedImage();
+      ageAssets(remote);
+      remote.seed(vaultPaths.tombstone("22222222-2222-2222-2222-222222222222"), "truncat");
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.refused).toBe("unreadable");
+      expect(remote.files.has(asset)).toBe(true);
+    });
+
+    it("refuses to delete anything while the vault is still downloading", async () => {
+      const asset = await orphanedImage();
+      ageAssets(remote);
+      // An iCloud placeholder is not even listed, so its references are invisible.
+      remote.seed("palaces/not-here-yet.mpv.icloud", "");
+
+      const report = await a.engine.collectGarbage();
+
+      expect(report.refused).toBe("undownloaded");
+      expect(remote.files.has(asset)).toBe(true);
+    });
+
+    it("keeps an image a local palace is still waiting for", async () => {
+      // B pulled a palace before its image had downloaded, so B's copy still holds the
+      // `mpvault://` reference. Deleting the image would strand that palace for good.
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+      const asset = [...remote.files.keys()].find((p) => p.startsWith("assets/"))!;
+      const contents = remote.files.get(asset)!;
+      remote.files.delete(asset);
+      await b.sync();
+      expect((await b.repo.loadPalace(seeded.palace.id))!.palace.editorSnapshot)
+        .toContain("mpvault://");
+
+      // The image turns up later, by which time A has purged the palace.
+      remote.files.set(asset, contents);
+      await purgeLocally(a, seeded.palace.id);
+      await a.sync();
+      ageAssets(remote);
+
+      const report = await b.engine.collectGarbage();
+
+      expect(report.removed).toEqual([]);
+      expect(remote.files.has(asset)).toBe(true);
+    });
+
+    it("leaves this device's own copies alone", async () => {
+      const seeded = await seedPalace(a, "Short-lived");
+      const localPath = await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+      await purgeLocally(a, seeded.palace.id);
+      await a.sync();
+      ageAssets(remote);
+
+      await a.engine.collectGarbage();
+
+      // Only the vault is tidied. The file on this machine is the user's, not ours.
+      expect(await a.assets.read(localPath)).not.toBeNull();
     });
   });
 
