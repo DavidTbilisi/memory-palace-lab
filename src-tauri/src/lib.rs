@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod vault;
 
 use commands::{
     analytics_append, analytics_list, db_ping, meter_append_events, meter_default_data_dir,
@@ -9,6 +10,7 @@ use commands::{
 };
 use std::fs;
 use tauri::Manager;
+use vault::{vault_delete, vault_init, vault_list, vault_probe, vault_read, vault_write};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -50,6 +52,12 @@ pub fn run() {
             db_ping,
             meter_default_data_dir,
             meter_append_events,
+            vault_init,
+            vault_probe,
+            vault_list,
+            vault_read,
+            vault_write,
+            vault_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
