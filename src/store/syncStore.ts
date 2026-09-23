@@ -24,6 +24,7 @@ import { loadAARRecords, saveAllAARRecords } from "../infrastructure/aarStorage"
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { createTauriVaultRemote } from "../infrastructure/sync/tauriVaultRemote";
 import { createTauriSyncStateStore } from "../infrastructure/sync/syncStateStore";
+import { createTauriAssetStore } from "../infrastructure/sync/tauriAssetStore";
 import { usePalaceStore } from "./palaceStore";
 
 /**
@@ -74,6 +75,7 @@ function engineFor(dir: string, key: CryptoKey) {
     key,
     repo: getPalaceRepository(),
     syncState: createTauriSyncStateStore(),
+    assets: createTauriAssetStore(),
     aar: { load: loadAARRecords, saveAll: saveAllAARRecords },
     deviceId: loadOrCreateDeviceId(),
     deviceName: loadDeviceName(),

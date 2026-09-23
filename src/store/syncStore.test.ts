@@ -20,9 +20,15 @@ vi.mock("../infrastructure/sync/syncStateStore", () => ({
     }),
     apply: async () => {},
   }),
-  createNullSyncStateStore: () => ({
-    load: async () => ({ states: [], tombstones: [], foreignAnalyticsIds: [], foreignAarIds: [] }),
-    apply: async () => {},
+}));
+
+// The asset store reaches for @tauri-apps/plugin-fs, which jsdom has no answer for. Image
+// transfer itself is covered by the two-device simulation.
+vi.mock("../infrastructure/sync/tauriAssetStore", () => ({
+  createTauriAssetStore: () => ({
+    read: async () => null,
+    locate: async () => null,
+    write: async () => ({ path: "", url: "" }),
   }),
 }));
 

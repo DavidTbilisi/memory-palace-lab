@@ -194,6 +194,9 @@ function SyncReportSummary() {
   if (report.forked.length) parts.push(`${report.forked.length} kept as a copy`);
   if (report.deletedLocally.length) parts.push(`${report.deletedLocally.length} removed here`);
   if (report.deletedRemotely.length) parts.push(`${report.deletedRemotely.length} removed from the vault`);
+  if (report.assetsPushed || report.assetsPulled) {
+    parts.push(`${report.assetsPushed + report.assetsPulled} images`);
+  }
   if (report.analyticsPulled) parts.push(`${report.analyticsPulled} events`);
   if (report.aarPulled) parts.push(`${report.aarPulled} reviews`);
 

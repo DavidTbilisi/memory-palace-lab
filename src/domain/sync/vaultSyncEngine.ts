@@ -1,6 +1,13 @@
 import type { AnalyticsEvent, PalaceSnapshot } from "../entities/types";
+import type { AssetStore } from "../repositories/assetStore";
 import type { PalaceRepository } from "../repositories/palaceRepository";
 import type { AARRecord } from "../services/cast/aarRecords";
+import {
+  collectLocalAssets,
+  collectVaultAssetHashes,
+  localizeAssets,
+  portableizeAssets,
+} from "./assetRefs";
 import {
   classifyVaultPath,
   VAULT_DESCRIPTOR_PATH,
@@ -21,9 +28,11 @@ import {
 } from "./syncPlan";
 import { foreignIdsFrom, selectShardRows, unionById } from "./streamMerge";
 import {
+  fromBase64,
   openVaultFile,
   parseVaultDescriptor,
   sealVaultFile,
+  toBase64,
   VaultPassphraseError,
   verifyVaultKey,
 } from "./vaultCrypto";
@@ -58,6 +67,8 @@ export type VaultScanResult = {
   remoteTombstones: Map<string, VaultHeader>;
   analyticsShards: string[];
   aarShards: string[];
+  /** Content hashes of the images already in the vault, so they are uploaded only once. */
+  remoteAssets: Set<string>;
   /** Paths that could not be classified or parsed, surfaced rather than silently dropped. */
   skipped: string[];
 };
@@ -72,6 +83,8 @@ export type SyncReport = {
   skipped: string[];
   analyticsPulled: number;
   aarPulled: number;
+  assetsPushed: number;
+  assetsPulled: number;
 };
 
 export type SyncStateStore = {
@@ -95,6 +108,7 @@ export type VaultSyncDeps = {
   key: CryptoKey;
   repo: PalaceRepository;
   syncState: SyncStateStore;
+  assets: AssetStore;
   aar: { load(): AARRecord[]; saveAll(records: AARRecord[]): void };
   deviceId: string;
   deviceName: string;
@@ -112,6 +126,7 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
     const remoteTombstones = new Map<string, VaultHeader>();
     const analyticsShards: string[] = [];
     const aarShards: string[] = [];
+    const remoteAssets = new Set<string>();
     const skipped: string[] = [];
 
     for (const entry of entries) {
@@ -139,30 +154,152 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
         if (info.deviceId !== deps.deviceId) analyticsShards.push(entry.relPath);
       } else if (info.kind === "aar") {
         if (info.deviceId !== deps.deviceId) aarShards.push(entry.relPath);
+      } else if (info.kind === "asset") {
+        remoteAssets.add(info.contentHash);
       }
     }
 
-    return { remote, remoteTombstones, analyticsShards, aarShards, skipped };
+    return { remote, remoteTombstones, analyticsShards, aarShards, remoteAssets, skipped };
   }
 
-  /** Local metadata for every palace, trashed ones included — a delete has to propagate. */
-  async function localMeta(): Promise<{ meta: LocalPalaceMeta[]; snapshots: Map<string, PalaceSnapshot> }> {
+  /**
+   * Rewrites a palace's image references into vault form, and reports where each image can
+   * be read from should it need uploading.
+   *
+   * This happens *before* hashing, not at push time, and that ordering is load-bearing. The
+   * content hash has to mean the same thing on every device, and a local image path does
+   * not: two machines holding the identical palace would hash differently, each would see
+   * the other as changed, and the pair would push back and forth for ever. Hashing the
+   * portable form — where an image is its own content hash — makes them agree.
+   *
+   * Reading bytes is only paid for by palaces that actually contain images, and the per-run
+   * cache means an image shared by several palaces is hashed once.
+   */
+  const hashByLocalPath = new Map<string, string>();
+
+  async function toPortable(
+    snapshot: PalaceSnapshot,
+  ): Promise<{ portable: PalaceSnapshot; sources: Map<string, string> }> {
+    const refs = collectLocalAssets(snapshot);
+    if (refs.length === 0) return { portable: snapshot, sources: new Map() };
+
+    const hashByValue = new Map<string, string>();
+    const sources = new Map<string, string>();
+    for (const ref of refs) {
+      let hash = hashByLocalPath.get(ref.localPath);
+      if (!hash) {
+        const file = await deps.assets.read(ref.localPath);
+        // An image whose file has gone is left referring to where it always did, rather
+        // than being erased from the palace.
+        if (!file) continue;
+        hash = await hashBytes(file.bytes);
+        hashByLocalPath.set(ref.localPath, hash);
+      }
+      hashByValue.set(ref.value, hash);
+      sources.set(hash, ref.localPath);
+    }
+    return { portable: portableizeAssets(snapshot, hashByValue), sources };
+  }
+
+  /** Turns vault image references back into files on this device. */
+  async function toLocal(snapshot: PalaceSnapshot, report: SyncReport): Promise<PalaceSnapshot> {
+    const hashes = collectVaultAssetHashes(snapshot);
+    if (hashes.length === 0) return snapshot;
+
+    const refByHash = new Map<string, { path: string; url: string }>();
+    for (const hash of hashes) {
+      const existing = await deps.assets.locate(hash);
+      if (existing) {
+        refByHash.set(hash, existing);
+        continue;
+      }
+      const relPath = vaultPaths.asset(hash);
+      try {
+        const text = await deps.remote.read(deps.dir, relPath);
+        if (!text) {
+          if (!report.skipped.includes(relPath)) report.skipped.push(relPath);
+          continue;
+        }
+        const opened = await openVaultFile<{ mimeType: string; bytesBase64: string }>(deps.key, text);
+        const ref = await deps.assets.write(hash, {
+          bytes: fromBase64(opened.payload.bytesBase64),
+          mimeType: opened.payload.mimeType,
+        });
+        refByHash.set(hash, ref);
+        report.assetsPulled += 1;
+      } catch {
+        // The palace still lands; the picture is missing until the file downloads.
+        if (!report.skipped.includes(relPath)) report.skipped.push(relPath);
+      }
+    }
+    return localizeAssets(snapshot, refByHash);
+  }
+
+  /** Uploads the images a palace needs, skipping any the vault already holds. */
+  async function pushAssets(
+    sources: Map<string, string>,
+    remoteAssets: Set<string>,
+    report: SyncReport,
+  ) {
+    for (const [hash, localPath] of sources) {
+      if (remoteAssets.has(hash)) continue;
+      const file = await deps.assets.read(localPath);
+      if (!file) continue;
+      const sealed = await sealVaultFile(
+        deps.key,
+        {
+          kind: "asset",
+          rev: 0,
+          updatedAt: now().toISOString(),
+          contentHash: hash,
+          writerDeviceId: deps.deviceId,
+        },
+        // The media type travels inside the ciphertext, so the vault does not even reveal
+        // what kind of file each asset is.
+        { mimeType: file.mimeType, bytesBase64: toBase64(file.bytes) },
+      );
+      await deps.remote.write(deps.dir, vaultPaths.asset(hash), sealed);
+      remoteAssets.add(hash);
+      report.assetsPushed += 1;
+    }
+  }
+
+  /**
+   * Local metadata for every palace, trashed ones included — a delete has to propagate.
+   * The snapshots handed back are in portable form, which is what both the hash and any
+   * subsequent push are built from.
+   */
+  async function localMeta(): Promise<{
+    meta: LocalPalaceMeta[];
+    snapshots: Map<string, PalaceSnapshot>;
+    assetSources: Map<string, Map<string, string>>;
+  }> {
     const palaces = [...(await deps.repo.listPalaces()), ...(await deps.repo.listTrashedPalaces())];
     const meta: LocalPalaceMeta[] = [];
     const snapshots = new Map<string, PalaceSnapshot>();
+    const assetSources = new Map<string, Map<string, string>>();
 
     for (const palace of palaces) {
       const snapshot = await loadAnyPalace(palace.id);
       if (!snapshot) continue;
-      snapshots.set(palace.id, snapshot);
+      const { portable, sources } = await toPortable(snapshot);
+      snapshots.set(palace.id, portable);
+      assetSources.set(palace.id, sources);
       meta.push({
         palaceId: palace.id,
         name: palace.name,
         rev: palace.rev ?? 0,
-        contentHash: await palaceContentHash(snapshot),
+        contentHash: await palaceContentHash(portable),
       });
     }
-    return { meta, snapshots };
+    return { meta, snapshots, assetSources };
+  }
+
+  async function hashBytes(bytes: Uint8Array): Promise<string> {
+    const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   /** `loadPalace` hides trashed palaces, but a trashed palace still has to sync. */
@@ -197,11 +334,12 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
     plan: SyncPlan;
     scanned: VaultScanResult;
     snapshots: Map<string, PalaceSnapshot>;
+    assetSources: Map<string, Map<string, string>>;
     localByHash: Map<string, LocalPalaceMeta>;
   }> {
     await assertKeyMatchesVault();
     const scanned = await scan();
-    const { meta, snapshots } = await localMeta();
+    const { meta, snapshots, assetSources } = await localMeta();
     const state = await deps.syncState.load();
 
     // A tombstone in the vault counts alongside our own: another device purged it.
@@ -216,6 +354,7 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       plan: planSync({ local: meta, remote: scanned.remote, base: state.states, tombstones }),
       scanned,
       snapshots,
+      assetSources,
       localByHash: new Map(meta.map((m) => [m.palaceId, m])),
     };
   }
@@ -281,6 +420,8 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       skipped: [...built.scanned.skipped],
       analyticsPulled: 0,
       aarPulled: 0,
+      assetsPushed: 0,
+      assetsPulled: 0,
     };
     const states: SyncBase[] = [];
 
@@ -338,6 +479,13 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       case "push":
       case "push-new": {
         if (!local || !snapshot) return;
+        // Images first: a palace whose file lands before its pictures do would show a
+        // broken background on the other device until the next run.
+        await pushAssets(
+          built.assetSources.get(palaceId) ?? new Map(),
+          built.scanned.remoteAssets,
+          report,
+        );
         const rev = Math.max(local.rev, remote?.rev ?? 0) + 1;
         await writePalace(snapshot, rev, local.contentHash);
         report.pushed.push(palaceId);
@@ -368,7 +516,11 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
           report.forked.push({ from: palaceId, to: fork.palace.id });
         }
 
-        await deps.repo.savePalace(payload.snapshot);
+        // Save the localized form — the vault's image references mean nothing here — but
+        // hash the portable one, so this device agrees with every other on what the palace
+        // contains.
+        const localized = await toLocal(payload.snapshot, report);
+        await deps.repo.savePalace(localized);
         if (payload.snapshot.palace.deletedAt) await deps.repo.softDeletePalace(palaceId);
         report.pulled.push(palaceId);
 

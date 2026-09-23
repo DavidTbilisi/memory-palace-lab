@@ -5,9 +5,10 @@
 # Tech leverage: High; a revision, a content hash, and one small SyncRemote port. No server,
 #   no account system, no third-party dependency. A Git remote is a second implementation of
 #   the same port rather than a redesign.
-# Status: in progress. Revision tracking, the pure core, the engine, the Rust vault commands
-#   and the Settings UI are delivered with this file. Image assets are half-delivered: the
-#   reference rewriting is done and tested (assetRefs.ts), the byte transfer is not.
+# Status: delivered 2026-09 — revision tracking, the pure core, the engine, the Rust vault
+#   commands, the Settings UI, and image assets end to end. Behaviour is covered by a
+#   two-device simulation in src/domain/sync/vaultSyncEngine.test.ts; a manual run against
+#   two real desktop installs and a real synced folder is still outstanding.
 
 Feature: Device sync vault
   In order to build a palace on one machine and review it on another
@@ -63,6 +64,36 @@ Feature: Device sync vault
     Given a palace called "Very Secret Palace"
     When I sync
     Then no file in the folder contains that name or any palace content
+
+  # Images
+
+  Scenario: A palace arrives with its background intact
+    Given a palace with a background image
+    When I sync both devices
+    Then the image is on the second device, under that device's own path
+    # A palace is stored with an absolute local path to its image. The vault holds the image
+    # by content hash instead, and each device rewrites the reference to its own copy.
+
+  Scenario: An image is uploaded once however many palaces use it
+    Given two palaces sharing one background image
+    When I sync
+    Then the vault holds a single copy of it
+
+  Scenario: An image the vault has not finished downloading
+    Given a palace whose image file is not in the vault yet
+    When I sync
+    Then the palace still arrives
+    And the image reference survives, so the picture appears once the file does
+
+  Scenario: An image file the user moved or deleted
+    Given a palace referring to an image that is no longer on disk
+    When I sync
+    Then the palace syncs anyway, with its reference left as it was
+
+  Scenario: The vault reveals nothing about an image
+    Given a palace with a background image
+    When I sync
+    Then neither the image data nor even its file type is readable in the folder
 
   # Conflicts
 

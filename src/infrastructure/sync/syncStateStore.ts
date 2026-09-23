@@ -53,15 +53,3 @@ export function createTauriSyncStateStore(): SyncStateStore {
     },
   };
 }
-
-/** For the web build, where there is no vault: everything is empty and nothing persists. */
-export function createNullSyncStateStore(): SyncStateStore {
-  return {
-    async load() {
-      return { states: [], tombstones: [], foreignAnalyticsIds: [], foreignAarIds: [] };
-    },
-    async apply() {
-      // no-op
-    },
-  };
-}

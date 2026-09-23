@@ -4,6 +4,10 @@ import type { PalaceRepository } from "../repositories/palaceRepository";
 import type { AARRecord } from "../services/cast/aarRecords";
 import { createInMemoryPalaceRepository } from "../../infrastructure/memory/inMemoryPalaceRepository";
 import { createMemoryVaultRemote, type MemoryVaultRemote } from "../../infrastructure/sync/memoryVaultRemote";
+import {
+  createMemoryAssetStore,
+  type MemoryAssetStore,
+} from "../../infrastructure/sync/memoryAssetStore";
 import { createVaultDescriptor, unlockVault } from "./vaultCrypto";
 import { VAULT_DESCRIPTOR_PATH, vaultPaths } from "../repositories/vaultRemote";
 import {
@@ -55,6 +59,7 @@ type Device = {
   repo: PalaceRepository;
   aarRecords: AARRecord[];
   syncState: SyncStateStore;
+  assets: MemoryAssetStore;
   engine: ReturnType<typeof createVaultSyncEngine>;
   sync(choices?: Map<string, ConflictChoice>): Promise<Awaited<ReturnType<ReturnType<typeof createVaultSyncEngine>["apply"]>>>;
 };
@@ -62,11 +67,15 @@ type Device = {
 function makeDevice(name: string, remote: MemoryVaultRemote, key: CryptoKey): Device {
   const repo = createInMemoryPalaceRepository();
   const syncState = memorySyncState();
+  // Each device keeps its images under its own root, so a path from one means nothing on
+  // the other — which is the whole reason asset syncing exists.
+  const assets = createMemoryAssetStore(`/${name}/backgrounds`);
   const device: Device = {
     name,
     repo,
     aarRecords: [],
     syncState,
+    assets,
     engine: null as never,
     async sync(choices) {
       const built = await device.engine.plan();
@@ -79,6 +88,7 @@ function makeDevice(name: string, remote: MemoryVaultRemote, key: CryptoKey): De
     key,
     repo,
     syncState,
+    assets,
     aar: {
       load: () => device.aarRecords,
       saveAll: (records) => {
@@ -89,6 +99,32 @@ function makeDevice(name: string, remote: MemoryVaultRemote, key: CryptoKey): De
     deviceName: name,
   });
   return device;
+}
+
+/** Puts a background image on a device and points the palace's canvas at it. */
+async function addBackground(
+  device: Device,
+  palaceId: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  const localPath = `/${device.name}/backgrounds/${crypto.randomUUID()}.png`;
+  device.assets.seed(localPath, { bytes, mimeType: "image/png" });
+
+  const snapshot = await device.repo.loadPalace(palaceId);
+  if (!snapshot) throw new Error("missing palace");
+  const blob = JSON.parse(snapshot.palace.editorSnapshot!);
+  blob.store["asset:bg"] = {
+    id: "asset:bg",
+    typeName: "asset",
+    props: { src: `asset://localhost${localPath}` },
+  };
+  blob.store["shape:bg"] = {
+    id: "shape:bg",
+    meta: { mpPalaceId: palaceId, mpBackground: true, mpBackgroundAssetPath: localPath },
+  };
+  snapshot.palace.editorSnapshot = JSON.stringify(blob);
+  await device.repo.savePalace(snapshot);
+  return localPath;
 }
 
 /** A palace with a route, a stop carrying an SM-2 schedule, and a canvas blob. */
@@ -389,6 +425,116 @@ describe("vaultSyncEngine (two devices, one vault)", () => {
     await a.sync();
     await b.sync();
     expect(remote.writeCount).toBe(writesBefore);
+  });
+
+  describe("images", () => {
+    const PIXELS = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+
+    it("carries a background image to the other device", async () => {
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+
+      const push = await a.sync();
+      expect(push.assetsPushed).toBe(1);
+
+      const pull = await b.sync();
+      expect(pull.assetsPulled).toBe(1);
+
+      // B holds the bytes, under its own path...
+      const stored = [...b.assets.files.entries()];
+      expect(stored).toHaveLength(1);
+      expect(stored[0][1].bytes).toEqual(PIXELS);
+      expect(stored[0][0]).toContain("/Desktop/backgrounds/");
+
+      // ...and the palace on B points at B's copy, not at A's path.
+      const blob = JSON.parse((await b.repo.loadPalace(seeded.palace.id))!.palace.editorSnapshot!);
+      expect(blob.store["shape:bg"].meta.mpBackgroundAssetPath).toBe(stored[0][0]);
+      expect(blob.store["asset:bg"].props.src).toContain("/Desktop/backgrounds/");
+      expect(JSON.stringify(blob)).not.toContain("/Laptop/backgrounds/");
+    });
+
+    it("settles instead of pushing the palace back and forth for ever", async () => {
+      // The trap this guards: hashing the palace with a machine-local image path makes two
+      // devices holding the identical palace disagree, so each sees the other as changed.
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+      await b.sync();
+
+      const writesBefore = remote.writeCount;
+      const againA = await a.sync();
+      const againB = await b.sync();
+
+      expect(againA.pushed).toEqual([]);
+      expect(againB.pushed).toEqual([]);
+      expect(remote.writeCount).toBe(writesBefore);
+    });
+
+    it("uploads one copy of an image two palaces share", async () => {
+      const first = await seedPalace(a, "First");
+      const second = await seedPalace(a, "Second");
+      const shared = await addBackground(a, first.palace.id, PIXELS);
+      // The second palace points at the very same file.
+      const snapshot = await a.repo.loadPalace(second.palace.id);
+      const blob = JSON.parse(snapshot!.palace.editorSnapshot!);
+      blob.store["shape:bg"] = {
+        id: "shape:bg",
+        meta: { mpPalaceId: second.palace.id, mpBackgroundAssetPath: shared },
+      };
+      snapshot!.palace.editorSnapshot = JSON.stringify(blob);
+      await a.repo.savePalace(snapshot!);
+
+      const report = await a.sync();
+
+      expect(report.assetsPushed).toBe(1);
+      const assetFiles = [...remote.files.keys()].filter((p) => p.startsWith("assets/"));
+      expect(assetFiles).toHaveLength(1);
+    });
+
+    it("does not store the image bytes readably in the vault", async () => {
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+
+      const assetPath = [...remote.files.keys()].find((p) => p.startsWith("assets/"))!;
+      const contents = remote.files.get(assetPath)!;
+      // Neither the pixels nor the media type are in the clear.
+      expect(contents).not.toContain(btoa(String.fromCharCode(...PIXELS)));
+      expect(contents.split("\n")[0]).not.toContain("image/png");
+    });
+
+    it("lands the palace even when its image cannot be fetched", async () => {
+      const seeded = await seedPalace(a, "Illustrated");
+      await addBackground(a, seeded.palace.id, PIXELS);
+      await a.sync();
+
+      // The asset blob has not downloaded to B yet.
+      const assetPath = [...remote.files.keys()].find((p) => p.startsWith("assets/"))!;
+      remote.files.delete(assetPath);
+
+      const report = await b.sync();
+
+      expect(report.pulled).toEqual([seeded.palace.id]);
+      expect(report.skipped).toContain(assetPath);
+      // The picture is missing for now, not erased: the reference survives, so it resolves
+      // once the file arrives.
+      const blob = (await b.repo.loadPalace(seeded.palace.id))!.palace.editorSnapshot!;
+      expect(blob).toContain("mpvault://");
+    });
+
+    it("leaves a palace whose image file has gone alone", async () => {
+      const seeded = await seedPalace(a, "Illustrated");
+      const localPath = await addBackground(a, seeded.palace.id, PIXELS);
+      a.assets.files.delete(localPath); // the user moved or deleted it
+
+      const report = await a.sync();
+
+      expect(report.pushed).toEqual([seeded.palace.id]);
+      expect(report.assetsPushed).toBe(0);
+      // The reference is left pointing where it always did rather than being dropped.
+      const pushed = remote.files.get(vaultPaths.palace(seeded.palace.id))!;
+      expect(pushed).toBeDefined();
+    });
   });
 
   it("cannot read a vault sealed with a different passphrase", async () => {
