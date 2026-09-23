@@ -555,6 +555,43 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return next;
   };
 
+  /**
+   * A stop's view is captured synchronously in the click that adds it, but a fast preceding
+   * wheel/trackpad zoom (a synthetic burst in tests, or real trailing input the browser hasn't
+   * finished delivering yet) can still be arriving for a short window afterwards. tldraw applies
+   * each wheel tick the instant it's delivered, so this isn't tldraw animating anything we could
+   * wait out with its own camera-moving flag — that flag decays on a fixed timer and can already
+   * read "idle" while more native wheel events are still queued upstream, before they've even
+   * reached tldraw. Re-capturing after a short fixed delay is what actually waits out that
+   * window; the stop's view is then quietly patched in place — no notice, no undo entry, since
+   * this corrects the same "current view" the click was already trying to save, not a new user
+   * action.
+   */
+  const settleStopView = (
+    locusId: string,
+    nodeId: string,
+    viewFor: (nodeId: string) => StopView | null,
+  ) => {
+    setTimeout(() => {
+      if (!get().loci.some((locus) => locus.id === locusId)) return;
+      const settled = viewFor(nodeId);
+      if (!settled) return;
+      const current = get().loci.find((locus) => locus.id === locusId);
+      if (!current) return;
+      const unchanged =
+        current.view &&
+        current.view.x === settled.x &&
+        current.view.y === settled.y &&
+        current.view.w === settled.w &&
+        current.view.h === settled.h;
+      if (unchanged) return;
+      set((state) => ({
+        loci: state.loci.map((locus) => (locus.id === locusId ? withStopView(locus, settled) : locus)),
+      }));
+      scheduleDraftSave();
+    }, 200);
+  };
+
   return {
     palaces: [],
     trashedPalaces: [],
@@ -1059,6 +1096,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
               label: locus.label,
             },
           });
+          if (options.viewFor) settleStopView(locus.id, locus.nodeId, options.viewFor);
         }
       }
       const titleOf = (nodeId: string) =>
