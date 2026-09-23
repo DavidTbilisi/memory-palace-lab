@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { requestNavigation } from "../app/navigationEvents";
 import { useValue } from "@tldraw/editor";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
   Globe,
   Image,
   ImageOff,
@@ -10,7 +12,9 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
 import type { Palace } from "../domain/entities/types";
 import {
@@ -101,6 +105,43 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
   return groups;
 }
 
+// Each palace keeps its full atlasPath regardless of tree depth, so matching
+// against it (not just the branch label) is enough to find palaces nested
+// under a folder even when the folder name itself doesn't match.
+function matchesQuery(palace: Palace, query: string): boolean {
+  return (
+    palace.name.toLowerCase().includes(query) ||
+    (palace.alias?.toLowerCase().includes(query) ?? false) ||
+    (palace.atlasPath?.toLowerCase().includes(query) ?? false)
+  );
+}
+
+function filterAtlasTree(nodes: AtlasTreeNode[], query: string): AtlasTreeNode[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return nodes;
+  const filterNode = (node: AtlasTreeNode): AtlasTreeNode | null => {
+    const children = node.children
+      .map(filterNode)
+      .filter((child): child is AtlasTreeNode => child !== null);
+    const palaces = node.palaces.filter((palace) => matchesQuery(palace, trimmed));
+    if (children.length === 0 && palaces.length === 0) return null;
+    return { ...node, children, palaces };
+  };
+  return nodes.map(filterNode).filter((node): node is AtlasTreeNode => node !== null);
+}
+
+function collectBranchKeys(nodes: AtlasTreeNode[]): string[] {
+  const keys: string[] = [];
+  const walk = (list: AtlasTreeNode[]) => {
+    for (const node of list) {
+      keys.push(node.key);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return keys;
+}
+
 function PalaceListItem({
   palace,
   currentPalaceId,
@@ -115,7 +156,7 @@ function PalaceListItem({
     <button
       type="button"
       onClick={() => onOpen(palace.id)}
-      className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
+      className={`w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
         active
           ? "bg-violet-900/40 text-violet-100"
           : "text-zinc-300 hover:bg-zinc-900"
@@ -141,23 +182,41 @@ function AtlasBranch({
   node,
   currentPalaceId,
   onOpen,
+  collapsedKeys,
+  onToggleBranch,
 }: {
   node: AtlasTreeNode;
   currentPalaceId: string | null;
   onOpen: (palaceId: string) => void;
+  collapsedKeys: Set<string>;
+  onToggleBranch: (key: string) => void;
 }) {
+  const isOpen = !collapsedKeys.has(node.key);
   return (
-    <details open className="rounded-md">
+    <details
+      open={isOpen}
+      onToggle={(event) => {
+        // Native <details> fires this for both a summary click and our
+        // programmatic `open` changes; only react when it actually flipped,
+        // so "Collapse/expand all" (which re-renders with a new `open`) doesn't
+        // bounce straight back via a stale toggle.
+        if (event.currentTarget.open === isOpen) return;
+        onToggleBranch(node.key);
+      }}
+      className="rounded-md"
+    >
       <summary className="cursor-pointer select-none rounded-md px-2 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 hover:bg-zinc-900">
         {node.label}
       </summary>
-      <div className="ml-2 mt-1 space-y-1 border-l border-zinc-800 pl-2">
+      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-zinc-800 pl-2">
         {node.children.map((child) => (
           <AtlasBranch
             key={child.key}
             node={child}
             currentPalaceId={currentPalaceId}
             onOpen={onOpen}
+            collapsedKeys={collapsedKeys}
+            onToggleBranch={onToggleBranch}
           />
         ))}
         {node.palaces.map((palace) => (
@@ -200,6 +259,10 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const [currentAtlasPath, setCurrentAtlasPath] = useState("");
   const levelLabels = usePalaceStore((s) => s.atlasLevelLabels);
   const [hierarchySegments, setHierarchySegments] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [collapsedAtlasKeys, setCollapsedAtlasKeys] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     void loadPalaces();
@@ -213,6 +276,36 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   }, [currentPalace?.alias, currentPalace?.atlasPath, currentPalace?.name]);
 
   const groupedPalaces = useMemo(() => buildAtlasTree(palaces), [palaces]);
+  const visiblePalaces = useMemo(
+    () => filterAtlasTree(groupedPalaces, search),
+    [groupedPalaces, search],
+  );
+  const isSearching = search.trim().length > 0;
+  // A search result is pointless if its own branch is collapsed, so while
+  // searching we show every matching branch open and leave the user's manual
+  // collapse state untouched underneath (it reapplies as soon as they clear
+  // the search box).
+  const effectiveCollapsedKeys = useMemo(
+    () => (isSearching ? new Set<string>() : collapsedAtlasKeys),
+    [isSearching, collapsedAtlasKeys],
+  );
+  const allBranchKeys = useMemo(
+    () => collectBranchKeys(groupedPalaces),
+    [groupedPalaces],
+  );
+  const toggleAtlasBranch = (key: string) => {
+    setCollapsedAtlasKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+  const collapseAllBranches = () => setCollapsedAtlasKeys(new Set(allBranchKeys));
+  const expandAllBranches = () => setCollapsedAtlasKeys(new Set());
   const hierarchyRowCount = Math.max(
     levelLabels.length,
     hierarchySegments.length + 1,
@@ -493,13 +586,63 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
         </div>
       ) : null}
 
+      <div className="flex items-center gap-1 border-b border-zinc-800/50 p-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Input
+            aria-label="Search palaces"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search palaces"
+            className="h-8 pl-7 pr-7 text-xs"
+          />
+          {search ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:text-zinc-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          title="Collapse all folders"
+          aria-label="Collapse all folders"
+          disabled={isSearching || allBranchKeys.length === 0}
+          onClick={collapseAllBranches}
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronsDownUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Expand all folders"
+          aria-label="Expand all folders"
+          disabled={isSearching || allBranchKeys.length === 0}
+          onClick={expandAllBranches}
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronsUpDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2">
-        {groupedPalaces.map((group) => (
+        {isSearching && visiblePalaces.length === 0 ? (
+          <p className="px-2 py-4 text-center text-xs text-zinc-500">
+            No palaces match &ldquo;{search.trim()}&rdquo;.
+          </p>
+        ) : null}
+        {visiblePalaces.map((group) => (
           <AtlasBranch
             key={group.key}
             node={group}
             currentPalaceId={currentPalace?.id ?? null}
             onOpen={(palaceId) => void openPalace(palaceId)}
+            collapsedKeys={effectiveCollapsedKeys}
+            onToggleBranch={toggleAtlasBranch}
           />
         ))}
         {trashedPalaces.length > 0 ? (
