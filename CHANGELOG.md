@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.0 — 2026-09-23
+
+### Palaces
+
+- **Search and collapse the palace list.** The Palaces panel now has a search box (filters by name, alias, or atlas path) and collapse-all/expand-all buttons for the atlas folder tree, so it stays manageable as the list of palaces grows.
+
+### Fixes
+
+- **A stop's saved view could drift off after a fast zoom.** Zooming in or out and immediately clicking a node to add it as a route stop could save a view that was a step behind — the walk would then return to a view that was slightly off-center or zoomed further out than intended. The saved view is now corrected in the moment after it's captured.
+
 ## v0.12.0 — 2026-09-21
 
 ### Routes
