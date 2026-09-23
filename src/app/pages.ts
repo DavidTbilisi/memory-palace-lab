@@ -158,12 +158,13 @@ export const PAGES: readonly PageDefinition[] = [
     label: "Settings",
     groupLabel: "Settings",
     icon: Settings2,
-    hint: "Settings holds the review goal, AI key, idle tips, atlas terminology, backups, and updates.",
+    hint: "Settings holds the review goal, AI key, idle tips, atlas terminology, backups, sync, and updates.",
     placement: "utility",
     librarySlug: "app-manual",
     palette: {
-      subtitle: "Goal, API key, tips, backup, updates",
-      keywords: "settings preferences options api key backup restore update",
+      subtitle: "Goal, API key, tips, backup, sync, updates",
+      keywords:
+        "settings preferences options api key backup restore update sync vault passphrase devices",
     },
   },
 ];

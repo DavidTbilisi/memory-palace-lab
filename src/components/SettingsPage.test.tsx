@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePalaceStore, type PalaceStore } from "../store/palaceStore";
@@ -35,11 +35,17 @@ describe("SettingsPage", () => {
     mockStore();
   });
 
-  it("shows the METER bridge section, desktop-only outside Tauri", () => {
-    render(<SettingsPage />);
-    expect(screen.getByRole("heading", { name: "METER bridge" })).toBeInTheDocument();
-    expect(screen.getByText("Available in the desktop app.")).toBeInTheDocument();
-  });
+  it.each(["METER bridge", "Sync"])(
+    "shows the %s section, desktop-only outside Tauri",
+    (title) => {
+      // Scoped to the section: more than one panel needs the desktop app, so an unscoped
+      // text query matches several and tells you nothing about which one rendered.
+      render(<SettingsPage />);
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      const section = screen.getByRole("region", { name: title });
+      expect(within(section).getByText("Available in the desktop app.")).toBeInTheDocument();
+    },
+  );
 
   it("writes the daily goal to the store on blur", async () => {
     const user = userEvent.setup();

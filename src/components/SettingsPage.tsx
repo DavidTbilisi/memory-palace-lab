@@ -7,9 +7,11 @@ import {
   KeyRound,
   Lightbulb,
   Map,
+  RefreshCw,
   Settings2,
   Target,
 } from "lucide-react";
+import { SettingsSyncSection } from "./SettingsSyncSection";
 import { APP_VERSION } from "../appVersion";
 import { SHORTCUTS, formatShortcut } from "../content/shortcuts";
 import {
@@ -79,15 +81,12 @@ function Section({
   blurb: string;
   children: React.ReactNode;
 }) {
+  // aria-labelledby is a space-separated list of ids, so a title with a space in it (such as
+  // "METER bridge") was being read as two ids and the section had no accessible name at all.
+  const headingId = `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <section
-      className="rounded-md border border-zinc-800 bg-zinc-900/40 p-4"
-      aria-labelledby={`settings-${title}`}
-    >
-      <h3
-        id={`settings-${title}`}
-        className="flex items-center gap-2 text-sm font-semibold text-zinc-100"
-      >
+    <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-4" aria-labelledby={headingId}>
+      <h3 id={headingId} className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
         <Icon className="h-4 w-4 text-violet-300" />
         {title}
       </h3>
@@ -438,6 +437,14 @@ export function SettingsPage() {
           {dataMessage ? (
             <div className="mt-2 text-xs text-zinc-400">{dataMessage}</div>
           ) : null}
+        </Section>
+
+        <Section
+          icon={RefreshCw}
+          title="Sync"
+          blurb="Optional. Keep palaces and review schedules in step across your devices through a folder they all see — Dropbox, iCloud, Syncthing, a network share. Everything is encrypted with your passphrase before it is written, so whoever hosts the folder cannot read it."
+        >
+          <SettingsSyncSection />
         </Section>
 
         <Section
