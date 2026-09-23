@@ -13,7 +13,12 @@
 #   in "keep both": the copy reused its source's row ids, which SQLite rejects outright, and
 #   it was forked from the portable form, so it opened with no pictures. Both fixed, both now
 #   covered below. Keep mine and take theirs were driven by hand the same day and behaved as
-#   specified. Still undriven by hand: deletion propagation and purge-then-edit-elsewhere.
+#   specified. Deletion and purge were driven the same day too, and turned up three more:
+#   purging a palace merely pulled from elsewhere always raised a bogus conflict (the
+#   tombstone recorded the local revision, not the vault's); rescuing a palace from a purge
+#   restored it and then deleted it again on the next sync (the tombstone was never
+#   withdrawn); and standing by the purge did nothing at all (there was no local palace to
+#   push), leaving the question to be re-asked for ever. All fixed and covered below.
 
 Feature: Device sync vault
   In order to build a palace on one machine and review it on another
@@ -172,10 +177,37 @@ Feature: Device sync vault
     When both devices sync, repeatedly
     Then it does not reappear on either
 
+  Scenario: Purging a palace I only ever pulled
+    Given a palace that came from another device and that nobody has edited since
+    When I purge it and sync
+    Then it is removed from the vault without my being asked
+    # The revision recorded when a palace is purged is the one the *vault* last agreed on,
+    # not this device's own counter. They are separate sequences — a palace pushed elsewhere
+    # at revision 40 can sit here at revision 2 — so comparing the local number against the
+    # vault's made every such purge look like "somebody edited this after you deleted it".
+
   Scenario: A palace edited elsewhere after being purged here
     Given a palace purged here and edited on another device afterwards
     When I sync
     Then I am asked to choose rather than losing the edit
+
+  Scenario: Rescuing a palace from my own purge
+    Given a palace purged here and edited on another device afterwards
+    When I choose "take theirs"
+    Then the palace comes back, with its route and review schedule
+    And a following sync leaves it alone
+    # Choosing the vault's side has to withdraw the tombstone. Left standing it would still
+    # say "deleted here", and the next sync would delete the palace again — quietly undoing
+    # the choice that had just been made.
+
+  Scenario: Standing by my own purge
+    Given a palace purged here and edited on another device afterwards
+    When I choose "keep mine"
+    Then the palace is removed from the vault
+    And the other device removes it too
+    And I am not asked about it again
+    # "Mine" is a deletion here: there is no local palace left to send. Pushing nothing
+    # would leave the same question to be answered on every sync for ever.
 
   # Failure
 

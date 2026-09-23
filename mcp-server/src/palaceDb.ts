@@ -269,8 +269,15 @@ function nodeFromRow(row: Row): MemoryNode {
 export function purgeExpiredPalaces(db: DatabaseSync): void {
   const now = new Date().toISOString();
   const expired = "deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?";
+  // The remote revision last agreed on, not the local one — see record_tombstones in db.rs.
+  // `palaces.rev` is per-device, so comparing it against the vault's revision made purging
+  // anything pulled from another device look like "edited elsewhere after the delete".
   const doomed = db
-    .prepare(`SELECT id, rev FROM palaces WHERE ${expired}`)
+    .prepare(
+      `SELECT p.id,
+              COALESCE((SELECT s.remote_rev FROM sync_state s WHERE s.palace_id = p.id), p.rev) AS rev
+       FROM palaces p WHERE ${expired}`,
+    )
     .all(now) as Row[];
   for (const row of doomed) {
     db.prepare(

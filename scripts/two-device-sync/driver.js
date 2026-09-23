@@ -225,6 +225,42 @@
     return { palaceId, title };
   };
 
+  /** Moves a palace to the trash, the way the Library's delete does. */
+  steps.softDelete = async ({ palaceId }) => {
+    const { getPalaceRepository } = await load.repo();
+    await getPalaceRepository().softDeletePalace(palaceId);
+    await palaceStore().getState().loadPalaces();
+    return { palaceId };
+  };
+
+  steps.restore = async ({ palaceId }) => {
+    const { getPalaceRepository } = await load.repo();
+    await getPalaceRepository().restorePalace(palaceId);
+    await palaceStore().getState().loadPalaces();
+    return { palaceId };
+  };
+
+  /** Hard delete, as emptying the trash does. Records a tombstone on the way out. */
+  steps.purge = async ({ palaceId }) => {
+    const { getPalaceRepository } = await load.repo();
+    await getPalaceRepository().purgePalace(palaceId);
+    await palaceStore().getState().loadPalaces();
+    return { palaceId };
+  };
+
+  /** What is in the trash here, and whether it can still be restored. */
+  steps.trash = async () => {
+    const { getPalaceRepository } = await load.repo();
+    const trashed = await getPalaceRepository().listTrashedPalaces();
+    return trashed.map((palace) => ({
+      id: palace.id,
+      name: palace.name,
+      rev: palace.rev,
+      deletedAt: palace.deletedAt ?? null,
+      purgeAt: palace.purgeAt ?? null,
+    }));
+  };
+
   /** What this device holds, in the terms the check cares about. */
   steps.local = async () => {
     const { getPalaceRepository } = await load.repo();

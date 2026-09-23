@@ -97,6 +97,12 @@ export type SyncStateStore = {
   apply(patch: {
     states?: SyncBase[];
     tombstones?: Tombstone[];
+    /**
+     * Tombstones to forget. Needed because a tombstone otherwise keeps asserting "deleted
+     * here" for ever: resolving a delete-versus-edit conflict in the remote's favour would
+     * restore the palace, and the very next sync would delete it again.
+     */
+    clearedTombstones?: string[];
     foreignAnalyticsIds?: string[];
     foreignAarIds?: string[];
   }): Promise<void>;
@@ -336,6 +342,8 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
     snapshots: Map<string, PalaceSnapshot>;
     assetSources: Map<string, Map<string, string>>;
     localByHash: Map<string, LocalPalaceMeta>;
+    /** This device's own tombstones, as distinct from ones read out of the vault. */
+    ownTombstones: Tombstone[];
   }> {
     await assertKeyMatchesVault();
     const scanned = await scan();
@@ -356,6 +364,7 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       snapshots,
       assetSources,
       localByHash: new Map(meta.map((m) => [m.palaceId, m])),
+      ownTombstones: state.tombstones,
     };
   }
 
@@ -424,29 +433,52 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
       assetsPulled: 0,
     };
     const states: SyncBase[] = [];
+    const clearedTombstones: string[] = [];
 
     for (const action of built.plan.actions) {
-      const resolved = resolveAction(action, choices);
+      const resolved = resolveAction(action, choices, (id) => built.localByHash.has(id));
       if (!resolved) {
         report.unresolvedConflicts.push(action.palaceId);
         continue;
+      }
+      // Taking the remote's side of a delete-versus-edit argument has to retract our own
+      // tombstone. Leaving it would restore the palace now and delete it again on the next
+      // run, quietly undoing what the user just chose. Only our own is retracted: a
+      // tombstone read from the vault is another device's statement, not ours to withdraw.
+      if (
+        action.kind === "conflict" &&
+        resolved.kind !== "push-delete" &&
+        built.ownTombstones.some((t) => t.palaceId === action.palaceId)
+      ) {
+        clearedTombstones.push(action.palaceId);
       }
       await runAction(resolved, built, report, states, choices);
     }
 
     await syncStreams(built.scanned, report);
-    if (states.length > 0) await deps.syncState.apply({ states });
+    if (states.length > 0 || clearedTombstones.length > 0) {
+      await deps.syncState.apply({ states, clearedTombstones });
+    }
     return report;
   }
 
   function resolveAction(
     action: SyncAction,
     choices: Map<string, ConflictChoice>,
+    hasLocal: (palaceId: string) => boolean,
   ): SyncAction | null {
     if (action.kind !== "conflict") return action;
     const choice = choices.get(action.palaceId);
     if (!choice) return null;
-    if (choice === "keep-mine") return { kind: "push", palaceId: action.palaceId };
+    if (choice === "keep-mine") {
+      // "Mine" is a deletion when the palace is no longer here. Pushing would find nothing
+      // to send and silently do nothing, leaving the same conflict to be answered again on
+      // every future sync. Presence of the palace, not of a tombstone, is what separates the
+      // two cases: a tombstone read from the vault means somebody *else* purged it, and
+      // keeping mine then means keeping the copy I still have.
+      const stillHere = hasLocal(action.palaceId);
+      return { kind: stillHere ? "push" : "push-delete", palaceId: action.palaceId };
+    }
     // Both "take theirs" and "keep both" pull; the difference is that "keep both" first
     // saves the local side under a new id, which the pull branch handles by reading the
     // choice back out of the map.

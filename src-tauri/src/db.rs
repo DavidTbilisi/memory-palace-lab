@@ -56,6 +56,11 @@ pub struct SyncTombstoneDto {
 pub struct SyncStateBundleDto {
     pub states: Vec<SyncStateDto>,
     pub tombstones: Vec<SyncTombstoneDto>,
+    /// Palaces whose tombstone is withdrawn, because a delete-versus-edit conflict was
+    /// resolved in the vault's favour. Defaulted so a bundle written by an older build,
+    /// or a `load` result fed back in, still deserializes.
+    #[serde(default)]
+    pub cleared_tombstones: Vec<String>,
     pub foreign_analytics_ids: Vec<String>,
     pub foreign_aar_ids: Vec<String>,
 }
@@ -725,7 +730,17 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
 /// palace was edited elsewhere after the delete" — the latter is a conflict, not a purge.
 fn record_tombstones(conn: &Connection, where_clause: &str, args: &[&dyn rusqlite::ToSql]) -> rusqlite::Result<()> {
     let now = Utc::now().to_rfc3339();
-    let mut stmt = conn.prepare(&format!("SELECT id, rev FROM palaces WHERE {where_clause}"))?;
+    // The *remote* revision this device last agreed on, not the local one. `palaces.rev` is
+    // each device's own counter — B pulling a palace A pushed at rev 3 stores it at rev 1 —
+    // so recording the local rev made `remote.rev > tombstone.rev` compare two unrelated
+    // sequences, and purging anything pulled from another device raised a conflict claiming
+    // it had been "edited elsewhere" when nothing had touched it. Falls back to the local
+    // rev for a palace that was never synced, which has no remote revision to speak of.
+    let mut stmt = conn.prepare(&format!(
+        "SELECT p.id,
+                COALESCE((SELECT s.remote_rev FROM sync_state s WHERE s.palace_id = p.id), p.rev)
+         FROM palaces p WHERE {where_clause}"
+    ))?;
     let doomed = stmt
         .query_map(args, |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?
         .collect::<Result<Vec<_>, _>>()?;
@@ -1045,13 +1060,17 @@ pub fn load_sync_state(conn: &Connection) -> rusqlite::Result<SyncStateBundleDto
     Ok(SyncStateBundleDto {
         states,
         tombstones,
+        cleared_tombstones: Vec::new(),
         foreign_analytics_ids: collect_foreign("analytics")?,
         foreign_aar_ids: collect_foreign("aar")?,
     })
 }
 
-/// Additive merge of what a sync run agreed on. Never clears a tombstone: a device that was
-/// offline longer than any expiry window would otherwise come back and re-push the palace.
+/// Merge of what a sync run agreed on. Additive except for `cleared_tombstones`, which is the
+/// one way a tombstone is ever withdrawn: the user answered a delete-versus-edit conflict in
+/// the vault's favour, so this device is no longer claiming the palace was deleted. Nothing
+/// else removes one — a device offline longer than any expiry window would otherwise come
+/// back and re-push a palace everybody else had purged.
 pub fn apply_sync_state(conn: &mut Connection, patch: &SyncStateBundleDto) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     for state in &patch.states {
@@ -1076,6 +1095,12 @@ pub fn apply_sync_state(conn: &mut Connection, patch: &SyncStateBundleDto) -> ru
              ON CONFLICT(palace_id) DO UPDATE SET
                  deleted_at = ?2, rev = MAX(sync_tombstones.rev, ?3)",
             params![tombstone.palace_id, tombstone.deleted_at, tombstone.rev],
+        )?;
+    }
+    for palace_id in &patch.cleared_tombstones {
+        tx.execute(
+            "DELETE FROM sync_tombstones WHERE palace_id = ?1",
+            params![palace_id],
         )?;
     }
     for (kind, ids) in [

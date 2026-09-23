@@ -381,4 +381,50 @@ describe("palaceDb", () => {
     // edited somewhere else after the delete" — the latter is a conflict, not a purge.
     expect(tombstone!.rev).toBeGreaterThan(revBeforeDelete);
   });
+
+  it("records the tombstone at the revision the vault last agreed on", () => {
+    // `palaces.rev` counts this device's own saves, so a palace another device pushed at
+    // revision 40 might sit here at revision 2. Recording the local number made the sync
+    // plan compare two unrelated sequences: `remote.rev > tombstone.rev` was true for any
+    // palace ever pulled, so purging one raised a conflict claiming it had been edited
+    // elsewhere when nothing had touched it.
+    const palace = createPalace(db, "Pulled from elsewhere");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+    db.prepare(
+      `INSERT INTO sync_state (palace_id, base_rev, base_hash, remote_rev, remote_hash, synced_at)
+       VALUES (?, ?, '', ?, '', '')`,
+    ).run(palace.id, localRev, localRev + 40);
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    expect(tombstone.rev).toBe(localRev + 40);
+  });
+
+  it("falls back to the local revision for a palace that was never synced", () => {
+    const palace = createPalace(db, "Never synced");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    // No sync_state row means no remote revision to speak of; the local one is all there is.
+    expect(tombstone.rev).toBeGreaterThan(localRev);
+  });
 });

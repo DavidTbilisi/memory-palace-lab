@@ -46,6 +46,7 @@ export function createTauriSyncStateStore(): SyncStateStore {
         patch: {
           states: (patch.states ?? []).map((state) => ({ ...state, syncedAt })),
           tombstones: patch.tombstones ?? [],
+          clearedTombstones: patch.clearedTombstones ?? [],
           foreignAnalyticsIds: patch.foreignAnalyticsIds ?? [],
           foreignAarIds: patch.foreignAarIds ?? [],
         },

@@ -75,5 +75,13 @@ Verified by hand on 2026-09-23, in this order:
 | With sync-client litter present | `vault_list` returns only real files; probe reports 1 ignored and 1 undownloaded |
 | Resolve keep-mine | this device's version replaces the vault's; the other device then takes it as a plain pull, not a second conflict |
 | Resolve take-theirs | the vault's version replaces this device's, and **the folder is not written to at all** |
+| Delete a palace and sync both | it lands in the other device's trash, with a fresh 30-day purge date, and restores there intact |
+| Purge a palace and sync both | the palace file is replaced by a tombstone envelope; the other device hard-deletes it; repeated syncs never bring it back |
+| Purge here, edited there, keep-mine | the deletion is carried out and the question is not re-asked |
+| Purge here, edited there, take-theirs | the palace returns **and survives the next sync** |
 
-Not yet driven here: deletion propagation and purge-then-edit-elsewhere.
+A soft delete keeps its ciphertext in the vault so it can still be restored, and the header
+does not say it was deleted — the folder does not reveal that a palace was removed, only that
+one changed.
+
+Everything in the feature file has now been driven at least once.

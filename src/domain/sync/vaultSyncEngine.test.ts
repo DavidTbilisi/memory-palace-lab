@@ -44,6 +44,10 @@ function memorySyncState(): SyncStateStore {
         for (const t of patch.tombstones) byId.set(t.palaceId, t);
         tombstones = [...byId.values()];
       }
+      if (patch.clearedTombstones?.length) {
+        const dropped = new Set(patch.clearedTombstones);
+        tombstones = tombstones.filter((t) => !dropped.has(t.palaceId));
+      }
       if (patch.foreignAnalyticsIds) {
         foreignAnalyticsIds = [...new Set([...foreignAnalyticsIds, ...patch.foreignAnalyticsIds])];
       }
@@ -162,6 +166,22 @@ async function seedPalace(device: Device, name: string, blobX = 1): Promise<Pala
   };
   await device.repo.savePalace(snapshot);
   return snapshot;
+}
+
+/**
+ * Hard-deletes a palace the way the database does: the tombstone records the *remote*
+ * revision this device last agreed on, not its own local counter. Those are separate
+ * sequences — a palace another device pushed at revision 40 can sit here at revision 2 — and
+ * recording the local one made every purge of a pulled palace look like "edited elsewhere".
+ */
+async function purgeLocally(device: Device, palaceId: string) {
+  const agreed = (await device.syncState.load()).states.find((s) => s.palaceId === palaceId);
+  await device.repo.purgePalace(palaceId);
+  await device.syncState.apply({
+    tombstones: [
+      { palaceId, deletedAt: "2026-09-23T00:00:00.000Z", rev: agreed?.remoteRev ?? 0 },
+    ],
+  });
 }
 
 async function editBlob(device: Device, palaceId: string, x: number) {
@@ -364,6 +384,62 @@ describe("vaultSyncEngine (two devices, one vault)", () => {
     await b.sync();
     await a.sync();
     expect(await a.repo.loadPalace(seeded.palace.id)).toBeNull();
+  });
+
+  it("purges a palace pulled from elsewhere without asking, since nothing else touched it", async () => {
+    const seeded = await seedPalace(a, "Pulled then purged");
+    await a.sync();
+    await b.sync();
+
+    await purgeLocally(b, seeded.palace.id);
+    const report = await b.sync();
+
+    // B never edited it and nobody else moved it on, so there is nothing to weigh up.
+    expect(report.deletedRemotely).toEqual([seeded.palace.id]);
+    expect(report.unresolvedConflicts).toEqual([]);
+  });
+
+  describe("when a palace is purged here but edited elsewhere", () => {
+    let palaceId: string;
+
+    beforeEach(async () => {
+      const seeded = await seedPalace(a, "Argued over");
+      palaceId = seeded.palace.id;
+      await a.sync();
+      await b.sync();
+      // B moves the vault past the revision A last agreed on...
+      await editBlob(b, palaceId, 77);
+      await b.sync();
+      // ...and only then does A purge it.
+      await purgeLocally(a, palaceId);
+    });
+
+    it("asks rather than dropping the edit", async () => {
+      const report = await a.sync();
+      expect(report.unresolvedConflicts).toEqual([palaceId]);
+      expect(report.deletedRemotely).toEqual([]);
+    });
+
+    it("keeps a rescued palace rescued on the next run", async () => {
+      await a.sync(new Map([[palaceId, "take-theirs"]]));
+      expect(await a.repo.loadPalace(palaceId)).not.toBeNull();
+
+      // The tombstone has to be withdrawn as part of the rescue. Left in place it would
+      // still say "deleted here", and this next run would quietly undo the user's choice.
+      const after = await a.sync();
+      expect(after.deletedLocally).toEqual([]);
+      expect(await a.repo.loadPalace(palaceId)).not.toBeNull();
+    });
+
+    it("carries out a purge the user stood by, instead of asking again for ever", async () => {
+      // "Keep mine" here means the deletion, since there is no local palace left to push.
+      // Pushing nothing would leave the argument unresolved on every future sync.
+      const report = await a.sync(new Map([[palaceId, "keep-mine"]]));
+      expect(report.deletedRemotely).toEqual([palaceId]);
+
+      expect((await a.sync()).unresolvedConflicts).toEqual([]);
+      expect((await b.sync()).deletedLocally).toEqual([palaceId]);
+    });
   });
 
   it("skips a half-written file instead of treating the palace as gone", async () => {
