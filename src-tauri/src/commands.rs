@@ -1,7 +1,7 @@
 use crate::db::{
-    append_analytics_events, create_palace, list_analytics_events, list_palaces, list_trashed_palaces,
-    load_palace, purge_palace, restore_palace, save_snapshot, soft_delete_palace, AnalyticsEventDto,
-    PalaceDto, PalaceSnapshot,
+    append_analytics_events, apply_sync_state, create_palace, list_analytics_events, list_palaces,
+    list_trashed_palaces, load_palace, load_sync_state, purge_palace, restore_palace, save_snapshot,
+    soft_delete_palace, AnalyticsEventDto, PalaceDto, PalaceSnapshot, SyncStateBundleDto,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -48,6 +48,37 @@ pub fn palace_load(state: State<DbState>, palace_id: String) -> Result<Option<Pa
 pub fn palace_save(state: State<DbState>, snapshot: PalaceSnapshot) -> Result<(), String> {
     let mut conn = open(&state)?;
     save_snapshot(&mut conn, &snapshot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn sync_state_load(state: State<DbState>) -> Result<SyncStateBundleDto, String> {
+    let conn = open(&state)?;
+    load_sync_state(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn sync_state_apply(state: State<DbState>, patch: SyncStateBundleDto) -> Result<(), String> {
+    let mut conn = open(&state)?;
+    apply_sync_state(&mut conn, &patch).map_err(|e| e.to_string())
+}
+
+/// The revision a palace is at right now. The sync engine re-reads this immediately before
+/// recording an agreement: if another writer (the MCP server, the CLI) committed while the
+/// push was in flight, the pushed bytes are already stale and recording them as the new base
+/// would make that newer local edit look unchanged and never push again.
+#[tauri::command]
+pub fn palace_rev(state: State<DbState>, palace_id: String) -> Result<Option<i64>, String> {
+    let conn = open(&state)?;
+    conn.query_row(
+        "SELECT rev FROM palaces WHERE id = ?1",
+        rusqlite::params![palace_id],
+        |r| r.get(0),
+    )
+    .map(Some)
+    .or_else(|err| match err {
+        rusqlite::Error::QueryReturnedNoRows => Ok(None),
+        other => Err(other.to_string()),
+    })
 }
 
 #[tauri::command]

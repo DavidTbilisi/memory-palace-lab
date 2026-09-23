@@ -9,6 +9,14 @@ export interface Palace {
   editorSnapshot?: string | null;
   deletedAt?: string | null;
   purgeAt?: string | null;
+  /**
+   * Bumped by every save, in the app, the MCP server and the CLI alike. Sync compares it
+   * against the revision this device last agreed on to tell "moved ahead" from "untouched".
+   * Optional because rows written before revision tracking, and older backup files, have none.
+   */
+  rev?: number;
+  /** When `rev` last changed. Display only — no sync decision reads a peer's clock. */
+  updatedAt?: string | null;
 }
 
 export interface CanvasObject {

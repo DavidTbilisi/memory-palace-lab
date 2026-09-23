@@ -19,6 +19,45 @@ pub struct PalaceDto {
     pub deleted_at: Option<String>,
     #[serde(default)]
     pub purge_at: Option<String>,
+    /// Bumped by every `save_snapshot`, in this app and in mcp-server. Sync compares it
+    /// against the revision a device last pulled to tell "moved ahead" from "unchanged".
+    #[serde(default)]
+    pub rev: i64,
+    /// When `rev` last changed. Display only — sync decisions never trust a peer's clock.
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+/// What this device last agreed on with the vault, per palace. Absent means "never synced",
+/// which is why a missing row makes a divergence a conflict rather than a silent overwrite.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStateDto {
+    pub palace_id: String,
+    pub base_rev: i64,
+    pub base_hash: String,
+    pub remote_rev: i64,
+    pub remote_hash: String,
+    pub synced_at: String,
+}
+
+/// A hard-purged palace, remembered so a pull cannot resurrect it.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncTombstoneDto {
+    pub palace_id: String,
+    pub deleted_at: String,
+    pub rev: i64,
+}
+
+/// Everything the sync engine needs about this device's prior agreements, in one round trip.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStateBundleDto {
+    pub states: Vec<SyncStateDto>,
+    pub tombstones: Vec<SyncTombstoneDto>,
+    pub foreign_analytics_ids: Vec<String>,
+    pub foreign_aar_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -161,7 +200,40 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             atlas_path TEXT,
             editor_snapshot TEXT,
             deleted_at TEXT,
-            purge_at TEXT
+            purge_at TEXT,
+            rev INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+        );
+
+        -- What this device last agreed on with the vault, per palace. `base_hash` is the
+        -- common ancestor: local content differs from it => this side changed. Comparing
+        -- hashes rather than revs is what stops the app's frequent no-op checkpoint saves
+        -- (which still bump rev) from being reported as conflicts.
+        CREATE TABLE IF NOT EXISTS sync_state (
+            palace_id TEXT PRIMARY KEY NOT NULL,
+            base_rev INTEGER NOT NULL DEFAULT 0,
+            base_hash TEXT NOT NULL DEFAULT '',
+            remote_rev INTEGER NOT NULL DEFAULT 0,
+            remote_hash TEXT NOT NULL DEFAULT '',
+            synced_at TEXT NOT NULL DEFAULT ''
+        );
+
+        -- Hard-purged palaces. Without these a pull cheerfully resurrects whatever the
+        -- purge removed. Never auto-collected: a device that was offline longer than any
+        -- GC window would come back and re-push the palace.
+        CREATE TABLE IF NOT EXISTS sync_tombstones (
+            palace_id TEXT PRIMARY KEY NOT NULL,
+            deleted_at TEXT NOT NULL,
+            rev INTEGER NOT NULL DEFAULT 0
+        );
+
+        -- Append-only rows that arrived from another device's shard. Excluded when we write
+        -- our own shard, so pulling a peer's events never makes us re-publish them and the
+        -- streams converge instead of growing on every round.
+        CREATE TABLE IF NOT EXISTS sync_foreign_ids (
+            kind TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            PRIMARY KEY (kind, entity_id)
         );
 
         CREATE TABLE IF NOT EXISTS canvas_objects (
@@ -296,6 +368,20 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
+    // Revision tracking for the sync vault. mcp-server/src/palaceDb.ts adds the same two
+    // columns, so every writer of this database bumps the revision.
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN rev INTEGER NOT NULL DEFAULT 0", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN updated_at TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
     if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN purge_at TEXT", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
@@ -394,7 +480,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
 pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
     purge_expired_palaces(conn)?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
          FROM palaces
          WHERE deleted_at IS NULL
          ORDER BY COALESCE(atlas_path, ''), created_at DESC",
@@ -410,6 +496,8 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
                 editor_snapshot: None,
                 deleted_at: r.get(5)?,
                 purge_at: r.get(6)?,
+                rev: r.get(7)?,
+                updated_at: r.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -419,7 +507,7 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
 pub fn list_trashed_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
     purge_expired_palaces(conn)?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
          FROM palaces
          WHERE deleted_at IS NOT NULL
          ORDER BY purge_at ASC, created_at DESC",
@@ -435,6 +523,8 @@ pub fn list_trashed_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto
                 editor_snapshot: None,
                 deleted_at: r.get(5)?,
                 purge_at: r.get(6)?,
+                rev: r.get(7)?,
+                updated_at: r.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -449,7 +539,8 @@ pub fn create_palace(
     created_at: &str,
 ) -> rusqlite::Result<PalaceDto> {
     conn.execute(
-        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, deleted_at, purge_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?3)",
         params![id, name, created_at, Option::<&str>::None, atlas_path, Option::<&str>::None, Option::<&str>::None],
     )?;
     Ok(PalaceDto {
@@ -461,6 +552,8 @@ pub fn create_palace(
         editor_snapshot: None,
         deleted_at: None,
         purge_at: None,
+        rev: 1,
+        updated_at: Some(created_at.to_string()),
     })
 }
 
@@ -468,7 +561,7 @@ pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Optio
     purge_expired_palaces(conn)?;
     let palace: Option<PalaceDto> = conn
         .query_row(
-            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at
+            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at
              FROM palaces
              WHERE id = ?1 AND deleted_at IS NULL",
             params![palace_id],
@@ -482,6 +575,8 @@ pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Optio
                     editor_snapshot: r.get(5)?,
                     deleted_at: r.get(6)?,
                     purge_at: r.get(7)?,
+                    rev: r.get(8)?,
+                    updated_at: r.get(9)?,
                 })
             },
         )
@@ -625,12 +720,31 @@ fn load_loci(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<LocusDt
     Ok(rows)
 }
 
+/// Remember a hard delete before the row goes, so a later pull cannot bring it back. The
+/// recorded `rev` is what lets the sync engine tell "this palace was deleted" from "this
+/// palace was edited elsewhere after the delete" — the latter is a conflict, not a purge.
+fn record_tombstones(conn: &Connection, where_clause: &str, args: &[&dyn rusqlite::ToSql]) -> rusqlite::Result<()> {
+    let now = Utc::now().to_rfc3339();
+    let mut stmt = conn.prepare(&format!("SELECT id, rev FROM palaces WHERE {where_clause}"))?;
+    let doomed = stmt
+        .query_map(args, |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (id, rev) in &doomed {
+        conn.execute(
+            "INSERT INTO sync_tombstones (palace_id, deleted_at, rev) VALUES (?1, ?2, ?3)
+             ON CONFLICT(palace_id) DO UPDATE SET deleted_at = ?2, rev = MAX(sync_tombstones.rev, ?3)",
+            params![id, now, rev],
+        )?;
+        conn.execute("DELETE FROM sync_state WHERE palace_id = ?1", params![id])?;
+    }
+    Ok(())
+}
+
 pub fn purge_expired_palaces(conn: &Connection) -> rusqlite::Result<()> {
     let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "DELETE FROM palaces WHERE deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?1",
-        params![now],
-    )?;
+    let expired = "deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?1";
+    record_tombstones(conn, expired, &[&now])?;
+    conn.execute(&format!("DELETE FROM palaces WHERE {expired}"), params![now])?;
     Ok(())
 }
 
@@ -638,8 +752,10 @@ pub fn soft_delete_palace(conn: &Connection, palace_id: &str) -> rusqlite::Resul
     purge_expired_palaces(conn)?;
     let deleted_at = Utc::now().to_rfc3339();
     let purge_at = (Utc::now() + Duration::days(30)).to_rfc3339();
+    // A delete is a change that has to reach the other devices, so it bumps `rev` like any
+    // edit. The palace then syncs normally and lands in the other devices' Trash.
     conn.execute(
-        "UPDATE palaces SET deleted_at = ?2, purge_at = ?3 WHERE id = ?1",
+        "UPDATE palaces SET deleted_at = ?2, purge_at = ?3, rev = rev + 1, updated_at = ?2 WHERE id = ?1",
         params![palace_id, deleted_at, purge_at],
     )?;
     Ok(())
@@ -648,13 +764,14 @@ pub fn soft_delete_palace(conn: &Connection, palace_id: &str) -> rusqlite::Resul
 pub fn restore_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<()> {
     purge_expired_palaces(conn)?;
     conn.execute(
-        "UPDATE palaces SET deleted_at = NULL, purge_at = NULL WHERE id = ?1",
-        params![palace_id],
+        "UPDATE palaces SET deleted_at = NULL, purge_at = NULL, rev = rev + 1, updated_at = ?2 WHERE id = ?1",
+        params![palace_id, Utc::now().to_rfc3339()],
     )?;
     Ok(())
 }
 
 pub fn purge_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<()> {
+    record_tombstones(conn, "id = ?1", &[&palace_id])?;
     conn.execute("DELETE FROM palaces WHERE id = ?1", params![palace_id])?;
     Ok(())
 }
@@ -663,14 +780,34 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
     let tx = conn.transaction()?;
     let palace_id = &snap.palace.id;
 
+    // Upsert, not UPDATE. A plain UPDATE silently affects zero rows when the palace is not
+    // here yet, and because foreign keys are off on these per-command connections the child
+    // INSERTs below still succeed — writing canvas/node/edge rows that belong to no palace.
+    // That is what made restoring a backup onto a fresh machine produce an empty library,
+    // and it is also the path a sync pull takes for a palace this device has never seen.
+    //
+    // `rev` is always computed from the stored row, never taken from the caller, so a
+    // snapshot from another device cannot forge a revision. Every writer of this database
+    // bumps it here; mcp-server/src/palaceDb.ts does the same in its saveSnapshot.
+    let now = Utc::now().to_rfc3339();
     tx.execute(
-        "UPDATE palaces SET name = ?2, alias = ?3, atlas_path = ?4, editor_snapshot = ?5 WHERE id = ?1",
+        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at)
+         VALUES (?1, ?2, ?6, ?3, ?4, ?5, NULL, NULL, 1, ?7)
+         ON CONFLICT(id) DO UPDATE SET
+             name = ?2,
+             alias = ?3,
+             atlas_path = ?4,
+             editor_snapshot = ?5,
+             rev = palaces.rev + 1,
+             updated_at = ?7",
         params![
             palace_id,
             snap.palace.name,
             snap.palace.alias.as_deref(),
             snap.palace.atlas_path.as_deref(),
-            snap.palace.editor_snapshot.as_deref()
+            snap.palace.editor_snapshot.as_deref(),
+            snap.palace.created_at,
+            now
         ],
     )?;
 
@@ -863,6 +1000,94 @@ pub fn append_analytics_events(
                 event.payload_json
             ],
         )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Everything the sync engine needs about prior agreements, in one round trip. Kept out of
+/// `PalaceSnapshot` on purpose, so it never leaks into a backup file or a DSL export.
+pub fn load_sync_state(conn: &Connection) -> rusqlite::Result<SyncStateBundleDto> {
+    let mut states_stmt = conn.prepare(
+        "SELECT palace_id, base_rev, base_hash, remote_rev, remote_hash, synced_at FROM sync_state",
+    )?;
+    let states = states_stmt
+        .query_map([], |r| {
+            Ok(SyncStateDto {
+                palace_id: r.get(0)?,
+                base_rev: r.get(1)?,
+                base_hash: r.get(2)?,
+                remote_rev: r.get(3)?,
+                remote_hash: r.get(4)?,
+                synced_at: r.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut tombstones_stmt =
+        conn.prepare("SELECT palace_id, deleted_at, rev FROM sync_tombstones")?;
+    let tombstones = tombstones_stmt
+        .query_map([], |r| {
+            Ok(SyncTombstoneDto {
+                palace_id: r.get(0)?,
+                deleted_at: r.get(1)?,
+                rev: r.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let collect_foreign = |kind: &str| -> rusqlite::Result<Vec<String>> {
+        conn.prepare("SELECT entity_id FROM sync_foreign_ids WHERE kind = ?1")?
+            .query_map(params![kind], |r| r.get(0))?
+            .collect()
+    };
+
+    Ok(SyncStateBundleDto {
+        states,
+        tombstones,
+        foreign_analytics_ids: collect_foreign("analytics")?,
+        foreign_aar_ids: collect_foreign("aar")?,
+    })
+}
+
+/// Additive merge of what a sync run agreed on. Never clears a tombstone: a device that was
+/// offline longer than any expiry window would otherwise come back and re-push the palace.
+pub fn apply_sync_state(conn: &mut Connection, patch: &SyncStateBundleDto) -> rusqlite::Result<()> {
+    let tx = conn.transaction()?;
+    for state in &patch.states {
+        tx.execute(
+            "INSERT INTO sync_state (palace_id, base_rev, base_hash, remote_rev, remote_hash, synced_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(palace_id) DO UPDATE SET
+                 base_rev = ?2, base_hash = ?3, remote_rev = ?4, remote_hash = ?5, synced_at = ?6",
+            params![
+                state.palace_id,
+                state.base_rev,
+                state.base_hash,
+                state.remote_rev,
+                state.remote_hash,
+                state.synced_at
+            ],
+        )?;
+    }
+    for tombstone in &patch.tombstones {
+        tx.execute(
+            "INSERT INTO sync_tombstones (palace_id, deleted_at, rev) VALUES (?1, ?2, ?3)
+             ON CONFLICT(palace_id) DO UPDATE SET
+                 deleted_at = ?2, rev = MAX(sync_tombstones.rev, ?3)",
+            params![tombstone.palace_id, tombstone.deleted_at, tombstone.rev],
+        )?;
+    }
+    for (kind, ids) in [
+        ("analytics", &patch.foreign_analytics_ids),
+        ("aar", &patch.foreign_aar_ids),
+    ] {
+        for id in ids.iter() {
+            tx.execute(
+                "INSERT OR IGNORE INTO sync_foreign_ids (kind, entity_id) VALUES (?1, ?2)",
+                params![kind, id],
+            )?;
+        }
     }
     tx.commit()?;
     Ok(())

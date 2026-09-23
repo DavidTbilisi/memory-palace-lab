@@ -295,6 +295,8 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
         atlasPath: atlasPath?.trim() || null,
         deletedAt: null,
         purgeAt: null,
+        rev: 1,
+        updatedAt: createdAt,
       };
       const snap: PalaceSnapshot = {
         palace,
@@ -317,7 +319,13 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
     },
     async savePalace(snapshot: PalaceSnapshot) {
       await hydrateBrowserStorage();
-      palaces.set(snapshot.palace.id, cloneSnapshot(snapshot));
+      // Bump from the stored row rather than trusting the incoming snapshot, matching
+      // save_snapshot in db.rs: a snapshot arriving from another device must not be able to
+      // dictate this device's revision.
+      const stored = cloneSnapshot(snapshot);
+      stored.palace.rev = (palaces.get(snapshot.palace.id)?.palace.rev ?? 0) + 1;
+      stored.palace.updatedAt = new Date().toISOString();
+      palaces.set(snapshot.palace.id, stored);
       await persistPalaces();
     },
     async softDeletePalace(palaceId: string) {
@@ -328,6 +336,9 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
       const deletedAt = new Date().toISOString();
       snapshot.palace.deletedAt = deletedAt;
       snapshot.palace.purgeAt = new Date(Date.parse(deletedAt) + TRASH_RETENTION_MS).toISOString();
+      // A delete is a change that has to propagate, so it bumps the revision like an edit.
+      snapshot.palace.rev = (snapshot.palace.rev ?? 0) + 1;
+      snapshot.palace.updatedAt = deletedAt;
       await persistPalaces();
     },
     async restorePalace(palaceId: string) {
@@ -337,6 +348,8 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
       if (!snapshot) return;
       snapshot.palace.deletedAt = null;
       snapshot.palace.purgeAt = null;
+      snapshot.palace.rev = (snapshot.palace.rev ?? 0) + 1;
+      snapshot.palace.updatedAt = new Date().toISOString();
       await persistPalaces();
     },
     async purgePalace(palaceId: string) {
@@ -353,7 +366,13 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
     },
     async appendAnalyticsEvents(events) {
       await hydrateBrowserStorage();
-      analyticsEvents = [...analyticsEvents, ...(JSON.parse(JSON.stringify(events)) as AnalyticsEvent[])];
+      // Upsert by id, matching INSERT OR REPLACE in db.rs and palaceDb.ts. Sync replays
+      // events it pulled from other devices, so appending blindly would duplicate them.
+      const byId = new Map(analyticsEvents.map((event) => [event.id, event]));
+      for (const event of JSON.parse(JSON.stringify(events)) as AnalyticsEvent[]) {
+        byId.set(event.id, event);
+      }
+      analyticsEvents = [...byId.values()];
       await persistAnalyticsEvents();
     },
     async exportJson(snapshot: PalaceSnapshot) {
