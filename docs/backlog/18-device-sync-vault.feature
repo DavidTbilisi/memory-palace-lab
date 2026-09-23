@@ -12,7 +12,8 @@
 #   (scripts/two-device-sync/). That run found two defects the simulation could not see, both
 #   in "keep both": the copy reused its source's row ids, which SQLite rejects outright, and
 #   it was forked from the portable form, so it opened with no pictures. Both fixed, both now
-#   covered below. Still undriven by hand: keep mine, take theirs, and deletion propagation.
+#   covered below. Keep mine and take theirs were driven by hand the same day and behaved as
+#   specified. Still undriven by hand: deletion propagation and purge-then-edit-elsewhere.
 
 Feature: Device sync vault
   In order to build a palace on one machine and review it on another
@@ -118,6 +119,21 @@ Feature: Device sync vault
       | keep mine   | this device's version replaces the vault's                           |
       | take theirs | the vault's version replaces this device's                           |
       | keep both   | the vault's version lands and my version is kept as a separate palace |
+
+  Scenario: Take theirs does not write to the folder
+    Given a conflict resolved with take theirs
+    Then the vault is left byte for byte as it was
+    # Taking the vault's version is a local act. Re-pushing what is already there would
+    # churn the folder, and on a shared drive that is another file for the sync client to
+    # replicate and another chance to collide.
+
+  Scenario: The device that lost a conflict is not asked about it again
+    Given a palace resolved with keep mine on the other device
+    When I sync here, having made no further edit
+    Then the winning version simply arrives
+    And I am not asked to resolve anything
+    # My losing edit is already in the vault's history as the version that was replaced; a
+    # second prompt here would make one disagreement echo between the devices.
 
   Scenario: Keep both leaves the copy usable
     Given a conflict resolved with keep both

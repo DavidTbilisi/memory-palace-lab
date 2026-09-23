@@ -57,6 +57,21 @@
     return { status: state.status, dir: state.dir, deviceName: state.deviceName };
   };
 
+  /**
+   * Supplies the passphrase to a vault this device already knows about. Every relaunch —
+   * and every page reload — needs this, because the folder is remembered and the passphrase
+   * deliberately is not.
+   */
+  steps.unlock = async ({ passphrase }) => {
+    const store = syncStore();
+    await store.getState().unlock(passphrase);
+    const state = store.getState();
+    if (state.status !== "ready") {
+      fail(`unlock left status "${state.status}": ${state.error ?? "no error reported"}`);
+    }
+    return { status: state.status, dir: state.dir, deviceName: state.deviceName };
+  };
+
   /** Connecting with the wrong passphrase must be refused and must remember nothing. */
   steps.connectExpectingRefusal = async ({ dir, passphrase }) => {
     const store = syncStore();
@@ -266,15 +281,6 @@
       descriptorKeys: descriptor ? Object.keys(JSON.parse(descriptor)) : null,
       probe: await invoke("vault_probe", { dir }),
     };
-  };
-
-  /** Drops a file the folder's own sync app would create, to prove it is ignored. */
-  steps.dropSyncArtifacts = async ({ dir }) => {
-    const { invoke } = await import("@tauri-apps/api/core");
-    // These cannot go through vault_write — the allowlist makes them unrepresentable, which
-    // is the point — so the check writes them from the harness instead and this step only
-    // reports what the app then sees.
-    return { probe: await invoke("vault_probe", { dir }) };
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────

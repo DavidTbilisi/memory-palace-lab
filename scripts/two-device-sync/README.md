@@ -73,6 +73,7 @@ Verified by hand on 2026-09-23, in this order:
 | Resolve keep-both | vault's version lands under the original id; local work survives as a copy with its schedule and its pictures |
 | Sync twice more | the copy pushes once, then silence |
 | With sync-client litter present | `vault_list` returns only real files; probe reports 1 ignored and 1 undownloaded |
+| Resolve keep-mine | this device's version replaces the vault's; the other device then takes it as a plain pull, not a second conflict |
+| Resolve take-theirs | the vault's version replaces this device's, and **the folder is not written to at all** |
 
-Not yet driven here: keep-mine and take-theirs (both simpler paths than keep-both, covered in
-simulation), deletion propagation, and purge-then-edit-elsewhere.
+Not yet driven here: deletion propagation and purge-then-edit-elsewhere.
