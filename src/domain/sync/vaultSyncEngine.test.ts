@@ -130,23 +130,26 @@ async function addBackground(
 /** A palace with a route, a stop carrying an SM-2 schedule, and a canvas blob. */
 async function seedPalace(device: Device, name: string, blobX = 1): Promise<PalaceSnapshot> {
   const palace = await device.repo.createPalace(name);
+  // Row ids are unique across the whole database, not per palace, so a fixture that reused
+  // "route-1" could never exist on a real device — and would mask a fork that reuses ids.
+  const routeId = `route-${palace.id}`;
   const snapshot: PalaceSnapshot = {
     palace: {
       ...palace,
       editorSnapshot: JSON.stringify({
-        store: { "shape:a": { meta: { mpPalaceId: palace.id, mpNodeId: "node-1" } } },
+        store: { "shape:a": { meta: { mpPalaceId: palace.id, mpNodeId: `node-${palace.id}` } } },
         schema: { x: blobX },
       }),
     },
     canvasObjects: [],
     nodes: [],
     edges: [],
-    routes: [{ id: "route-1", palaceId: palace.id, name: "Main" }],
+    routes: [{ id: routeId, palaceId: palace.id, name: "Main" }],
     loci: [
       {
-        id: "locus-1",
-        routeId: "route-1",
-        nodeId: "node-1",
+        id: `locus-${palace.id}`,
+        routeId,
+        nodeId: `node-${palace.id}`,
         orderIndex: 0,
         label: "first",
         interval: 6,
@@ -165,7 +168,7 @@ async function editBlob(device: Device, palaceId: string, x: number) {
   const snapshot = await device.repo.loadPalace(palaceId);
   if (!snapshot) throw new Error("missing palace");
   snapshot.palace.editorSnapshot = JSON.stringify({
-    store: { "shape:a": { meta: { mpPalaceId: palaceId, mpNodeId: "node-1" } } },
+    store: { "shape:a": { meta: { mpPalaceId: palaceId, mpNodeId: `node-${palaceId}` } } },
     schema: { x },
   });
   await device.repo.savePalace(snapshot);
@@ -313,6 +316,21 @@ describe("vaultSyncEngine (two devices, one vault)", () => {
       // next edit and orphans the loci.
       const meta = JSON.parse(fork!.palace.editorSnapshot!).store["shape:a"].meta;
       expect(meta.mpPalaceId).toBe(forkId);
+    });
+
+    it("keep both leaves the copy's pictures readable on this device", async () => {
+      // The engine carries a portable form of each palace, with every image rewritten to
+      // `mpvault://<hash>` for the vault. Forking that one instead of the palace as it
+      // stands here would hand the copy references this device cannot draw, so it would
+      // open blank while the files sat on disk.
+      const localPath = await addBackground(b, palaceId, new Uint8Array([1, 2, 3, 4]));
+
+      const report = await b.sync(new Map([[palaceId, "keep-both"]]));
+      const fork = await b.repo.loadPalace(report.forked[0].to);
+
+      const blob = fork!.palace.editorSnapshot!;
+      expect(blob).not.toContain("mpvault://");
+      expect(JSON.parse(blob).store["shape:bg"].meta.mpBackgroundAssetPath).toBe(localPath);
     });
 
     it("converges after the conflict is resolved", async () => {

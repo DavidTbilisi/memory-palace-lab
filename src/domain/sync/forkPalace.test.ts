@@ -148,16 +148,54 @@ describe("forkPalaceSnapshot", () => {
     expect(store["shape:c"].meta.mpPortalPalaceId).toBe(ORIGINAL);
   });
 
-  it("keeps node, edge, route, locus and object ids so the loci still resolve", () => {
+  it("shares no row id with the palace it was copied from", () => {
+    // canvas_objects, nodes, edges, routes and loci each declare `id TEXT PRIMARY KEY` in
+    // db.rs — global keys, not per-palace — so reusing any of them makes saving the copy
+    // fail outright with a UNIQUE constraint violation. This is not theoretical: it is what
+    // the first real two-device run hit, on canvas_objects.id.
     const source = snapshot();
     const fork = forkPalaceSnapshot(source, { newId: "palace-fork", newName: "Copy" });
 
-    expect(fork.nodes.map((n) => n.id)).toEqual(source.nodes.map((n) => n.id));
-    expect(fork.edges.map((e) => e.id)).toEqual(source.edges.map((e) => e.id));
-    expect(fork.canvasObjects.map((o) => o.id)).toEqual(source.canvasObjects.map((o) => o.id));
-    expect(fork.loci).toEqual(source.loci);
+    const idsOf = (snap: PalaceSnapshot) => [
+      ...snap.canvasObjects.map((o) => o.id),
+      ...snap.nodes.map((n) => n.id),
+      ...snap.edges.map((e) => e.id),
+      ...snap.routes.map((r) => r.id),
+      ...snap.loci.map((l) => l.id),
+    ];
+    const reused = idsOf(fork).filter((id) => idsOf(source).includes(id));
+    expect(reused).toEqual([]);
+  });
+
+  it("rewires every reference to the new ids, so the copy still hangs together", () => {
+    const fork = forkPalaceSnapshot(snapshot(), { newId: "palace-fork", newName: "Copy" });
+
+    const objectIds = new Set(fork.canvasObjects.map((o) => o.id));
+    const nodeIds = new Set(fork.nodes.map((n) => n.id));
     const routeIds = new Set(fork.routes.map((r) => r.id));
+
+    expect(fork.nodes.every((n) => objectIds.has(n.objectId))).toBe(true);
+    expect(fork.edges.every((e) => nodeIds.has(e.sourceNodeId))).toBe(true);
+    // A locus that lost its route or its node is a review schedule pointing at nothing.
     expect(fork.loci.every((l) => routeIds.has(l.routeId))).toBe(true);
+    expect(fork.loci.every((l) => nodeIds.has(l.nodeId))).toBe(true);
+  });
+
+  it("renumbers the canvas blob to match the rows, not just the palace id", () => {
+    // The blob is the source of truth for the canvas. If its mpNodeId/mpObjectId still named
+    // the original's rows, the copy would draw shapes bound to another palace's data.
+    const fork = forkPalaceSnapshot(snapshot(), { newId: "palace-fork", newName: "Copy" });
+    const store = JSON.parse(fork.palace.editorSnapshot!).store as Record<
+      string,
+      { meta: Record<string, unknown> }
+    >;
+
+    expect(store["shape:a"].meta.mpObjectId).toBe(fork.canvasObjects[0].id);
+    expect(store["shape:a"].meta.mpNodeId).toBe(fork.nodes[0].id);
+    expect(store["shape:c"].meta.mpEdgeId).toBe(fork.edges[0].id);
+    // An id the rows never mentioned has nothing to map to and is left alone rather than
+    // being blanked.
+    expect(store["shape:b"].meta.mpNodeId).toBe("node-2");
   });
 
   it("preserves the review schedule on the copy", () => {

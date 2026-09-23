@@ -508,9 +508,15 @@ export function createVaultSyncEngine(deps: VaultSyncDeps) {
         // the remote overwrites the original. The local copy forks, not the remote one: the
         // remote id is what every other device already knows.
         if (choices.get(palaceId) === "keep-both" && snapshot) {
-          const fork = forkPalaceSnapshot(snapshot, {
+          // Fork the palace as it stands on this device, not the portable form held in
+          // `built.snapshots`. That one has every image rewritten to `mpvault://<hash>` for
+          // the vault's benefit; saving it here would leave the copy pointing at references
+          // this device cannot draw, so the kept-both palace would open with no pictures
+          // even though the files are sitting on disk.
+          const mine = (await loadAnyPalace(palaceId)) ?? snapshot;
+          const fork = forkPalaceSnapshot(mine, {
             newId: crypto.randomUUID(),
-            newName: `${snapshot.palace.name} (from ${deps.deviceName})`,
+            newName: `${mine.palace.name} (from ${deps.deviceName})`,
           });
           await deps.repo.savePalace(fork);
           report.forked.push({ from: palaceId, to: fork.palace.id });

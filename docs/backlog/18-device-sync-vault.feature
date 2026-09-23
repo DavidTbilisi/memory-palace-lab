@@ -7,8 +7,12 @@
 #   the same port rather than a redesign.
 # Status: delivered 2026-09 — revision tracking, the pure core, the engine, the Rust vault
 #   commands, the Settings UI, and image assets end to end. Behaviour is covered by a
-#   two-device simulation in src/domain/sync/vaultSyncEngine.test.ts; a manual run against
-#   two real desktop installs and a real synced folder is still outstanding.
+#   two-device simulation in src/domain/sync/vaultSyncEngine.test.ts, and was driven against
+#   two real desktop installs and a real shared folder on 2026-09-23
+#   (scripts/two-device-sync/). That run found two defects the simulation could not see, both
+#   in "keep both": the copy reused its source's row ids, which SQLite rejects outright, and
+#   it was forked from the portable form, so it opened with no pictures. Both fixed, both now
+#   covered below. Still undriven by hand: keep mine, take theirs, and deletion propagation.
 
 Feature: Device sync vault
   In order to build a palace on one machine and review it on another
@@ -121,6 +125,20 @@ Feature: Device sync vault
     And its stops still resolve to its routes, with their review schedules intact
     # The canvas records the palace id on every shape; a copy that kept the old one would
     # have every node silently re-identified on the next edit, orphaning every stop.
+
+  Scenario: Keep both saves at all
+    Given a conflict resolved with keep both
+    Then the copy shares no stop, route, node, edge or canvas id with the palace it came from
+    # Those ids are unique across the whole database, not within a palace, so a copy that
+    # reused them is rejected on save and the resolution fails outright. Found on the first
+    # real two-device run, having passed in simulation.
+
+  Scenario: Keep both leaves the copy's pictures showing
+    Given a conflict resolved with keep both, on a palace with a background
+    Then the copy's images point at files on this device, not at vault references
+    # The engine carries a portable form of each palace for the vault's benefit, with every
+    # image rewritten to a content hash. Copying that one leaves the palace pointing at
+    # references this device cannot draw, so it opens blank while the files sit on disk.
 
   Scenario: Both devices happened to make the same edit
     Given a palace whose content is now identical on both devices

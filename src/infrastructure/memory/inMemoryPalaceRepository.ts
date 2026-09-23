@@ -14,6 +14,39 @@ type StoredPalaceRecord = {
   snapshot: PalaceSnapshot;
 };
 
+/**
+ * Mirrors the global `id TEXT PRIMARY KEY` that db.rs declares on canvas_objects, nodes,
+ * edges, routes and loci.
+ *
+ * Keeping one snapshot per palace in a Map makes a cross-palace id collision invisible here
+ * while SQLite rejects the write outright — which is how a "keep both" fork that reused its
+ * source's row ids passed every test and then failed on a real device with
+ * `UNIQUE constraint failed: canvas_objects.id`. This makes the double as strict as the
+ * database it stands in for.
+ */
+function assertRowIdsAreFree(snapshot: PalaceSnapshot, others: Iterable<PalaceSnapshot>): void {
+  // Materialized once: `Map.values()` is a one-shot iterator, and walking it per table left
+  // every table after the first checking against an already-exhausted sequence.
+  const existing = [...others].filter((other) => other.palace.id !== snapshot.palace.id);
+  const tables = [
+    ["canvas_objects", (s: PalaceSnapshot) => s.canvasObjects.map((r) => r.id)],
+    ["nodes", (s: PalaceSnapshot) => s.nodes.map((r) => r.id)],
+    ["edges", (s: PalaceSnapshot) => s.edges.map((r) => r.id)],
+    ["routes", (s: PalaceSnapshot) => s.routes.map((r) => r.id)],
+    ["loci", (s: PalaceSnapshot) => s.loci.map((r) => r.id)],
+  ] as const;
+
+  for (const [table, idsOf] of tables) {
+    const taken = new Set<string>();
+    for (const other of existing) {
+      for (const id of idsOf(other)) taken.add(id);
+    }
+    for (const id of idsOf(snapshot)) {
+      if (taken.has(id)) throw new Error(`UNIQUE constraint failed: ${table}.id`);
+    }
+  }
+}
+
 function readStoredPalaceSnapshots() {
   if (typeof window === "undefined") return [] as PalaceSnapshot[];
   try {
@@ -322,6 +355,7 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
       // Bump from the stored row rather than trusting the incoming snapshot, matching
       // save_snapshot in db.rs: a snapshot arriving from another device must not be able to
       // dictate this device's revision.
+      assertRowIdsAreFree(snapshot, palaces.values());
       const stored = cloneSnapshot(snapshot);
       stored.palace.rev = (palaces.get(snapshot.palace.id)?.palace.rev ?? 0) + 1;
       stored.palace.updatedAt = new Date().toISOString();
