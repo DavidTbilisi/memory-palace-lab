@@ -58,7 +58,7 @@ describe("UpdateBanner", () => {
   });
 
   it("UpdateBanner offers no What's new button when the release has no notes", async () => {
-    checkForUpdate.mockResolvedValue({ status: "available", version: "0.14.0", notes: "  \n" });
+    checkForUpdate.mockResolvedValue({ status: "available", version: "0.14.0", notes: undefined });
     render(<UpdateBanner />);
 
     expect(await screen.findByRole("button", { name: /Install/ })).toBeInTheDocument();

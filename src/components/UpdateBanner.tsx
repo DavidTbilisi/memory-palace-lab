@@ -1,34 +1,7 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { APP_VERSION } from "../appVersion";
 import { IS_TAURI_RUNTIME, checkForUpdate, downloadAndInstallUpdate } from "../infrastructure/appUpdater";
-import { PROSE_CLASS } from "./DocReader";
-
-/**
- * The notes come from the release's latest.json. A link in them must open in
- * the browser: followed inside the webview it would replace the whole app.
- */
-const NOTES_COMPONENTS: Components = {
-  a: ({ href, children }) => {
-    if (!href || !/^https?:\/\//i.test(href)) return <>{children}</>;
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(event) => {
-          event.preventDefault();
-          void import("@tauri-apps/plugin-opener")
-            .then((mod) => mod.openUrl(href))
-            .catch(() => window.open(href, "_blank"));
-        }}
-      >
-        {children}
-      </a>
-    );
-  },
-};
+import { ReleaseNotes } from "./ReleaseNotes";
 
 type UpdateState =
   | { phase: "idle" }
@@ -52,7 +25,7 @@ export function UpdateBanner() {
     void checkForUpdate()
       .then((result) => {
         if (!disposed && result.status === "available") {
-          setState({ phase: "available", version: result.version, notes: result.notes?.trim() || undefined });
+          setState({ phase: "available", version: result.version, notes: result.notes });
         }
       })
       .catch(() => {
@@ -118,14 +91,11 @@ export function UpdateBanner() {
         ) : null}
       </div>
       {notes && notesOpen ? (
-        <div
+        <ReleaseNotes
           id="update-banner-notes"
-          className={`max-h-64 overflow-y-auto border-t border-violet-800/60 px-3 pb-2 ${PROSE_CLASS}`}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={NOTES_COMPONENTS}>
-            {notes}
-          </ReactMarkdown>
-        </div>
+          notes={notes}
+          className="border-t border-violet-800/60 px-3 pb-2"
+        />
       ) : null}
     </div>
   );
