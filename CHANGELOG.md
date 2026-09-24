@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.14.1 — 2026-09-24
+
+### Updates
+
+- **See what's new before you update.** When an update is available, the banner at the top of the app now has a **What's new** button. It opens that version's release notes, so you can read what changed before pressing **Install & restart**. Links in the notes open in your browser.
+- Release notes on GitHub now list what changed in each version, instead of only linking to the changelog.
+
 ## v0.14.0 — 2026-09-24
 
 ### Sync between devices
