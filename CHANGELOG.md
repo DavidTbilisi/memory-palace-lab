@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.14.2 — 2026-09-24
+
+### Updates
+
+- **Release notes in Settings too.** When **Check for updates** in Settings › About finds a newer version, that version's release notes now appear under the **Install and restart** button, so you can see what changed before you install. Links in the notes open in your browser.
+
 ## v0.14.1 — 2026-09-24
 
 ### Updates
