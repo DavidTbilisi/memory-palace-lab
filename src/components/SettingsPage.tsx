@@ -47,6 +47,7 @@ import { AtlasLevelLabelsEditor } from "./AtlasLevelLabelsEditor";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { ReleaseNotes } from "./ReleaseNotes";
 
 export const AI_KEY_STORAGE_KEY = "mp-ai-anthropic-key";
 export const LEARN_PANEL_STORAGE_KEY = "mp-learn-panel-open";
@@ -113,7 +114,7 @@ type UpdateUi =
   | { phase: "idle" }
   | { phase: "checking" }
   | { phase: "up-to-date" }
-  | { phase: "available"; version: string }
+  | { phase: "available"; version: string; notes?: string }
   | { phase: "downloading"; percent: number | null }
   | { phase: "error"; message: string };
 
@@ -231,7 +232,7 @@ export function SettingsPage() {
     try {
       const result = await checkForUpdate();
       if (result.status === "available")
-        setUpdate({ phase: "available", version: result.version });
+        setUpdate({ phase: "available", version: result.version, notes: result.notes });
       else if (result.status === "up-to-date")
         setUpdate({ phase: "up-to-date" });
       else
@@ -540,6 +541,15 @@ export function SettingsPage() {
               <span className="text-rose-300">{update.message}</span>
             ) : null}
           </div>
+          {update.phase === "available" && update.notes ? (
+            <section aria-label={`What's new in v${update.version}`} className="mt-3">
+              <h3 className="text-xs font-semibold text-zinc-300">What&apos;s new in v{update.version}</h3>
+              <ReleaseNotes
+                notes={update.notes}
+                className="mt-1 rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-1"
+              />
+            </section>
+          ) : null}
         </Section>
 
         <Section

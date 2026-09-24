@@ -14,7 +14,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   const { check } = await import("@tauri-apps/plugin-updater");
   const update = await check();
   if (!update) return { status: "up-to-date" };
-  return { status: "available", version: update.version, notes: update.body ?? undefined };
+  return { status: "available", version: update.version, notes: update.body?.trim() || undefined };
 }
 
 /**
