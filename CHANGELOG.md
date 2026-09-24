@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.14.0 — 2026-09-24
+
+### Sync between devices
+
+- **Keep palaces in step across computers.** Settings has a new Sync card (desktop app only). Pick a folder that your devices share, such as Dropbox, iCloud Drive, Syncthing, or a USB stick. Set a passphrase, name the device, and press **Sync now**. Each device pushes its changes to the folder and pulls in the others'. No server is involved.
+- **Everything in the folder is encrypted.** Palaces and images are unreadable without the passphrase. The folder doesn't even reveal which kind of file each image is. The passphrase is never saved, so you type it once each time you open the app.
+- **Images travel too.** Palace backgrounds and node images arrive on the other device intact. An image that is used by several palaces is uploaded once.
+- **You decide on conflicts.** If a palace changed on two devices, the sync stops before writing anything and asks, palace by palace: **keep mine**, **take theirs**, or **keep both**. Keep both saves the other version as a separate copy.
+- **Deleting a palace syncs.** A palace deleted on one device is removed on the others. If it was edited elsewhere in the meantime, you're asked first.
+- **Reclaim space.** A separate button deletes images in the folder that no palace uses any more. To stay safe, it skips images added in the last week and won't run while any file in the folder is unreadable or still downloading.
+
+### Fixes
+
+- Settings sections with multi-word titles, such as "METER bridge", now have an accessible name for screen readers.
+
 ## v0.13.0 — 2026-09-23
 
 ### Palaces
