@@ -6,11 +6,9 @@ on:
       - "v*"
 
 env:
-  # Shown on the release page, and copied into latest.json as the update's notes.
-  RELEASE_NOTES: |
-    ## What's new
-    See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-
+  # Shown on the release page below the tag's CHANGELOG.md entry. Not in latest.json,
+  # whose notes are for an app that is already installed.
+  INSTALL_NOTES: |
     ## Install
     Download the installer for your platform from the assets below.
 
@@ -34,13 +32,42 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.draft.outputs.release_id }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
+      - uses: actions/checkout@v6
+
+      # The tag's CHANGELOG.md entry becomes the release page's "What's new" and the
+      # update's notes in latest.json. A tag without an entry fails here, before anything is built.
+      - name: Read the tag's CHANGELOG.md entry
+        id: changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          entry=$(awk -v tag="$TAG" '
+            index($0, "## " tag " ") == 1 || $0 == "## " tag { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d')
+          if [ -z "$entry" ]; then
+            echo "::error::CHANGELOG.md has no entry for $TAG; add one under '## $TAG' and tag again."
+            exit 1
+          fi
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$entry"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create the draft release (or reuse it when the run is repeated)
         id: draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
-          NOTES: ${{ env.RELEASE_NOTES }}
+          NOTES: |
+            ## What's new
+            ${{ steps.changelog.outputs.changelog }}
+
+            ${{ env.INSTALL_NOTES }}
         run: |
           ids=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
             --jq ".[] | select(.tag_name == \"$TAG\") | .id")
@@ -136,7 +163,8 @@ jobs:
           # asset links say "untagged-…" and latest.json must point at the tag instead.
           releaseId: ${{ needs.create-release.outputs.release_id }}
           tagName: ${{ github.ref_name }}
-          releaseBody: ${{ env.RELEASE_NOTES }}
+          # With releaseId set, tauri-action uses this only as latest.json's notes.
+          releaseBody: ${{ needs.create-release.outputs.changelog }}
           args: ${{ matrix.args }}
           # Empty on Windows and macOS, where tauri-action runs the Tauri CLI itself.
           tauriScript: ${{ matrix.tauriScript }}
