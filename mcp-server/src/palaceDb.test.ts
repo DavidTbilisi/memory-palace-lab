@@ -303,4 +303,128 @@ describe("palaceDb", () => {
     createPalace(db, "Twin");
     expect(() => resolvePalace(db, "Twin")).toThrow(/ambiguous/);
   });
+
+  it("creates the palace when saving a snapshot it has never seen", () => {
+    // Restoring a backup, or pulling from the sync vault, saves a snapshot for a palace this
+    // database has no row for. A plain UPDATE matched nothing and — foreign keys being off —
+    // the child rows landed anyway, leaving canvas/node/edge rows owned by no palace and an
+    // empty library. Regression test for that.
+    const palaceId = "11111111-2222-3333-4444-555555555555";
+    const snap = makeSnapshot(palaceId, {
+      id: palaceId,
+      name: "Restored Palace",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      alias: null,
+      atlasPath: "/restored",
+      deletedAt: null,
+      purgeAt: null,
+    });
+
+    saveSnapshot(db, snap);
+
+    const loaded = loadPalace(db, palaceId);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.palace.name).toBe("Restored Palace");
+    expect(loaded!.palace.createdAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(loaded!.nodes).toHaveLength(2);
+    expect(listPalaces(db).map((p) => p.id)).toContain(palaceId);
+
+    const orphans = db
+      .prepare(
+        `SELECT count(*) AS n FROM canvas_objects
+         LEFT JOIN palaces ON palaces.id = canvas_objects.palace_id
+         WHERE palaces.id IS NULL`,
+      )
+      .get() as { n: number };
+    expect(orphans.n).toBe(0);
+  });
+
+  it("bumps the palace revision on every write, ignoring any revision the caller sends", () => {
+    const palace = createPalace(db, "Versioned");
+    expect(palace.rev).toBe(1);
+
+    const snap = makeSnapshot(palace.id, palace);
+    saveSnapshot(db, snap);
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(2);
+
+    // A snapshot arriving from another device carries that device's revision; it must not
+    // dictate ours, or a peer could stall our pushes by claiming a high number.
+    saveSnapshot(db, { ...snap, palace: { ...snap.palace, rev: 9999 } });
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(3);
+
+    // A delete is a change other devices have to learn about, so it bumps too.
+    softDeletePalace(db, palace.id);
+    expect(listTrashedPalaces(db).find((p) => p.id === palace.id)!.rev).toBe(4);
+    restorePalace(db, palace.id);
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(5);
+  });
+
+  it("records a tombstone when a trashed palace passes its purge date", () => {
+    const palace = createPalace(db, "Doomed");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const revBeforeDelete = loadPalace(db, palace.id)!.palace.rev!;
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+
+    listPalaces(db); // purgeExpiredPalaces runs on every list
+
+    expect(loadPalace(db, palace.id)).toBeNull();
+    const tombstone = db
+      .prepare("SELECT palace_id, rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { palace_id: string; rev: number } | undefined;
+    expect(tombstone).toBeDefined();
+    // The recorded revision is what lets a pull tell "this was deleted" from "this was
+    // edited somewhere else after the delete" — the latter is a conflict, not a purge.
+    expect(tombstone!.rev).toBeGreaterThan(revBeforeDelete);
+  });
+
+  it("records the tombstone at the revision the vault last agreed on", () => {
+    // `palaces.rev` counts this device's own saves, so a palace another device pushed at
+    // revision 40 might sit here at revision 2. Recording the local number made the sync
+    // plan compare two unrelated sequences: `remote.rev > tombstone.rev` was true for any
+    // palace ever pulled, so purging one raised a conflict claiming it had been edited
+    // elsewhere when nothing had touched it.
+    const palace = createPalace(db, "Pulled from elsewhere");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+    db.prepare(
+      `INSERT INTO sync_state (palace_id, base_rev, base_hash, remote_rev, remote_hash, synced_at)
+       VALUES (?, ?, '', ?, '', '')`,
+    ).run(palace.id, localRev, localRev + 40);
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    expect(tombstone.rev).toBe(localRev + 40);
+  });
+
+  it("falls back to the local revision for a palace that was never synced", () => {
+    const palace = createPalace(db, "Never synced");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    // No sync_state row means no remote revision to speak of; the local one is all there is.
+    expect(tombstone.rev).toBeGreaterThan(localRev);
+  });
 });

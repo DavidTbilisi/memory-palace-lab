@@ -14,6 +14,39 @@ type StoredPalaceRecord = {
   snapshot: PalaceSnapshot;
 };
 
+/**
+ * Mirrors the global `id TEXT PRIMARY KEY` that db.rs declares on canvas_objects, nodes,
+ * edges, routes and loci.
+ *
+ * Keeping one snapshot per palace in a Map makes a cross-palace id collision invisible here
+ * while SQLite rejects the write outright — which is how a "keep both" fork that reused its
+ * source's row ids passed every test and then failed on a real device with
+ * `UNIQUE constraint failed: canvas_objects.id`. This makes the double as strict as the
+ * database it stands in for.
+ */
+function assertRowIdsAreFree(snapshot: PalaceSnapshot, others: Iterable<PalaceSnapshot>): void {
+  // Materialized once: `Map.values()` is a one-shot iterator, and walking it per table left
+  // every table after the first checking against an already-exhausted sequence.
+  const existing = [...others].filter((other) => other.palace.id !== snapshot.palace.id);
+  const tables = [
+    ["canvas_objects", (s: PalaceSnapshot) => s.canvasObjects.map((r) => r.id)],
+    ["nodes", (s: PalaceSnapshot) => s.nodes.map((r) => r.id)],
+    ["edges", (s: PalaceSnapshot) => s.edges.map((r) => r.id)],
+    ["routes", (s: PalaceSnapshot) => s.routes.map((r) => r.id)],
+    ["loci", (s: PalaceSnapshot) => s.loci.map((r) => r.id)],
+  ] as const;
+
+  for (const [table, idsOf] of tables) {
+    const taken = new Set<string>();
+    for (const other of existing) {
+      for (const id of idsOf(other)) taken.add(id);
+    }
+    for (const id of idsOf(snapshot)) {
+      if (taken.has(id)) throw new Error(`UNIQUE constraint failed: ${table}.id`);
+    }
+  }
+}
+
 function readStoredPalaceSnapshots() {
   if (typeof window === "undefined") return [] as PalaceSnapshot[];
   try {
@@ -295,6 +328,8 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
         atlasPath: atlasPath?.trim() || null,
         deletedAt: null,
         purgeAt: null,
+        rev: 1,
+        updatedAt: createdAt,
       };
       const snap: PalaceSnapshot = {
         palace,
@@ -317,7 +352,14 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
     },
     async savePalace(snapshot: PalaceSnapshot) {
       await hydrateBrowserStorage();
-      palaces.set(snapshot.palace.id, cloneSnapshot(snapshot));
+      // Bump from the stored row rather than trusting the incoming snapshot, matching
+      // save_snapshot in db.rs: a snapshot arriving from another device must not be able to
+      // dictate this device's revision.
+      assertRowIdsAreFree(snapshot, palaces.values());
+      const stored = cloneSnapshot(snapshot);
+      stored.palace.rev = (palaces.get(snapshot.palace.id)?.palace.rev ?? 0) + 1;
+      stored.palace.updatedAt = new Date().toISOString();
+      palaces.set(snapshot.palace.id, stored);
       await persistPalaces();
     },
     async softDeletePalace(palaceId: string) {
@@ -328,6 +370,9 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
       const deletedAt = new Date().toISOString();
       snapshot.palace.deletedAt = deletedAt;
       snapshot.palace.purgeAt = new Date(Date.parse(deletedAt) + TRASH_RETENTION_MS).toISOString();
+      // A delete is a change that has to propagate, so it bumps the revision like an edit.
+      snapshot.palace.rev = (snapshot.palace.rev ?? 0) + 1;
+      snapshot.palace.updatedAt = deletedAt;
       await persistPalaces();
     },
     async restorePalace(palaceId: string) {
@@ -337,6 +382,8 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
       if (!snapshot) return;
       snapshot.palace.deletedAt = null;
       snapshot.palace.purgeAt = null;
+      snapshot.palace.rev = (snapshot.palace.rev ?? 0) + 1;
+      snapshot.palace.updatedAt = new Date().toISOString();
       await persistPalaces();
     },
     async purgePalace(palaceId: string) {
@@ -353,7 +400,13 @@ export function createInMemoryPalaceRepository(): PalaceRepository {
     },
     async appendAnalyticsEvents(events) {
       await hydrateBrowserStorage();
-      analyticsEvents = [...analyticsEvents, ...(JSON.parse(JSON.stringify(events)) as AnalyticsEvent[])];
+      // Upsert by id, matching INSERT OR REPLACE in db.rs and palaceDb.ts. Sync replays
+      // events it pulled from other devices, so appending blindly would duplicate them.
+      const byId = new Map(analyticsEvents.map((event) => [event.id, event]));
+      for (const event of JSON.parse(JSON.stringify(events)) as AnalyticsEvent[]) {
+        byId.set(event.id, event);
+      }
+      analyticsEvents = [...byId.values()];
       await persistAnalyticsEvents();
     },
     async exportJson(snapshot: PalaceSnapshot) {

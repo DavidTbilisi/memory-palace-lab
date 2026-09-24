@@ -37,7 +37,30 @@ CREATE TABLE IF NOT EXISTS palaces (
     atlas_path TEXT,
     editor_snapshot TEXT,
     deleted_at TEXT,
-    purge_at TEXT
+    purge_at TEXT,
+    rev INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+    palace_id TEXT PRIMARY KEY NOT NULL,
+    base_rev INTEGER NOT NULL DEFAULT 0,
+    base_hash TEXT NOT NULL DEFAULT '',
+    remote_rev INTEGER NOT NULL DEFAULT 0,
+    remote_hash TEXT NOT NULL DEFAULT '',
+    synced_at TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS sync_tombstones (
+    palace_id TEXT PRIMARY KEY NOT NULL,
+    deleted_at TEXT NOT NULL,
+    rev INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sync_foreign_ids (
+    kind TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    PRIMARY KEY (kind, entity_id)
 );
 
 CREATE TABLE IF NOT EXISTS canvas_objects (
@@ -138,6 +161,29 @@ const COLUMN_UPGRADES = [
   "ALTER TABLE routes ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE routes ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
   "ALTER TABLE loci ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
+  // Revision tracking for the sync vault. Every writer of this database bumps `rev`, so the
+  // MCP server and the CLI must add the columns too — otherwise an edit made here would be
+  // invisible to a sync run started from the app.
+  "ALTER TABLE palaces ADD COLUMN rev INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE palaces ADD COLUMN updated_at TEXT",
+  `CREATE TABLE IF NOT EXISTS sync_state (
+    palace_id TEXT PRIMARY KEY NOT NULL,
+    base_rev INTEGER NOT NULL DEFAULT 0,
+    base_hash TEXT NOT NULL DEFAULT '',
+    remote_rev INTEGER NOT NULL DEFAULT 0,
+    remote_hash TEXT NOT NULL DEFAULT '',
+    synced_at TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS sync_tombstones (
+    palace_id TEXT PRIMARY KEY NOT NULL,
+    deleted_at TEXT NOT NULL,
+    rev INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE TABLE IF NOT EXISTS sync_foreign_ids (
+    kind TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    PRIMARY KEY (kind, entity_id)
+  )`,
 ];
 
 export function upgradeSchema(db: DatabaseSync): void {
@@ -181,6 +227,8 @@ function palaceFromRow(row: Row): Palace {
     editorSnapshot: "editor_snapshot" in row ? optStr(row, "editor_snapshot") : null,
     deletedAt: optStr(row, "deleted_at"),
     purgeAt: optStr(row, "purge_at"),
+    rev: typeof row.rev === "number" ? row.rev : 0,
+    updatedAt: optStr(row, "updated_at"),
   };
 }
 
@@ -214,17 +262,39 @@ function nodeFromRow(row: Row): MemoryNode {
   };
 }
 
+/**
+ * Remember hard deletes before the rows go, mirroring record_tombstones in db.rs. Without a
+ * tombstone the next sync pull cheerfully restores whatever the purge removed.
+ */
 export function purgeExpiredPalaces(db: DatabaseSync): void {
-  db.prepare(
-    "DELETE FROM palaces WHERE deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?",
-  ).run(new Date().toISOString());
+  const now = new Date().toISOString();
+  const expired = "deleted_at IS NOT NULL AND purge_at IS NOT NULL AND purge_at <= ?";
+  // The remote revision last agreed on, not the local one — see record_tombstones in db.rs.
+  // `palaces.rev` is per-device, so comparing it against the vault's revision made purging
+  // anything pulled from another device look like "edited elsewhere after the delete".
+  const doomed = db
+    .prepare(
+      `SELECT p.id,
+              COALESCE((SELECT s.remote_rev FROM sync_state s WHERE s.palace_id = p.id), p.rev) AS rev
+       FROM palaces p WHERE ${expired}`,
+    )
+    .all(now) as Row[];
+  for (const row of doomed) {
+    db.prepare(
+      `INSERT INTO sync_tombstones (palace_id, deleted_at, rev) VALUES (?, ?, ?)
+       ON CONFLICT(palace_id) DO UPDATE SET deleted_at = excluded.deleted_at,
+         rev = MAX(sync_tombstones.rev, excluded.rev)`,
+    ).run(str(row, "id"), now, num(row, "rev"));
+    db.prepare("DELETE FROM sync_state WHERE palace_id = ?").run(str(row, "id"));
+  }
+  db.prepare(`DELETE FROM palaces WHERE ${expired}`).run(now);
 }
 
 export function listPalaces(db: DatabaseSync): Palace[] {
   purgeExpiredPalaces(db);
   const rows = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
        FROM palaces
        WHERE deleted_at IS NULL
        ORDER BY COALESCE(atlas_path, ''), created_at DESC`,
@@ -237,7 +307,7 @@ export function listTrashedPalaces(db: DatabaseSync): Palace[] {
   purgeExpiredPalaces(db);
   const rows = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
        FROM palaces
        WHERE deleted_at IS NOT NULL
        ORDER BY purge_at ASC, created_at DESC`,
@@ -254,8 +324,8 @@ export function createPalace(
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   db.prepare(
-    "INSERT INTO palaces (id, name, created_at, alias, atlas_path, deleted_at, purge_at) VALUES (?, ?, ?, NULL, ?, NULL, NULL)",
-  ).run(id, name, createdAt, atlasPath ?? null);
+    "INSERT INTO palaces (id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at) VALUES (?, ?, ?, NULL, ?, NULL, NULL, 1, ?)",
+  ).run(id, name, createdAt, atlasPath ?? null, createdAt);
   return {
     id,
     name,
@@ -265,6 +335,8 @@ export function createPalace(
     editorSnapshot: null,
     deletedAt: null,
     purgeAt: null,
+    rev: 1,
+    updatedAt: createdAt,
   };
 }
 
@@ -272,7 +344,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
   purgeExpiredPalaces(db);
   const palaceRow = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at
+      `SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at
        FROM palaces WHERE id = ? AND deleted_at IS NULL`,
     )
     .get(palaceId) as Row | undefined;
@@ -387,14 +459,29 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
 export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
   const palaceId = snap.palace.id;
 
+  // Upsert and bump, mirroring save_snapshot in src-tauri/src/db.rs. A plain UPDATE writes
+  // nothing when the palace is not here yet, and with foreign keys off the child INSERTs
+  // below would still land — orphaned rows belonging to no palace. `rev` always comes from
+  // the stored row, never from the caller, so a snapshot cannot forge a revision.
+  const now = new Date().toISOString();
   db.prepare(
-    "UPDATE palaces SET name = ?, alias = ?, atlas_path = ?, editor_snapshot = ? WHERE id = ?",
+    `INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 1, ?)
+     ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         alias = excluded.alias,
+         atlas_path = excluded.atlas_path,
+         editor_snapshot = excluded.editor_snapshot,
+         rev = palaces.rev + 1,
+         updated_at = excluded.updated_at`,
   ).run(
+    palaceId,
     snap.palace.name,
+    snap.palace.createdAt,
     snap.palace.alias ?? null,
     snap.palace.atlasPath ?? null,
     snap.palace.editorSnapshot ?? null,
-    palaceId,
+    now,
   );
 
   db.prepare("DELETE FROM loci WHERE route_id IN (SELECT id FROM routes WHERE palace_id = ?)").run(
@@ -483,16 +570,18 @@ export function softDeletePalace(db: DatabaseSync, palaceId: string): void {
   purgeExpiredPalaces(db);
   const deletedAt = new Date().toISOString();
   const purgeAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  db.prepare("UPDATE palaces SET deleted_at = ?, purge_at = ? WHERE id = ?").run(
-    deletedAt,
-    purgeAt,
-    palaceId,
-  );
+  // A delete is a change that has to reach the other devices, so it bumps `rev` like an edit.
+  db.prepare(
+    "UPDATE palaces SET deleted_at = ?, purge_at = ?, rev = rev + 1, updated_at = ? WHERE id = ?",
+  ).run(deletedAt, purgeAt, deletedAt, palaceId);
 }
 
 export function restorePalace(db: DatabaseSync, palaceId: string): void {
   purgeExpiredPalaces(db);
-  db.prepare("UPDATE palaces SET deleted_at = NULL, purge_at = NULL WHERE id = ?").run(palaceId);
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE palaces SET deleted_at = NULL, purge_at = NULL, rev = rev + 1, updated_at = ? WHERE id = ?",
+  ).run(now, palaceId);
 }
 
 export function listAnalyticsEvents(
@@ -556,7 +645,7 @@ export function appendAnalyticsEvents(db: DatabaseSync, events: AnalyticsEvent[]
 export function resolvePalace(db: DatabaseSync, ref: string): Palace {
   const byId = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
        FROM palaces WHERE id = ? AND deleted_at IS NULL`,
     )
     .get(ref) as Row | undefined;
@@ -564,7 +653,7 @@ export function resolvePalace(db: DatabaseSync, ref: string): Palace {
 
   const matches = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
        FROM palaces
        WHERE deleted_at IS NULL AND (name = ? COLLATE NOCASE OR alias = ? COLLATE NOCASE)`,
     )

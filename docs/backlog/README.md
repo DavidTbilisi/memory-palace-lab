@@ -100,3 +100,11 @@ rather than after `08`.
     clicks per stop and routes were invisible on the canvas. Part 1 (builder) ships first;
     part 2 adds walk direction, review settings, notes, sections, and DSL/MCP support.
 
+18. [Device Sync Vault](./18-device-sync-vault.feature)
+    Why here: it changes no palace concept and adds no psychology — it removes the reason a
+    palace stops being reviewed, which is that its schedule lives on a machine you are not
+    sitting at. Ranked after the route work because a route and its stops are what sync
+    carries, and the shape of both had to settle first. Optional and off by default: no
+    server and no account, just a folder the learner already syncs and a passphrase only
+    they hold.
+
