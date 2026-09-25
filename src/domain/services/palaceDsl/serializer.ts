@@ -5,6 +5,7 @@ import type {
   PalaceSnapshot,
 } from "../../entities/types";
 import { formatCastCompact } from "./cast";
+import { normalizeNedf } from "../nedf";
 
 function formatPortalTarget(p: PalacePortalRef): string | null {
   if (!p.targetPalaceName) return null;
@@ -48,6 +49,15 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
 
     if (node.imageUrl) {
       lines.push(`@image ${node.imageUrl}`);
+    }
+
+    const nedf = normalizeNedf(node.nedf);
+    if (nedf) {
+      // A multi-line slot takes one line per line, as `:` content does.
+      for (const piece of nedf.nameHook?.split("\n") ?? []) lines.push(`@N ${piece}`);
+      for (const piece of nedf.essence?.split("\n") ?? []) lines.push(`@E ${piece}`);
+      if (nedf.distinguisher) lines.push(`@D ${nedf.distinguisher.prompt} => ${nedf.distinguisher.reason}`.trimEnd());
+      if (nedf.failure) lines.push(`@F ${nedf.failure.scenario} => ${nedf.failure.correction}`.trimEnd());
     }
 
     if (node.tags && node.tags.length > 0) {

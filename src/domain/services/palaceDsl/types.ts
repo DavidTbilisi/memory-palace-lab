@@ -1,4 +1,4 @@
-import type { MemoryNodeKind, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
+import type { MemoryNodeKind, NedfEncoding, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
 
 export type DslDiagnosticCode =
   | "duplicate-title"
@@ -9,6 +9,7 @@ export type DslDiagnosticCode =
   | "invalid-portal-target"
   | "misplaced-line"
   | "tag-syntax"
+  | "nedf-pair-incomplete"
   // Feature 1 — stable node identifiers
   | "duplicate-node-id"
   | "malformed-node-id"
@@ -126,6 +127,8 @@ export interface DslNode {
   portal: PalacePortalRef | null;
   /** URL declared via `@image <url>` directive. Null if not set. */
   imageUrl: string | null;
+  /** NEDF slots from `@N`, `@E`, `@D question => reason`, and `@F scenario => correction` lines. */
+  nedf: NedfEncoding | null;
   tags: string[];
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];

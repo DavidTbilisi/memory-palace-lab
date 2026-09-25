@@ -20,6 +20,7 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "misplaced-line":             "E006",
   "unknown-target":             "W007",
   "tag-syntax":                 "W008",
+  "nedf-pair-incomplete":       "W009",
 
   // E1xx — Stable node identifiers (Feature 1)
   "malformed-node-id":          "E101",

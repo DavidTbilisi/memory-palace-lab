@@ -268,6 +268,43 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(routeTitles).toEqual(["Kept"]);
   });
 
+  it("node tools set, patch, and clear NEDF slots, and report per-slot schedules on stops", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, {
+      palace: palace.id,
+      title: "Mutex",
+      nedf: { nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } },
+    });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Locks", nodes: ["Mutex"] });
+
+    let got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toEqual({ nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } });
+    expect(got.unencodedSlots).toEqual(["essence", "failure"]);
+    expect(got.routes[0]!.slots!.map((s) => s.slot)).toEqual(["nameHook", "distinguisher"]);
+
+    // A patch changes only the slots it names; null clears one slot.
+    await nodes.nodeUpdate(ctx, {
+      palace: palace.id,
+      node: "Mutex",
+      nedf: { failure: { scenario: "Threads hang", correction: "Release in finally" }, nameHook: null },
+    });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toEqual({
+      distinguisher: { prompt: "One key?", reason: "One owner" },
+      failure: { scenario: "Threads hang", correction: "Release in finally" },
+    });
+    const stop = routes.routeList(ctx, { palace: palace.id }).routes[0]!.loci[0]!;
+    expect(stop.slots!.map((s) => s.slot)).toEqual(["distinguisher", "failure"]);
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "@D One key? => One owner\n@F Threads hang => Release in finally\n",
+    );
+
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Mutex", nedf: null });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toBeUndefined();
+    expect(got.routes[0]!.slots).toBeUndefined();
+  });
+
   function palaceCreateHelper() {
     return palaces.palaceCreate(ctx, { name: "Test Palace" });
   }
