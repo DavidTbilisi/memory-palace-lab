@@ -97,8 +97,9 @@ rather than after `08`.
 
 17. [Route Builder](./17-route-builder.feature)
     Why: the route is the walk order every review depends on, yet building one took two
-    clicks per stop and routes were invisible on the canvas. Part 1 (builder) ships first;
-    part 2 adds walk direction, review settings, notes, sections, and DSL/MCP support.
+    clicks per stop and routes were invisible on the canvas. Part 1 (builder) shipped first;
+    part 2 added walk direction, review settings, notes, sections, and DSL/MCP support.
+    Delivered 2026-09.
 
 18. [Device Sync Vault](./18-device-sync-vault.feature)
     Why here: it changes no palace concept and adds no psychology — it removes the reason a

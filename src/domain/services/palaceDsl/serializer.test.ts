@@ -208,6 +208,52 @@ describe("serializeDsl", () => {
     expect(snapshot.routes[0]!.loci).toEqual(["Gate of SOLID"]);
   });
 
+  it("writes route settings and notes, and the parser reads them back", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Gate", content: "", kind: "memory", portal: null }],
+      edges: [],
+      routes: [
+        {
+          id: "r-0",
+          palaceId: "p",
+          name: "Night Walk",
+          color: "sky",
+          hidden: true,
+          direction: "alternate",
+          lastWalkDirection: "reverse",
+          inReview: false,
+          notes: "Enter by the east gate.\nSlow down in the library.",
+          metadata: [{ key: "difficulty", value: "advanced" }],
+        },
+        { id: "r-1", palaceId: "p", name: "Plain", direction: "forward", inReview: true },
+      ],
+      loci: [{ id: "l-0", routeId: "r-0", nodeId: "n-0", orderIndex: 0, label: "" }],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "/Night Walk\n#color:sky #hidden #direction:alternate #review:off #difficulty:advanced\n" +
+        ": Enter by the east gate.\n: Slow down in the library.\n1 Gate\n",
+    );
+    expect(out).toContain("/Plain\n");
+    expect(out).not.toContain("lastWalkDirection");
+
+    const { snapshot, diagnostics } = parseDsl(out);
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]).toMatchObject({
+      color: "sky",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Enter by the east gate.\nSlow down in the library.",
+      loci: ["Gate"],
+    });
+    expect(snapshot.routes[0]!.metadata.map(({ key }) => key)).toEqual(["difficulty"]);
+    expect(snapshot.routes[1]).not.toHaveProperty("direction");
+    expect(snapshot.routes[1]).not.toHaveProperty("inReview");
+  });
+
   it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },

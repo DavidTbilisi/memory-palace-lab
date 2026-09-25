@@ -47,6 +47,7 @@ export function AnalyticsPanel() {
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const loci = usePalaceStore((s) => s.loci);
+  const routes = usePalaceStore((s) => s.routes);
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const palaces = usePalaceStore((s) => s.palaces);
@@ -85,7 +86,7 @@ export function AnalyticsPanel() {
     heatmapCells,
     dueCount,
     averageInterval,
-  } = useReviewMetrics(analyticsEvents, loci, filter);
+  } = useReviewMetrics(analyticsEvents, loci, routes, filter);
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();

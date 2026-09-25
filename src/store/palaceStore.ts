@@ -16,7 +16,9 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
+  RouteDirection,
   StopView,
+  WalkDirection,
 } from "../domain/entities/types";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
 import { ensureUniqueMemoryIds } from "../canvas/memoryIds";
@@ -33,7 +35,8 @@ import {
   walkNext as nextWalkIndex,
   walkPrevious as prevWalkIndex,
   orderedLoci,
-  locusAtOrderedIndex,
+  walkOrderedLoci,
+  nextWalkDirection,
   clampWalkIndex,
 } from "../domain/services/walkService";
 import {
@@ -161,6 +164,8 @@ export type PalaceStore = {
   walkOpen: boolean;
   walkRouteId: string | null;
   walkIndex: number;
+  /** The order the current walk visits its route's stops; `walkIndex` counts in this order. */
+  walkDirection: WalkDirection;
   walkSessionId: string | null;
   walkRecallMode: boolean;
   walkCueOnly: boolean;
@@ -268,6 +273,12 @@ export type PalaceStore = {
   dismissRouteNotice: () => void;
   setRouteColor: (routeId: string, color: RouteColor) => void;
   setRouteHidden: (routeId: string, hidden: boolean) => void;
+  setRouteDirection: (routeId: string, direction: RouteDirection) => void;
+  /** `false` makes the route a draft that is never due; its stops keep their schedules. */
+  setRouteInReview: (routeId: string, inReview: boolean) => void;
+  setRouteNotes: (routeId: string, notes: string) => void;
+  /** Start a named section at a stop; an empty name ends the section there. */
+  setStopSection: (locusId: string, section: string | null) => void;
   moveRouteTo: (routeId: string, toIndex: number) => void;
   /** The user deleted these nodes: take their stops out, keeping them for an undo. */
   detachStopsForNodes: (nodeIds: string[]) => void;
@@ -322,6 +333,23 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   const activeRouteIdOf = (state: Pick<PalaceStore, "walkRouteId" | "routes">) =>
     state.walkRouteId ?? state.routes[0]?.id ?? null;
+
+  /** Settle a new walk's direction; an alternate route remembers it so the next walk flips. */
+  const startWalkDirection = (routeId: string | null): WalkDirection => {
+    const route = get().routes.find((candidate) => candidate.id === routeId);
+    const direction = nextWalkDirection(route);
+    if (route?.direction === "alternate") {
+      set((state) => ({
+        routes: state.routes.map((candidate) =>
+          candidate.id === route.id
+            ? { ...candidate, lastWalkDirection: direction }
+            : candidate,
+        ),
+      }));
+      scheduleDraftSave();
+    }
+    return direction;
+  };
 
   /** Keep the walk position inside the active route after its stops change. */
   const clampedWalkIndex = (nextLoci: Locus[]) => {
@@ -422,7 +450,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
   };
 
   const getWalkContext = () => {
-    const { loci, routes, walkRouteId, walkIndex, currentPalace } = get();
+    const { loci, routes, walkRouteId, walkIndex, walkDirection, currentPalace } = get();
     const routeId = walkRouteId ?? routes[0]?.id ?? null;
     const route = routes.find((candidate) => candidate.id === routeId) ?? null;
     if (!routeId) {
@@ -437,8 +465,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         stepIndex: 0,
       };
     }
-    const list = orderedLoci(loci.filter((locus) => locus.routeId === routeId));
-    const locus = locusAtOrderedIndex(list, walkIndex) ?? null;
+    const list = walkOrderedLoci(
+      loci.filter((locus) => locus.routeId === routeId),
+      walkDirection,
+    );
+    const locus = list[walkIndex] ?? null;
     return {
       palaceId: currentPalace?.id ?? null,
       routeId,
@@ -623,6 +654,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkOpen: false,
     walkRouteId: null,
     walkIndex: 0,
+    walkDirection: "forward",
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
@@ -1213,6 +1245,48 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       scheduleDraftSave();
     },
 
+    setRouteDirection(routeId, direction) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId ? { ...route, direction } : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteInReview(routeId, inReview) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, inReview: inReview ? undefined : false }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteNotes(routeId, notes) {
+      const trimmed = notes.trim();
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, notes: trimmed ? notes : undefined }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setStopSection(locusId, section) {
+      const name = section?.trim() || null;
+      set((state) => ({
+        loci: state.loci.map((locus) =>
+          locus.id === locusId ? { ...locus, section: name } : locus,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
     moveRouteTo(routeId, toIndex) {
       const { routes } = get();
       const from = routes.findIndex((route) => route.id === routeId);
@@ -1574,9 +1648,12 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const previousWalkSessionId = state.walkSessionId;
       const nextWalkSessionId =
         wasOpen && walkRouteId ? crypto.randomUUID() : null;
+      const walkDirection =
+        wasOpen && walkRouteId ? startWalkDirection(walkRouteId) : "forward";
       set((state) => ({
         walkRouteId,
         walkIndex: 0,
+        walkDirection,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepRated: false,
@@ -1630,9 +1707,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           : walkOpen
             ? state.walkSessionId
             : null;
+      const starting = walkOpen && !wasOpen;
       set({
         walkOpen,
-        walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
+        walkIndex: starting ? 0 : state.walkIndex,
+        walkDirection: starting
+          ? startWalkDirection(activeRouteIdOf(state))
+          : state.walkDirection,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepRated: false,
@@ -1884,8 +1965,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const nextIndex = nextWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
@@ -1897,8 +1979,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const nextIndex = prevWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
@@ -1918,8 +2001,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const clamped = clampWalkIndex(index, list.length);
       if (clamped === walkIndex) return;
@@ -1931,10 +2015,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return null;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
-      return locusAtOrderedIndex(list, walkIndex) ?? null;
+      return list[walkIndex] ?? null;
     },
 
     currentWalkNodeId() {

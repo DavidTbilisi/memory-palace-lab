@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { RouteColor, RouteDirection } from "../../../src/domain/entities/types";
 import {
   deleteLocus,
   moveLocus,
@@ -19,6 +20,11 @@ export function routeList(ctx: ServerContext, args: { palace: string }) {
     routes: snapshot.routes.map((r) => ({
       id: r.id,
       name: r.name,
+      color: r.color ?? undefined,
+      hidden: r.hidden || undefined,
+      direction: r.direction ?? "forward",
+      inReview: r.inReview !== false,
+      notes: r.notes || undefined,
       metadata: r.metadata?.length ? r.metadata : undefined,
       loci: orderedLoci(snapshot.loci.filter((l) => l.routeId === r.id)).map((l) => ({
         locusId: l.id,
@@ -26,6 +32,7 @@ export function routeList(ctx: ServerContext, args: { palace: string }) {
         node: titleOf(l.nodeId),
         orderIndex: l.orderIndex,
         label: l.label || undefined,
+        section: l.section || undefined,
         schedule: {
           interval: l.interval,
           easeFactor: l.easeFactor,
@@ -70,17 +77,46 @@ export async function routeCreate(
   return { id: result.routeId, name: args.name, loci: result.lociAdded };
 }
 
-export async function routeUpdate(
-  ctx: ServerContext,
-  args: { palace: string; route: string; name: string },
-) {
+export interface RouteUpdateArgs {
+  palace: string;
+  route: string;
+  name?: string;
+  /** `null` goes back to the palette color from the route's position. */
+  color?: RouteColor | null;
+  hidden?: boolean;
+  direction?: RouteDirection;
+  inReview?: boolean;
+  /** An empty string clears the notes. */
+  notes?: string;
+}
+
+const ROUTE_SETTING_KEYS = ["color", "hidden", "direction", "inReview", "notes"] as const;
+
+export async function routeUpdate(ctx: ServerContext, args: RouteUpdateArgs) {
+  const changed = ROUTE_SETTING_KEYS.filter((key) => args[key] !== undefined);
+  if (args.name === undefined && changed.length === 0) {
+    throw new Error("Nothing to update: pass a name or at least one of color, hidden, direction, inReview, notes.");
+  }
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "route_update", (m) => {
     const route = resolveRouteRef(m.routes, args.route);
-    route.name = args.name;
-    m.recordEvent("locus_updated", "graph", { routeId: route.id, payload: { action: "route_renamed", name: args.name } });
-    return { routeId: route.id };
+    if (args.name !== undefined) {
+      route.name = args.name;
+      m.recordEvent("locus_updated", "graph", { routeId: route.id, payload: { action: "route_renamed", name: args.name } });
+    }
+    if (args.color !== undefined) route.color = args.color;
+    if (args.hidden !== undefined) route.hidden = args.hidden;
+    if (args.direction !== undefined) route.direction = args.direction;
+    if (args.inReview !== undefined) route.inReview = args.inReview ? undefined : false;
+    if (args.notes !== undefined) route.notes = args.notes.trim() ? args.notes : undefined;
+    if (changed.length > 0) {
+      m.recordEvent("locus_updated", "graph", {
+        routeId: route.id,
+        payload: { action: "route_settings_changed", settings: changed },
+      });
+    }
+    return { routeId: route.id, name: route.name };
   });
-  return { id: result.routeId, name: args.name, updated: true };
+  return { id: result.routeId, name: result.name, updated: true };
 }
 
 export async function routeDelete(ctx: ServerContext, args: { palace: string; route: string }) {

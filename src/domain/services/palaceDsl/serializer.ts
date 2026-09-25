@@ -78,9 +78,18 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
   for (const route of snapshot.routes) {
     lines.push("");
     lines.push(`/${route.name}`);
-    if (route.metadata?.length) {
-      // Every tag starts with "#", which is also where a multi-word #prereq value ends.
-      lines.push(route.metadata.map(({ key, value }) => `#${key}:${value ?? ""}`).join(" "));
+    // Settings first, defaults left out; every tag starts with "#", which is also where a
+    // multi-word #prereq value ends.
+    const tags = [
+      route.color ? `#color:${route.color}` : null,
+      route.hidden ? "#hidden" : null,
+      route.direction && route.direction !== "forward" ? `#direction:${route.direction}` : null,
+      route.inReview === false ? "#review:off" : null,
+      ...(route.metadata ?? []).map(({ key, value }) => `#${key}:${value ?? ""}`),
+    ].filter((tag): tag is string => tag !== null);
+    if (tags.length > 0) lines.push(tags.join(" "));
+    if (route.notes?.trim()) {
+      for (const piece of route.notes.split("\n")) lines.push(`: ${piece}`);
     }
     const ordered = (lociByRoute.get(route.id) ?? [])
       .slice()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Locus } from "../entities/types";
-import { averageLocusInterval, buildDueQueue, countDueLoci } from "./dueQueue";
+import { averageLocusInterval, buildDueQueue, countDueLoci, reviewedLoci } from "./dueQueue";
 
 const NOW = "2026-09-03T12:00:00.000Z";
 const locus = (id: string, routeId: string, nodeId: string, nextReviewAt: string, interval?: number): Locus =>
@@ -46,5 +46,38 @@ describe("buildDueQueue", () => {
     const empty = buildDueQueue([], NOW);
     expect(empty.items).toEqual([]);
     expect(empty.averageInterval).toBeNull();
+  });
+
+  it("never lists a draft route's stops, and lists them again once review is back on", () => {
+    const withDraft = (inReview: boolean | undefined) =>
+      ({
+        palace: { id: "d", name: "Drafts", createdAt: NOW },
+        routes: [
+          { id: "r1", palaceId: "d", name: "Reviewed" },
+          { id: "draft", palaceId: "d", name: "Draft", inReview },
+        ],
+        nodes: [],
+        loci: [
+          locus("l1", "r1", "n1", "2026-09-02T00:00:00.000Z", 2),
+          locus("l2", "draft", "n2", "2026-09-01T00:00:00.000Z", 6),
+        ],
+      }) as never;
+
+    const drafted = buildDueQueue([withDraft(false)], NOW);
+    expect(drafted.items.map((item) => item.locusId)).toEqual(["l1"]);
+    expect(drafted.countByRoute.get("draft")).toBeUndefined();
+    expect(drafted.averageInterval).toBe(2);
+
+    const reviewed = buildDueQueue([withDraft(undefined)], NOW);
+    expect(reviewed.items.map((item) => item.locusId)).toEqual(["l2", "l1"]);
+  });
+
+  it("filters loci by their route's review setting", () => {
+    const loci = [locus("l1", "r1", "n1", NOW), locus("l2", "draft", "n2", NOW), locus("l3", "gone", "n3", NOW)];
+    const routes = [
+      { id: "r1", inReview: true },
+      { id: "draft", inReview: false },
+    ];
+    expect(reviewedLoci(loci, routes).map((l) => l.id)).toEqual(["l1", "l3"]);
   });
 });

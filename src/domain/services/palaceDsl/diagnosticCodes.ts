@@ -46,6 +46,7 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
 
   // W7xx — Route metadata (Feature 7)
   "route-prereq-unresolved":    "W701",
+  "route-setting-invalid":      "W702",
 
   // E8xx — Query/traversal language (Feature 8)
   "query-verb-unknown":         "E801",

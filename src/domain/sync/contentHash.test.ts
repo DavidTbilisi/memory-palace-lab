@@ -113,6 +113,10 @@ describe("palaceContentHash", () => {
     ["trashed state", (s: PalaceSnapshot) => (s.palace.deletedAt = "2026-05-01T00:00:00.000Z")],
     ["route name", (s: PalaceSnapshot) => (s.routes[0].name = "Renamed route")],
     ["route colour", (s: PalaceSnapshot) => (s.routes[0].color = "amber")],
+    ["walk direction", (s: PalaceSnapshot) => (s.routes[0].direction = "reverse")],
+    ["review setting", (s: PalaceSnapshot) => (s.routes[0].inReview = false)],
+    ["route notes", (s: PalaceSnapshot) => (s.routes[0].notes = "Start at the gate")],
+    ["stop section", (s: PalaceSnapshot) => (s.loci[0].section = "Hall")],
     ["stop order", (s: PalaceSnapshot) => (s.loci[0].orderIndex = 5)],
   ])("changes when the %s changes", async (_label, mutate) => {
     const before = snapshot();

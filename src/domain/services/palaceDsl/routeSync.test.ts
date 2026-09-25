@@ -5,8 +5,13 @@ import type { DslRoute } from "./types";
 
 const PALACE_ID = "p-1";
 
-function dslRoute(name: string, loci: string[], metadata: DslRoute["metadata"] = []): DslRoute {
-  return { name, normalizedName: name.toLowerCase(), metadata, loci, sourceLine: 0 };
+function dslRoute(
+  name: string,
+  loci: string[],
+  metadata: DslRoute["metadata"] = [],
+  settings: Partial<DslRoute> = {},
+): DslRoute {
+  return { name, normalizedName: name.toLowerCase(), metadata, loci, sourceLine: 0, ...settings };
 }
 
 let counter = 0;
@@ -94,7 +99,14 @@ describe("reconcileRoutes", () => {
 
   it("gives a node listed twice two distinct stops and keeps route settings", () => {
     counter = 0;
-    const currentRoute: MemoryRoute = { id: "r-1", palaceId: PALACE_ID, name: "Loop", color: "rose", hidden: true };
+    const currentRoute: MemoryRoute = {
+      id: "r-1",
+      palaceId: PALACE_ID,
+      name: "Loop",
+      color: "rose",
+      hidden: true,
+      lastWalkDirection: "reverse",
+    };
     const currentLoci: Locus[] = [
       { id: "l-a1", routeId: "r-1", nodeId: "node-a", orderIndex: 0, label: "start" },
       { id: "l-b", routeId: "r-1", nodeId: "node-b", orderIndex: 1, label: "" },
@@ -105,7 +117,7 @@ describe("reconcileRoutes", () => {
       palaceId: PALACE_ID,
       currentRoutes: [currentRoute],
       currentLoci,
-      intent: [dslRoute("Loop", ["A", "B", "A", "A"])],
+      intent: [dslRoute("Loop", ["A", "B", "A", "A"], [], { color: "rose", hidden: true })],
       titleToNodeId: new Map([
         ["A", "node-a"],
         ["B", "node-b"],
@@ -120,12 +132,12 @@ describe("reconcileRoutes", () => {
     expect(result.added).toEqual({ routes: 0, loci: 1 });
   });
 
-  it("takes each route's metadata from the DSL, keeping its other settings", () => {
+  it("takes each route's metadata from the DSL", () => {
     counter = 0;
     const tags = (...pairs: [string, string][]) => pairs.map(([key, value]) => ({ key, value, raw: `#${key}:${value}` }));
     const current: MemoryRoute[] = [
       { id: "r-1", palaceId: PALACE_ID, name: "Deep", color: "rose", metadata: [{ key: "difficulty", value: "beginner" }] },
-      { id: "r-2", palaceId: PALACE_ID, name: "Plain", hidden: true, metadata: [{ key: "mode", value: "linear" }] },
+      { id: "r-2", palaceId: PALACE_ID, name: "Plain", metadata: [{ key: "mode", value: "linear" }] },
     ];
 
     const result = reconcileRoutes({
@@ -133,7 +145,7 @@ describe("reconcileRoutes", () => {
       currentRoutes: current,
       currentLoci: [],
       intent: [
-        dslRoute("Deep", ["A"], tags(["difficulty", "advanced"], ["prereq", "Gate of SOLID"])),
+        dslRoute("Deep", ["A"], tags(["difficulty", "advanced"], ["prereq", "Gate of SOLID"]), { color: "rose" }),
         dslRoute("Plain", ["A"]),
         dslRoute("Fresh", ["A"], tags(["duration", "30min"])),
       ],
@@ -153,11 +165,62 @@ describe("reconcileRoutes", () => {
         ],
       },
       // Written without metadata lines, so it has none now.
-      { id: "r-2", palaceId: PALACE_ID, name: "Plain", hidden: true },
+      { id: "r-2", palaceId: PALACE_ID, name: "Plain" },
       { id: "id-3", palaceId: PALACE_ID, name: "Fresh", metadata: [{ key: "duration", value: "30min" }] },
     ]);
     // The caller's route objects are not mutated.
     expect(current[1]!.metadata).toEqual([{ key: "mode", value: "linear" }]);
+  });
+
+  it("takes route settings from the DSL, resetting any it leaves out", () => {
+    counter = 0;
+    const current: MemoryRoute[] = [
+      {
+        id: "r-1",
+        palaceId: PALACE_ID,
+        name: "Loop",
+        color: "rose",
+        hidden: true,
+        direction: "alternate",
+        lastWalkDirection: "forward",
+        inReview: false,
+        notes: "Old notes",
+      },
+    ];
+
+    const set = reconcileRoutes({
+      palaceId: PALACE_ID,
+      currentRoutes: current,
+      currentLoci: [],
+      intent: [dslRoute("Loop", [], [], { color: "sky", direction: "reverse", notes: "Start at the gate." })],
+      titleToNodeId: new Map(),
+      uuid,
+    });
+    // #hidden and #review:off were removed from the DSL, so the route is shown and reviewed again.
+    expect(set.routes).toEqual([
+      {
+        id: "r-1",
+        palaceId: PALACE_ID,
+        name: "Loop",
+        color: "sky",
+        direction: "reverse",
+        lastWalkDirection: "forward",
+        notes: "Start at the gate.",
+      },
+    ]);
+    expect(current[0]!.hidden).toBe(true);
+  });
+
+  it("keeps each stop's section when the DSL is applied", () => {
+    const result = reconcileRoutes({
+      palaceId: PALACE_ID,
+      currentRoutes: [{ id: "r-1", palaceId: PALACE_ID, name: "Loop" }],
+      currentLoci: [{ id: "l-1", routeId: "r-1", nodeId: "node-a", orderIndex: 0, label: "", section: "Hall" }],
+      intent: [dslRoute("Loop", ["A"])],
+      titleToNodeId: new Map([["A", "node-a"]]),
+      uuid,
+    });
+    expect(result.loci[0]!.section).toBe("Hall");
   });
 
   it("emits a diagnostic for a locus referring to an unknown title and skips it", () => {

@@ -6,9 +6,13 @@
 #   replace a form panel whose Route mode did nothing.
 # Wiki source: memory-palace, mind-palace, neighborhood-palace (reverse walks),
 #   geography-mnemonic-route (split long routes)
-# Status: in progress. Part 1 (builder: panel, canvas paths, click-to-add, saved views per
-#   stop, color and visibility, reliability fixes) is delivered with this file; part 2
-#   (@part-2) is next.
+# Status: delivered 2026-09. Part 1 (builder: panel, canvas paths, click-to-add, saved views per
+#   stop, color and visibility, reliability fixes) shipped first. Part 2 (@part-2) followed: walk
+#   direction (forward, reverse, alternate), draft routes kept out of review, route notes, named
+#   sections on long routes, and route settings in the DSL (#color #hidden #direction #review,
+#   `:` notes) and MCP (route_list, route_update). All of it rides in the existing settings_json
+#   columns, so there was no schema migration. Sections are set in the Routes tab only; the DSL
+#   keeps them on apply but does not write them.
 
 Feature: Route builder
   In order to turn a palace into a walk I can rehearse without fighting the tool

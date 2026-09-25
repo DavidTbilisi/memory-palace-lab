@@ -51,6 +51,7 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkOpen: false,
     walkRouteId: "route-a",
     walkIndex: 0,
+    walkDirection: "forward",
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: false,
@@ -218,6 +219,68 @@ describe("currentWalkNodeId", () => {
     resetWalkState({ walkRouteId: null });
     // First route is "route-a", first locus at index 0 is "n1"
     expect(usePalaceStore.getState().currentWalkNodeId()).toBe("n1");
+  });
+});
+
+// ── walk direction ──────────────────────────────────────────────────────────
+
+describe("walk direction", () => {
+  const withDirection = (direction: MemoryRoute["direction"], lastWalkDirection?: MemoryRoute["lastWalkDirection"]) =>
+    routes.map((route) => (route.id === "route-a" ? { ...route, direction, lastWalkDirection } : route));
+
+  it("walks a reverse route from its last stop to its first", () => {
+    resetWalkState({ routes: withDirection("reverse") });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    expect(store.currentWalkNodeId()).toBe("n3");
+    store.walkNext();
+    expect(store.currentWalkNodeId()).toBe("n2");
+    store.walkNext();
+    store.walkNext();
+    expect(store.currentWalkNodeId()).toBe("n1");
+    store.walkPrev();
+    expect(store.currentWalkNodeId()).toBe("n2");
+  });
+
+  it("flips an alternate route on every walk and remembers the last direction", () => {
+    resetWalkState({ routes: withDirection("alternate") });
+    const store = usePalaceStore.getState();
+    const routeA = () => usePalaceStore.getState().routes.find((route) => route.id === "route-a")!;
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n1");
+    expect(routeA().lastWalkDirection).toBe("forward");
+    store.setWalkOpen(false);
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n3");
+    expect(routeA().lastWalkDirection).toBe("reverse");
+    store.setWalkOpen(false);
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n1");
+  });
+
+  it("keeps the direction while a walk stays open", () => {
+    resetWalkState({ routes: withDirection("alternate", "forward") });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    expect(usePalaceStore.getState().routes[0]!.lastWalkDirection).toBe("reverse");
+  });
+
+  it("takes the new route's direction when the route changes mid-walk", () => {
+    resetWalkState({
+      routes: routes.map((route) => (route.id === "route-b" ? route : { ...route, direction: "reverse" as const })),
+    });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    store.setWalkRoute("route-b");
+    expect(usePalaceStore.getState().walkDirection).toBe("forward");
+    expect(store.currentWalkNodeId()).toBe("n4");
   });
 });
 

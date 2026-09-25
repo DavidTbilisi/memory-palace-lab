@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { AnalyticsEvent, Locus } from "../../domain/entities/types";
-import { averageLocusInterval, countDueLoci } from "../../domain/services/dueQueue";
+import type { AnalyticsEvent, Locus, MemoryRoute } from "../../domain/entities/types";
+import { averageLocusInterval, countDueLoci, reviewedLoci } from "../../domain/services/dueQueue";
 import {
   buildReviewHeatmap,
   buildRetentionSeries,
@@ -14,7 +14,12 @@ import {
  * Pure derivation from the supplied inputs; the route filter applies to loci
  * as well as events.
  */
-export function useReviewMetrics(events: AnalyticsEvent[], loci: Locus[], filter: ReviewFilter) {
+export function useReviewMetrics(
+  events: AnalyticsEvent[],
+  loci: Locus[],
+  routes: MemoryRoute[],
+  filter: ReviewFilter,
+) {
   const retentionSeries = useMemo(() => buildRetentionSeries(events, 30, filter), [events, filter]);
   const trendDown = useMemo(() => retentionTrendDown(retentionSeries), [retentionSeries]);
   const heatmapCells = useMemo(
@@ -23,8 +28,11 @@ export function useReviewMetrics(events: AnalyticsEvent[], loci: Locus[], filter
   );
 
   const scopedLoci = useMemo(
-    () => (filter.routeId ? loci.filter((locus) => locus.routeId === filter.routeId) : loci),
-    [filter.routeId, loci],
+    () => {
+      const reviewed = reviewedLoci(loci, routes);
+      return filter.routeId ? reviewed.filter((locus) => locus.routeId === filter.routeId) : reviewed;
+    },
+    [filter.routeId, loci, routes],
   );
   const dueCount = useMemo(() => countDueLoci(scopedLoci), [scopedLoci]);
   const averageInterval = useMemo(() => averageLocusInterval(scopedLoci), [scopedLoci]);

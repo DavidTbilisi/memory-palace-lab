@@ -45,6 +45,33 @@ describe("route settings codec", () => {
     expect(decodeRouteSettings(json)).toEqual({ metadata: [{ key: "prereq", value: "Gate" }] });
     expect(decodeRouteSettings('{"metadata":"#prereq:Gate"}')).toEqual({});
   });
+
+  it("round-trips walk direction, review, and notes", () => {
+    const settings = {
+      direction: "alternate" as const,
+      lastWalkDirection: "reverse" as const,
+      inReview: false,
+      notes: "Enter by the east gate.\nSlow down in the library.",
+    };
+    const json = encodeRouteSettings(settings);
+    expect(JSON.parse(json)).toEqual(settings);
+    expect(decodeRouteSettings(json)).toEqual(settings);
+  });
+
+  it("leaves the default walk, review, and notes values out", () => {
+    expect(
+      encodeRouteSettings({ direction: "forward", inReview: true, notes: "  " }),
+    ).toBe("{}");
+    expect(
+      decodeRouteSettings('{"direction":"sideways","lastWalkDirection":"up","inReview":"no","notes":3}'),
+    ).toEqual({});
+    expect(decodeRouteSettings('{"direction":"forward","inReview":true}')).toEqual({});
+  });
+
+  it("keeps a forward last walk, which an alternate route needs to flip from", () => {
+    const json = encodeRouteSettings({ direction: "alternate", lastWalkDirection: "forward" });
+    expect(decodeRouteSettings(json)).toEqual({ direction: "alternate", lastWalkDirection: "forward" });
+  });
 });
 
 describe("stop settings codec", () => {
@@ -74,5 +101,18 @@ describe("stop settings codec", () => {
     expect(decodeStopSettings('{"view":{"x":"1","y":0,"w":10,"h":10}}')).toEqual({});
     expect(decodeStopSettings('{"view":{"x":0,"y":0,"w":10}}')).toEqual({});
     expect(encodeStopSettings({ view: { x: Number.NaN, y: 0, w: 10, h: 10 } })).toBe("{}");
+  });
+
+  it("round-trips a section name, alone or with a view", () => {
+    expect(decodeStopSettings(encodeStopSettings({ section: "Kitchen" }))).toEqual({ section: "Kitchen" });
+    const json = encodeStopSettings({ view, section: " Attic " });
+    expect(JSON.parse(json)).toEqual({ view, section: "Attic" });
+    expect(decodeStopSettings(json)).toEqual({ view, section: "Attic" });
+  });
+
+  it("drops a blank or non-text section and keeps the view", () => {
+    expect(encodeStopSettings({ section: "   " })).toBe("{}");
+    expect(encodeStopSettings({ section: null })).toBe("{}");
+    expect(decodeStopSettings(JSON.stringify({ view, section: 7 }))).toEqual({ view });
   });
 });
