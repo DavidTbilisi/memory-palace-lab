@@ -17,6 +17,7 @@ function mockStore(overrides: StoreOverrides = {}) {
     analyticsLoaded: true,
     loadAnalyticsEvents: vi.fn(),
     loci: [],
+    routes: [],
     dailyReviewGoal: 20,
     setDailyReviewGoal: vi.fn(),
     nodes: [],
