@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { decodeNodeMeta, encodeNodeMeta } from "../../src/domain/services/nodeMeta";
 import type {
   AnalyticsEvent,
   AnalyticsEventGroup,
@@ -10,7 +11,6 @@ import type {
   MemoryNode,
   MemoryRoute,
   Palace,
-  PalacePortalRef,
   PalaceSnapshot,
 } from "../../src/domain/entities/types";
 import {
@@ -233,23 +233,6 @@ function palaceFromRow(row: Row): Palace {
 }
 
 function nodeFromRow(row: Row): MemoryNode {
-  // Same node_meta_json decoding as fromInvoke in palaceRepositoryTauri.ts.
-  let portal: PalacePortalRef | null = null;
-  let imageUrl: string | null = null;
-  const metaJson = optStr(row, "node_meta_json");
-  if (metaJson) {
-    try {
-      const parsed = JSON.parse(metaJson) as Record<string, unknown>;
-      if ("portal" in parsed) {
-        portal = (parsed.portal ?? null) as PalacePortalRef | null;
-        imageUrl = typeof parsed.imageUrl === "string" ? parsed.imageUrl : null;
-      } else {
-        portal = parsed as PalacePortalRef;
-      }
-    } catch {
-      // ignore malformed json
-    }
-  }
   return {
     id: str(row, "id"),
     objectId: str(row, "object_id"),
@@ -257,8 +240,7 @@ function nodeFromRow(row: Row): MemoryNode {
     alias: str(row, "alias"),
     content: str(row, "content"),
     kind: str(row, "node_kind") === "portal" ? "portal" : "memory",
-    portal,
-    imageUrl,
+    ...decodeNodeMeta(optStr(row, "node_meta_json")),
   };
 }
 
@@ -508,16 +490,7 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
     "INSERT INTO nodes (id, object_id, title, alias, content, node_kind, node_meta_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   for (const n of snap.nodes) {
-    // Same node_meta_json encoding as toInvoke in palaceRepositoryTauri.ts.
-    insertNode.run(
-      n.id,
-      n.objectId,
-      n.title,
-      n.alias ?? "",
-      n.content,
-      n.kind,
-      JSON.stringify({ portal: n.portal ?? null, imageUrl: n.imageUrl ?? null }),
-    );
+    insertNode.run(n.id, n.objectId, n.title, n.alias ?? "", n.content, n.kind, encodeNodeMeta(n));
   }
 
   const insertEdge = db.prepare(

@@ -72,6 +72,7 @@ export function NextUpCard() {
               routeId: next.routeId,
               locusId: next.locusId,
               nodeId: next.nodeId,
+              slot: next.slot,
             })
           }
         >

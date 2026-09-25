@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { decodeNodeMeta, encodeNodeMeta } from "../../domain/services/nodeMeta";
 import type { PalaceRepository } from "../../domain/repositories/palaceRepository";
 import type { AnalyticsEvent, Palace, PalaceSnapshot } from "../../domain/entities/types";
 import {
@@ -79,33 +80,15 @@ function fromInvoke(raw: InvokePalaceSnapshot): PalaceSnapshot {
       zIndex: c.zIndex,
       payloadJson: c.payloadJson,
     })),
-    nodes: raw.nodes.map((n) => {
-      let portal: PalaceSnapshot["nodes"][number]["portal"] = null;
-      let imageUrl: string | null = null;
-      if (n.nodeMetaJson) {
-        try {
-          const parsed = JSON.parse(n.nodeMetaJson) as Record<string, unknown>;
-          if ("portal" in parsed) {
-            portal = (parsed.portal ?? null) as PalaceSnapshot["nodes"][number]["portal"];
-            imageUrl = typeof parsed.imageUrl === "string" ? parsed.imageUrl : null;
-          } else {
-            portal = parsed as PalaceSnapshot["nodes"][number]["portal"];
-          }
-        } catch {
-          // ignore malformed json
-        }
-      }
-      return {
-        id: n.id,
-        objectId: n.objectId,
-        title: n.title,
-        alias: n.alias ?? "",
-        content: n.content,
-        kind: n.nodeKind === "portal" ? "portal" : "memory",
-        portal,
-        imageUrl,
-      };
-    }),
+    nodes: raw.nodes.map((n) => ({
+      id: n.id,
+      objectId: n.objectId,
+      title: n.title,
+      alias: n.alias ?? "",
+      content: n.content,
+      kind: n.nodeKind === "portal" ? "portal" : "memory",
+      ...decodeNodeMeta(n.nodeMetaJson),
+    })),
     edges: raw.edges.map((e) => ({
       id: e.id,
       objectId: e.objectId,
@@ -160,7 +143,7 @@ function toInvoke(s: PalaceSnapshot): InvokePalaceSnapshot {
       alias: n.alias ?? "",
       content: n.content,
       nodeKind: n.kind,
-      nodeMetaJson: JSON.stringify({ portal: n.portal ?? null, imageUrl: n.imageUrl ?? null }),
+      nodeMetaJson: encodeNodeMeta(n),
     })),
     edges: s.edges.map((e) => ({
       id: e.id,

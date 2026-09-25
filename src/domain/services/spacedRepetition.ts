@@ -21,7 +21,7 @@ export function defaultLocusSchedule(nowIso = new Date().toISOString()): LocusSc
   };
 }
 
-export function normalizeLocusSchedule(locus: Locus, nowIso = new Date().toISOString()): Locus {
+export function normalizeLocusSchedule<T extends LocusScheduleState>(locus: T, nowIso = new Date().toISOString()): T {
   const normalized = defaultLocusSchedule(nowIso);
   return {
     ...locus,
@@ -43,7 +43,11 @@ export function normalizeLocusSchedule(locus: Locus, nowIso = new Date().toISOSt
   };
 }
 
-export function applySm2Schedule(locus: Locus, rating: RecallRating, reviewedAtIso = new Date().toISOString()): Locus {
+export function applySm2Schedule<T extends LocusScheduleState>(
+  locus: T,
+  rating: RecallRating,
+  reviewedAtIso = new Date().toISOString(),
+): T {
   const current = normalizeLocusSchedule(locus, reviewedAtIso);
   let interval = current.interval ?? DEFAULT_INTERVAL;
   let easeFactor = current.easeFactor ?? DEFAULT_EASE_FACTOR;

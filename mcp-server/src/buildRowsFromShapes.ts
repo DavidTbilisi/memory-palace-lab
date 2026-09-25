@@ -12,6 +12,7 @@ import type {
 import type { MemoryPalaceMeta } from "../../src/canvas/memoryMeta";
 import type { SnapshotEditor } from "./snapshotEditor";
 import { isMemoryNodeShape } from "../../src/canvas/memoryNodeShape";
+import { normalizeNedf } from "../../src/domain/services/nedf";
 
 /**
  * Headless port of src/canvas/buildPalaceSnapshot.ts: derive the DB row
@@ -57,6 +58,7 @@ export function buildRowsFromShapes(
         portal: portalRefFromMeta(m),
         imageUrl: m.mpImageUrl ?? null,
         tags: m.mpTags ?? [],
+        nedf: normalizeNedf(m.mpNedf),
       });
     }
 

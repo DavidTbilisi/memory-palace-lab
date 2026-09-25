@@ -25,6 +25,7 @@ import type { MemoryPalaceMeta } from "./memoryMeta";
 import { isMemoryNodeShape } from "./memoryNodeShape";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
+import { WalkAnswerCover } from "./WalkAnswerCover";
 import {
   captureStopView,
   liveMemoryNodeIds,
@@ -873,6 +874,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         ))}
       </div>
       <RouteOverlay boxes={nodeBoxes} />
+      <WalkAnswerCover boxes={nodeBoxes} />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button

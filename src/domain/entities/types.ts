@@ -58,6 +58,26 @@ export type NodeDifficultyOverride = {
   extra_needs?: string[];
 };
 
+/** The four NEDF slots, in the order the method names them. */
+export const NEDF_SLOTS = ["nameHook", "essence", "distinguisher", "failure"] as const;
+export type NedfSlot = (typeof NEDF_SLOTS)[number];
+
+/**
+ * A concept encoded as one scene reachable from four angles. Distinguisher and Failure are pairs
+ * so a walk can ask a real discrimination question and a real diagnosis scenario.
+ */
+// A type alias rather than an interface, so it fits tldraw's JSON meta type.
+export type NedfEncoding = {
+  /** Perceptual trigger: a sound-alike, pun, or image. Drilled as recognition. */
+  nameHook?: string;
+  /** What the concept does. Drilled as recall: essence in, name out. */
+  essence?: string;
+  /** Separation from the nearest confusable neighbour. Drilled as discrimination. */
+  distinguisher?: { prompt: string; reason: string };
+  /** Where it breaks, and the fix. Drilled as diagnosis. */
+  failure?: { scenario: string; correction: string };
+};
+
 export interface MemoryNode {
   id: string;
   objectId: string;
@@ -69,6 +89,8 @@ export interface MemoryNode {
   imageUrl?: string | null;
   tags?: string[];
   difficulty?: NodeDifficultyOverride | null;
+  /** NEDF slots; a node with any slot filled reviews on one schedule per filled slot. */
+  nedf?: NedfEncoding | null;
 }
 
 export interface MemoryEdge {
@@ -134,6 +156,20 @@ export interface Locus {
   view?: StopView | null;
   /** Starts a named section of the route at this stop. */
   section?: string | null;
+  /**
+   * One schedule per NEDF slot of the stop's node. A filled slot with no entry yet starts from
+   * the stop's own schedule above, which a node without NEDF slots keeps using on its own.
+   */
+  slotSchedules?: Partial<Record<NedfSlot, SlotSchedule>>;
+}
+
+/** One card's spaced-repetition state. */
+export interface SlotSchedule {
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { NodeDifficultyOverride } from "../domain/entities/types";
+import type { NedfEncoding, NodeDifficultyOverride } from "../domain/entities/types";
 
 export type MemoryPalaceMeta = {
   mpPalaceId?: string;
@@ -16,6 +16,8 @@ export type MemoryPalaceMeta = {
   mpTags?: string[];
   /** `null` clears an override, for the same reason as `mpImageUrl`. */
   mpDifficulty?: NodeDifficultyOverride | null;
+  /** NEDF slots; `null` clears them, for the same reason as `mpImageUrl`. */
+  mpNedf?: NedfEncoding | null;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;

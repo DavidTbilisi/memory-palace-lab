@@ -16,6 +16,8 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
+  NedfEncoding,
+  NedfSlot,
   RouteDirection,
   StopView,
   WalkDirection,
@@ -56,10 +58,13 @@ import {
   nextRouteName,
   uniqueRouteName,
 } from "../domain/services/routeBuilder";
+import { defaultLocusSchedule } from "../domain/services/spacedRepetition";
 import {
-  applySm2Schedule,
-  defaultLocusSchedule,
-} from "../domain/services/spacedRepetition";
+  normalizeNedf,
+  rateStopCard,
+  stopNextReviewAt,
+  walkCardFor,
+} from "../domain/services/nedf";
 import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
 import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
 import type {
@@ -166,6 +171,11 @@ export type PalaceStore = {
   walkIndex: number;
   /** The order the current walk visits its route's stops; `walkIndex` counts in this order. */
   walkDirection: WalkDirection;
+  /**
+   * The NEDF slot the current step asks, chosen when the step is entered so it stays put through
+   * reveal and rating; null for a stop whose node has no slots.
+   */
+  walkSlot: NedfSlot | null;
   walkSessionId: string | null;
   walkRecallMode: boolean;
   walkCueOnly: boolean;
@@ -294,6 +304,8 @@ export type PalaceStore = {
   deleteRoute: (routeId: string) => void;
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
+  /** Ask this slot at the current step (a review started from the queue), or pick one when omitted. */
+  selectWalkSlot: (slot?: NedfSlot | null) => void;
   setWalkOpen: (v: boolean) => void;
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
@@ -497,11 +509,34 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return nodes.find((node) => node.id === nodeId)?.title ?? null;
   };
 
+  /** A node's NEDF slots, read from its shape so edits count before the next save. */
+  const nedfOfNode = (nodeId: string | null): NedfEncoding | null => {
+    if (!nodeId) return null;
+    const { editorRef, nodes } = get();
+    if (editorRef) {
+      for (const shapeId of editorRef.getCurrentPageShapeIds()) {
+        const shape = editorRef.getShape(shapeId as TLShapeId);
+        if (!isMemoryNodeShape(shape)) continue;
+        const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+        if (meta.mpNodeId === nodeId) return normalizeNedf(meta.mpNedf);
+      }
+    }
+    return normalizeNedf(nodes.find((node) => node.id === nodeId)?.nedf);
+  };
+
+  /** The slot a walk asks at the current step: the most overdue, or the soonest due. */
+  const currentWalkSlot = (): NedfSlot | null => {
+    const { locus, nodeId } = getWalkContext();
+    return locus ? walkCardFor(locus, nedfOfNode(nodeId)).slot : null;
+  };
+
   const noteWalkStepEntered = (
     direction: "open" | "next" | "prev" | "route_change",
   ) => {
     const enteredAt = new Date().toISOString();
+    const walkSlot = currentWalkSlot();
     set((state) => ({
+      walkSlot,
       walkStepEnteredAt: enteredAt,
       walkRevealedAt: null,
       walkRevealLatencyMs: null,
@@ -524,6 +559,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         locusId: context.locus?.id ?? null,
         routeName: context.routeName,
         nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
+        slot: walkSlot,
       },
     });
   };
@@ -655,6 +691,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRouteId: null,
     walkIndex: 0,
     walkDirection: "forward",
+    walkSlot: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
@@ -1641,6 +1678,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       void appendAnalyticsEvents(events);
     },
 
+    selectWalkSlot(slot) {
+      set({ walkSlot: slot === undefined ? currentWalkSlot() : slot });
+    },
+
     setWalkRoute(walkRouteId) {
       const state = get();
       const wasOpen = state.walkOpen;
@@ -1862,21 +1903,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         context.count > 0 && context.stepIndex >= context.count - 1;
       // Read before the update below: rating the last step clears walkSessionId.
       const sessionId = get().walkSessionId;
+      const slot = get().walkSlot;
 
       set((state) => {
         const nextLoci = state.loci.map((locus) => {
           if (locus.id !== context.locus?.id) return locus;
-          return applySm2Schedule(locus, rating, ratedAt);
+          return rateStopCard(locus, slot, rating, ratedAt);
         });
         const routeNextReviewAt =
-          orderedLoci(
-            nextLoci.filter((locus) => locus.routeId === context.routeId),
-          )
-            .map((locus) => locus.nextReviewAt)
-            .filter(
-              (value): value is string =>
-                typeof value === "string" && value.length > 0,
-            )
+          nextLoci
+            .filter((locus) => locus.routeId === context.routeId)
+            .map((locus) => stopNextReviewAt(locus, nedfOfNode(locus.nodeId), ratedAt))
             .sort()[0] ?? null;
         return {
           loci: nextLoci,
@@ -1916,6 +1953,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           locusId: context.locus?.id ?? null,
           routeName: context.routeName,
           nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
+          slot,
           timeToRevealMs,
           timeFromRevealToRatingMs,
         },
