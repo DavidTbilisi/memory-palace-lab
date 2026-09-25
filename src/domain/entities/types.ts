@@ -87,6 +87,12 @@ export interface MemoryEdge {
 export const ROUTE_COLORS = ["violet", "sky", "emerald", "amber", "rose", "cyan", "orange", "fuchsia"] as const;
 export type RouteColor = (typeof ROUTE_COLORS)[number];
 
+/** The order a walk visits a route's stops; `alternate` flips it on every walk. */
+export const ROUTE_DIRECTIONS = ["forward", "reverse", "alternate"] as const;
+export type RouteDirection = (typeof ROUTE_DIRECTIONS)[number];
+/** The direction one walk actually takes. */
+export type WalkDirection = Exclude<RouteDirection, "alternate">;
+
 /** A `#key:value` tag written under a route's header in the DSL, e.g. `#prereq:Gate of SOLID`. */
 export interface RouteMetadataTag {
   key: string;
@@ -103,6 +109,14 @@ export interface MemoryRoute {
   hidden?: boolean;
   /** Route metadata from the DSL (`#difficulty:advanced #prereq:…`), in the order written. */
   metadata?: RouteMetadataTag[];
+  /** Unset means forward. */
+  direction?: RouteDirection;
+  /** The direction of the last walk, which an `alternate` route reverses next time. */
+  lastWalkDirection?: WalkDirection;
+  /** `false` marks a draft: its stops are never due. Unset means the route is reviewed. */
+  inReview?: boolean;
+  /** Free-text notes shown with the route. */
+  notes?: string;
 }
 
 export interface Locus {
@@ -118,6 +132,8 @@ export interface Locus {
   lastReviewedAt?: string | null;
   /** What a walk shows at this stop; without one it zooms to the node. */
   view?: StopView | null;
+  /** Starts a named section of the route at this stop. */
+  section?: string | null;
 }
 
 /**

@@ -1,20 +1,33 @@
 import {
   ROUTE_COLORS,
+  ROUTE_DIRECTIONS,
   type Locus,
   type MemoryRoute,
   type RouteColor,
+  type RouteDirection,
   type RouteMetadataTag,
   type StopView,
 } from "../entities/types";
 
 /** Route fields stored together in the `routes.settings_json` column. */
-export type RouteSettings = Pick<MemoryRoute, "color" | "hidden" | "metadata">;
+export type RouteSettings = Pick<
+  MemoryRoute,
+  "color" | "hidden" | "metadata" | "direction" | "lastWalkDirection" | "inReview" | "notes"
+>;
 
 /** Stop fields stored together in the `loci.settings_json` column. */
-export type StopSettings = Pick<Locus, "view">;
+export type StopSettings = Pick<Locus, "view" | "section">;
 
 function isRouteColor(value: unknown): value is RouteColor {
   return typeof value === "string" && (ROUTE_COLORS as readonly string[]).includes(value);
+}
+
+function isRouteDirection(value: unknown): value is RouteDirection {
+  return typeof value === "string" && (ROUTE_DIRECTIONS as readonly string[]).includes(value);
+}
+
+function nonBlank(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
 function parseSettings(json: string | null | undefined): Record<string, unknown> | null {
@@ -34,6 +47,11 @@ export function encodeRouteSettings(route: RouteSettings): string {
   if (route.color) settings.color = route.color;
   if (route.hidden) settings.hidden = true;
   if (route.metadata?.length) settings.metadata = route.metadata.map(({ key, value }) => ({ key, value }));
+  if (route.direction && route.direction !== "forward") settings.direction = route.direction;
+  if (route.lastWalkDirection === "reverse") settings.lastWalkDirection = "reverse";
+  if (route.inReview === false) settings.inReview = false;
+  const notes = nonBlank(route.notes);
+  if (notes) settings.notes = notes;
   return JSON.stringify(settings);
 }
 
@@ -54,6 +72,11 @@ export function decodeRouteSettings(json: string | null | undefined): RouteSetti
     const metadata = raw.metadata.filter(isMetadataTag).map(({ key, value }) => ({ key, value }));
     if (metadata.length > 0) settings.metadata = metadata;
   }
+  if (isRouteDirection(raw.direction) && raw.direction !== "forward") settings.direction = raw.direction;
+  if (raw.lastWalkDirection === "reverse") settings.lastWalkDirection = "reverse";
+  if (raw.inReview === false) settings.inReview = false;
+  const notes = nonBlank(raw.notes);
+  if (notes) settings.notes = notes;
   return settings;
 }
 
@@ -74,20 +97,28 @@ export function isStopView(value: unknown): value is StopView {
   );
 }
 
-/** JSON for `loci.settings_json`; a stop without a saved view encodes as "{}". */
+/** JSON for `loci.settings_json`; a stop without a saved view or section encodes as "{}". */
 export function encodeStopSettings(stop: StopSettings): string {
   const settings: Record<string, unknown> = {};
   if (isStopView(stop.view)) {
     const { x, y, w, h } = stop.view;
     settings.view = { x, y, w, h };
   }
+  const section = nonBlank(stop.section)?.trim();
+  if (section) settings.section = section;
   return JSON.stringify(settings);
 }
 
-/** Tolerant reader: malformed JSON or an invalid view reads as a stop without one. */
+/** Tolerant reader: malformed JSON, an invalid view, or a blank section read as unset. */
 export function decodeStopSettings(json: string | null | undefined): StopSettings {
   const raw = parseSettings(json);
-  if (!raw || !isStopView(raw.view)) return {};
-  const { x, y, w, h } = raw.view;
-  return { view: { x, y, w, h } };
+  if (!raw) return {};
+  const settings: StopSettings = {};
+  if (isStopView(raw.view)) {
+    const { x, y, w, h } = raw.view;
+    settings.view = { x, y, w, h };
+  }
+  const section = nonBlank(raw.section)?.trim();
+  if (section) settings.section = section;
+  return settings;
 }

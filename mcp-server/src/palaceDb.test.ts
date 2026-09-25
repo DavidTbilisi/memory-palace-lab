@@ -175,6 +175,28 @@ describe("palaceDb", () => {
     });
   });
 
+  it("keeps walk direction, review, notes, and sections through save and load", () => {
+    const palace = createPalace(db, "Walked");
+    const snap = makeSnapshot(palace.id, palace);
+    const routes = [
+      {
+        id: "route-w",
+        palaceId: palace.id,
+        name: "Walked",
+        direction: "alternate" as const,
+        lastWalkDirection: "reverse" as const,
+        inReview: false,
+        notes: "Start at the gate.",
+      },
+    ];
+    const loci = [{ ...snap.loci[0]!, routeId: "route-w", section: "Hall" }];
+    saveSnapshot(db, { ...snap, routes, loci });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.routes).toEqual(routes);
+    expect(loaded.loci).toEqual(loci);
+  });
+
   it("keeps a stop's saved view through save and load", () => {
     const palace = createPalace(db, "Framed");
     const snap = makeSnapshot(palace.id, palace);
