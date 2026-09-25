@@ -13,7 +13,7 @@ wiki_source: wiki/learning-systems/calendar-reflex.md
 **Sources**:
 - Conversation synthesis with the user (2026-05-11)
 - Conway's Doomsday algorithm (J.H. Conway, 1973) — the standard mental-calculation method, designed for speed not symbolic neatness
-- Composes on top of [vedic-speed-math](./vedic-speed-math.md), Soroban Learning Method, [peg-matrix-remaps-scenes](./peg-matrix-remaps-scenes.md)
+- Composes on top of [vedic-speed-math](./vedic-speed-math.md), [soroban-learning-method](./soroban-learning-method.md), [peg-matrix-remaps-scenes](./peg-matrix-remaps-scenes.md)
 - Architectural primitive: [substrate-algorithm-composition](./substrate-algorithm-composition.md)
 
 **Last updated**: 2026-05-11
@@ -195,7 +195,7 @@ The full computation took ~12 mental operations. Drilled to reflex, each operati
 - [vedic-speed-math](./vedic-speed-math.md) — supplies the mental-arithmetic substrate
 - [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) — quantifies the speed-up; calendar-reflex is one of the "day-of-week 1–3s" entries
 - [peg-matrix-remaps-scenes](./peg-matrix-remaps-scenes.md) — optional substrate upgrade for precomputed year-offsets
-- Soroban Learning Method — sister substrate (place-value beads); soroban itself isn't needed for Doomsday but reinforces the mod-arithmetic muscles
+- [soroban-learning-method](./soroban-learning-method.md) — sister substrate (place-value beads); soroban itself isn't needed for Doomsday but reinforces the mod-arithmetic muscles
 - [automaticity-and-reflex-training](./automaticity-and-reflex-training.md) — the drill engine; Lamp/Scale/Sword phases used in the drill ladder above
 - [encoded-spaced-repetition](./encoded-spaced-repetition.md) — companion unlock; ideal for drilling the 13 anchor dates
 - [Visual walkthrough →](../../pages/perpetual-calendar.html) — interactive perpetual-calendar pack (mechanism diagram · offset table · concept map · live simulator) that consumes this reflex as its input

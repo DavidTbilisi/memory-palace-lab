@@ -23,7 +23,7 @@ wiki_source: wiki/encoders/when-not-to-cast-a-graph.md
 
 **Note on provenance**: wiki-side design. The CAST raw source (`CAST and Georgian Node System.md`) carries nothing on declining a graph; it assumes the graph has already been accepted.
 
-**Last updated**: 2026-09-05 (authored)
+**Last updated**: 2026-09-18 (§Related pages gained the mirror page [adjacency-is-not-an-edge](./adjacency-is-not-an-edge.md)); 2026-09-05 (authored)
 
 ---
 
@@ -147,6 +147,7 @@ Otherwise park it and keep the node-count rule, which costs nothing and is alrea
 ## Related pages
 
 - [CAST](./cast-overview.md) — the encoder; §When to use CAST now points here for the prior question
+- [adjacency-is-not-an-edge](./adjacency-is-not-an-edge.md) — the mirror: this page declines the *graph*, that one declines the *substitute* (a bare palace standing in for the encoder). Its §When the bare palace is the right answer ends on this page's generator test
 - [cast-research-roadmap](./cast-research-roadmap.md) — §5 Graph Compression, the unbuilt work that would move the bottom-left cell
 - [dynamic-edge-encoding](./dynamic-edge-encoding.md) — Dyn0 derive; the same generator-over-trace rule on the time axis
 - compression-for-comprehension-framework — generator over trace, the rule both pages instantiate
@@ -190,3 +191,8 @@ Otherwise park it and keep the node-count rule, which costs nothing and is alrea
 1. A regular or symmetric-looking graph → predict a generator exists and the encode is about to be wasted
 2. Node count comfortable but scene count high → predict collapse before the ~50 ceiling is reached
 3. `graph_declined` never firing → predict the test is being logged, not run
+
+## R — Act (GRACE)
+1. Adjacency is computable → stop and [NEDF](./nedf-overview.md) the rule; encode the generator, not the graph it produces
+2. Rule with exceptions → encode the diff only; node count over ~50 → compress or park rather than push through
+3. Declining a graph → log the decline with its reason, or the test was read and not run

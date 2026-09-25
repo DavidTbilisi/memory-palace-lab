@@ -8,7 +8,7 @@ wiki_source: wiki/learning-systems/vedic-speed-math.md
 
 # Vedic Speed Math
 
-**Summary**: Course-shaped notes for the Udemy course *"Learn Vedic Speed Mathematics Systematically & Step by Step"*. Organized to track the 7-section curriculum 1:1 so notes can be augmented in place as each lecture is watched. Vedic methods are complementary to Soroban Learning Method — soroban is bead-driven place-value arithmetic; Vedic is algebraic-identity arithmetic anchored to base-10 powers.
+**Summary**: Course-shaped notes for the Udemy course *"Learn Vedic Speed Mathematics Systematically & Step by Step"*. Organized to track the 7-section curriculum 1:1 so notes can be augmented in place as each lecture is watched. Vedic methods are complementary to [soroban-learning-method](./soroban-learning-method.md) — soroban is bead-driven place-value arithmetic; Vedic is algebraic-identity arithmetic anchored to base-10 powers.
 
 **Sources**:
 - Udemy course *"Learn Vedic Speed Mathematics Systematically & Step by Step"* — `udemy.com/course/speedmaths` (4.7★, 1,510 students, 4.5 hours, last updated April 2025).
@@ -470,7 +470,7 @@ Example shape (capture instructor's worked recipe):
 
 The three mental-arithmetic substrates in the wiki are not interchangeable; they trade off against substrate cost, prerequisite, and operand-shape sweet spot. Use them together:
 
-- Soroban Learning Method is **place-value bead arithmetic** with friend-of-5 / friend-of-10 complements; it excels at *streaming accumulation* — long columns of additions, subtractions, and chained operations where state is held on the rods. Requires a bead substrate (real or mental).
+- [soroban-learning-method](./soroban-learning-method.md) is **place-value bead arithmetic** with friend-of-5 / friend-of-10 complements; it excels at *streaming accumulation* — long columns of additions, subtractions, and chained operations where state is held on the rods. Requires a bead substrate (real or mental).
 - **Vedic** is **algebraic-identity arithmetic** anchored to base-10 powers; it excels at *single-shot compact products and quotients* of numbers close to round anchors, where the answer arrives in one cross-step plus one small product. Requires the algebraic prior and a peg-image substrate.
 - [trachtenberg-system](./trachtenberg-system.md) is **digit-walking arithmetic** with rules per single-digit multiplier (×3..×12) plus a general two-finger method for arbitrary `a × b`. It excels at *uniform-speed multiplication across any operand shape* and is the only one of the three that works with **no substrate beyond working memory itself** — no bead visualisation, no algebraic prior. It is the minimal-substrate extreme in [substrate-algorithm-composition](./substrate-algorithm-composition.md) and the recommended mental-math system under the [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) constraint.
 
@@ -516,7 +516,7 @@ Each Vedic-math operation maps onto a familiar mental image. Use these as scaffo
 - [calendar-reflex](./calendar-reflex.md) — downstream unlock riding on the Vedic substrate (day-of-week reflex via Doomsday)
 - [substrate-algorithm-composition](./substrate-algorithm-composition.md) — names the architectural primitive Vedic+pegs is an instance of
 - [composability-index](./composability-index.md) — Vedic+pegs is one confirmed unlock; the page lists more candidates involving Vedic
-- Soroban Learning Method
+- [soroban-learning-method](./soroban-learning-method.md)
 - [soroban-drill-ladder](./soroban-drill-ladder.md)
 - [trachtenberg-system](./trachtenberg-system.md) — third mental-arithmetic substrate; minimal-substrate extreme; uniform-speed across any operand shape
 - [math-learning-with-neural-os](./math-learning-with-neural-os.md)

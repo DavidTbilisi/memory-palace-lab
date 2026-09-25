@@ -19,7 +19,7 @@ wiki_source: wiki/logic/logic-atomic-design.md
 - [picture-theory-of-language](./picture-theory-of-language.md) · [show-vs-say](./show-vs-say.md) · [argument-anatomy](./argument-anatomy.md) · [validity-vs-soundness](./validity-vs-soundness.md) · [fallacy-taxonomy](./fallacy-taxonomy.md) — load-bearing concept pages this hub organizes.
 - Sister hubs: [problem-solving-atomic-design](./problem-solving-atomic-design.md) · [memory-atomic-design](./memory-atomic-design.md) · [money-atomic-design](./money-atomic-design.md) · [visualization-atomic-design](./visualization-atomic-design.md).
 
-**Last updated**: 2026-05-27 (extended with metalogic tier from [Mancosu-Galvan-Zach (2021) *Introduction to Proof Theory*](./proof-theory-mancosu-galvan-zach.md) ingest — see §Metalogic tier below).
+**Last updated**: 2026-09-23 (extended with metalogic tier from [Mancosu-Galvan-Zach (2021) *Introduction to Proof Theory*](./proof-theory-mancosu-galvan-zach.md) ingest — see §Metalogic tier below).
 
 ---
 
@@ -295,6 +295,9 @@ A **template** is a page-level schema with named slots — defines *which organi
 | **Fallacy-diagnosis schema** | argument · fallacy name · family · detection signal · counter-construction | Fallacy work |
 | **Predicate-logic translation grid** | English quantifier · predicate · domain · symbolic form | Ch 10 problems |
 | **TLP proposition index** | decimal number · German · Ogden · Pears/McGuinness | Citation work |
+| **[Constraint game board](./constraint-game-board.md)** | layout (BINS with capacities \| SLOTS in a line) · constraint column in eight notation forms · every conditional plus its contrapositive · forced placements derived before any question | Shared-scenario puzzles: one scenario, several questions |
+
+The last row was added 2026-09-23. Until then this tier enumerated nine templates and **none of them was a constraint board** — which is how the gap was proved: the wiki could classify a constraint puzzle ([puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md) archetypes L and S) and had a tactic to run on it ([zeitz-startup-strategies](./zeitz-startup-strategies.md) §Wishful Thinking), but had nothing to draw it on. An enumeration is the cheapest gap-finder in the wiki, and this one sat unread for four months.
 
 ---
 

@@ -163,3 +163,8 @@ Otherwise park it. Given how much of this page routes elsewhere, parking costs a
 1. Beaded profile on a long gap → predict a pipeline alternately empty and full
 2. Exogenous variation left unannotated → predict a node is missing, and that it explains more than one edge
 3. `dynamics_annotated` outpacing `dynamics_check_passed` → predict the modifier has become ornament
+
+## R — Act (GRACE)
+1. A rate appears to vary → run the three checks first; if the graph's structure already explains it, annotate nothing (Dyn0)
+2. Variation survives the checks and the edge has a gap → read it as the shape of the material in flight (Dyn1)
+3. A zero-delay edge that seems to vary → fix the source node, not the edge; a pipe does not fluctuate (Dyn2)

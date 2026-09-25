@@ -337,7 +337,7 @@ The fingerprint family is **read after** the silhouette: silhouette names the *a
 - [vedic-speed-math](./vedic-speed-math.md) · [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) · [vedic-multiplication-nedf-deck](./vedic-multiplication-nedf-deck.md) — adjacent math memory: Vedic technique
 - [trachtenberg-system](./trachtenberg-system.md) — adjacent math memory: Trachtenberg technique
 - [calendar-reflex](./calendar-reflex.md) — adjacent math memory: day-of-week algorithm
-- Soroban Learning Method — adjacent math memory: soroban/abacus
+- [soroban-learning-method](./soroban-learning-method.md) — adjacent math memory: soroban/abacus
 - [major-system-for-mathematical-notation](./major-system-for-mathematical-notation.md) — adjacent freeze-on-choose pattern for numeric-operator icons
 - [representation-rules](./representation-rules.md) — the 9 rules underneath the alphabet
 - [chunking](./chunking.md) — compression layer

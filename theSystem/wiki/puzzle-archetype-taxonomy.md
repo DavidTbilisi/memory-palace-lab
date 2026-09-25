@@ -6,15 +6,16 @@ room: 5
 wiki_source: wiki/problem-solving/puzzle-archetype-taxonomy.md
 ---
 
-# Puzzle Archetype Taxonomy (17 classes)
+# Puzzle Archetype Taxonomy (19 classes)
 
-**Summary**: 17-class taxonomy of brain-teaser archetypes extracted from the [Livingstone-Thomson 211-puzzle corpus](./livingstone-thomson-brain-teasers.md) (2026-05-24 ingest). Each class is labeled A through R (Q-skip avoided; actually A–R, 17 letters). For each class: characteristic surface form, load-bearing tactic from the wiki, sample puzzles, the typical [crux](./crux-move.md) level (Strategy / Tactic / Tool), and the failure mode that distinguishes it from sibling archetypes. The taxonomy is the recognition alphabet of [crux-recognition-gym](./crux-recognition-gym.md): in Sword-phase the user must classify a new puzzle into one of these 17 in <60 s.
+**Summary**: 19-class taxonomy of brain-teaser archetypes, eighteen extracted from the [Livingstone-Thomson 211-puzzle corpus](./livingstone-thomson-brain-teasers.md) (2026-05-24 ingest) and one added 2026-09-23 from outside it. Classes are labeled A through S, no letter skipped. For each class: characteristic surface form, load-bearing tactic from the wiki, sample puzzles, the typical [crux](./crux-move.md) level (Strategy / Tactic / Tool), and the failure mode that distinguishes it from sibling archetypes. The taxonomy is the recognition alphabet of [crux-recognition-gym](./crux-recognition-gym.md): in Sword-phase the user must classify a new puzzle into one of these 19 in <60 s.
 
 **Sources**:
-- [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) — 211 puzzles spanning all 17 archetypes
+- [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) — 211 puzzles spanning 18 of the 19 archetypes
+- `raw/masters-exam-2025/ლოგიკური მსჯელობა - I ვარიანტი.pdf` — the source of archetype S (NAEC 2025, items 15–17)
 - Derived during the 2026-05-24 ingest stress-test
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-09-23
 
 ---
 
@@ -29,7 +30,7 @@ Each archetype row gives:
 
 ---
 
-## The 17 archetypes
+## The 19 archetypes
 
 ### A — Inclusion-exclusion / Venn
 
@@ -147,9 +148,9 @@ Each archetype row gives:
 |---|---|
 | Surface signal | N agents × N attributes with conditional constraints ("X is not Y", "the agent with Z said W") |
 | Crux level | Tactic (case-by-case elimination) |
-| Load-bearing tool | [zeitz-startup-strategies](./zeitz-startup-strategies.md) §Wishful Thinking (assume case A, derive contradiction) |
-| Sample puzzles | #260 Spies (3 agents × 3 badges), #68 Wizards' Hat (4 wizards × 4 colors), #328 Naval Gazing (6 ships × 6 attributes), #358 Handbags at Dawn |
-| Sibling confusion | Archetype A (inclusion-exclusion) — both involve set reasoning, but logic grids are conditional |
+| Load-bearing tool | [constraint-game-board](./constraint-game-board.md) §BINS for the representation; [zeitz-startup-strategies](./zeitz-startup-strategies.md) §Wishful Thinking (assume case A, derive contradiction) for the tactic run on it |
+| Sample puzzles | #260 Spies (3 agents × 3 badges), #68 Wizards' Hat (4 wizards × 4 colors), #328 Naval Gazing (6 ships × 6 attributes), #358 Handbags at Dawn; NAEC 2025 logical reasoning items 12–14 (seven volunteers into 3/3/1 sections) |
+| Sibling confusion | Archetype A (inclusion-exclusion) — both involve set reasoning, but logic grids are conditional. Also archetype **S** (ordering), whose positions are sequenced where L's are not |
 
 ### M — Spatial / move-it-once
 
@@ -211,6 +212,18 @@ Each archetype row gives:
 | Sample puzzles | #366 / #289 CryptoMath, #103 / #327 Dark Lord's Journey (A=1, B=2 … Z=26 → distance = sum of letter positions) |
 | Sibling confusion | Archetype N (constraint grids) — CryptoMath is a hybrid of N + R |
 
+### S — Ordering / sequencing under relative constraints
+
+Added 2026-09-23 from a source outside the Livingstone-Thomson corpus — see §Why 19 below.
+
+| Field | Value |
+|---|---|
+| Surface signal | "Rank / seat / schedule N items" with *relative* constraints — *immediately after*, *later than*, *never in a morning slot* — and no grid supplied |
+| Crux level | Tool (build the line, then propagate) |
+| Load-bearing tool | [constraint-game-board](./constraint-game-board.md) §SLOTS — positions drawn left to right, extra dimensions carried as slot properties |
+| Sample puzzles | None in the 211-puzzle corpus — the gap that hid this archetype. Instances: NAEC 2025 logical reasoning items 15–17 (eight sessions over four days, six ordering constraints) |
+| Sibling confusion | Archetype L (matching) — both assign items to positions, but L's positions are unordered containers, so L's board is bins and S's is a line. Getting this backwards is what makes *immediately after* undrawable |
+
 ---
 
 ## Per-archetype distribution in the 211-puzzle corpus
@@ -239,13 +252,21 @@ Rough count from the table-of-contents scan (some puzzles span 2 archetypes; cou
 | H — pigeonhole/derangement | ~2 | 1% |
 | Q — probability | ~3 | 1% |
 
-The 3 most-frequent archetypes (N + speedy math + B) account for ~45% of the corpus. The 14 less-frequent archetypes are the *recognition challenge* — each shows up only 3-15 times across 211 puzzles, so identifying them quickly requires having all 17 alphabetized in working memory.
+The 3 most-frequent archetypes (N + speedy math + B) account for ~45% of the corpus. The 15 less-frequent archetypes from the corpus are the *recognition challenge* — each shows up only 3-15 times across 211 puzzles, so identifying them quickly requires having all 19 alphabetized in working memory. Archetype S shows up zero times, which is its own lesson.
 
-## Why 17, not 7 or 30?
+## Why 19, not 7 or 30?
 
 I tried compressing to 7 (the "magical number") and lost archetypes G + Q + R + O. I tried expanding to 25 by separating Spidoku from Crossnumber from Sudoku-variants and the splits weren't load-bearing — they all share the same load-bearing tool (constraint propagation + invariants).
 
-**17 is the level where each archetype has a distinct load-bearing wiki tool.** Compressing further forces aliasing (G + L both become "elimination"); expanding further repeats tools. 17 is the operational frontier.
+**19 is the level where each archetype has a distinct load-bearing wiki tool.** Compressing further forces aliasing (G + L both become "elimination"); expanding further repeats tools.
+
+### Two corrections, 2026-09-23
+
+**The count was wrong for four months.** This page said *17 archetypes, A through R* from the 2026-05-24 ingest until 2026-09-23. A–R is **eighteen** letters, and the memory checksum enumerated all eighteen directly beneath the claim of seventeen. The parenthetical "no Q-skip" shows the miscount was checked for the obvious cause — a skipped letter, as in taxonomies that avoid I/O/Q — found not to apply, and then never recounted. The lesson is narrow and worth keeping: **a count verified against its explanation is not a count verified against its members.** Every downstream page inherited the 17.
+
+**Archetype S was missing because the corpus had none.** The taxonomy was extracted from one 211-puzzle book, so it is exhaustive over *that book*, not over puzzles. Ordering-and-scheduling under relative constraints — the commonest form of the LSAT-style logic game — appears zero times in Livingstone-Thomson and therefore never became a class. It surfaced when common-masters-exam items 15–17 turned out to be exactly that shape with no archetype to receive them. Note what this does to the frequency table below: S has a count of zero there, which is *correct* and is the point. An archetype's share of one corpus says nothing about its share of the puzzles you will actually meet.
+
+The same audit also found that L, the nearest archetype, listed a *tactic* as its load-bearing tool and no representation — so even a correctly classified constraint puzzle had nothing to draw. [constraint-game-board](./constraint-game-board.md) now holds that half for both L and S.
 
 ## How to use this taxonomy
 
@@ -257,31 +278,32 @@ I tried compressing to 7 (the "magical number") and lost archetypes G + Q + R + 
 
 | Test | Pass floor |
 |---|---|
-| Recall all 17 archetype letters | <20 s, 100% |
+| Recall all 19 archetype letters | <20 s, 100% |
 | Recall the 6 most-frequent archetypes' names | <12 s, 100% |
 | Given a puzzle, identify the archetype | <30 s, ≥75% accuracy across mixed batch of 20 |
-| Distinguish sibling-confusion pairs (B vs O, E vs F, K vs M) | <15 s per pair, ≥80% |
+| Distinguish sibling-confusion pairs (B vs O, E vs F, K vs M, **L vs S**) | <15 s per pair, ≥80% |
 | Map archetype → load-bearing wiki tool | <8 s per archetype, 100% |
 
 ## Mnemonic
 
-Velvet Aeon Mode-Cosmic register: a **vast library** with **17 alcoves arranged in a great horseshoe**. Each alcove is dim except for one **central tome** lit by a single warm spotlight — the load-bearing wiki tool for that archetype. The alcoves are color-keyed by archetype-family: **gold** for set/logic (A, L), **green** for spatial (K, M, N), **silver** for narrative-trap (B, O), **bronze** for arithmetic-search (E, F, H), **deep blue** for memory/cipher (C, D, R), **rose** for relations (P), **black** for probability (Q — the empty alcove, marking the wiki gap). At the horseshoe's center stands a **scholar with 17 keys on a single ring**, each key the shape of an archetype letter. She must, given a new puzzle, **select the right key in <30 s** and unlock that alcove. The scholar has the **STRONG** face archetype, hair flowing past the keys; preserve = **sacred memory** (each correctly-classified puzzle joins a constellation overhead).
+Velvet Aeon Mode-Cosmic register: a **vast library** with **19 alcoves arranged in a great horseshoe**. Each alcove is dim except for one **central tome** lit by a single warm spotlight — the load-bearing wiki tool for that archetype. The alcoves are color-keyed by archetype-family: **gold** for set/logic (A, L), **green** for spatial (K, M, N), **silver** for narrative-trap (B, O), **bronze** for arithmetic-search (E, F, H), **deep blue** for memory/cipher (C, D, R), **rose** for relations (P), **black** for probability (Q — the empty alcove, marking the wiki gap). At the horseshoe's center stands a **scholar with 19 keys on a single ring**, each key the shape of an archetype letter. She must, given a new puzzle, **select the right key in <30 s** and unlock that alcove. The scholar has the **STRONG** face archetype, hair flowing past the keys; preserve = **sacred memory** (each correctly-classified puzzle joins a constellation overhead).
 
 ## Memory checksum
 
-- **17** archetypes (A through R, no Q-skip; actually letters A B C D E F G H I J K L M N O P Q R)
+- **19** archetypes, letters A through S with no letter skipped (A B C D E F G H I J K L M N O P Q R S). A–R is **18**, not 17 — the page asserted 17 from 2026-05-24 to 2026-09-23 while enumerating eighteen letters directly beneath the claim
 - **3** most-frequent (N + speedy math + B ≈ 45% of corpus)
 - **5** new wiki tools added to cover gaps (A · D · G · O via [cultural-string-sequences](./cultural-string-sequences.md) + inclusion-exclusion-tool + information-theoretic-minimum + [linguistic-crux](./linguistic-crux.md) — plus archetype-B's meta-tool [anti-tactic-detection](./anti-tactic-detection.md))
 - **1** confirmed gap (Q — probability page is missing)
 - **6** color families in the mnemonic library (gold/green/silver/bronze/deep blue/rose/black)
-- **3** sibling-confusion pairs that need explicit distinguisher drilling (B↔O, E↔F, K↔M)
+- **4** sibling-confusion pairs that need explicit distinguisher drilling (B↔O, E↔F, K↔M, L↔S)
 
-If you can recite 17-3-5-1-6-3 from "puzzle archetype taxonomy" within 60 s, the page is encoded.
+If you can recite 19-3-5-1-6-4 from "puzzle archetype taxonomy" within 60 s, the page is encoded.
 
 ## Related pages
 
 - [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) — the 211-puzzle corpus
-- [crux-recognition-gym](./crux-recognition-gym.md) — uses this taxonomy as the 17-class alphabet
+- [crux-recognition-gym](./crux-recognition-gym.md) — uses this taxonomy as the 19-class alphabet
+- [constraint-game-board](./constraint-game-board.md) — the representation archetypes L and S both route to
 - [crux-move](./crux-move.md) — every archetype's crux lives at S/T/X
 - [problem-solving-three-levels](./problem-solving-three-levels.md) — the level annotations come from here
 - [universal-mathematical-tactics](./universal-mathematical-tactics.md) — load-bearing for H, I, J, K
@@ -303,7 +325,7 @@ If you can recite 17-3-5-1-6-3 from "puzzle archetype taxonomy" within 60 s, the
 
 ## D — Name (NEDF)
 
-1. Puzzle Archetype Taxonomy = 17 classes that exhaust brain-teaser surface forms
+1. Puzzle Archetype Taxonomy = 19 classes that exhaust brain-teaser surface forms
 2. Each class has one load-bearing wiki tool (some shared, none duplicated)
 3. Distinguisher: 17 (not 7, not 30) because that's the level at which 1:1 tool mapping holds
 4. Failure mode: archetype-aliasing (forcing 2 archetypes into 1) loses the discriminating tactic

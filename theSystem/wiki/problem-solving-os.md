@@ -25,7 +25,7 @@ wiki_source: wiki/problem-solving/problem-solving-os.md
 - [zeitz-startup-strategies](./zeitz-startup-strategies.md) · [universal-mathematical-tactics](./universal-mathematical-tactics.md) · [crux-move](./crux-move.md) · [problem-solving-three-levels](./problem-solving-three-levels.md) · [methods-of-mathematical-argument](./methods-of-mathematical-argument.md) (2026-05-24 [zeitz-art-and-craft](./zeitz-art-and-craft.md) layer)
 - Design conversation, 2026-05-07
 
-**Last updated**: 2026-06-21 (added [[#Runnable Form — `psos`]]: the operating stack now has an executable interpreter that emits the Measurement Contract event)
+**Last updated**: 2026-09-21 (§Step 1 — Pause and capture: sub-structure routed to [polya-how-to-solve-it](./polya-how-to-solve-it.md)); 2026-06-21 (added [[#Runnable Form — `psos`]]: the operating stack now has an executable interpreter that emits the Measurement Contract event)
 
 ---
 
@@ -72,6 +72,12 @@ Each step has a target time. If a step blows its budget, the problem itself beco
 | 4. Solve | type-dependent (sub-budgets below) | Re-classify; the problem may have shifted |
 | 5. Record | 2 min | Lost-pattern bloat; same lesson re-learned |
 | 6. Distill | 5 min (only if novel) | No transfer; problem stays one-shot |
+
+### Step 1 — Pause and capture
+
+The 60-second budget buys a *stated* problem. Where the statement itself is the obstacle — dense prose, a story wrapper, an unknown that resists naming — the sub-structure is [polya-how-to-solve-it](./polya-how-to-solve-it.md) phase one: unknown · data · condition, the sufficiency verdict, then draw / name / split. That page owns the list and its mnemonic; this step owns only the budget and the handoff to step 2.
+
+Polya is also column 2 of the fifteen in [problem-solving-pipeline-equivalence](./problem-solving-pipeline-equivalence.md), where his four phases read as a coarse variant of this stack — worth knowing before treating him as an alternative pipeline rather than a sub-structure.
 
 ### Step 2.5 — Anti-tactic scan
 
@@ -384,6 +390,7 @@ Cross-link to [argument-anatomy](./argument-anatomy.md) (premise/conclusion extr
 - [orient-method](./orient-method.md)
 - [external-problem-solving-frameworks](./external-problem-solving-frameworks.md)
 - [problem-solving-pipeline-equivalence](./problem-solving-pipeline-equivalence.md)
+- [polya-how-to-solve-it](./polya-how-to-solve-it.md) — owner of the phase-one sub-structure for step 1; also column 2 in the equivalence table
 - [problem-solving-atomic-design](./problem-solving-atomic-design.md) — Atomic-design lens; this Operating Stack is its central *template*, FRAME FORGE / Decision Kernel / Attention Framework are *organisms*, the four [universal tactics](./universal-mathematical-tactics.md) are *molecules*, and the worked examples below are *pages*. See for the full 5-tier mapping + new METER fields.
 - [learning-sciences-validation](./learning-sciences-validation.md)
 

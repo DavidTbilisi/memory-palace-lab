@@ -13,7 +13,7 @@ wiki_source: wiki/problem-solving/pigeonhole-principle.md
 
 **Sources**: [burger-heart-of-mathematics](./burger-heart-of-mathematics.md) Ch 2.1 (pp. 95–104, "Counting — How the Pigeonhole Principle Leads to Precision Through Estimation"); [problem-solving-three-levels](./problem-solving-three-levels.md) (Zeitz S/T/T registry where pigeonhole appears as a tactic).
 
-**Last updated**: 2026-09-05 (automaticity ladder count corrected — 10 levels, 0–9); 2026-05-27 — created during the Burger ingest as the owner page for the previously-named-but-orphan tactic.
+**Last updated**: 2026-09-23 (automaticity ladder count corrected — 10 levels, 0–9); 2026-05-27 — created during the Burger ingest as the owner page for the previously-named-but-orphan tactic.
 
 ---
 
@@ -43,7 +43,7 @@ The principle is *substrate-independent*. Some load-bearing wiki uses:
 
 | Domain | Pigeonhole instance |
 |---|---|
-| **[crux-recognition-gym](./crux-recognition-gym.md)** | Among any 17 puzzles drawn at random from the 211-puzzle [Livingstone-Thomson corpus](./livingstone-thomson-brain-teasers.md), at least 2 share an archetype (there are exactly 16 archetypes A–R, no Q-skip). |
+| **[crux-recognition-gym](./crux-recognition-gym.md)** | Among any 20 puzzles drawn at random from the 211-puzzle [Livingstone-Thomson corpus](./livingstone-thomson-brain-teasers.md), at least 2 share an archetype (there are exactly 19 archetypes, A–S, no letter skipped). Corrected 2026-09-23: this example read *17 puzzles / 16 archetypes*, a third independent count of the same taxonomy — which is the failure the pigeonhole principle is supposed to catch, on the page that owns it. |
 | **[memory-palace](./memory-palace.md)** | If a palace has N loci and you encode N+1 distinct items in it, some locus carries 2+ items — a collision in the encoding-overlay sense. (Counter: keep N > items-encoded by ≥30%.) |
 | **[spaced-repetition](./spaced-repetition.md)** | In any 7-day window, an Anki deck with k cards/day at SM-2 default intervals will repeat at least one card-class twice if k > 7 — useful when designing leech-detection thresholds. |
 | **network-fundamentals / osi-7-layer-model** | With n+1 hosts contending for n MAC-address slots in a CAM table, at least one slot must be reused or evicted — drives ARP cache aging policy. |

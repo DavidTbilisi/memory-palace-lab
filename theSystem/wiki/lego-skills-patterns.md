@@ -16,7 +16,7 @@ wiki_source: wiki/encoders/lego-skills-patterns.md
 - CAST and Georgian Node System.md §Lego Skills — pre-encoded graph patterns
 - CAST and Georgian Node System.md §Chunking — cluster detection as compression
 
-**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-07-09 — loop-sign checksum sentence + [edge-sign](./edge-sign.md) link (candidate); 2026-07-06 — page authored (was an orphan-by-omission; linked from 6+ pages since the 2026-04-30 CAST ingest).
+**Last updated**: 2026-09-18 (evening — §Automaticity target gained its first measurement: 26.9 s → 8.9 s across two sessions, sketches 4.4 s); 2026-09-18 (§Automaticity target gained the runner `tools/cast_pattern_flash.py` + the finding that the eight cues are not eight distinct topologies — chain/dominoes and spiral/leash are separated semantically, which makes [edge-sign](./edge-sign.md) notation load-bearing for the sketch deck); 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-07-09 — loop-sign checksum sentence + [edge-sign](./edge-sign.md) link (candidate); 2026-07-06 — page authored (was an orphan-by-omission; linked from 6+ pages since the 2026-04-30 CAST ingest).
 
 ---
 
@@ -70,6 +70,12 @@ Run both during [Step 0 analysis](./step-zero-analysis.md), before any animal is
 ## Automaticity target
 
 The library only pays off when recognition is **reflex, not analysis** — the goal is to *see* "the funnel" the way you see a face, not to derive it. The drill lives in [cast-drill-ladder](./cast-drill-ladder.md) Stage 4 (`cast::pattern_flash`: sketch → cue, ≤3s). Until the eight cues fire on sight, pattern-matching is itself a System-2 step and adds load instead of removing it.
+
+**Runnable since 2026-09-18**: `python3 tools/cast_pattern_flash.py` drills these eight and logs one [METER](./meter-overview.md) event per rep; `--report` names the band. The topologies are **generated per rep** rather than drawn from the plate, because a fixed picture per cue trains picture-recall instead of shape-recognition — the plate stays the study artifact, the generator is the test.
+
+**Measured 2026-09-18, first two sessions** (2026-09-18-cast-pattern-flash-first-readings): the claim above — *until the eight cues fire on sight, pattern-matching is itself a System-2 step* — now has a number. Cold, the eight cues took a median 26.9 s at 75 % accuracy. After five untimed minutes on the plate: 100 %, median 8.9 s, and **4.4 s on sketches alone**. Fastest installed: wheel (3.1 s) and funnel (4.0 s). Slowest: spiral and leash (14–16 s) — right, but by *checking* the mark rather than seeing the shape.
+
+**A gap the runner surfaced**: the eight cues are not eight distinct topologies. *Chain* and *dominoes* are the same digraph, and *spiral* and *leash* the same two-node cycle — each pair is separated by a **semantic** mark (failure propagation; edge polarity), not by shape. So a sketch-only deck has no determinate answer for four of eight reps unless the marks are drawn, which makes [edge-sign](./edge-sign.md)'s notation load-bearing for this drill rather than optional. The one-line form has no such problem, since the description carries the semantics directly.
 
 ## Mnemonic
 
