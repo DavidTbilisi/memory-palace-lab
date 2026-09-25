@@ -17,16 +17,21 @@ function SlotTile({ row }: { row: SlotRetention }) {
         {NEDF_SLOT_LABELS[slot]} · {NEDF_SLOT_OPERATIONS[slot].toLowerCase()}
       </div>
       <div className="mt-0.5 text-lg font-semibold text-zinc-100">{retentionPct === null ? "–" : `${retentionPct}%`}</div>
-      <div
-        role="meter"
-        aria-label={`${NEDF_SLOT_LABELS[slot]} retention`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={retentionPct ?? 0}
-        className="mt-1 h-1.5 overflow-hidden rounded-full bg-violet-950"
-      >
-        <div className="h-full rounded-full bg-violet-400" style={{ width: `${retentionPct ?? 0}%` }} />
-      </div>
+      {retentionPct === null ? (
+        // No track before the first review, so "no data" never reads as 0%.
+        <div aria-hidden="true" className="mt-1 h-1.5" />
+      ) : (
+        <div
+          role="meter"
+          aria-label={`${NEDF_SLOT_LABELS[slot]} retention`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={retentionPct}
+          className="mt-1 h-1.5 overflow-hidden rounded-full bg-violet-950"
+        >
+          <div className="h-full rounded-full bg-violet-400" style={{ width: `${retentionPct}%` }} />
+        </div>
+      )}
       <div className="mt-1 text-[11px] text-zinc-500">
         {reviews > 0 ? `${recalled} of ${reviews} recalled` : "No reviews yet"}
       </div>

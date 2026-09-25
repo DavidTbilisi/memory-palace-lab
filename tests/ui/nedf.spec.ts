@@ -85,4 +85,25 @@ test("a concept is encoded in four slots and walked one slot at a time", async (
     nameHook: expect.objectContaining({ repetitions: 0 }),
   });
   expect((await savedMutex(page)).nedf).toMatchObject({ essence: "Lets one thread in at a time" });
+
+  // The DSL writes the slots; the half-written Failure keeps its scenario and warns.
+  await page.keyboard.press("Control+E");
+  await expect(page.getByTestId("palace-dsl-editor")).toBeVisible();
+  await expect
+    .poll(() => page.locator(".cm-content").first().innerText())
+    .toContain(
+      "@N Mute-X: a gagged guard at the door\n@E Lets one thread in at a time\n" +
+        "@D One key, or a bowl of keys? => A mutex has one owner; a semaphore counts\n" +
+        "@F Threads hang forever after an exception =>",
+    );
+  await page.keyboard.press("Control+E");
+
+  // Insights: the Name-hook card was rated Again once, and Mutex still lacks a Failure slot.
+  await page.getByRole("button", { name: /^Insights$/ }).click();
+  const coverage = page.getByRole("region", { name: "NEDF slots" });
+  await expect(coverage.getByTestId("nedf-retention-nameHook")).toContainText("0%");
+  await expect(coverage.getByTestId("nedf-retention-nameHook")).toContainText("0 of 1 recalled");
+  await expect(coverage.getByTestId("nedf-retention-essence")).toContainText("No reviews yet");
+  await expect(coverage.getByRole("list", { name: "Missing a Failure slot" })).toContainText("Mutex");
+  await coverage.screenshot({ path: "test-results/nedf-coverage.png" });
 });
