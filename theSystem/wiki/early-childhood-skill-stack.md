@@ -10,7 +10,7 @@ wiki_source: wiki/learning-systems/early-childhood-skill-stack.md
 
 **Summary**: The eight academic skills with the highest evidence base and the largest compounding return when started before age ~10, each paired with a concrete training recipe to drive it from first exposure to reflex using the [automaticity-and-reflex-training](./automaticity-and-reflex-training.md) framework. Reading fluency, mental arithmetic, and an instrument are the load-bearing three; everything else stacks on top.
 
-**Sources**: synthesized from [automaticity-and-reflex-training](./automaticity-and-reflex-training.md), [skill-progression-stages](./skill-progression-stages.md), Soroban Learning Method, [language-learning-protocol](./language-learning-protocol.md), [semantic-reading-system](./semantic-reading-system.md), [chunking](./chunking.md), [motoric-encoding-systems](./motoric-encoding-systems.md). Working memory and deliberate practice referenced as concept stubs (no owner pages yet).
+**Sources**: synthesized from [automaticity-and-reflex-training](./automaticity-and-reflex-training.md), [skill-progression-stages](./skill-progression-stages.md), [soroban-learning-method](./soroban-learning-method.md), [language-learning-protocol](./language-learning-protocol.md), [semantic-reading-system](./semantic-reading-system.md), [chunking](./chunking.md), [motoric-encoding-systems](./motoric-encoding-systems.md). Working memory and deliberate practice referenced as concept stubs (no owner pages yet).
 
 **Last updated**: 2026-05-11
 
@@ -85,12 +85,12 @@ and I check by whether comprehension keeps pace with my voice.
 
 **Element**: Earth (procedural) wrapped around Water (subitizing perception). **Window**: soft — pre-7 number-line intuition is the strongest single predictor of later math achievement.
 
-This is the skill the Neural OS already has full coverage for: see Soroban Learning Method and [soroban-drill-ladder](./soroban-drill-ladder.md). The early-childhood version is a subset of that pipeline, run in this order:
+This is the skill the Neural OS already has full coverage for: see [soroban-learning-method](./soroban-learning-method.md) and [soroban-drill-ladder](./soroban-drill-ladder.md). The early-childhood version is a subset of that pipeline, run in this order:
 
 1. **Subitizing** (ages 3–5): instant recognition of dot patterns 1–6 without counting. Pure Lamp drill.
 2. **Number line / quantity comparison** (ages 4–6): which is bigger, 7 or 4? — without counting up.
 3. **Friends-of-5 and friends-of-10 complements** (ages 5–7): the only "facts" worth memorizing before times tables. They unlock mental addition.
-4. **Soroban or finger abacus** (ages 5–8): see Soroban Learning Method for the four-layer method (quantity, complement, procedure, mnemonic).
+4. **Soroban or finger abacus** (ages 5–8): see [soroban-learning-method](./soroban-learning-method.md) for the four-layer method (quantity, complement, procedure, mnemonic).
 5. **Multiplication tables to 12×12** (ages 6–9): drilled to [automaticity level 6](./skill-progression-stages.md) (90% under timer). Skip-counting first, then random-order recall.
 
 **Pass criterion**: any single-digit-times-single-digit fact retrieved in <2 s with no finger counting; two-digit mental addition under 5 s.
@@ -387,7 +387,7 @@ These mistakes recur. Each one breaks an automaticity rule from [automaticity-an
 
 - [automaticity-and-reflex-training](./automaticity-and-reflex-training.md) — the engine; every recipe above is a tailored instance of The Great Work + Lamp/Scale/Sword.
 - [skill-progression-stages](./skill-progression-stages.md) — canonical numbering for all the level claims on this page; cite this page rather than restating the levels.
-- Soroban Learning Method and [soroban-drill-ladder](./soroban-drill-ladder.md) — full owner pages for skill 2 (mental arithmetic).
+- [soroban-learning-method](./soroban-learning-method.md) and [soroban-drill-ladder](./soroban-drill-ladder.md) — full owner pages for skill 2 (mental arithmetic).
 - [language-learning-protocol](./language-learning-protocol.md), [language-learning-architecture](./language-learning-architecture.md) — full owner pages for skill 6 (second language).
 - [semantic-reading-system](./semantic-reading-system.md) — once skill 1 (decoding fluency) is solved, this is the next reading layer (comprehension modes, function tags).
 - [anki-reflex-deck-builder](./anki-reflex-deck-builder.md) — concrete tool for building Lamp-phase decks for skills 1, 2, 5, 6, 7.
@@ -400,7 +400,7 @@ These mistakes recur. Each one breaks an automaticity rule from [automaticity-an
 
 - [automaticity-and-reflex-training](./automaticity-and-reflex-training.md)
 - [skill-progression-stages](./skill-progression-stages.md)
-- Soroban Learning Method
+- [soroban-learning-method](./soroban-learning-method.md)
 - [soroban-drill-ladder](./soroban-drill-ladder.md)
 - [language-learning-protocol](./language-learning-protocol.md)
 - [language-learning-architecture](./language-learning-architecture.md)

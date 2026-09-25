@@ -165,6 +165,7 @@ See [learning-sciences-validation](./learning-sciences-validation.md) for the fu
 - [UMTF](./universal-mental-tagging-framework.md) — REMAPS Sensations move feeds into UMTF Sensory tags
 - [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) — Sensations-move caveat for the multi-sensory-aphantasia subgroup; documents substitutions
 - [cast-research-roadmap](./cast-research-roadmap.md) — references REMAPS as systematic vs ad-hoc transformation
+- [remaps-song](./remaps-song.md) — the checklist as a carrier song (*Never the Same*): three growing choruses perform the practical rule, an acrostic chant installs the six letters
 - [music-generation-frameworks](./music-generation-frameworks.md) — REMAPS retargeted from mental imagery onto a musical motif; the six moves map onto contrapuntal devices (retrograde=Reverse, augmentation=Exaggerate, reorchestration=Modify, sampling=Associate)
 - [glossary](./glossary.md) — registry entry under cross-cutting layers
 

@@ -11,23 +11,25 @@ tags:
 city: Tbilisi
 district: Saburtalo
 hub_role: medical
-hub_position: 2
-lat: 41.7261
-lng: 44.7558
+hub_position: 1
+lat: 41.7235
+lng: 44.7572
+nearest_corner: mitskevich-st-x-tandzia-st
 phase: 1
 date: 2026-05-30
 wiki_source: wiki/learning-systems/places/place-saburtalo-bochorishvili.md
 ---
 
-# Vakhtang Bochorishvili Clinic — Saburtalo Hub 2
+# Academician Vakhtang Bochorishvili Medical Center (აკადემიკოს ვახტანგ ბოჭორიშვილის სამედიცინო ცენტრი) — Saburtalo Hub 1
 
-**Summary**: Central medical anchor for the Saburtalo district palace per [neighborhood-palace](./neighborhood-palace.md). The avatar pin in the source screenshot sits ~here on Bakhtrioni St — this is the **home-locus** of the district palace; everything else is rehearsed relative to here. Coordinates approximate — replace with GPS-walked values at Phase 0.
+**Summary**: Home-locus (medical centre) for the Saburtalo district palace per [neighborhood-palace](./neighborhood-palace.md). 0 m N of the home-locus (this *is* the home-locus); nearest CAST corner is the **Kangaroo** (Mitskevich St x Tandzia St), 221 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.
 
 **Sources**:
-- wiki/learning-systems/neighborhood-palace.md (encoding home)
-- Tbilisi map screenshot 2026-05-30 (approximate coordinates pending GPS verification)
+- [neighborhood-palace](./neighborhood-palace.md) §Worked example (encoding home; OSM check + redrafted week 1, 2026-09-18)
+- `tools/cast-graphs/saburtalo-skeleton.json` — © OpenStreetMap contributors, ODbL
+- Tbilisi map screenshot 2026-05-30 (superseded for coordinates and roles)
 
-**Last updated**: 2026-05-30
+**Last updated**: 2026-09-18 (rebuilt on OSM — coordinates, nearest corner, bearings, distances, walk day; hub numbering now follows the redrafted week-1 walk order; REMAPS scene kept, one street name in it corrected); 2026-05-30
 
 ---
 
@@ -35,13 +37,13 @@ wiki_source: wiki/learning-systems/places/place-saburtalo-bochorishvili.md
 
 ```leaflet
 id: place-saburtalo-bochorishvili
-lat: 41.7261
-long: 44.7558
-zoom: 17
+lat: 41.7235
+long: 44.7572
+zoom: 16
 height: 350px
 width: 100%
 unit: meters
-marker: default, 41.7261, 44.7558, Vakhtang Bochorishvili Clinic
+marker: default, 41.7235, 44.7572, Academician Vakhtang Bochorishvili Medical Center
 ```
 
 ## District Palace Encoding
@@ -49,17 +51,17 @@ marker: default, 41.7261, 44.7558, Vakhtang Bochorishvili Clinic
 | Slot | Value |
 |---|---|
 | **District** | Saburtalo |
-| **Role** | Medical anchor / **palace home-locus** |
-| **Walk-palace position** | Hub #2 of 6 — central |
-| **Compass role** | Central; the locus you return to between encoded walks; everything else routes relative to here |
-| **REMAPS scene** | A bearded medieval Georgian king (Vakhtang Gorgasali, district namesake's namesake) stands at the clinic door holding a glowing alchemical beaker; steam curls upward and writes the name "Bakhtrioni" in the air |
+| **Role** | Home-locus (medical centre) |
+| **Walk-palace position** | Hub #1 of 7 — N of home, 0 m |
+| **CAST corner** | Kangaroo — Mitskevich St x Tandzia St (221 m); the hub hangs off this corner, it is not a node itself |
+| **Compass role** | N of the home-locus; inside the first frame |
+| **REMAPS scene** | A bearded medieval Georgian king (Vakhtang Gorgasali, district namesake's namesake) stands at the clinic door holding a glowing alchemical beaker; steam curls upward and writes the name "Tandzia" in the air — the clinic's own corner |
 | **PAO (optional)** | Person: King Vakhtang Gorgasali · Action: holding/swirling · Object: glowing beaker labelled "Saburtalo" |
 
-## Walk Plan — Phase 1
+## Walk Plan — Week 1 (redrafted 2026-09-18)
 
-- **Day encoded**: Monday (the very first hub — encode before any others to anchor the home-locus)
-- **Reverse walk**: Tuesday
-- **Drill cadence**: rung 0 daily; the home-locus is fired at every drill session as the "origin" reference
+- **Day encoded**: **Every day.** The walks start and end here; Raccoon (Vakeli × Kazbegi), 134 m along Tandzia, is the home corner. Encode the **rule card** here on Monday before leaving.
+- **Drill**: rung 0 (compass to every other hub) daily from week 1; `python3 tools/cast_encode_log.py walk saburtalo-skeleton --only kangaroo` for the corner's dial after the walk
 
 ## Corners (capillary capture for Phase 3)
 
@@ -70,53 +72,52 @@ marker: default, 41.7261, 44.7558, Vakhtang Bochorishvili Clinic
 | SW | | |
 | SE | | |
 
+(Fill in as you walk each corner. Each corner should get a distinguishing object — bakery, kiosk, statue, distinctive tree, weird signage. Concrete-first per [representation-rules](./representation-rules.md).)
+
 ## Bordering Hubs
 
-| Direction | Hub | Approx distance |
+Straight-line distance and compass bearing from this hub, computed from the OSM coordinates:
+
+| Direction | Hub | Distance |
 |---|---|---|
-| E (Bakhtrioni) | [place-saburtalo-medical-university](./place-saburtalo-medical-university.md) | ~600m |
-| NW (across Bakhtrioni) | [place-saburtalo-aversi](./place-saburtalo-aversi.md) | ~150m |
-| S (down toward Central Park) | [place-saburtalo-central-park](./place-saburtalo-central-park.md) | ~400m |
-
-## Why this is the home-locus
-
-In palace encoding, the home-locus is the anchor you fire **first** in any drill — the place you "spawn into" before walking the route. Choosing it deliberately matters: home-locus drift wrecks the whole palace. Three criteria, all satisfied here:
-
-1. **Central position** — minimizes worst-case walk distance to any other hub.
-2. **Distinctive landmark** — clinic building, signage, the namesake's historical weight.
-3. **Personal salience** — the avatar pin sits ≈here; daily relevance compounds the encoding strength.
+| SW | [place-saburtalo-central-park](./place-saburtalo-central-park.md) | 524 m |
+| N | [place-saburtalo-aversi](./place-saburtalo-aversi.md) | 609 m |
+| NE | [place-saburtalo-medical-university](./place-saburtalo-medical-university.md) | 693 m |
+| W | [place-saburtalo-delisi](./place-saburtalo-delisi.md) | 1013 m |
+| SW | [place-saburtalo-cemetery](./place-saburtalo-cemetery.md) | 1958 m |
+| NW | [place-saburtalo-mardaleishvili](./place-saburtalo-mardaleishvili.md) | 2139 m |
 
 ## Related Pages
 
-- [neighborhood-palace](./neighborhood-palace.md) (encoding home; this page is the home-locus inside Saburtalo)
-- [geography-mnemonic-route](./geography-mnemonic-route.md)
+- [neighborhood-palace](./neighborhood-palace.md) (encoding home)
+- [geography-mnemonic-route](./geography-mnemonic-route.md) (parent at world scale)
 - [memory-palace](./memory-palace.md) · [remaps](./remaps.md) · [person-action-object-system](./person-action-object-system.md)
-- mind-palace---personal-layout (David's higher-level personal palace; the Saburtalo district palace docks into here)
+- [eye-movement-and-compass-mnemonics](./eye-movement-and-compass-mnemonics.md)
 
 ---
 
 ## U — See (CAST)
-1. King Gorgasali at clinic doorway with glowing beaker
-2. Steam writing "Bakhtrioni" upward
+1. A bearded medieval Georgian king (Vakhtang Gorgasali
+2. The Kangaroo corner 221 m away — the hub is a landmark hanging off a node, not the node
 
 ## D — Name (NEDF)
-1. Bochorishvili Clinic = central medical hub + Saburtalo palace home-locus
-2. Distinguisher: King-with-beaker (vs Aversi pill-bottle Jenga, vs Medical University metro-wave)
-3. Failure mode: home-locus drift — if rehearsed only mid-walk, weakens; always fire first at session start
+1. Academician Vakhtang Bochorishvili Medical Center = Saburtalo hub 1, N of home, medical · home-locus
+2. Distinguisher: the only hub that is *home* — every walk starts and ends here; 221 m from the Kangaroo corner (Mitskevich × Tandzia)
+3. Failure mode: scene-bleed with the other medical / transport hubs — keep this hub's imagery exclusive to it
 
 ## F — Do (SPEAR)
-1. Session start → fire home-locus scene
-2. Decode: central Saburtalo, home anchor
-3. Branch to next hub by compass
+1. Walk to the Kangaroo corner, say its dial, then the 221 m to the hub
+2. Fire the scene
+3. Decode: home-locus (medical centre), N of home
 
 ## B — Watch (HEART)
-1. King-beaker scene wearing thin → re-vivify with sensory detail (steam smell, beaker glow colour)
-2. Avatar-pin drift (real-world relevance fading)
+1. Scene-bleed with neighbouring hubs
+2. Compass drift — the 2026-05-30 pages had this hub placed from a screenshot; trust the OSM bearing
 
 ## L — Predict (ORACLE)
-1. Bakhtrioni mid-point → predict Bochorishvili
-2. "Saburtalo home" cue → predict beaker-king
+1. N of home on the frame → predict Academician Vakhtang Bochorishvili Medical Center
+2. The Kangaroo corner → predict this hub 221 m off it
 
 ## R — Act (GRACE)
-1. Drill start → home-locus first, always
-2. Lost mid-walk → return to home-locus, restart compass
+1. Walking past → mutter "Academician Vakhtang Bochorishvili Medical Center · N · hub 1"
+2. Recall failure → re-walk from the Kangaroo corner, not from a map

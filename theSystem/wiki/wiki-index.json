@@ -30,6 +30,16 @@
     "room": 3
   },
   {
+    "slug": "adjacency-is-not-an-edge",
+    "title": "Adjacency Is Not an Edge",
+    "summary": "Why a bare memory-palace cannot do CAST's job — stated as the three properties of an edge that spatial adjacency drops (direction · reach · type), and why CAST's single structural move, the edge is a verb performed by the source animal, repairs all three at once. Both owner pages state the storage/encoder division of labour; neither argues it, and the objection survives the statement.",
+    "source": "wiki/encoders/adjacency-is-not-an-edge.md",
+    "palace": "meta-knowledge",
+    "level": 6,
+    "domain": 10,
+    "room": 89
+  },
+  {
     "slug": "after-action-review",
     "title": "After-Action Review (AAR)",
     "summary": "The US Army's structured 5-question retrospective protocol for experiential learning, adopted by Sloan as one of two recommended techniques for the Reevaluation stage (the other is coding surf/dive questions). The 5 questions: (1) What was the intent? (2) What actually happened? (3) Why did it happen? (4) How can we do better? (5) What do we do now? Sister to the wiki's ARC Close phase; importable directly into any strategy or operation post-mortem. Discipline: blame-free, fact-first, action-oriented.",
@@ -593,6 +603,16 @@
     "room": 50
   },
   {
+    "slug": "constraint-game-board",
+    "title": "Constraint Game Board",
+    "summary": "The representation for a puzzle that states a scenario once and then asks several questions about it — the board you draw, the notation you write the constraints in, and the rule for when not to draw a board at all. puzzle-archetype-taxonomy archetypes L (matching) and S (ordering) name this puzzle family and supply a tactic — assume a case, derive a contradiction — but no board to run it on. This page is that missing half. Its governing claim: on a shared-scenario set, the board is built once and mined N times, so an error in the board costs N questions, not one — which is exactly why the board is worth the minute it takes, and exactly why the cheapest question type is the one where you skip it.",
+    "source": "wiki/problem-solving/constraint-game-board.md",
+    "palace": "meta-knowledge",
+    "level": 7,
+    "domain": 10,
+    "room": 6
+  },
+  {
     "slug": "content-process-premise-reflection",
     "title": "Content · Process · Premise Reflection",
     "summary": "Mezirow's three-way decomposition of critical reflection, adopted by Sloan: content reflection focuses on what (the problem's content); process reflection focuses on how (the procedures + approaches used); premise reflection focuses on why (the underlying assumptions and belief systems). Most strategy meetings ask only content questions. Process questions are rare. Premise questions are extremely rare — and they are the ones that produce frame-shift. The three types are layered: content is mostly surf; process bridges surf and dive; premise is deep dive.",
@@ -832,6 +852,16 @@
     "room": 4
   },
   {
+    "slug": "diagram-rendering-defaults",
+    "title": "Diagram Rendering Defaults",
+    "summary": "For a hand-authored concept diagram the default production path is SVG-first — write the file, do not open a canvas. This page owns which path is the default and on what evidence; the four-path taxonomy itself belongs to representation-rules §Rendering path. Promoted 2026-09-06 from a frontier hypothesis opened 2026-06-08, on four verified renders in four different shape vocabularies.",
+    "source": "wiki/logic/diagram-rendering-defaults.md",
+    "palace": "meta-knowledge",
+    "level": 7,
+    "domain": 10,
+    "room": 204
+  },
+  {
     "slug": "dictee-gym",
     "title": "Dictée Gym",
     "summary": "A runnable web gym that trains listening word segmentation — hearing where one French word ends and the next begins. It is the sibling of l2-phonology-gym and covers the gap that gym structurally cannot: ABX minimal pairs test a contrast inside one isolated word, but segmentation only fails in connected speech, where liaison, elision and enchaînement delete the boundaries the learner is listening for — all three the same mechanism, owned by that page. The drill is classical dictation — hear a line, type it — with a word-level diff and, critically, two separate scores: segmentation (did you recover the words, accents ignored) and orthography (did you spell them exactly). Collapsing those into one number hides which skill actually failed. Status: BUILT — gyms/dictee-gym.html runs offline against 260 lines cut from the 27 French song units, at two speeds each. This page is the canonical owner of the Dictée Gym in this wiki.",
@@ -1045,6 +1075,16 @@
     "level": 6,
     "domain": 8,
     "room": 12
+  },
+  {
+    "slug": "extended-color-wheel",
+    "title": "Extended Colour Wheel — 12 hues × tint · tone · shade",
+    "summary": "The artist's 12-hue wheel (3 primaries · 3 secondaries · 6 tertiaries) crossed with the three neutral modifiers — tint (+ white), tone (+ grey), shade (+ black) — gives a 36-cell grid of everyday colour names. This page owns the grid and the three modifiers; it is the fixed index that plutchik-wheel-of-emotions binds its 52 emotion words into, and it turns out to be the regular lattice that named-color-palette's 22 irregular names were sampled from.",
+    "source": "wiki/learning-systems/extended-color-wheel.md",
+    "palace": "core-memory",
+    "level": 7,
+    "domain": 10,
+    "room": 10
   },
   {
     "slug": "external-problem-solving-frameworks",
@@ -1877,7 +1917,11 @@
     "slug": "major-system-for-mathematical-notation",
     "title": "Major System for Mathematical Notation",
     "summary": "The Major System encodes digits only. Real-world quantities (Avogadro's number, the mass of the electron, the fine-structure constant, repeating decimals) carry structure beyond digits — decimal points, exponents, signs, units, and repetition markers. This page captures the two-camp debate on how to handle that structural overhead inside a Major-System workflow, proposes a small reserved-icon vocabulary for the cases context cannot supply, and names the trade-off: every reserved icon removes that image from the digit pool. The Major System itself is owned by mnemonic-methods-master; this page is an extension layer, not a redefinition.",
-    "source": "wiki/learning-systems/major-system-for-mathematical-notation.md"
+    "source": "wiki/learning-systems/major-system-for-mathematical-notation.md",
+    "palace": "strategic-memory",
+    "level": 3,
+    "domain": 10,
+    "room": 6
   },
   {
     "slug": "making-smaller-circles",
@@ -2207,7 +2251,7 @@
   {
     "slug": "named-color-palette",
     "title": "Named Color Palette",
-    "summary": "A 22-color categorical palette with stable common names, re-chunked into 6 memorable families (each with a concrete anchor image) so that many items can be color-differentiated without overloading the pre-attentive hue channel. Two coexisting indexes: a 6-stop memory walk for recall and Kelly priority order for assignment.",
+    "summary": "A 22-color categorical palette with stable common names, re-chunked into 6 memorable families (each with a concrete anchor image) so that many items can be color-differentiated without overloading the pre-attentive hue channel. Two coexisting indexes: a 6-stop memory walk for recall and Kelly priority order for assignment; David's own 19 object pegs (a ROYGBIV ring, 4 neutrals, 8 extras) are the operative anchors, with the 22 filed under them.",
     "source": "wiki/learning-systems/named-color-palette.md",
     "palace": "core-memory",
     "level": 7,
@@ -2595,8 +2639,8 @@
   },
   {
     "slug": "place-saburtalo-aversi",
-    "title": "Aversi Clinic — Saburtalo Hub 4",
-    "summary": "North-central medical anchor for the Saburtalo district palace per neighborhood-palace. Sits just north of Bakhtrioni St between Bochorishvili and Medical University metro — the \"second medical\" along the central arterial. Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Aversi Clinic (ავერსის კლინიკა) — Saburtalo Hub 3",
+    "summary": "Medical hub on the Owl corner for the Saburtalo district palace per neighborhood-palace. 609 m N of the home-locus; nearest CAST corner is the Owl (Budapest St x Kandelaki St x Nutsubidze St x Vakeli St), 148 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-aversi.md",
     "palace": "tactical-memory",
     "level": 3,
@@ -2605,8 +2649,8 @@
   },
   {
     "slug": "place-saburtalo-bochorishvili",
-    "title": "Vakhtang Bochorishvili Clinic — Saburtalo Hub 2",
-    "summary": "Central medical anchor for the Saburtalo district palace per neighborhood-palace. The avatar pin in the source screenshot sits ~here on Bakhtrioni St — this is the home-locus of the district palace; everything else is rehearsed relative to here. Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Academician Vakhtang Bochorishvili Medical Center (აკადემიკოს ვახტანგ ბოჭორიშვილის სამედიცინო ცენტრი) — Saburtalo Hub 1",
+    "summary": "Home-locus (medical centre) for the Saburtalo district palace per neighborhood-palace. 0 m N of the home-locus (this is the home-locus); nearest CAST corner is the Kangaroo (Mitskevich St x Tandzia St), 221 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-bochorishvili.md",
     "palace": "tactical-memory",
     "level": 3,
@@ -2615,8 +2659,8 @@
   },
   {
     "slug": "place-saburtalo-cemetery",
-    "title": "Saburtalo Cemetery (საბურთალოს სასაფლაო) — Saburtalo Hub 5",
-    "summary": "SW boundary anchor for the Saburtalo district palace per neighborhood-palace. Marks the south end of Shalva Nutsubidze St and the western edge of the district. Boundary hubs are load-bearing because they're how you know you've left the district. Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Saburtalo Cemetery (საბურთალოს სასაფლაო) — Saburtalo Hub 6",
+    "summary": "SW boundary anchor for the Saburtalo district palace per neighborhood-palace. 1958 m SW of the home-locus; nearest CAST corner is the Ibis (Kazbegi Ave x Tamarashvili Ave), 1265 m away — outside the first frame — Phase 2. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-cemetery.md",
     "palace": "tactical-memory",
     "level": 3,
@@ -2625,8 +2669,8 @@
   },
   {
     "slug": "place-saburtalo-central-park",
-    "title": "Central Park (ცენტრალური პარკი) — Saburtalo Hub 3",
-    "summary": "South-central green-space anchor for the Saburtalo district palace per neighborhood-palace. The park's north edge runs along University St, which is the southern boundary spine of the district. Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Central Park (ცენტრალური პარკი) — Saburtalo Hub 5",
+    "summary": "Green-space hub (OSM: construction) for the Saburtalo district palace per neighborhood-palace. 524 m SW of the home-locus; nearest CAST corner is the Dinosaur (Kartozia St x Tsintsadze St), 197 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-central-park.md",
     "palace": "tactical-memory",
     "level": 3,
@@ -2634,9 +2678,19 @@
     "room": 4
   },
   {
+    "slug": "place-saburtalo-delisi",
+    "title": "Delisi metro (დელისი) — Saburtalo Hub 2",
+    "summary": "Transport hub (metro, west exit) for the Saburtalo district palace per neighborhood-palace. 1013 m W of the home-locus; nearest CAST corner is the Ibis (Kazbegi Ave x Tamarashvili Ave), 147 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
+    "source": "wiki/learning-systems/places/place-saburtalo-delisi.md",
+    "palace": "tactical-memory",
+    "level": 3,
+    "domain": 7,
+    "room": 4
+  },
+  {
     "slug": "place-saburtalo-mardaleishvili",
-    "title": "Mardaleishvili Medical Centre — Saburtalo Hub 6",
-    "summary": "NW boundary anchor for the Saburtalo district palace per neighborhood-palace. Marks the north end of Shalva Nutsubidze St and the NW edge of the district — boundary partner of Saburtalo Cemetery (SW corner). Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Mardaleishvili Medical Center (მარდალეიშვილის სამედიცინო ცენტრი) — Saburtalo Hub 7",
+    "summary": "NW boundary anchor for the Saburtalo district palace per neighborhood-palace. 2139 m NW of the home-locus; nearest CAST corner is the Zebra (Asatiani St x Nutsubidze St), 1253 m away — outside the first frame — Phase 2. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-mardaleishvili.md",
     "palace": "tactical-memory",
     "level": 3,
@@ -2645,13 +2699,23 @@
   },
   {
     "slug": "place-saburtalo-medical-university",
-    "title": "Medical University Metro — Saburtalo Hub 1",
-    "summary": "NE-corner transport anchor for the Saburtalo district palace per neighborhood-palace. Daily commuter wave makes this the natural Phase-1 first hub to encode. Coordinates approximate — replace with GPS-walked values at Phase 0.",
+    "title": "Medical University metro (სამედიცინო უნივერსიტეტი) — Saburtalo Hub 4",
+    "summary": "Transport hub (metro, east exit) for the Saburtalo district palace per neighborhood-palace. 693 m NE of the home-locus; nearest CAST corner is the Lion (Budapest St x Panjikidze St), 250 m away — inside the first frame. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.",
     "source": "wiki/learning-systems/places/place-saburtalo-medical-university.md",
     "palace": "tactical-memory",
     "level": 3,
     "domain": 7,
     "room": 4
+  },
+  {
+    "slug": "polya-how-to-solve-it",
+    "title": "How to Solve It (Polya)",
+    "summary": "Polya's 1945 book, the ancestor of every problem-solving protocol in this wiki and — until now — cited from three pages with no owner. Four phases (understand · plan · carry out · look back), one list of general questions, and a 67-entry dictionary of heuristic. This page owns the four phases and the list, states why the generality of the questions is the whole mechanism, and flags a naming drift between the ORIENT expansion used in the Google-prep pages and the one orient-method registers.",
+    "source": "wiki/problem-solving/polya-how-to-solve-it.md",
+    "palace": "meta-knowledge",
+    "level": 6,
+    "domain": 10,
+    "room": 6
   },
   {
     "slug": "polyglot-architecture",
@@ -2662,6 +2726,16 @@
     "level": 6,
     "domain": 10,
     "room": 2
+  },
+  {
+    "slug": "position-essay",
+    "title": "Position Essay",
+    "summary": "The short piece where you are handed a proposition — not a question — and must commit to a position and defend it with arguments and examples, under a clock. The wiki owned written reception (semantic-reading-system) and written workplace persuasion (persuasive-writing-and-influence), and nothing for this: an essay with no reader to act, no ask to make, and a grader instead of an audience. Five moves — Stand · Because · Show · Yet · So — and one load-bearing rule the neighbouring pages do not state: every argument owes an example that the argument cannot supply by itself.",
+    "source": "wiki/logic/position-essay.md",
+    "palace": "meta-knowledge",
+    "level": 7,
+    "domain": 10,
+    "room": 7
   },
   {
     "slug": "practice-is-required-not-optional",
@@ -2895,8 +2969,8 @@
   },
   {
     "slug": "puzzle-archetype-taxonomy",
-    "title": "Puzzle Archetype Taxonomy (17 classes)",
-    "summary": "17-class taxonomy of brain-teaser archetypes extracted from the Livingstone-Thomson 211-puzzle corpus (2026-05-24 ingest). Each class is labeled A through R (Q-skip avoided; actually A–R, 17 letters). For each class: characteristic surface form, load-bearing tactic from the wiki, sample puzzles, the typical crux level (Strategy / Tactic / Tool), and the failure mode that distinguishes it from sibling archetypes. The taxonomy is the recognition alphabet of crux-recognition-gym: in Sword-phase the user must classify a new puzzle into one of these 17 in <60 s.",
+    "title": "Puzzle Archetype Taxonomy (19 classes)",
+    "summary": "19-class taxonomy of brain-teaser archetypes, eighteen extracted from the Livingstone-Thomson 211-puzzle corpus (2026-05-24 ingest) and one added 2026-09-23 from outside it. Classes are labeled A through S, no letter skipped. For each class: characteristic surface form, load-bearing tactic from the wiki, sample puzzles, the typical crux level (Strategy / Tactic / Tool), and the failure mode that distinguishes it from sibling archetypes. The taxonomy is the recognition alphabet of crux-recognition-gym: in Sword-phase the user must classify a new puzzle into one of these 19 in <60 s.",
     "source": "wiki/problem-solving/puzzle-archetype-taxonomy.md",
     "palace": "strategic-memory",
     "level": 6,
@@ -2980,6 +3054,16 @@
     "source": "wiki/cross-cutting/remaps.md",
     "palace": "core-memory",
     "level": 8,
+    "domain": 10,
+    "room": 6
+  },
+  {
+    "slug": "remaps-song",
+    "title": "REMAPS Song — *Never the Same*",
+    "summary": "A carrier song over REMAPS whose chorus is the complete sixteen-move litany — Rotate·Reverse·Relocate · Exaggerate·Eliminate · Modify·Merge·Move · Associate·Adapt·Aesthetic · Play·Palace·Path · Sensations·Symbols. It returns three times, growing 5 → 11 → 16 words, each pass ending in a recall test. That growth is the practical rule. Verses are clipped to fragments so nothing competes with the litany.",
+    "source": "wiki/cross-cutting/remaps-song.md",
+    "palace": "tactical-memory",
+    "level": 5,
     "domain": 10,
     "room": 6
   },
@@ -3082,6 +3166,56 @@
     "level": 4,
     "domain": 10,
     "room": 3
+  },
+  {
+    "slug": "sem3-chain-ballad",
+    "title": "SEM3 Chain Ballad — *Out of the Snow*",
+    "summary": "The eight story-chains of sem3-linking-chains sung as one English folk ballad — eight verses, ten cells each, all eighty phonetic cells of SEM3 in one song. Its load-bearing decision is that every verse takes the same tune, unchanged, because every band runs the same ten consonants down its column; the melody is therefore the Major mapping itself, and melodic position N is digit N.",
+    "source": "wiki/learning-systems/sem3-chain-ballad.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 8
+  },
+  {
+    "slug": "sem3-linking-chains",
+    "title": "SEM3 Linking Chains",
+    "summary": "Eight absurd causal story-chains, one per phonetic band of SEM3, each running that band's ten items in key order so a single pass installs all ten. They install the one thing the derivation rule cannot generate — which S-word is the visual one, the seaweed one, the sandy one — and they do it without ever presenting the cells as a table that could be drilled cell by cell. The Vision chain is David's, written 2026-09-07; it is the exemplar the other seven are built to.",
+    "source": "wiki/learning-systems/sem3-linking-chains.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 7
+  },
+  {
+    "slug": "sem3-love-poem",
+    "title": "SEM3 Love Poem — *The First One Is Snow*",
+    "summary": "The whole of SEM3 carried as a love poem about loss — one person, ten ways they keep arriving, and a narrator who never touches the thing itself. The two drill-shaped carriers (sem3-song, sem3-ordinal-song) split the system by derivability and teach it; this one covers all of it in a single lyric register and instructs nothing. Its claim is that the encoding was never technical: SEM3's ten categories are already the vocabulary of love poetry, and its central doctrine — the prefix is atmosphere, the suffix is the object — is already a love poem's shape.",
+    "source": "wiki/learning-systems/sem3-love-poem.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 6
+  },
+  {
+    "slug": "sem3-ordinal-song",
+    "title": "SEM3 Ordinal Song — *The Gate and the Vine*",
+    "summary": "The companion carrier to Ten Kinds of Air, covering the twenty cells that song deliberately walked past — SEM3's two ordinal bands, 8 Rainbow and 9 Solar system. Both bands ride as bare ordered sequences with only their zero named, because once the band's own order is installed the address is the position — the digits are counted off, not sung. The two tracks partition SEM3 by derivability: the first sings the generator and refuses the eighty derivable cells, this one sings the twenty the rule cannot reach.",
+    "source": "wiki/learning-systems/sem3-ordinal-song.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 5
+  },
+  {
+    "slug": "sem3-song",
+    "title": "SEM3 Song — *Ten Kinds of Air*",
+    "summary": "A carrier song over SEM3 whose chorus is the ten sensory categories in order — Vision · Sound · Smell · Taste · Touch · Sensation / Animals · Birds / Rainbow · Solar system — grouped 6 · 2 · 2 and returning three times unchanged. That refusal to grow is the payload: the prop does not change, only the air around it. Told as a story rather than a lesson, and the one deliberate omission is the hundred cells, which the owner page says are derivable output rather than content.",
+    "source": "wiki/learning-systems/sem3-song.md",
+    "palace": "meta-knowledge",
+    "level": 4,
+    "domain": 10,
+    "room": 4
   },
   {
     "slug": "semantic-input-cheat-sheet",
@@ -3908,7 +4042,7 @@
   {
     "slug": "vedic-speed-math",
     "title": "Vedic Speed Math",
-    "summary": "Course-shaped notes for the Udemy course \"Learn Vedic Speed Mathematics Systematically & Step by Step\". Organized to track the 7-section curriculum 1:1 so notes can be augmented in place as each lecture is watched. Vedic methods are complementary to Soroban Learning Method — soroban is bead-driven place-value arithmetic; Vedic is algebraic-identity arithmetic anchored to base-10 powers.",
+    "summary": "Course-shaped notes for the Udemy course \"Learn Vedic Speed Mathematics Systematically & Step by Step\". Organized to track the 7-section curriculum 1:1 so notes can be augmented in place as each lecture is watched. Vedic methods are complementary to soroban-learning-method — soroban is bead-driven place-value arithmetic; Vedic is algebraic-identity arithmetic anchored to base-10 powers.",
     "source": "wiki/learning-systems/vedic-speed-math.md",
     "palace": "strategic-memory",
     "level": 3,

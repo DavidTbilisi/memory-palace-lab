@@ -35,7 +35,7 @@ Zeitz frames the entire enterprise with two interlocking metaphors:
 
 ## What it adds to the wiki
 
-The wiki has accumulated **substrate** machinery for math memory ([vedic-speed-math](./vedic-speed-math.md), [trachtenberg-system](./trachtenberg-system.md), Soroban Learning Method, [calendar-reflex](./calendar-reflex.md), [major-system-for-mathematical-notation](./major-system-for-mathematical-notation.md)) and **shape-compression** machinery for proof structure ([math-proof-glyph-grammar](./math-proof-glyph-grammar.md)). What it has lacked is a **discovery methodology** — *how do you actually find the proof in the first place?* Zeitz is the wiki's first proof-discovery canon.
+The wiki has accumulated **substrate** machinery for math memory ([vedic-speed-math](./vedic-speed-math.md), [trachtenberg-system](./trachtenberg-system.md), [soroban-learning-method](./soroban-learning-method.md), [calendar-reflex](./calendar-reflex.md), [major-system-for-mathematical-notation](./major-system-for-mathematical-notation.md)) and **shape-compression** machinery for proof structure ([math-proof-glyph-grammar](./math-proof-glyph-grammar.md)). What it has lacked is a **discovery methodology** — *how do you actually find the proof in the first place?* Zeitz is the wiki's first proof-discovery canon.
 
 Five load-bearing additions (one per new owner page, except #1 which spans this summary and three children):
 

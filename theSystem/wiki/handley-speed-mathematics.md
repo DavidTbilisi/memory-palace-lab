@@ -14,7 +14,7 @@ wiki_source: wiki/learning-systems/handley-speed-mathematics.md
 - Handley, B. (2003). *Speed Mathematics: Secret Skills for Quick Calculation*. John Wiley & Sons. PDF at `raw/01 Core_Memory/Math/Books/handley-speed-mathematics-wiley-2003.pdf`.
 - Originally published in Australia as *Speed Mathematics: Secrets of Lightning Mental Calculation* by Wrightbooks (Wiley AU imprint), 2003.
 
-**Last updated**: 2026-05-22
+**Last updated**: 2026-09-22 (§A real application target — linked common-masters-exam); 2026-05-22
 
 ![Handley Reference Number = Vedic Working Base](diagrams/math/handley-reference-number.png)
 
@@ -166,6 +166,10 @@ Handley is the easiest first-read of the four. The trade-off is depth — Handle
 
 ---
 
+## A real application target — the Common Master's Exam
+
+common-masters-exam — Georgia's national master's-entrance aptitude exam — names Handley's single-formula method (alongside [trachtenberg-system](./trachtenberg-system.md)) as the drill stack its quantitative-reasoning section retargets. Handley's gentler ramp and single Reference-Number formula make it a plausible *first* pass for someone retargeting speed arithmetic onto a timed multiple-choice format under exam pressure, ahead of the deeper Vedic/Trachtenberg material.
+
 ## Related pages
 
 - [vedic-speed-math](./vedic-speed-math.md) — Handley's main source material (acknowledged informally)
@@ -174,6 +178,7 @@ Handley is the easiest first-read of the four. The trade-off is depth — Handle
 - [vedic-digit-sum-check](./vedic-digit-sum-check.md) — Handley calls this "casting out nines"
 - [trachtenberg-squares-and-roots](./trachtenberg-squares-and-roots.md) — same ends-in-5 squaring identity Handley adopts
 - [vedic-duplex-square-roots](./vedic-duplex-square-roots.md) — Handley's Ch 18 calculating-sq-roots maps here
+- common-masters-exam — a real application target: exam quantitative-reasoning speed under a clock
 
 ---
 
