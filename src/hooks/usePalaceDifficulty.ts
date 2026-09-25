@@ -4,6 +4,7 @@ import {
   computePalaceDifficulty,
   type PalaceDifficulty,
 } from "../domain/services/palaceDifficulty";
+import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
 
 /**
  * Reactive learner-relative difficulty for the current palace. Recomputes when
@@ -15,8 +16,13 @@ export function usePalaceDifficulty(): PalaceDifficulty {
   const nodes = usePalaceStore((s) => s.nodes);
   const edges = usePalaceStore((s) => s.edges);
   const loci = usePalaceStore((s) => s.loci);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const encodeSpeeds = useMemo(
+    () => nodeEncodeSpeeds(analyticsEvents, new Date().toISOString()),
+    [analyticsEvents],
+  );
   return useMemo(
-    () => computePalaceDifficulty(nodes, edges, loci),
-    [nodes, edges, loci],
+    () => computePalaceDifficulty(nodes, edges, loci, { encodeSpeeds }),
+    [nodes, edges, loci, encodeSpeeds],
   );
 }

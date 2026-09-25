@@ -21,6 +21,7 @@ import {
   type DifficultyResult,
   type DifficultyRow,
 } from "./difficulty";
+import type { NodeEncodeSpeed } from "./encodeSpeed";
 
 export interface NodeDifficulty {
   nodeId: string;
@@ -30,6 +31,8 @@ export interface NodeDifficulty {
   absorbed: boolean;
   overridden: boolean; // had at least one manual override field
   autoDerived: boolean; // no override at all
+  /** Timed first encode and its speed band: an input shown with the auto-derived fields, not scored. */
+  encode: NodeEncodeSpeed | null;
 }
 
 export interface PalaceDifficulty {
@@ -53,6 +56,8 @@ export interface PalaceDifficultyOptions {
   wall?: number;
   /** Min successful repetitions for a locus to count its node as "absorbed". */
   absorbedRepetitions?: number;
+  /** Encode time per node id, from node_encoded events. */
+  encodeSpeeds?: ReadonlyMap<string, NodeEncodeSpeed>;
 }
 
 const wordCount = (s: string): number =>
@@ -193,6 +198,7 @@ export function computePalaceDifficulty(
       absorbed: known.has(result.topic),
       overridden: overriddenSet.has(rawId),
       autoDerived: !overriddenSet.has(rawId),
+      encode: options.encodeSpeeds?.get(rawId) ?? null,
     };
   });
   const byNodeId = new Map(nodeDifficulties.map((d) => [d.nodeId, d]));
