@@ -61,6 +61,7 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
       routeId: item.routeId,
       locusId: item.locusId,
       nodeId: item.nodeId,
+      slot: item.slot,
     });
 
   return (

@@ -206,3 +206,51 @@ export function decodeSlotSchedules(value: unknown): Locus["slotSchedules"] {
   }
   return Object.keys(schedules).length > 0 ? schedules : undefined;
 }
+
+export interface NedfCardText {
+  /** What the walk shows first. */
+  cue: string;
+  /** The question asked before the answer is revealed. */
+  prompt: string;
+  answer: string;
+}
+
+/**
+ * What one slot's card asks and answers, following the four card types of encoded spaced
+ * repetition. Every answer names the concept, since naming it is what the card drills.
+ */
+export function nedfCardText(slot: NedfSlot, nedf: NedfEncoding, title: string): NedfCardText {
+  const name = title.trim() || "Untitled node";
+  switch (slot) {
+    case "nameHook": {
+      const details = [
+        nedf.essence,
+        isSlotFilled(nedf, "distinguisher") ? `Not to confuse: ${nedf.distinguisher!.reason}` : null,
+        isSlotFilled(nedf, "failure") ? `Watch for: ${nedf.failure!.correction}` : null,
+      ].filter(Boolean);
+      return {
+        cue: nedf.nameHook ?? "",
+        prompt: "Recognition: which concept does this hook call up, and what do you know about it?",
+        answer: [name, ...details].join(" · "),
+      };
+    }
+    case "essence":
+      return {
+        cue: nedf.essence ?? "",
+        prompt: "Recall: name the concept that does this.",
+        answer: nedf.nameHook ? `${name} · ${nedf.nameHook}` : name,
+      };
+    case "distinguisher":
+      return {
+        cue: nedf.distinguisher?.prompt ?? "",
+        prompt: "Discrimination: which concept is this, and not its neighbour? Say why.",
+        answer: `${name}, because ${nedf.distinguisher?.reason ?? ""}`,
+      };
+    case "failure":
+      return {
+        cue: nedf.failure?.scenario ?? "",
+        prompt: "Diagnosis: what is going wrong here, and how do you fix it?",
+        answer: `${name}: ${nedf.failure?.correction ?? ""}`,
+      };
+  }
+}

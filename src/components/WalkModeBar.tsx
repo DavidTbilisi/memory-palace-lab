@@ -6,7 +6,15 @@ import { routeColorHex } from "../domain/services/routeBuilder";
 import { sectionNameAt } from "../domain/services/routeSections";
 import { routeIndexOfWalkStep, walkOrderedLoci } from "../domain/services/walkService";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
-import type { RecallRating } from "../domain/entities/types";
+import type { NedfEncoding, RecallRating } from "../domain/entities/types";
+import {
+  NEDF_SLOT_LABELS,
+  NEDF_SLOT_OPERATIONS,
+  isSlotFilled,
+  nedfCardText,
+  normalizeNedf,
+} from "../domain/services/nedf";
+import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 type Props = {
@@ -16,6 +24,7 @@ type Props = {
 type NodeReviewState = {
   title: string;
   content: string;
+  nedf: NedfEncoding | null;
 };
 
 function stripHtml(value: string) {
@@ -27,16 +36,17 @@ function resolveCurrentNodeReviewState(
   editorRef: ReturnType<typeof usePalaceStore.getState>["editorRef"],
   snapshotNodes: ReturnType<typeof usePalaceStore.getState>["nodes"],
 ): NodeReviewState {
-  if (!nodeId) return { title: "No node", content: "" };
+  if (!nodeId) return { title: "No node", content: "", nedf: null };
   if (editorRef) {
     for (const id of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(id);
       if (!isMemoryNodeShape(shape)) continue;
-      const meta = shape.meta as { mpNodeId?: string; mpContent?: string };
+      const meta = shape.meta as MemoryPalaceMeta;
       if (meta.mpNodeId !== nodeId) continue;
       return {
         title: resolveMemoryNodeTitle(shape),
         content: stripHtml(meta.mpContent?.trim() || ""),
+        nedf: normalizeNedf(meta.mpNedf),
       };
     }
   }
@@ -44,6 +54,7 @@ function resolveCurrentNodeReviewState(
   return {
     title: snapshotNode?.title || nodeId.slice(0, 8),
     content: stripHtml(snapshotNode?.content?.trim() || ""),
+    nedf: normalizeNedf(snapshotNode?.nedf),
   };
 }
 
@@ -124,6 +135,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const loci = usePalaceStore((s) => s.loci);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const walkDirection = usePalaceStore((s) => s.walkDirection);
+  const walkSlot = usePalaceStore((s) => s.walkSlot);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const snapshotNodes = usePalaceStore((s) => s.nodes);
 
@@ -151,13 +163,23 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     [currentLocus?.nodeId, editorRef, snapshotNodes],
   );
 
-  const cueText = walkCueOnly ? nodeState.title : currentLocus?.label?.trim() || nodeState.title;
-  const answerText = walkCueOnly
-    ? nodeState.content || nodeState.title
-    : [nodeState.title, nodeState.content].filter(Boolean).join(" - ");
-  const promptText = walkCueOnly
-    ? "Recall the explanation before you reveal it."
-    : "Use the locus cue first, then reveal the full answer.";
+  // An NEDF step asks its slot's own question; a stop without slots keeps the classic cue.
+  const card = walkSlot && isSlotFilled(nodeState.nedf, walkSlot) ? nedfCardText(walkSlot, nodeState.nedf!, nodeState.title) : null;
+  const cueText = card
+    ? card.cue
+    : walkCueOnly
+      ? nodeState.title
+      : currentLocus?.label?.trim() || nodeState.title;
+  const answerText = card
+    ? card.answer
+    : walkCueOnly
+      ? nodeState.content || nodeState.title
+      : [nodeState.title, nodeState.content].filter(Boolean).join(" - ");
+  const promptText = card
+    ? card.prompt
+    : walkCueOnly
+      ? "Recall the explanation before you reveal it."
+      : "Use the locus cue first, then reveal the full answer.";
   const progressPct = count > 0 ? Math.round(((walkIndex + 1) / count) * 100) : 0;
   const waitingForRating = walkRecallMode && !walkStepRated;
 
@@ -295,6 +317,15 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
               <span className="rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">
                 Step {count ? walkIndex + 1 : 0}/{count}
               </span>
+              {card && walkSlot ? (
+                <span
+                  data-testid="walk-slot"
+                  className="rounded bg-emerald-900/60 px-2 py-0.5 text-[11px] font-medium text-emerald-200"
+                  title={`NEDF ${NEDF_SLOT_LABELS[walkSlot]} card`}
+                >
+                  {NEDF_SLOT_OPERATIONS[walkSlot]}
+                </span>
+              ) : null}
               {sectionName ? (
                 <span
                   data-testid="walk-section"
@@ -349,11 +380,12 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
 
             <div className="flex min-w-0 items-start gap-2 overflow-hidden">
               <div className="min-w-0 flex-1">
-                <div id="walk-cue" className="truncate text-sm font-semibold text-violet-100">
+                <div id="walk-cue" title={cueText} className="truncate text-sm font-semibold text-violet-100">
                   {cueText || "No cue"}
                 </div>
                 <div
                   id="walk-answer"
+                  title={walkRecallMode && !walkAnswerRevealed ? promptText : answerText}
                   className="h-5 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-5 text-zinc-300"
                 >
                   {walkRecallMode && !walkAnswerRevealed ? promptText : answerText || "No saved answer on this node yet."}

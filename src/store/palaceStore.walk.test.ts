@@ -52,6 +52,7 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkRouteId: "route-a",
     walkIndex: 0,
     walkDirection: "forward",
+    walkSlot: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: false,
@@ -360,6 +361,61 @@ describe("revealWalkAnswer", () => {
     if (latency !== null) {
       expect(Number.isNaN(latency)).toBe(false);
     }
+  });
+});
+
+// ── NEDF slots ──────────────────────────────────────────────────────────────
+
+describe("NEDF slots in a walk", () => {
+  const past = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  const nedf = {
+    nameHook: "Mute-X",
+    essence: "One key to the bathroom",
+    distinguisher: { prompt: "One key, or a bowl of keys?", reason: "A mutex has one owner" },
+  };
+  const encodedNodes = nodes.map((node) => (node.id === "n1" ? { ...node, nedf } : node));
+  const encodedLoci = loci.map((locus) =>
+    locus.id === "l1"
+      ? {
+          ...locus,
+          interval: 3,
+          easeFactor: 2.5,
+          repetitions: 1,
+          nextReviewAt: past(1),
+          slotSchedules: {
+            distinguisher: { interval: 1, easeFactor: 2.5, repetitions: 0, nextReviewAt: past(5), lastReviewedAt: null },
+          },
+        }
+      : locus,
+  );
+
+  it("asks the most overdue slot when a step is entered, and keeps it through rating", () => {
+    resetWalkState({ nodes: encodedNodes, loci: encodedLoci, walkRecallMode: true });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkSlot).toBe("distinguisher");
+
+    store.revealWalkAnswer();
+    usePalaceStore.setState({ walkStepRated: false });
+    const beforeWalkNext = usePalaceStore.getState().walkIndex;
+    store.rateWalkRecall("again");
+    const rated = usePalaceStore.getState().loci.find((locus) => locus.id === "l1")!;
+    // Only the Distinguisher card moved; the stop's own schedule and the other slots did not.
+    expect(rated.slotSchedules?.distinguisher?.repetitions).toBe(0);
+    expect(Date.parse(rated.slotSchedules!.distinguisher!.lastReviewedAt!)).toBeGreaterThan(Date.now() - 5000);
+    expect(rated.slotSchedules?.nameHook).toBeUndefined();
+    expect(rated).toMatchObject({ interval: 3, repetitions: 1 });
+    // The walk moved on to a plain stop, which has no slot.
+    expect(usePalaceStore.getState().walkIndex).toBe(beforeWalkNext + 1);
+    expect(usePalaceStore.getState().walkSlot).toBeNull();
+  });
+
+  it("asks the slot a review from the queue chose", () => {
+    resetWalkState({ nodes: encodedNodes, loci: encodedLoci, walkOpen: true });
+    usePalaceStore.getState().selectWalkSlot("essence");
+    expect(usePalaceStore.getState().walkSlot).toBe("essence");
+    usePalaceStore.getState().selectWalkSlot();
+    expect(usePalaceStore.getState().walkSlot).toBe("distinguisher");
   });
 });
 

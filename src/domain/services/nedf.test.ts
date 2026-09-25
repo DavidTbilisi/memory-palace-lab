@@ -5,6 +5,7 @@ import {
   dueStopCards,
   filledNedfSlots,
   isNedfEncoded,
+  nedfCardText,
   normalizeNedf,
   rateStopCard,
   stopCards,
@@ -147,5 +148,35 @@ describe("slot schedule storage", () => {
     ).toEqual({ essence: schedule });
     expect(decodeSlotSchedules("x")).toBeUndefined();
     expect(decodeStopSettings('{"slotSchedules":[1,2]}')).toEqual({});
+  });
+});
+
+describe("card text", () => {
+  it("asks each slot's own question and names the concept in every answer", () => {
+    expect(nedfCardText("nameHook", full, "BFS")).toEqual({
+      cue: "Bouncer Frisks Slowly",
+      prompt: expect.stringMatching(/^Recognition/),
+      answer:
+        "BFS · Explores a graph layer by layer with a FIFO queue · Not to confuse: FIFO gives layer order; a stack dives deep · Watch for: BFS needs a queue",
+    });
+    expect(nedfCardText("essence", full, "BFS")).toMatchObject({
+      cue: full.essence,
+      prompt: expect.stringMatching(/^Recall/),
+      answer: "BFS · Bouncer Frisks Slowly",
+    });
+    expect(nedfCardText("distinguisher", full, "BFS")).toMatchObject({
+      cue: "Why a queue and not a stack?",
+      prompt: expect.stringMatching(/^Discrimination/),
+      answer: "BFS, because FIFO gives layer order; a stack dives deep",
+    });
+    expect(nedfCardText("failure", full, "BFS")).toMatchObject({
+      cue: "Search used a stack and went depth-first",
+      prompt: expect.stringMatching(/^Diagnosis/),
+      answer: "BFS: BFS needs a queue",
+    });
+  });
+
+  it("leaves unfilled slots out of the recognition answer", () => {
+    expect(nedfCardText("nameHook", { nameHook: "Mute-X" }, "Mutex").answer).toBe("Mutex");
   });
 });

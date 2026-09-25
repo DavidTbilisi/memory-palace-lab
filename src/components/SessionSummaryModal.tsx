@@ -78,6 +78,7 @@ export function SessionSummaryModal({ onReviewAnother, onBackToPalace }: Props) 
                   routeId: nextDue.routeId,
                   locusId: nextDue.locusId,
                   nodeId: nextDue.nodeId,
+                  slot: nextDue.slot,
                 });
                 return;
               }

@@ -507,3 +507,35 @@ describe("WalkModeBar — direction and sections", () => {
     expect(screen.queryByTestId("walk-direction-reverse")).toBeNull();
   });
 });
+
+describe("WalkModeBar — NEDF cards", () => {
+  const nedf = {
+    nameHook: "Power plant",
+    essence: "Turns food into ATP",
+    distinguisher: { prompt: "Makes energy, or stores the genome?", reason: "the nucleus stores the genome" },
+  };
+  const nodes = [{ ...BASE_NODE, nedf }, { ...BASE_NODE, id: "node-2", objectId: "obj-node-2", title: "Nucleus" }];
+
+  it("asks the step's slot question before the answer is revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkSlot: "distinguisher", nodes });
+    render(<WalkModeBar />);
+    expect(screen.getByTestId("walk-slot")).toHaveTextContent("Discrimination");
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Makes energy, or stores the genome?");
+    expect(document.getElementById("walk-answer")).toHaveTextContent(/^Discrimination: which concept is this/);
+  });
+
+  it("names the concept once the answer is revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: true, walkSlot: "essence", nodes });
+    render(<WalkModeBar />);
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Turns food into ATP");
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Mitochondria · Power plant");
+  });
+
+  it("falls back to the classic cue when the step's slot is not filled", () => {
+    mockState = buildState({ walkOpen: true, walkSlot: "failure", nodes });
+    render(<WalkModeBar />);
+    expect(screen.queryByTestId("walk-slot")).toBeNull();
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Living Room");
+  });
+});
+
