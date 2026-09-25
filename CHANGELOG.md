@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.15.0 — 2026-09-25
+
+### Routes
+
+- **Walk a route backwards.** Each route has a walk direction in its menu in the Routes tab: **Forward**, **Reverse**, or **Alternate each walk**. A reverse walk starts at the last stop, the walk bar says **Reverse**, and the arrows on the canvas point back along the route. Alternate switches direction every time you walk the route.
+- **Draft routes.** Turn off **Include in review** in a route's menu while you are still building it. The route shows a **Draft** badge, and its stops are never due. Their review history is kept, so turning review back on picks up where they left off.
+- **Route notes.** The open route has a notes field, and other route cards show their notes.
+- **Sections for long routes.** On a route with more than 12 stops, the divider button on a stop starts a named section there, such as a room or a floor. Stops are grouped under their section in the Routes tab, and the walk bar shows which section you are in.
+- **Route settings in the DSL.** On a route's tag line, `#color:`, `#hidden`, `#direction:` and `#review:off` set the route's color, visibility, walk direction and review, and `:` lines before the first stop are its notes. Exporting a palace writes them. Applying DSL now takes these settings from the text, so a route written without `#hidden` is shown again. A tag with a bad value, such as `#direction:up`, gets the new warning W702. `palace fmt` now formats files that have route tags instead of refusing them.
+- **Route settings over MCP.** `route_list` returns each route's color, visibility, walk direction, review setting, notes and sections. `route_update` can change any of these as well as the name.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.14 or older, update it too. An older version drops these new route settings when it saves a palace, and the next sync removes them on your other devices as well.
+
 ## v0.14.2 — 2026-09-24
 
 ### Updates
