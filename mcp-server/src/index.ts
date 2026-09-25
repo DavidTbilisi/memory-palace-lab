@@ -21,6 +21,7 @@ import * as edges from "./tools/edges";
 import * as nodes from "./tools/nodes";
 import * as palaces from "./tools/palaces";
 import * as routes from "./tools/routes";
+import { ROUTE_COLORS, ROUTE_DIRECTIONS } from "../../src/domain/entities/types";
 import { CAST_AXIS_VALUES, type ServerContext } from "./tools/shared";
 
 const dbPath = resolveDbPath();
@@ -303,8 +304,18 @@ server.registerTool(
 server.registerTool(
   "route_update",
   {
-    description: "Rename a route.",
-    inputSchema: { palace: palaceArg, route: z.string(), name: z.string().min(1) },
+    description:
+      "Rename a route or change its settings: color, visibility on the canvas, walk direction, whether it is in review (false makes it a draft whose stops are never due), and notes. Pass only what changes.",
+    inputSchema: {
+      palace: palaceArg,
+      route: z.string(),
+      name: z.string().min(1).optional(),
+      color: z.enum(ROUTE_COLORS).nullable().optional().describe("Path color; null returns to the default palette color"),
+      hidden: z.boolean().optional().describe("true hides the route on the canvas"),
+      direction: z.enum(ROUTE_DIRECTIONS).optional().describe("Walk order; alternate flips it on every walk"),
+      inReview: z.boolean().optional().describe("false makes the route a draft: its stops keep their schedules but are never due"),
+      notes: z.string().optional().describe("Free-text notes; an empty string clears them"),
+    },
   },
   tool(routes.routeUpdate),
 );

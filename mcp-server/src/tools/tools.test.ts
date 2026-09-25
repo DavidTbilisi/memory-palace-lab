@@ -212,6 +212,62 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(listed.loci.map((l) => l.node)).toEqual(["A", "B"]);
   });
 
+  it("route_update changes route settings, and route_list and the DSL export show them", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Walk", nodes: ["A"] });
+
+    let listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed).toMatchObject({ direction: "forward", inReview: true });
+    expect(listed.color).toBeUndefined();
+
+    await routes.routeUpdate(ctx, {
+      palace: palace.id,
+      route: "Walk",
+      color: "emerald",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Start at the gate.",
+    });
+    // A rename leaves the settings alone.
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Walk", name: "Night Walk" });
+    listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed).toMatchObject({
+      name: "Night Walk",
+      color: "emerald",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Start at the gate.",
+    });
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "/Night Walk\n#color:emerald #hidden #direction:alternate #review:off\n: Start at the gate.\n",
+    );
+
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Night Walk", color: null, inReview: true, notes: "" });
+    listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed.color).toBeUndefined();
+    expect(listed.inReview).toBe(true);
+    expect(listed.notes).toBeUndefined();
+
+    await expect(routes.routeUpdate(ctx, { palace: palace.id, route: "Night Walk" })).rejects.toThrow(/Nothing to update/);
+  });
+
+  it("review_queue leaves out a draft route", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Kept", nodes: ["A"] });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Draft", nodes: ["A"] });
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Draft", inReview: false });
+
+    const routeTitles = analysis
+      .reviewQueue(ctx, { palace: palace.id })
+      .items.filter((item) => item.kind === "route")
+      .map((item) => item.title);
+    expect(routeTitles).toEqual(["Kept"]);
+  });
+
   function palaceCreateHelper() {
     return palaces.palaceCreate(ctx, { name: "Test Palace" });
   }
