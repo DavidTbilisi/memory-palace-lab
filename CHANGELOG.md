@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.16.0 — 2026-09-25
+
+### NEDF slots
+
+- **Encode a concept four ways.** A node's inspector has a new **NEDF** section with four slots: **Name-hook** (a sound-alike or image), **Essence** (what it does), **Distinguisher** (a question and why it is this concept and not its neighbour), and **Failure** (a scene where it breaks, and the fix). A small square shows at a glance which slots are filled. A pair slot counts only once both halves are written.
+- **Each slot has its own review schedule.** Once a stop's node has slots, each filled slot is a separate card. Failing one slot does not reset the others. The inspector shows when each slot is next due.
+- **Walks ask one slot per stop.** A walk asks the most overdue slot at each stop, and the walk bar names the kind of card: Recognition, Recall, Discrimination, or Diagnosis. The node stays covered until you reveal the answer. Nodes without slots are walked as before.
+- **NEDF in Insights.** A new section shows how often each slot is recalled and lists encoded concepts that still have no Failure slot. Click one to jump to it on the canvas.
+- **NEDF in the DSL.** Under a node, `@N`, `@E`, `@D question => reason` and `@F scenario => correction` lines write the slots, and exporting a palace writes them back. A pair with one half missing gets the new warning W009. Applying DSL takes the slots from the text, so a node written without NEDF lines has its slots cleared, as with `@image`.
+- **NEDF over MCP.** `node_create` and `node_update` take a `nedf` field (set a slot to `null` to clear it). `node_get` returns the slots and each slot's schedule, and `route_list` returns slot schedules per stop.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.15 or older, update it too. An older version drops NEDF slots and their schedules when it saves a palace, and the next sync removes them on your other devices as well.
+
 ## v0.15.0 — 2026-09-25
 
 ### Routes
