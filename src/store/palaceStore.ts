@@ -16,6 +16,7 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
+  RouteDirection,
   StopView,
   WalkDirection,
 } from "../domain/entities/types";
@@ -272,6 +273,12 @@ export type PalaceStore = {
   dismissRouteNotice: () => void;
   setRouteColor: (routeId: string, color: RouteColor) => void;
   setRouteHidden: (routeId: string, hidden: boolean) => void;
+  setRouteDirection: (routeId: string, direction: RouteDirection) => void;
+  /** `false` makes the route a draft that is never due; its stops keep their schedules. */
+  setRouteInReview: (routeId: string, inReview: boolean) => void;
+  setRouteNotes: (routeId: string, notes: string) => void;
+  /** Start a named section at a stop; an empty name ends the section there. */
+  setStopSection: (locusId: string, section: string | null) => void;
   moveRouteTo: (routeId: string, toIndex: number) => void;
   /** The user deleted these nodes: take their stops out, keeping them for an undo. */
   detachStopsForNodes: (nodeIds: string[]) => void;
@@ -1233,6 +1240,48 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       set((state) => ({
         routes: state.routes.map((route) =>
           route.id === routeId ? { ...route, hidden } : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteDirection(routeId, direction) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId ? { ...route, direction } : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteInReview(routeId, inReview) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, inReview: inReview ? undefined : false }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteNotes(routeId, notes) {
+      const trimmed = notes.trim();
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, notes: trimmed ? notes : undefined }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setStopSection(locusId, section) {
+      const name = section?.trim() || null;
+      set((state) => ({
+        loci: state.loci.map((locus) =>
+          locus.id === locusId ? { ...locus, section: name } : locus,
         ),
       }));
       scheduleDraftSave();

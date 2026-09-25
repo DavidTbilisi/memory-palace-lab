@@ -71,6 +71,7 @@ function buildState(overrides: Record<string, unknown> = {}) {
     walkRouteId: "route-1",
     loci: [BASE_LOCUS, { ...BASE_LOCUS, id: "locus-2", objectId: "obj-2", nodeId: "node-2", label: "Kitchen", orderIndex: 1 }],
     walkIndex: 0,
+    walkDirection: "forward",
     editorRef: null,
     nodes: [BASE_NODE, { ...BASE_NODE, id: "node-2", objectId: "obj-node-2", title: "Nucleus", content: "Control center" }],
     ...overrides,
@@ -481,5 +482,28 @@ describe("WalkModeBar — empty route", () => {
     usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
     render(<WalkModeBar />);
     expect(screen.getByRole("button", { name: /next step/i })).toBeDisabled();
+  });
+});
+
+describe("WalkModeBar — direction and sections", () => {
+  const loci = [
+    BASE_LOCUS,
+    { ...BASE_LOCUS, id: "locus-2", nodeId: "node-2", label: "Kitchen", orderIndex: 1, section: "Ground floor" },
+  ];
+
+  it("starts a reverse walk at the last stop and says so", () => {
+    mockState = buildState({ walkOpen: true, walkDirection: "reverse", loci });
+    render(<WalkModeBar />);
+    expect(screen.getByText("Kitchen")).toBeInTheDocument();
+    expect(screen.getByTestId("walk-direction-reverse")).toBeInTheDocument();
+    expect(screen.getByTestId("walk-section")).toHaveTextContent("Ground floor");
+  });
+
+  it("shows no section before the first one starts, and no reverse badge going forward", () => {
+    mockState = buildState({ walkOpen: true, loci });
+    render(<WalkModeBar />);
+    expect(screen.getByText("Living Room")).toBeInTheDocument();
+    expect(screen.queryByTestId("walk-section")).toBeNull();
+    expect(screen.queryByTestId("walk-direction-reverse")).toBeNull();
   });
 });

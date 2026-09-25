@@ -3,7 +3,8 @@ import { useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { usePalaceStore } from "../store/palaceStore";
 import { routeColorHex } from "../domain/services/routeBuilder";
-import { walkOrderedLoci } from "../domain/services/walkService";
+import { sectionNameAt } from "../domain/services/routeSections";
+import { routeIndexOfWalkStep, walkOrderedLoci } from "../domain/services/walkService";
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { RecallRating } from "../domain/entities/types";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
@@ -137,6 +138,10 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   );
   const count = currentRouteLoci.length;
   const currentLocus = currentRouteLoci[walkIndex] ?? null;
+  const sectionName = useMemo(() => {
+    const routeOrder = walkDirection === "reverse" ? [...currentRouteLoci].reverse() : currentRouteLoci;
+    return sectionNameAt(routeOrder, routeIndexOfWalkStep(walkIndex, routeOrder.length, walkDirection));
+  }, [currentRouteLoci, walkDirection, walkIndex]);
   const routeIndex = routes.findIndex((route) => route.id === effectiveRouteId);
   const route = routeIndex >= 0 ? routes[routeIndex]! : null;
   const routeColor = route ? routeColorHex(route, routeIndex) : undefined;
@@ -290,6 +295,15 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
               <span className="rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">
                 Step {count ? walkIndex + 1 : 0}/{count}
               </span>
+              {sectionName ? (
+                <span
+                  data-testid="walk-section"
+                  className="min-w-0 max-w-40 truncate rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300"
+                  title={`Section: ${sectionName}`}
+                >
+                  {sectionName}
+                </span>
+              ) : null}
               {walkDirection === "reverse" ? (
                 <span
                   data-testid="walk-direction-reverse"
