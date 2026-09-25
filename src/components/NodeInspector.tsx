@@ -14,7 +14,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { NodeRouteMemberships } from "./NodeRouteMemberships";
-import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { NedfSlotsEditor } from "./NedfSlotsEditor";
+import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
 
@@ -363,12 +364,12 @@ export function NodeInspector() {
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
     if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return null;
     const nowIso = new Date().toISOString();
-    const nodeLoci = loci.filter((locus) => locus.nodeId === meta.mpNodeId).map((locus) => normalizeLocusSchedule(locus, nowIso));
+    const nedf = normalizeNedf(meta.mpNedf);
+    const nodeLoci = loci
+      .filter((locus) => locus.nodeId === meta.mpNodeId)
+      .map((locus) => ({ routeId: locus.routeId, nextReviewAt: stopNextReviewAt(locus, nedf, nowIso) }));
     if (nodeLoci.length === 0) return null;
-    const next = nodeLoci
-      .map((locus) => locus.nextReviewAt)
-      .filter((value): value is string => typeof value === "string" && value.length > 0)
-      .sort()[0];
+    const next = nodeLoci.map((locus) => locus.nextReviewAt).sort()[0];
     if (!next) return null;
     const routeId = nodeLoci.find((locus) => locus.nextReviewAt === next)?.routeId;
     return {
@@ -673,6 +674,8 @@ export function NodeInspector() {
           </div>
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
+
+        <NedfSlotsEditor nodeId={sh.meta.mpNodeId} />
 
         <NodeRouteMemberships nodeId={sh.meta.mpNodeId} />
 
