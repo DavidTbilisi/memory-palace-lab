@@ -897,6 +897,11 @@ export function AnalyticsPanel() {
                 create, locus add/update.
               </li>
               <li>
+                - Encode time: how long a node or edge took to build or re-edit,
+                counting only active time (pauses over a minute count as one
+                minute; time in another app counts as none).
+              </li>
+              <li>
                 - Review flow: walk start, step changes, answer reveals, recall
                 ratings, walk close.
               </li>

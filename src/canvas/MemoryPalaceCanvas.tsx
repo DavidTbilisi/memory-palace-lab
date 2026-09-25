@@ -20,6 +20,7 @@ import {
 import { isBackgroundShape } from "./backgroundImage";
 import { RouteBuildBanner } from "../components/RouteBuildBanner";
 import { createGeoMemoryNode, imageNodeMeta } from "./createMemoryShapes";
+import { installEncodeTracker } from "./installEncodeTracker";
 import { registerMemoryIdGuard } from "./memoryIds";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { isMemoryNodeShape } from "./memoryNodeShape";
@@ -463,6 +464,15 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
       // Duplicating or pasting a node copies its ids; a copy needs its own.
       const stopIdGuard = registerMemoryIdGuard(editor, () => palaceId);
+      const encodes = installEncodeTracker(editor, (event) => {
+        void usePalaceStore.getState().recordAnalyticsEvent({
+          eventType: event.eventType,
+          eventGroup: "graph",
+          palaceId,
+          nodeId: event.nodeId,
+          payload: event.payload,
+        });
+      });
       setEditor(editor);
       queueBadgeRefresh();
       recomputeAvailableTags();
@@ -543,6 +553,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           if (!st.connect.fromShapeId) {
             editor.select(hitId);
             st.setConnectFrom(hitId);
+            encodes.tracker.connectStarted();
             return;
           }
           if (st.connect.fromShapeId === hitId) {
@@ -612,6 +623,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             nextSnapshot,
           );
           lastSceneSnapshotRef.current = nextSnapshot;
+          encodes.tracker.sceneChanged(analyticsDiff);
           queueDraftSave();
           for (const event of analyticsDiff) {
             void usePalaceStore.getState().recordAnalyticsEvent({
@@ -638,6 +650,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       return () => {
         editor.off("event", onEvent);
         stopIdGuard();
+        encodes.dispose();
         unsubImageNodes();
         unsubSel();
         unsubDraft();
