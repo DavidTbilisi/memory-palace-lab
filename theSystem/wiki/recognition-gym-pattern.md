@@ -17,7 +17,7 @@ wiki_source: wiki/problem-solving/recognition-gym-pattern.md
 - The three registered instances: construct-recognition-gym (code-pattern recognition, 6-s timer), [crux-recognition-gym](./crux-recognition-gym.md) (puzzle crux recognition, 60-s timer), [Fallacy-Recognition Gym](./fallacy-taxonomy.md) (informal fallacy recognition, 60-s timer).
 - Sibling architectural primitives: [substrate-algorithm-composition](./substrate-algorithm-composition.md) · glyph-grammar-pattern.
 
-**Last updated**: 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-25
+**Last updated**: 2026-09-23 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-25
 
 ---
 
@@ -70,7 +70,7 @@ graph TD
     PHASES --> METER
     METER --> INST["Three registered instances"]
     INST --> C1["construct-recognition-gym<br/>6-s timer · 12 code patterns<br/>domain: programming"]
-    INST --> C2["crux-recognition-gym<br/>60-s timer · 17 puzzle archetypes<br/>domain: puzzles"]
+    INST --> C2["crux-recognition-gym<br/>60-s timer · 19 puzzle archetypes<br/>domain: puzzles"]
     INST --> C3["fallacy-taxonomy<br/>60-s timer · ~25 fallacies + 2 formal<br/>domain: logic"]
 ```
 
@@ -105,7 +105,7 @@ The set of **classes** the gym recognizes. Must be:
 
 Examples:
 - 12 code-construct classes (loops, recursion, dict access, …).
-- 17 puzzle archetypes (A–R, no Q-skip; [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md)).
+- 19 puzzle archetypes (A–S, no letter skipped; [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md)).
 - ~25 named fallacies + 2 formal = 27 classes ([fallacy-taxonomy](./fallacy-taxonomy.md)).
 
 ### 3. A timer

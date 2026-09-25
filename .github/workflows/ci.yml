@@ -30,6 +30,15 @@ jobs:
       - name: Unit tests
         run: npm test -- --run
 
+      - name: MCP server type check
+        run: npm run typecheck:mcp
+
+      - name: MCP server tests
+        run: npm run test:mcp
+
+      - name: Wiki index is up to date
+        run: npm run wiki:index:check
+
   ui-tests:
     runs-on: ubuntu-latest
     steps:

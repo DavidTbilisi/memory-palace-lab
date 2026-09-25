@@ -16,7 +16,7 @@ wiki_source: wiki/learning-systems/trachtenberg-system.md
 - Trachtenberg, J. (1960). *The Trachtenberg Speed System of Basic Mathematics*, trans. A. Cutler & R. McShane, Doubleday — the original book, 7 chapters, 270 pages. PDF at `raw/01 Core_Memory/Math/Books/trachtenberg-system.pdf` (ingested 2026-05-22).
 - Ziatdinov & Musa (2012), *Rapid mental computation system as a tool for algorithmic thinking of elementary school students development*, European Researcher 25(7): 1105–1110
 
-**Last updated**: 2026-05-22 (added PDF source path; cross-linked sub-pages [trachtenberg-addition](./trachtenberg-addition.md), [trachtenberg-division](./trachtenberg-division.md), [trachtenberg-squares-and-roots](./trachtenberg-squares-and-roots.md) covering Chs 4–6 in detail; the page above remains the canonical overview for Chs 1–3, multiplication pillars).
+**Last updated**: 2026-09-22 (§A real application target — linked common-masters-exam, which retargets this system's speed onto its quantitative-reasoning section); 2026-05-22 (added PDF source path; cross-linked sub-pages [trachtenberg-addition](./trachtenberg-addition.md), [trachtenberg-division](./trachtenberg-division.md), [trachtenberg-squares-and-roots](./trachtenberg-squares-and-roots.md) covering Chs 4–6 in detail; the page above remains the canonical overview for Chs 1–3, multiplication pillars).
 
 ---
 
@@ -229,11 +229,15 @@ So Trachtenberg is not "faster than a calculator." It is **faster than other men
 - The Ziatdinov & Musa (2012) paper on Trachtenberg for elementary-school algorithmic-thinking development is potentially load-bearing for the academy curriculum thread — worth pulling if the academy path matures.
 - Should the section "Trachtenberg vs Vedic vs Soroban" be lifted into [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) as a three-way comparison? Or stay here? (Current placement: stay here because this is the page that completes the trio.)
 
+## A real application target — the Common Master's Exam
+
+common-masters-exam — Georgia's national master's-entrance aptitude exam — names Trachtenberg (alongside [handley-speed-mathematics](./handley-speed-mathematics.md)) as the drill stack its quantitative-reasoning part retargets: the arithmetic doesn't change, only the format — multiple-choice word problems under a clock instead of bare computation. It is the cleanest case of that page's retarget argument, precisely because Trachtenberg's uniform speed across operand shapes is exam-agnostic. Per [directness-principle](./directness-principle.md), the retarget only counts once the drills are actually run timed and multiple-choice, not at a desk.
+
 ## Related pages
 
 - [vedic-speed-math](./vedic-speed-math.md) — sister mental-arithmetic system (algebraic-identity substrate)
 - [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) — calibrated speed numbers for Vedic; Trachtenberg numbers above use the same calibration spirit
-- Soroban Learning Method — sister mental-arithmetic system (bead substrate)
+- [soroban-learning-method](./soroban-learning-method.md) — sister mental-arithmetic system (bead substrate)
 - [soroban-drill-ladder](./soroban-drill-ladder.md) — structurally analogous drill ladder for the bead substrate
 - [substrate-algorithm-composition](./substrate-algorithm-composition.md) — the underlying pattern: algorithm × substrate = capability; Trachtenberg is the minimal-substrate extreme
 - [composability-index](./composability-index.md) — Trachtenberg + half-table-reflex + odd-correction-reflex is a candidate unlock worth registering once the user has actually drilled it
@@ -242,6 +246,7 @@ So Trachtenberg is not "faster than a calculator." It is **faster than other men
 - [spear-overview](./spear-overview.md) — two-finger method as a SPEAR procedure
 - [drill-ladder-patterns](./drill-ladder-patterns.md) — shared drill-ladder pattern across mental-math systems
 - [mnemonic-methods-master](./mnemonic-methods-master.md) — registry of all mnemonic methods; Major System is listed there as Tier 2 for exact numeric encoding. The Trachtenberg half-table is a different (non-mnemonic) digit-mapping operating purely on integer arithmetic
+- common-masters-exam — a real application target: the exam's quantitative-reasoning section retargets this system's speed onto a timed, multiple-choice format
 
 
 ---

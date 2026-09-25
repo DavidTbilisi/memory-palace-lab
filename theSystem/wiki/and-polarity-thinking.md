@@ -16,7 +16,7 @@ wiki_source: wiki/problem-solving/and-polarity-thinking.md
 - Sloan, *Learning to Think Strategically* (4th ed., 2020), Ch 1 §"Ancient Greek concept of strategy" — *metos*, the oscillation between cosmos (order) and chaos
 - Roger Martin, *The Opposable Mind* (2007) — confirmation that "the drive for the creative resolution of tensions is the single most striking feature of the successful managerial leaders"
 
-**Last updated**: 2026-05-27
+**Last updated**: 2026-09-06 (linked to [visual-thinking-evidence](./visual-thinking-evidence.md) §Draw-to-think — the trio's third leg generalized, with Sloan's *"dialogue between the hand and the mind"* adopted there as the form-sharing gate on the *act* of drawing); 2026-05-27
 
 ---
 
@@ -151,6 +151,7 @@ If you can recite **2-1-3-3-5-7** in under 30 seconds and name your current real
 - [sloan-triad-model](./sloan-triad-model.md) — the triad's cluster split is itself an AND polarity
 - [strategic-thinking-cognitive-cluster](./strategic-thinking-cognitive-cluster.md) — must be in divergent-cluster mode to hold a polarity
 - [bridge-load](./bridge-load.md) — metaphor as the second leg of the trio
+- [visual-thinking-evidence](./visual-thinking-evidence.md) §Draw-to-think — the trio's third leg generalized: drawing as the default medium for reasoning over novel structure, with Sloan's *"dialogue between the hand and the mind"* as its form-sharing gate
 - [automaticity-and-reflex-training](./automaticity-and-reflex-training.md) — Aether/Strategic element now has an operational primitive (AND polarity)
 - [ok-plateau](./ok-plateau.md) — Coagulate-elsewhere-but-stay-Cognitive-at-the-crux is an AND polarity
 - [failure-mechanism](./failure-mechanism.md) — try AND surrender is an AND polarity

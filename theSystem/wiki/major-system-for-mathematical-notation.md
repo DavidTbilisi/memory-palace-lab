@@ -1,13 +1,10 @@
 ---
-wiki_source: wiki/learning-systems/major-system-for-mathematical-notation.md
----
-
----
 palace: strategic-memory
 level: 3
 domain: 10
 room: 6
 semantic_mode: 5
+wiki_source: wiki/learning-systems/major-system-for-mathematical-notation.md
 ---
 
 # Major System for Mathematical Notation
@@ -103,7 +100,7 @@ If the user does adopt Camp B for some constants, the operator set should be **s
 - **[NEDF](./nedf-overview.md)** — each physical constant is one NEDF card. Name-hook = the digit string (with or without operator icons depending on Camp choice). Essence = the one-sentence physical meaning. Distinguisher = the order-of-magnitude and the nearest confusable constant ("electron mass vs proton mass"). Failure = the operator-reconstruction trap (negative exponent assumed, sign forgotten, decimal misplaced).
 - **[peg-audio-visual-matrix](./peg-audio-visual-matrix.md)** — each operator icon reserved is one cell of the 10×10 matrix removed from the digit pool. Practical bound: don't reserve more than 6 cells across the full operator vocabulary, or the digit-encoding capacity degrades unacceptably.
 - **[remaps](./remaps.md)** — operator icons benefit especially from the **A** (Associate / Aesthetic) and **E** (Exaggerate) moves because they are abstract concepts being forced into concrete images. The bullet for decimal point becomes more retrievable if it is a *specific, recurring* bullet (a particular shotgun shell, a specific bullet-train) rather than a generic dot.
-- **[trachtenberg-system](./trachtenberg-system.md) / [vedic-speed-math](./vedic-speed-math.md) / Soroban Learning Method** — orthogonal layer. The mental-arithmetic substrates operate on digit streams in the moment; Major System extension is about *durable storage* of constants for later retrieval into the calculation. These complement each other; they do not compete.
+- **[trachtenberg-system](./trachtenberg-system.md) / [vedic-speed-math](./vedic-speed-math.md) / [soroban-learning-method](./soroban-learning-method.md)** — orthogonal layer. The mental-arithmetic substrates operate on digit streams in the moment; Major System extension is about *durable storage* of constants for later retrieval into the calculation. These complement each other; they do not compete.
 - **[number-codec-ladder](./number-codec-ladder.md)** — the candidate challenger for the durable-storage role itself (matrix-cell deep pack + checksum seal). Two touchpoints: its retired 😇 Angel face is a natural candidate for the exponent icons in the operator vocabulary above (angel ascending = `×10⁺ⁿ`, falling = `×10⁻ⁿ`), and its seal protocol makes Camp-B-style structure *verifiable* rather than merely stored. Until its promotion gate is passed, this page's Camp A/B hybrid remains the ruling for constants.
 
 ## Failure modes

@@ -14,7 +14,7 @@ wiki_source: wiki/problem-solving/cultural-string-sequences.md
 - [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) archetype D — 8 of the 211 puzzles instantiate one of these sequences
 - General cultural canon (rainbow / calendar / music / astronomy / civics / religion)
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-09-07 — §1 and §4 gain reciprocal disambiguation bullets against [sem3](./sem3.md)'s ordinal bands 8 and 9, which extend these sequences to ten slots and are zero-indexed. Registry content otherwise unchanged. Earlier — 2026-05-24.
 
 ---
 
@@ -26,6 +26,7 @@ wiki_source: wiki/problem-solving/cultural-string-sequences.md
 
 - Livingstone-Thomson #181: R, O, Y, G, B, I, ? → **V** (violet)
 - Mnemonic: *"Richard Of York Gave Battle In Vain"* (UK history)
+- **Not the same as [sem3](./sem3.md)'s band 8.** That band needs ten slots, so it continues past Violet with three achromatics (Black · Gray · White) and is zero-indexed — Red is `80`, not the first of seven. Do not substitute one for the other; see [sem3-ordinal-song](./sem3-ordinal-song.md).
 
 ### 2. Months from March
 
@@ -47,6 +48,7 @@ wiki_source: wiki/problem-solving/cultural-string-sequences.md
 
 - Sequence: M, V, E, M, J, S, U, N
 - Mnemonic: *"My Very Educated Mother Just Served Us Nachos"* (post-Pluto)
+- **Not the same as [sem3](./sem3.md)'s band 9.** That band needs ten slots, so it takes the **Sun at 0** and **keeps Pluto at 9** — ten bodies, not eight. Reaching for this eight-planet sequence inside SEM3 leaves you off by one and short by two; see [sem3-ordinal-song](./sem3-ordinal-song.md).
 
 ### 5. Number-name first letters (counting by fives)
 

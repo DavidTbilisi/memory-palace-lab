@@ -15,7 +15,7 @@ wiki_source: wiki/logic/argument-anatomy.md
 - [methods-of-mathematical-argument](./methods-of-mathematical-argument.md) — sister page on argument-*construction* (Zeitz, proof methods).
 - [problem-solving-os](./problem-solving-os.md) — the operating sequencer that gains a validity-test sub-step using these atoms.
 
-**Last updated**: 2026-05-25
+**Last updated**: 2026-09-23
 
 ---
 
@@ -200,6 +200,8 @@ Pass floor: ≥80% accuracy on Copi Ch 1 exercises in <60 s per item.
 - **Money decisions**: every investment thesis is an argument. Argument-extraction is the first move of every money-canon-synthesis phase-gate evaluation.
 
 ## Related pages
+
+- [position-essay](./position-essay.md) — the construction direction: this page extracts `P1, P2, [P3 hidden], ∴ C` from someone else's prose; that one builds the same skeleton into your own, under a clock
 
 - [copi-introduction-to-logic](./copi-introduction-to-logic.md) — source textbook (Ch 1)
 - [validity-vs-soundness](./validity-vs-soundness.md) — what to do once the argument is extracted; the form/content distinction

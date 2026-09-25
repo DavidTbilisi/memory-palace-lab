@@ -16,7 +16,7 @@ wiki_source: wiki/learning-systems/color-theory-mental-model.md
 - Colour Theory infographic (shared 2026-05-17)
 - Smart Colour Analysis System — Mgr. Adriana Čižiková, vizazista.sk (shared 2026-05-17)
 
-**Last updated**: 2026-05-17
+**Last updated**: 2026-09-07 (the harmony angles are reused by plutchik-wheel-of-emotions as dyad distances; the twelve hue names and [tint · tone · shade](./extended-color-wheel.md) are now owned by that page; related links added); 2026-05-17
 
 **Diagrams**: `wiki/assets/color-theory-mental-model.excalidraw` · [Open in Excalidraw.com](https://excalidraw.com/#json=XUCQYHJmhYpltGwdZNFr4,UccNNOSX4xkZMelbTggBew)
 
@@ -46,7 +46,7 @@ Basic HSV conflates two distinct properties into one "Saturation" axis. The Či�
 |---|---|---|---|
 | **Value** | Absolute lightness | Dark (tmavý) | Light (svetlý) |
 | **Intensity of pigments** | Raw pigment concentration | Dull / flat | Radiant / žiarivý (žiarivý = glowing) |
-| **Chroma** | Tint / tone / shade mixing | Clear (čirý) | Muted (tlmený) |
+| **Chroma** | [Tint / tone / shade](./extended-color-wheel.md) mixing | Clear (čirý) | Muted (tlmený) |
 | **Hue undertone** | Warm/cool temperature bias | Ultra cool (ultra chladný) | Ultra warm (ultra teplý) |
 
 **Key distinction — Intensity ≠ Chroma**:
@@ -151,6 +151,8 @@ These are specific drill moves for the [visualization-training](./visualization-
 - [representation-rules](./representation-rules.md) — Rule 4 global palette: red=constraint · blue=input · green=goal · yellow=decision · gray=context
 - [vivid-imagery](./vivid-imagery.md) — felt presence; color intensity is one of the high-presence signal types
 - stage3-manipulation-domains — the Color/Light domain box in the manipulation grid
+- [extended-color-wheel](./extended-color-wheel.md) — the twelve named hues and the three modifiers (tint · tone · shade) the cylinder's three moves act on
+- plutchik-wheel-of-emotions — the harmony angles read as emotional distance: 45° a primary dyad, 90° secondary, 135° tertiary, 180° cancels to a grey
 
 
 ---
