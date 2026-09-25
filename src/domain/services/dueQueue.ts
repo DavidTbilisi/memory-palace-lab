@@ -40,6 +40,20 @@ export function compareDueItems(a: GlobalDueItem, b: GlobalDueItem): number {
   return a.nodeTitle.localeCompare(b.nodeTitle);
 }
 
+/** A route marked "not in review" is a draft: its stops keep their schedule but are never due. */
+export function isRouteInReview(route: Pick<MemoryRoute, "inReview"> | null | undefined): boolean {
+  return route?.inReview !== false;
+}
+
+/** The loci that count toward review: every stop except those on draft routes. */
+export function reviewedLoci<T extends Pick<Locus, "routeId">>(
+  loci: readonly T[],
+  routes: readonly Pick<MemoryRoute, "id" | "inReview">[],
+): T[] {
+  const drafts = new Set(routes.filter((route) => !isRouteInReview(route)).map((route) => route.id));
+  return drafts.size === 0 ? [...loci] : loci.filter((locus) => !drafts.has(locus.routeId));
+}
+
 /** Mean scheduled interval over loci with a positive interval, rounded. */
 export function averageLocusInterval(loci: readonly Locus[], nowIso = new Date().toISOString()): number | null {
   const intervals = loci.map((locus) => normalizeLocusSchedule(locus, nowIso).interval ?? 0).filter((value) => value > 0);
@@ -62,8 +76,9 @@ export function buildDueQueue(snapshots: readonly DueQueueSnapshot[], nowIso = n
   for (const snapshot of snapshots) {
     const routeById = new Map(snapshot.routes.map((route) => [route.id, route]));
     const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
-    allLoci.push(...snapshot.loci);
-    for (const locus of dueLoci([...snapshot.loci], nowIso)) {
+    const loci = reviewedLoci(snapshot.loci, snapshot.routes);
+    allLoci.push(...loci);
+    for (const locus of dueLoci(loci, nowIso)) {
       const route = routeById.get(locus.routeId);
       if (!route) continue;
       const scheduled = normalizeLocusSchedule(locus, nowIso);

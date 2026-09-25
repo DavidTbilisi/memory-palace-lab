@@ -86,4 +86,33 @@ describe("reviewQueueService", () => {
     expect(summary.routeItems).toBe(3);
     expect(summary.nodeItems).toBe(3);
   });
+
+  it("leaves draft routes, and nodes last rated on them, out of the queue", () => {
+    const rated = (routeId: string, nodeId: string) =>
+      createAnalyticsEvent({
+        eventType: "walk_recall_rated",
+        eventGroup: "review",
+        sessionId: `walk-${routeId}`,
+        palaceId: "palace-1",
+        routeId,
+        nodeId,
+        createdAt: "2026-04-26T09:00:00.000Z",
+        payload: { rating: "again" },
+      });
+    const queue = buildReviewQueue({
+      analyticsEvents: [rated("route-a", "node-a"), rated("draft", "node-d")],
+      palaceId: "palace-1",
+      now: "2026-04-26T09:10:00.000Z",
+      routes: [
+        { id: "route-a", palaceId: "palace-1", name: "Route A" },
+        { id: "draft", palaceId: "palace-1", name: "Draft", inReview: false },
+      ],
+      nodes: [
+        { id: "node-a", objectId: "object-a", title: "Node A", content: "", kind: "memory", portal: null },
+        { id: "node-d", objectId: "object-d", title: "Node D", content: "", kind: "memory", portal: null },
+      ],
+    });
+
+    expect(queue.map((item) => item.id).sort()).toEqual(["node:node-a", "route:route-a"]);
+  });
 });
