@@ -135,6 +135,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const walkRecallMode = usePalaceStore((s) => s.walkRecallMode);
   const walkAnswerRevealed = usePalaceStore((s) => s.walkAnswerRevealed);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
+  const walkDirection = usePalaceStore((s) => s.walkDirection);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
   const toolMode = usePalaceStore((s) => s.toolMode);
@@ -708,6 +709,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     walkOpen,
     walkRecallMode,
     walkIndex,
+    walkDirection,
     walkRouteId,
     loci,
     clearActiveTags,

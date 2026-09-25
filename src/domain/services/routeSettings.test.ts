@@ -60,12 +60,17 @@ describe("route settings codec", () => {
 
   it("leaves the default walk, review, and notes values out", () => {
     expect(
-      encodeRouteSettings({ direction: "forward", lastWalkDirection: "forward", inReview: true, notes: "  " }),
+      encodeRouteSettings({ direction: "forward", inReview: true, notes: "  " }),
     ).toBe("{}");
     expect(
       decodeRouteSettings('{"direction":"sideways","lastWalkDirection":"up","inReview":"no","notes":3}'),
     ).toEqual({});
     expect(decodeRouteSettings('{"direction":"forward","inReview":true}')).toEqual({});
+  });
+
+  it("keeps a forward last walk, which an alternate route needs to flip from", () => {
+    const json = encodeRouteSettings({ direction: "alternate", lastWalkDirection: "forward" });
+    expect(decodeRouteSettings(json)).toEqual({ direction: "alternate", lastWalkDirection: "forward" });
   });
 });
 

@@ -48,7 +48,7 @@ export function encodeRouteSettings(route: RouteSettings): string {
   if (route.hidden) settings.hidden = true;
   if (route.metadata?.length) settings.metadata = route.metadata.map(({ key, value }) => ({ key, value }));
   if (route.direction && route.direction !== "forward") settings.direction = route.direction;
-  if (route.lastWalkDirection === "reverse") settings.lastWalkDirection = "reverse";
+  if (route.lastWalkDirection) settings.lastWalkDirection = route.lastWalkDirection;
   if (route.inReview === false) settings.inReview = false;
   const notes = nonBlank(route.notes);
   if (notes) settings.notes = notes;
@@ -73,7 +73,9 @@ export function decodeRouteSettings(json: string | null | undefined): RouteSetti
     if (metadata.length > 0) settings.metadata = metadata;
   }
   if (isRouteDirection(raw.direction) && raw.direction !== "forward") settings.direction = raw.direction;
-  if (raw.lastWalkDirection === "reverse") settings.lastWalkDirection = "reverse";
+  if (raw.lastWalkDirection === "forward" || raw.lastWalkDirection === "reverse") {
+    settings.lastWalkDirection = raw.lastWalkDirection;
+  }
   if (raw.inReview === false) settings.inReview = false;
   const notes = nonBlank(raw.notes);
   if (notes) settings.notes = notes;

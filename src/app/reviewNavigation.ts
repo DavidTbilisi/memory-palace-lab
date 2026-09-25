@@ -1,4 +1,4 @@
-import { orderedLoci } from "../domain/services/walkService";
+import { walkOrderedLoci } from "../domain/services/walkService";
 import { usePalaceStore } from "../store/palaceStore";
 import { requestNavigation } from "./navigationEvents";
 
@@ -26,7 +26,11 @@ export async function startReviewAt({ palaceId, routeId, locusId, nodeId }: Revi
   store.setWalkCueOnly(true);
   store.setWalkOpen(true);
 
-  const routeLoci = orderedLoci(usePalaceStore.getState().loci.filter((locus) => locus.routeId === routeId));
+  const { loci, walkDirection } = usePalaceStore.getState();
+  const routeLoci = walkOrderedLoci(
+    loci.filter((locus) => locus.routeId === routeId),
+    walkDirection,
+  );
   const targetIndex = routeLoci.findIndex(
     (locus) => (locusId !== undefined && locus.id === locusId) || (nodeId !== undefined && locus.nodeId === nodeId),
   );

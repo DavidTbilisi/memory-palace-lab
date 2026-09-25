@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { routeIndexOfWalkStep } from "../domain/services/walkService";
 import { usePalaceStore } from "../store/palaceStore";
 import {
   STOP_BADGE_SIZE,
@@ -33,6 +34,7 @@ export function RouteOverlay({ boxes }: { boxes: ReadonlyMap<string, NodeBox> })
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
+  const walkDirection = usePalaceStore((s) => s.walkDirection);
   const building = usePalaceStore((s) => s.toolMode === "route");
 
   const activeRouteId = walkRouteId ?? routes[0]?.id ?? null;
@@ -43,9 +45,20 @@ export function RouteOverlay({ boxes }: { boxes: ReadonlyMap<string, NodeBox> })
         loci,
         boxes,
         activeRouteId,
-        walk: walkOpen && activeRouteId ? { routeId: activeRouteId, index: walkIndex } : null,
+        walk:
+          walkOpen && activeRouteId
+            ? {
+                routeId: activeRouteId,
+                index: routeIndexOfWalkStep(
+                  walkIndex,
+                  loci.filter((locus) => locus.routeId === activeRouteId).length,
+                  walkDirection,
+                ),
+                reverse: walkDirection === "reverse",
+              }
+            : null,
       }),
-    [routes, loci, boxes, activeRouteId, walkOpen, walkIndex],
+    [routes, loci, boxes, activeRouteId, walkOpen, walkIndex, walkDirection],
   );
 
   if (overlay.paths.length === 0) return null;

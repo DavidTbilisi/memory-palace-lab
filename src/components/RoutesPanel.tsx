@@ -32,7 +32,7 @@ import {
   stopLabel,
   type StopOrder,
 } from "../domain/services/routeBuilder";
-import { orderedLoci } from "../domain/services/walkService";
+import { orderedLoci, routeIndexOfWalkStep } from "../domain/services/walkService";
 import { usePalaceStore } from "../store/palaceStore";
 import { cn } from "../utils/cn";
 import { confirmDestructive } from "../utils/confirmDestructive";
@@ -597,6 +597,7 @@ function RouteCard({
   const setWalkOpen = usePalaceStore((s) => s.setWalkOpen);
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkIndex = usePalaceStore((s) => s.walkIndex);
+  const walkDirection = usePalaceStore((s) => s.walkDirection);
   const building = usePalaceStore((s) => s.toolMode === "route");
   const saveStopViews = usePalaceStore((s) => s.saveStopViews);
   const setRouteBuilding = usePalaceStore((s) => s.setRouteBuilding);
@@ -723,7 +724,7 @@ function RouteCard({
           <StopList
             stops={stops}
             color={color}
-            currentIndex={walkOpen ? walkIndex : null}
+            currentIndex={walkOpen ? routeIndexOfWalkStep(walkIndex, stops.length, walkDirection) : null}
             infoFor={infoFor}
           />
           {stops.length > LONG_ROUTE_STOPS ? (
