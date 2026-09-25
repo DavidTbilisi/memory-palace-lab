@@ -3,7 +3,7 @@
  * node is recorded apart from encoding a new one.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { openNodeTab } from "./nodeHelpers";
+import { editSelectedNode, openNodeTab, savedNodes } from "./nodeHelpers";
 import { createNamedNodes, freeCanvasPoints, nodeCenter, openTutorialPalace } from "./routeHelpers";
 
 type Encoded = { eventType: string; nodeId: string | null; payload: Record<string, unknown> };
@@ -31,14 +31,14 @@ test("node and edge encodes are timed, and re-edits are told apart", async ({ pa
     },
   ]);
 
-  // Re-edit Mutex: select it, change its content, then click empty canvas.
+  // Re-edit Mutex: select it, change its content, then click empty canvas. Semaphore's save
+  // must land first, or the inspector re-sync it triggers wipes what is typed next.
+  await expect.poll(async () => (await savedNodes(page)).some((node) => node.title === "Semaphore")).toBe(true);
   const mutex = await nodeCenter(page, "Mutex");
   await page.mouse.click(mutex.x, mutex.y);
   await openNodeTab(page);
   await expect(page.locator("#mp-title")).toHaveValue("Mutex");
-  await page.locator("#mp-content").click();
-  await page.keyboard.type("One owner at a time.");
-  await page.locator("#mp-title").click();
+  await editSelectedNode(page, { content: "One owner at a time." });
   const [empty] = await freeCanvasPoints(page, 1);
   await page.mouse.click(empty!.x, empty!.y);
   await expect
