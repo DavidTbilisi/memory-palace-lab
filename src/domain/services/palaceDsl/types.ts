@@ -1,4 +1,4 @@
-import type { MemoryNodeKind, PalacePortalRef } from "../../entities/types";
+import type { MemoryNodeKind, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
 
 export type DslDiagnosticCode =
   | "duplicate-title"
@@ -27,6 +27,7 @@ export type DslDiagnosticCode =
   | "inline-ref-self"
   // Feature 7 — route metadata
   | "route-prereq-unresolved"
+  | "route-setting-invalid"
   // Feature 4 — imports
   | "import-malformed"
   | "import-namespace-collision"
@@ -138,6 +139,13 @@ export interface DslRoute {
   normalizedName: string;
   /** Structured tags appearing after the route header but before the first locus. */
   metadata: DslStructuredTag[];
+  /** Route settings lifted out of the tag line: `#color:sky #hidden #direction:reverse #review:off`. */
+  color?: RouteColor;
+  hidden?: boolean;
+  direction?: RouteDirection;
+  inReview?: false;
+  /** `:` lines between the route header and its first locus. */
+  notes?: string;
   loci: string[];
   sourceLine: number;
 }

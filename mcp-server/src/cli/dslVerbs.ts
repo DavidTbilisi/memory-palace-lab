@@ -43,7 +43,6 @@ export function unformattableConstructs(text: string, parsed: DslParseResult): s
   if (s.imports.length > 0) reasons.push("!import declarations");
   if (s.queries.length > 0) reasons.push("?queries");
   if (s.nodes.some((n) => n.id !== null)) reasons.push("[id] node identifiers");
-  if (s.routes.some((r) => r.metadata.length > 0)) reasons.push("route #metadata tags");
   if (text.split(/\r?\n/).some((line) => line.trim().startsWith("--"))) reasons.push("-- comments");
   if (parsed.diagnostics.some((d) => d.code === "unknown-target")) {
     reasons.push("edges or loci to unknown targets (W007)");

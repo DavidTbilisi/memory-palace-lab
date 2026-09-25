@@ -379,6 +379,46 @@ describe("parseDsl — import system (Feature 4)", () => {
   });
 });
 
+describe("parseDsl — route settings and notes", () => {
+  const parseRoute = (lines: string) => parseDsl(`@palace P\n\nA\n\n/Walk\n${lines}\n1 A\n`);
+
+  it("lifts reserved tags off the route's tag line and keeps the rest as metadata", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:Rose #hidden #direction:reverse #review:off #mode:linear");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]).toMatchObject({ color: "rose", hidden: true, direction: "reverse", inReview: false });
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => [key, value])).toEqual([["mode", "linear"]]);
+  });
+
+  it("treats explicit defaults as unset", () => {
+    const { snapshot } = parseRoute("#direction:forward #review:on");
+    expect(snapshot.routes[0]).not.toHaveProperty("direction");
+    expect(snapshot.routes[0]).not.toHaveProperty("inReview");
+  });
+
+  it("warns about a reserved tag with a bad value and ignores it", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:plaid #direction:up #review:maybe");
+    expect(diagnostics.map((d) => [d.code, d.numericCode, d.severity])).toEqual([
+      ["route-setting-invalid", "W702", "warning"],
+      ["route-setting-invalid", "W702", "warning"],
+      ["route-setting-invalid", "W702", "warning"],
+    ]);
+    expect(diagnostics[1]!.column).toBe("#color:plaid ".length + 1);
+    expect(snapshot.routes[0]).not.toHaveProperty("color");
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+  });
+
+  it("reads content lines between the header and the first stop as notes", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:sky\n: Enter by the east gate.\n: Slow down.");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]!.notes).toBe("Enter by the east gate.\nSlow down.");
+  });
+
+  it("still rejects content lines after a route's first stop", () => {
+    const { diagnostics } = parseDsl("@palace P\n\nA\n\n/Walk\n1 A\n: too late\n");
+    expect(diagnostics.map((d) => d.code)).toContain("misplaced-line");
+  });
+});
+
 describe("parseDsl — route metadata (Feature 7)", () => {
   it("routes have normalizedName derived from route name", () => {
     const { snapshot } = parseDsl("@P\n\nA\n\n/Beginner Security\n1 A\n");

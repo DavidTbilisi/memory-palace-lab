@@ -1,4 +1,4 @@
-import type { PalacePortalRef } from "../../entities/types";
+import { ROUTE_COLORS, ROUTE_DIRECTIONS, type PalacePortalRef } from "../../entities/types";
 import { parseCast } from "./cast";
 import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
 import type {
@@ -247,6 +247,36 @@ function parseTagsLine(body: string): {
     }
   }
   return { tags, structuredTags, invalid };
+}
+
+/**
+ * Lift a reserved route setting (`#color:`, `#direction:`, `#review:`) off a route's tag line.
+ * Returns an error message for a reserved key with a bad value, or `false` for ordinary metadata.
+ */
+function applyRouteSetting(route: DslRoute, tag: DslStructuredTag): string | true | false {
+  const value = tag.value?.toLowerCase() ?? "";
+  switch (tag.key) {
+    case "color":
+      if (!(ROUTE_COLORS as readonly string[]).includes(value)) {
+        return `Route color "${tag.value ?? ""}" is not one of ${ROUTE_COLORS.join(", ")}`;
+      }
+      route.color = value as DslRoute["color"];
+      return true;
+    case "direction":
+      if (!(ROUTE_DIRECTIONS as readonly string[]).includes(value)) {
+        return `Walk direction "${tag.value ?? ""}" must be forward, reverse, or alternate`;
+      }
+      if (value === "forward") delete route.direction;
+      else route.direction = value as DslRoute["direction"];
+      return true;
+    case "review":
+      if (value !== "on" && value !== "off") return `Route review "${tag.value ?? ""}" must be on or off`;
+      if (value === "off") route.inReview = false;
+      else delete route.inReview;
+      return true;
+    default:
+      return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +666,11 @@ export function parseDsl(text: string): DslParseResult {
         break;
 
       case "body":
+        if (!currentNode && currentRoute && !routeHasMembers) {
+          // Route notes: content lines between the route header and its first locus
+          currentRoute.notes = currentRoute.notes === undefined ? cl.text : `${currentRoute.notes}\n${cl.text}`;
+          break;
+        }
         if (!currentNode) {
           diag(
             diagnostics,
@@ -686,8 +721,16 @@ export function parseDsl(text: string): DslParseResult {
           }
         } else if (currentRoute && !routeHasMembers) {
           // Feature 7 — route metadata: tags before first locus belong to the route
-          const { structuredTags, invalid } = parseTagsLine(body);
-          for (const st of structuredTags) currentRoute.metadata.push(st);
+          const { tags, structuredTags, invalid } = parseTagsLine(body);
+          if (tags.includes("hidden")) currentRoute.hidden = true;
+          for (const st of structuredTags) {
+            const applied = applyRouteSetting(currentRoute, st);
+            if (applied === false) currentRoute.metadata.push(st);
+            else if (applied !== true) {
+              const offset = body.indexOf(st.raw);
+              diag(diagnostics, "warning", "route-setting-invalid", num, offset + 1, st.raw.length, applied);
+            }
+          }
           for (const inv of invalid) {
             diag(
               diagnostics,

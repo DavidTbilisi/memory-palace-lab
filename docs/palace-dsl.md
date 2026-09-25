@@ -373,6 +373,34 @@ Route metadata tags use the same `#key:value` syntax as node tags. They appear i
 
 ---
 
+### Route Settings and Notes
+
+A few keys on a route's tag line are settings rather than metadata. They set how the route looks and walks, and they are not added to `metadata`:
+
+```text
+/Night Walk
+#color:sky #hidden #direction:alternate #review:off #difficulty:advanced
+: Enter by the east gate.
+: Slow down in the library.
+1 Gate of SOLID
+2 Open Closed Library
+```
+
+| Tag | Values | Default | Effect |
+|---|---|---|---|
+| `#color:` | `violet`, `sky`, `emerald`, `amber`, `rose`, `cyan`, `orange`, `fuchsia` | a palette color from the route's position | Path and stop badge color |
+| `#hidden` | (no value) | shown | The route is not drawn on the canvas |
+| `#direction:` | `forward`, `reverse`, `alternate` | `forward` | Walk order; `alternate` flips it on every walk |
+| `#review:` | `on`, `off` | `on` | `off` makes the route a draft: its stops keep their schedules but are never due |
+
+A reserved key with any other value emits **W702 `route-setting-invalid`** and is ignored.
+
+Content lines (`: text`) between the route header and its first locus are the route's **notes**. The same lines after a locus are still **E006 `misplaced-line`**.
+
+The DSL is the whole intent for these settings, like metadata: applying a route without `#hidden` shows it, without `#review:off` reviews it, and without notes clears them. Exporting a palace writes every setting that is not a default, so an export → edit → apply round trip keeps them. Two things the DSL does not carry are kept from the existing route or stop when the DSL is applied: which direction an `alternate` route walked last, and the named sections that stops start (set in the Routes tab).
+
+---
+
 ## Import System
 
 A file can import another DSL file and reference its nodes under a namespace prefix:
@@ -493,6 +521,7 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | E401 | `import-malformed` | error | `!import` line doesn't parse |
 | E402 | `import-namespace-collision` | error | Two imports use the same namespace |
 | W701 | `route-prereq-unresolved` | warning | `#prereq` value is not a known node (title or id) or route |
+| W702 | `route-setting-invalid` | warning | `#color:`, `#direction:`, or `#review:` on a route has a value it does not accept |
 | E801 | `query-verb-unknown` | error | Query verb is not in the recognised set |
 | E802 | `query-path-missing-arg` | error | `?path` requires two node references |
 | W803 | `query-unresolved-node` | warning | Query references an unknown node |

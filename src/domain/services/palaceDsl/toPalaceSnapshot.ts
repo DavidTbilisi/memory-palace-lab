@@ -6,6 +6,7 @@ import type {
   Palace,
   PalaceSnapshot,
 } from "../../entities/types";
+import { dslRouteSettings } from "./routeSync";
 import type { DslSnapshot } from "./types";
 
 /**
@@ -59,6 +60,8 @@ export function dslToPalaceSnapshot(dsl: DslSnapshot): PalaceSnapshot {
     id: `r-${i}`,
     palaceId: "palace-1",
     name: r.name,
+    ...dslRouteSettings(r),
+    ...(r.metadata.length > 0 ? { metadata: r.metadata.map(({ key, value }) => ({ key, value })) } : {}),
   }));
 
   const loci: Locus[] = [];

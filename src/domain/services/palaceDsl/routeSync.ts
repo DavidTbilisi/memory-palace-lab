@@ -18,6 +18,19 @@ export interface ReconcileRoutesInput {
   uuid?: () => string;
 }
 
+/** The route settings a DSL route declares, without the defaults. */
+export function dslRouteSettings(
+  route: DslRoute,
+): Pick<MemoryRoute, "color" | "hidden" | "direction" | "inReview" | "notes"> {
+  return {
+    ...(route.color ? { color: route.color } : {}),
+    ...(route.hidden ? { hidden: true } : {}),
+    ...(route.direction ? { direction: route.direction } : {}),
+    ...(route.inReview === false ? { inReview: false } : {}),
+    ...(route.notes?.trim() ? { notes: route.notes } : {}),
+  };
+}
+
 export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResult {
   const {
     palaceId,
@@ -46,6 +59,10 @@ export function reconcileRoutes(input: ReconcileRoutesInput): RouteReconcileResu
     const metadata = intentRoute.metadata.map(({ key, value }) => ({ key, value }));
     if (metadata.length > 0) route.metadata = metadata;
     else delete route.metadata;
+    // Settings work the same way: a setting left out of the DSL goes back to its default.
+    // Only the last walk's direction, which the DSL never writes, carries over.
+    for (const key of ["color", "hidden", "direction", "inReview", "notes"] as const) delete route[key];
+    Object.assign(route, dslRouteSettings(intentRoute));
     if (!existing) addedRoutes += 1;
     nextRoutes.push(route);
 
