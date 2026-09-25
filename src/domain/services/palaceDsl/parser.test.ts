@@ -379,6 +379,61 @@ describe("parseDsl — import system (Feature 4)", () => {
   });
 });
 
+describe("parseDsl — NEDF slots", () => {
+  it("reads @N @E @D @F under a node, with multi-line hooks and essences", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "Mutex",
+        ": Mutual exclusion.",
+        "@N Mute-X",
+        "@N a gagged guard at the door",
+        "@E Lets one thread in at a time",
+        "@D One key, or a bowl of keys? => A mutex has one owner; a semaphore counts",
+        "@F Threads hang after an exception => Release the lock in finally",
+        "",
+      ].join("\n"),
+    );
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes[0]!.nedf).toEqual({
+      nameHook: "Mute-X\na gagged guard at the door",
+      essence: "Lets one thread in at a time",
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "A mutex has one owner; a semaphore counts" },
+      failure: { scenario: "Threads hang after an exception", correction: "Release the lock in finally" },
+    });
+  });
+
+  it("warns about a pair missing a half and keeps what was written", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nMutex\n@D One key, or a bowl of keys?\n@F => Release in finally\n");
+    expect(diagnostics.map((d) => [d.code, d.numericCode, d.line])).toEqual([
+      ["nedf-pair-incomplete", "W009", 4],
+      ["nedf-pair-incomplete", "W009", 5],
+    ]);
+    expect(snapshot.nodes[0]!.nedf).toEqual({
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "" },
+      failure: { scenario: "", correction: "Release in finally" },
+    });
+  });
+
+  it("still reads a palace called N Queens from its header", () => {
+    const { snapshot, diagnostics } = parseDsl("@N Queens\n\nBoard\n@N Eight queens, no two in line\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.palaceName).toBe("N Queens");
+    expect(snapshot.nodes[0]!.nedf).toEqual({ nameHook: "Eight queens, no two in line" });
+  });
+
+  it("rejects an NEDF line under a route", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n\n/Walk\n@E stray\n1 A\n");
+    expect(diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
+    expect(snapshot.palaceName).toBe("P");
+  });
+
+  it("leaves a node without NEDF lines unencoded", () => {
+    expect(parseDsl("@P\n\nA\n: body\n").snapshot.nodes[0]!.nedf).toBeNull();
+  });
+});
+
 describe("parseDsl — route settings and notes", () => {
   const parseRoute = (lines: string) => parseDsl(`@palace P\n\nA\n\n/Walk\n${lines}\n1 A\n`);
 

@@ -48,6 +48,32 @@ function tipFor(body: string): TipContent | null {
       example: "@atlas /science/physics",
     };
   }
+  const nedf = body.match(/^@([NEDF])(\s|$)/);
+  if (nedf) {
+    const tips: Record<string, TipContent> = {
+      N: {
+        syntax: "@N <name-hook>",
+        desc: "NEDF Name-hook: a sound-alike, pun, or image. Drilled as recognition. Repeat for more lines",
+        example: "@N Mute-X: a gagged guard at the door",
+      },
+      E: {
+        syntax: "@E <essence>",
+        desc: "NEDF Essence: what the concept does. Drilled as recall. Repeat for more lines",
+        example: "@E Lets one thread in at a time",
+      },
+      D: {
+        syntax: "@D <question> => <reason>",
+        desc: "NEDF Distinguisher: a question it shares with its nearest neighbour, and why it is this one. Drilled as discrimination",
+        example: "@D One key, or a bowl of keys? => A mutex has one owner",
+      },
+      F: {
+        syntax: "@F <scenario> => <correction>",
+        desc: "NEDF Failure: where it breaks, and the fix. Drilled as diagnosis",
+        example: "@F Threads hang after an exception => Release the lock in finally",
+      },
+    };
+    return tips[nedf[1]!]!;
+  }
   if (body.startsWith("@portal")) {
     return {
       syntax: "@portal <path>",

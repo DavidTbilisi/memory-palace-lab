@@ -90,6 +90,20 @@ function addLineDecorations(
     return;
   }
 
+  // NEDF slots. The first line is the palace header even when it reads `@N Queens`.
+  if (lineStart > 0 && /^@[NEDF](\s|$)/.test(body)) {
+    mark(builder, bodyStart, bodyStart + 2, "cm-dsl-keyword");
+    const arrow = body.indexOf("=>");
+    if (arrow === -1 || !/^@[DF]/.test(body)) {
+      mark(builder, bodyStart + 2, end, "cm-dsl-content");
+    } else {
+      mark(builder, bodyStart + 2, bodyStart + arrow, "cm-dsl-content");
+      mark(builder, bodyStart + arrow, bodyStart + arrow + 2, "cm-dsl-operator");
+      mark(builder, bodyStart + arrow + 2, end, "cm-dsl-content");
+    }
+    return;
+  }
+
   if (body.startsWith("@")) {
     mark(builder, bodyStart, bodyStart + 1, "cm-dsl-keyword");
     mark(builder, bodyStart + 1, end, "cm-dsl-title");

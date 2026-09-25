@@ -254,6 +254,29 @@ describe("serializeDsl", () => {
     expect(snapshot.routes[1]).not.toHaveProperty("inReview");
   });
 
+  it("writes NEDF slots as @N @E @D @F lines that parse back to the same slots", () => {
+    const nedf = {
+      nameHook: "Mute-X\na gagged guard",
+      essence: "Lets one thread in at a time",
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "" },
+      failure: { scenario: "Threads hang", correction: "Release in finally" },
+    };
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Mutex", content: "Lock.", kind: "memory", portal: null, nedf }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "Mutex\n: Lock.\n@N Mute-X\n@N a gagged guard\n@E Lets one thread in at a time\n" +
+        "@D One key, or a bowl of keys? =>\n@F Threads hang => Release in finally\n",
+    );
+    expect(parseDsl(out).snapshot.nodes[0]!.nedf).toEqual(nedf);
+  });
+
   it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },

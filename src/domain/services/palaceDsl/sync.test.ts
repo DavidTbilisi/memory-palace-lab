@@ -177,6 +177,23 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(unchanged.updated.nodes).toBe(0);
   });
 
+  it("sets, replaces, and clears NEDF slots, and leaves unchanged slots alone", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Mutex");
+    const nedf = { nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } };
+
+    const set = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { nedf })]));
+    expect(set.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpNedf).toEqual(nedf);
+
+    const same = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { nedf: { ...nedf } })]));
+    expect(same.updated.nodes).toBe(0);
+
+    const cleared = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex")]));
+    expect(cleared.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpNedf).toBeNull();
+  });
+
   it("applies the SOLID Citadel document that used to crash", () => {
     const { snapshot, diagnostics } = parseDsl(SOLID_CITADEL_DSL);
     expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);

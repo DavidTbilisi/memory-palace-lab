@@ -18,8 +18,10 @@ The Palace DSL is a minimal line-oriented text format for describing a memory pa
    - [Edges and CAST](#edges-and-cast)
    - [Edge Semantic Aliases](#edge-semantic-aliases)
    - [Portals](#portals)
+   - [NEDF Slots](#nedf-slots)
 6. [Routes](#routes)
    - [Route Metadata](#route-metadata)
+   - [Route Settings and Notes](#route-settings-and-notes)
 7. [Import System](#import-system)
 8. [Query Language](#query-language)
 9. [Comments](#comments)
@@ -70,6 +72,7 @@ The lexer is deterministic: the first character of each trimmed line defines its
 | --- | --- | --- |
 | `@atlas` | Atlas path | `@atlas /science/physics` |
 | `@portal` | Portal target | `@portal /palaces/inner` |
+| `@N` `@E` `@D` `@F` (under a node) | NEDF slot | `@E Lets one thread in at a time` |
 | `@` | Palace header | `@Mechanics` |
 | `~` | Edge semantic alias | `~dep:0001 depends on` |
 | `!import` | Import declaration | `!import security.dsl as sec` |
@@ -338,6 +341,34 @@ A node with a valid `@portal` line gets `kind: "portal"` in the snapshot; all ot
 
 ---
 
+### NEDF Slots
+
+A concept node can carry the four NEDF slots, one line each, under the node:
+
+```text
+Mutex
+: Mutual exclusion lock.
+@N Mute-X: a gagged guard at the door
+@E Lets one thread in at a time
+@D One key, or a bowl of keys? => A mutex has one owner; a semaphore counts
+@F Threads hang after an exception => Release the lock in finally
+```
+
+| Line | Slot | Reviewed as |
+|---|---|---|
+| `@N <text>` | Name-hook: a sound-alike, pun, or image | Recognition: the hook is shown, the concept is recalled |
+| `@E <text>` | Essence: what the concept does | Recall: the essence is shown, the name is recalled |
+| `@D <question> => <reason>` | Distinguisher: a question it shares with its nearest neighbour, and why it is this one | Discrimination |
+| `@F <scenario> => <correction>` | Failure: where it breaks, and the fix | Diagnosis |
+
+- Repeat `@N` or `@E` for a slot that runs over several lines; the lines are joined in order.
+- `@D` and `@F` need both halves around `=>`. A half-written pair is kept but does not count as filled, and it emits **W009 `nedf-pair-incomplete`**.
+- Each filled slot is reviewed on its own schedule once the node is a stop on a route. A node without slots keeps one schedule.
+- An NEDF line is only a slot under a node. Before the first node, a line such as `@N Queens` is still the palace header. After a route header, it is **E006 `misplaced-line`**.
+- The DSL is the whole intent for slots, as it is for `@image`: applying a node without NEDF lines clears its slots. Exporting a palace writes them, so an export → edit → apply round trip keeps them.
+
+---
+
 ## Routes
 
 A route declares an ordered sequence of nodes (loci) for a walk session:
@@ -505,6 +536,7 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | E006 | `misplaced-line` | error | Line appears outside valid context |
 | W007 | `unknown-target` | warning | Edge or route step targets an undeclared node |
 | W008 | `tag-syntax` | warning | Tag token contains invalid characters |
+| W009 | `nedf-pair-incomplete` | warning | `@D` or `@F` is missing the half before or after `=>` |
 | E101 | `malformed-node-id` | error | `[id]` contains invalid characters |
 | E102 | `duplicate-node-id` | error | Same explicit id declared on two nodes |
 | E103 | `reserved-node-id` | error | `[palace]` is a reserved identifier |

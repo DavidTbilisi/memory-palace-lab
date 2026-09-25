@@ -1,4 +1,5 @@
-import { ROUTE_COLORS, ROUTE_DIRECTIONS, type PalacePortalRef } from "../../entities/types";
+import { ROUTE_COLORS, ROUTE_DIRECTIONS, type NedfEncoding, type PalacePortalRef } from "../../entities/types";
+import { normalizeNedf } from "../nedf";
 import { parseCast } from "./cast";
 import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
 import type {
@@ -57,6 +58,7 @@ type ClassifiedLine =
   | { type: "atlas"; path: string }
   | { type: "portal"; target: string }
   | { type: "image"; url: string }
+  | { type: "nedf"; letter: "N" | "E" | "D" | "F"; text: string }
   | { type: "body"; text: string }
   | { type: "tags" }
   | { type: "edge"; rest: string }
@@ -89,6 +91,12 @@ function classify(body: string): ClassifiedLine {
   }
   if (body.startsWith("@image")) {
     return { type: "image", url: body.slice("@image".length).trim() };
+  }
+  // NEDF slots. Only under a node: the parse loop reads one before any node as a palace
+  // header, so a palace called "N Queens" keeps its `@N Queens` header.
+  const nedfMatch = body.match(/^@([NEDF])(?:\s+(.*))?$/);
+  if (nedfMatch) {
+    return { type: "nedf", letter: nedfMatch[1] as "N" | "E" | "D" | "F", text: (nedfMatch[2] ?? "").trim() };
   }
   if (body.startsWith("@")) {
     return { type: "palace", name: body.slice(1).trim() };
@@ -652,6 +660,7 @@ export function parseDsl(text: string): DslParseResult {
           kind: "memory",
           portal: null,
           imageUrl: null,
+          nedf: null,
           tags: [],
           structuredTags: [],
           edges: [],
@@ -873,6 +882,40 @@ export function parseDsl(text: string): DslParseResult {
           }
         }
         break;
+
+      case "nedf": {
+        if (!currentNode) {
+          if (snapshot.nodes.length === 0 && snapshot.routes.length === 0 && !currentRoute) {
+            // Before any node: a palace header that happens to start with N, E, D, or F.
+            flush();
+            sawHeader = true;
+            snapshot.palaceName = body.slice(1).trim();
+          } else {
+            diag(diagnostics, "error", "misplaced-line", num, 1, body.length,
+              `@${cl.letter} NEDF lines must appear under a node`);
+          }
+          break;
+        }
+        const nedf: NedfEncoding = { ...currentNode.nedf };
+        const append = (prev: string | undefined) => (prev ? `${prev}\n${cl.text}` : cl.text);
+        if (cl.letter === "N") nedf.nameHook = append(nedf.nameHook);
+        else if (cl.letter === "E") nedf.essence = append(nedf.essence);
+        else {
+          // `question => reason` for D, `scenario => correction` for F.
+          const sep = cl.text.search(/\s*=>\s*/);
+          const first = sep === -1 ? cl.text : cl.text.slice(0, sep).trim();
+          const second = sep === -1 ? "" : cl.text.slice(sep).replace(/^\s*=>\s*/, "").trim();
+          if (!first || !second) {
+            const [a, b] = cl.letter === "D" ? ["question", "reason"] : ["scenario", "correction"];
+            diag(diagnostics, "warning", "nedf-pair-incomplete", num, 1, body.length,
+              `@${cl.letter} needs both halves, "${a} => ${b}"; it does not count until it has them`);
+          }
+          if (cl.letter === "D") nedf.distinguisher = { prompt: first, reason: second };
+          else nedf.failure = { scenario: first, correction: second };
+        }
+        currentNode.nedf = normalizeNedf(nedf);
+        break;
+      }
 
       case "image":
         if (!currentNode) {

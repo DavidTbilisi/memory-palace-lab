@@ -17,6 +17,7 @@ import type {
   DslNode,
   DslSnapshot,
 } from "./types";
+import { normalizeNedf } from "../nedf";
 
 export interface DslApplyOptions {
   layout?: {
@@ -79,6 +80,15 @@ function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta
   } else {
     delete next.mpImageUrl;
   }
+  // Same rule for NEDF slots: the DSL is the whole intent, so a node written without them has none.
+  const nedf = normalizeNedf(intent.nedf);
+  if (nedf) {
+    next.mpNedf = nedf;
+  } else if (prev.mpNedf) {
+    next.mpNedf = null;
+  } else {
+    delete next.mpNedf;
+  }
   return next;
 }
 
@@ -91,6 +101,7 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalRouteName !== next.mpPortalRouteName ||
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
     (prev.mpImageUrl ?? null) !== (next.mpImageUrl ?? null) ||
+    JSON.stringify(normalizeNedf(prev.mpNedf)) !== JSON.stringify(normalizeNedf(next.mpNedf)) ||
     !arraysEqual(prev.mpTags, next.mpTags)
   );
 }
