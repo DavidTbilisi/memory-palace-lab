@@ -38,6 +38,8 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { StatCard } from "./analytics/StatCard";
 import { RetentionChart } from "./analytics/RetentionChart";
+import { NedfCoverage } from "./analytics/NedfCoverage";
+import { buildSlotRetention } from "../domain/services/reviewMetrics";
 import { ReviewHeatmap } from "./analytics/ReviewHeatmap";
 import { RecentEventsList } from "./analytics/RecentEventsList";
 
@@ -87,6 +89,7 @@ export function AnalyticsPanel() {
     dueCount,
     averageInterval,
   } = useReviewMetrics(analyticsEvents, loci, routes, filter, palaceNodes);
+  const slotRetention = useMemo(() => buildSlotRetention(analyticsEvents, filter), [analyticsEvents, filter]);
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -875,6 +878,8 @@ export function AnalyticsPanel() {
           </div>
           <ReviewHeatmap cells={heatmapCells} />
         </section>
+
+        <NedfCoverage retention={slotRetention} nodes={palaceNodes} />
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
           <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">

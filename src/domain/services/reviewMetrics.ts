@@ -1,4 +1,4 @@
-import type { AnalyticsEvent, RecallRating } from "../entities/types";
+import { NEDF_SLOTS, type AnalyticsEvent, type NedfSlot, type RecallRating } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -153,3 +153,34 @@ export function retentionTrendDown(points: DailyReviewPoint[]) {
   const last = points.slice(-3);
   return last[0].averageScorePct > last[1].averageScorePct && last[1].averageScorePct > last[2].averageScorePct;
 }
+
+export type SlotRetention = {
+  slot: NedfSlot;
+  reviews: number;
+  /** Reviews rated Hard, Good, or Easy: the slot was recalled. */
+  recalled: number;
+  /** Share of reviews recalled, 0-100; null before the first review. */
+  retentionPct: number | null;
+  ratings: Record<RecallRating, number>;
+};
+
+/** Retention for each NEDF slot, from the slot recorded on each walk rating. */
+export function buildSlotRetention(events: AnalyticsEvent[], filter?: ReviewFilter): SlotRetention[] {
+  const bySlot = new Map<NedfSlot, Record<RecallRating, number>>(
+    NEDF_SLOTS.map((slot) => [slot, { again: 0, hard: 0, good: 0, easy: 0 }]),
+  );
+  for (const event of filteredRatingEvents(events, filter)) {
+    const payload = parseAnalyticsPayload(event);
+    const counts = typeof payload.slot === "string" ? bySlot.get(payload.slot as NedfSlot) : undefined;
+    const rating = payload.rating;
+    if (!counts || (rating !== "again" && rating !== "hard" && rating !== "good" && rating !== "easy")) continue;
+    counts[rating] += 1;
+  }
+  return NEDF_SLOTS.map((slot) => {
+    const ratings = bySlot.get(slot)!;
+    const reviews = ratings.again + ratings.hard + ratings.good + ratings.easy;
+    const recalled = reviews - ratings.again;
+    return { slot, reviews, recalled, retentionPct: reviews > 0 ? Math.round((recalled / reviews) * 100) : null, ratings };
+  });
+}
+
