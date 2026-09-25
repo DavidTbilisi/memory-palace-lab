@@ -24,7 +24,7 @@ import {
 } from "react";
 import { captureStopView, memoryNodeCenter, selectedMemoryNodePoints } from "../canvas/routeCanvas";
 import { ROUTE_COLORS, type Locus, type MemoryRoute, type RouteDirection } from "../domain/entities/types";
-import { countDueLoci, isRouteInReview } from "../domain/services/dueQueue";
+import { countDueLoci, isRouteInReview, nedfLookup } from "../domain/services/dueQueue";
 import { SECTIONED_ROUTE_STOPS } from "../domain/services/routeSections";
 import {
   ROUTE_COLOR_HEX,
@@ -493,6 +493,8 @@ function StopList({
   infoFor: (nodeId: string) => StopInfo;
 }) {
   const setStopSection = usePalaceStore((s) => s.setStopSection);
+  const nodes = usePalaceStore((s) => s.nodes);
+  const nedfOf = useMemo(() => nedfLookup(nodes), [nodes]);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const moveStop = usePalaceStore((s) => s.moveStop);
   const removeStop = usePalaceStore((s) => s.removeStop);
@@ -552,7 +554,7 @@ function StopList({
         const label = stopLabel(stop, title);
         const custom = stop.label.trim().length > 0;
         const current = currentIndex === index;
-        const due = reviewed && countDueLoci([stop], nowIso) > 0;
+        const due = reviewed && countDueLoci([stop], nowIso, nedfOf) > 0;
         const section = stop.section?.trim() ? stop : null;
         return (
           <Fragment key={stop.id}>
@@ -776,7 +778,8 @@ function RouteCard({
 
   const color = routeColorHex(route, index);
   const reviewed = isRouteInReview(route);
-  const dueCount = reviewed ? countDueLoci(stops) : 0;
+  const nodes = usePalaceStore((s) => s.nodes);
+  const dueCount = reviewed ? countDueLoci(stops, undefined, nedfLookup(nodes)) : 0;
   const hasSections = stops.some((stop) => stop.section?.trim());
   const sectionable = hasSections || stops.length > SECTIONED_ROUTE_STOPS;
   const startRename = () => {

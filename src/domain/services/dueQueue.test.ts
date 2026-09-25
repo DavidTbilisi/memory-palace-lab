@@ -80,4 +80,39 @@ describe("buildDueQueue", () => {
     ];
     expect(reviewedLoci(loci, routes).map((l) => l.id)).toEqual(["l1", "l3"]);
   });
+
+  it("lists an NEDF stop once, asking its most overdue slot, and counts its cards", () => {
+    const palace = {
+      palace: { id: "n", name: "NEDF", createdAt: NOW },
+      routes: [{ id: "r", palaceId: "n", name: "Walk" }],
+      nodes: [
+        {
+          id: "mutex",
+          title: "Mutex",
+          nedf: {
+            nameHook: "Mute-X",
+            essence: "One key to the bathroom",
+            failure: { scenario: "Forgot to unlock", correction: "Release in finally" },
+          },
+        },
+      ],
+      loci: [
+        {
+          ...locus("l1", "r", "mutex", "2026-09-02T12:00:00.000Z", 4),
+          slotSchedules: {
+            nameHook: { interval: 30, easeFactor: 2.5, repetitions: 4, nextReviewAt: "2026-10-01T00:00:00.000Z", lastReviewedAt: NOW },
+            failure: { interval: 1, easeFactor: 2.1, repetitions: 0, nextReviewAt: "2026-09-02T00:00:00.000Z", lastReviewedAt: NOW },
+          },
+        },
+      ],
+    } as never;
+
+    const queue = buildDueQueue([palace], NOW);
+    // Failure is most overdue; Essence, never rated, follows the stop's own date; Name-hook is not due.
+    expect(queue.items).toHaveLength(1);
+    expect(queue.items[0]).toMatchObject({ slot: "failure", dueCards: 2, nextReviewAt: "2026-09-02T00:00:00.000Z" });
+    expect(queue.countByRoute.get("r")).toBe(1);
+    expect(queue.averageInterval).toBe(12); // (30 + 1 + 4) / 3 ≈ 11.7
+    expect(countDueLoci((palace as { loci: Locus[] }).loci, NOW, () => null)).toBe(1);
+  });
 });

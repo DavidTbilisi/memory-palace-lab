@@ -86,7 +86,7 @@ export function AnalyticsPanel() {
     heatmapCells,
     dueCount,
     averageInterval,
-  } = useReviewMetrics(analyticsEvents, loci, routes, filter);
+  } = useReviewMetrics(analyticsEvents, loci, routes, filter, palaceNodes);
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();
