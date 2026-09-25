@@ -197,6 +197,23 @@ describe("palaceDb", () => {
     expect(loaded.loci).toEqual(loci);
   });
 
+  it("keeps a node's NEDF slots and a stop's slot schedules through save and load", () => {
+    const palace = createPalace(db, "Encoded");
+    const snap = makeSnapshot(palace.id, palace);
+    const nedf = { nameHook: "Mute-X", failure: { scenario: "Forgot to unlock", correction: "Release in finally" } };
+    const slotSchedules = {
+      failure: { interval: 1, easeFactor: 2.3, repetitions: 0, nextReviewAt: "2026-09-26T00:00:00.000Z", lastReviewedAt: null },
+    };
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, nedf } : node));
+    const loci = [{ ...snap.loci[0]!, slotSchedules }];
+    saveSnapshot(db, { ...snap, nodes, loci });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)!.nedf).toEqual(nedf);
+    expect(loaded.nodes.find((node) => node.id !== nodes[0]!.id)).not.toHaveProperty("nedf");
+    expect(loaded.loci[0]!.slotSchedules).toEqual(slotSchedules);
+  });
+
   it("keeps a stop's saved view through save and load", () => {
     const palace = createPalace(db, "Framed");
     const snap = makeSnapshot(palace.id, palace);

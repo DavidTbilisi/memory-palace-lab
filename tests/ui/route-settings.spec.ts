@@ -41,8 +41,9 @@ function nightWalk(page: Page): Promise<RouteState | null> {
       .sort((a, b) => a.orderIndex - b.orderIndex)
       .map((locus, i) => (locus.section ? `${i + 1}:${locus.section}` : null))
       .filter((entry): entry is string => entry !== null);
-    const { id: _id, ...settings } = route;
-    return { ...settings, sections };
+    const settings: Record<string, unknown> = { ...route, sections };
+    delete settings.id;
+    return settings as RouteState;
   });
 }
 

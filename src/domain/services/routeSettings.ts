@@ -8,6 +8,7 @@ import {
   type RouteMetadataTag,
   type StopView,
 } from "../entities/types";
+import { decodeSlotSchedules } from "./nedf";
 
 /** Route fields stored together in the `routes.settings_json` column. */
 export type RouteSettings = Pick<
@@ -16,7 +17,7 @@ export type RouteSettings = Pick<
 >;
 
 /** Stop fields stored together in the `loci.settings_json` column. */
-export type StopSettings = Pick<Locus, "view" | "section">;
+export type StopSettings = Pick<Locus, "view" | "section" | "slotSchedules">;
 
 function isRouteColor(value: unknown): value is RouteColor {
   return typeof value === "string" && (ROUTE_COLORS as readonly string[]).includes(value);
@@ -108,6 +109,8 @@ export function encodeStopSettings(stop: StopSettings): string {
   }
   const section = nonBlank(stop.section)?.trim();
   if (section) settings.section = section;
+  const slotSchedules = decodeSlotSchedules(stop.slotSchedules);
+  if (slotSchedules) settings.slotSchedules = slotSchedules;
   return JSON.stringify(settings);
 }
 
@@ -122,5 +125,7 @@ export function decodeStopSettings(json: string | null | undefined): StopSetting
   }
   const section = nonBlank(raw.section)?.trim();
   if (section) settings.section = section;
+  const slotSchedules = decodeSlotSchedules(raw.slotSchedules);
+  if (slotSchedules) settings.slotSchedules = slotSchedules;
   return settings;
 }
