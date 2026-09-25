@@ -6,6 +6,8 @@ import {
 } from "../../../src/domain/services/routeEditing";
 import { defaultLocusSchedule } from "../../../src/domain/services/spacedRepetition";
 import { orderedLoci } from "../../../src/domain/services/walkService";
+import { nedfLookup } from "../../../src/domain/services/dueQueue";
+import { isNedfEncoded, stopCards } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
 import type { ServerContext } from "./shared";
@@ -16,6 +18,7 @@ export function routeList(ctx: ServerContext, args: { palace: string }) {
   const snapshot = loadPalace(ctx.db, palace.id);
   if (!snapshot) throw new Error(`Palace "${args.palace}" not found.`);
   const titleOf = (id: string) => snapshot.nodes.find((n) => n.id === id)?.title ?? id;
+  const nedfOf = nedfLookup(snapshot.nodes);
   return {
     routes: snapshot.routes.map((r) => ({
       id: r.id,
@@ -40,6 +43,15 @@ export function routeList(ctx: ServerContext, args: { palace: string }) {
           nextReviewAt: l.nextReviewAt,
           lastReviewedAt: l.lastReviewedAt ?? undefined,
         },
+        // A stop whose node has NEDF slots reviews each filled slot on its own schedule.
+        slots: isNedfEncoded(nedfOf(l.nodeId))
+          ? stopCards(l, nedfOf(l.nodeId)).map((card) => ({
+              slot: card.slot,
+              nextReviewAt: card.schedule.nextReviewAt,
+              interval: card.schedule.interval,
+              repetitions: card.schedule.repetitions,
+            }))
+          : undefined,
       })),
     })),
   };

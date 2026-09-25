@@ -162,6 +162,25 @@ server.registerTool(
 
 // ── Node tools ───────────────────────────────────────────────────────
 
+const nedfSlotsArg = z
+  .object({
+    nameHook: z.string().nullable().optional().describe("Name-hook: a sound-alike, pun, or image. Drilled as recognition"),
+    essence: z.string().nullable().optional().describe("Essence: what the concept does. Drilled as recall"),
+    distinguisher: z
+      .object({ prompt: z.string(), reason: z.string() })
+      .nullable()
+      .optional()
+      .describe("A question it shares with its nearest neighbour, and why it is this one. Drilled as discrimination"),
+    failure: z
+      .object({ scenario: z.string(), correction: z.string() })
+      .nullable()
+      .optional()
+      .describe("Where it breaks, and the fix. Drilled as diagnosis"),
+  })
+  .describe(
+    "NEDF slots. Each filled slot is reviewed on its own schedule once the node is a route stop. A slot left out is unchanged; null or \"\" clears it.",
+  );
+
 server.registerTool(
   "node_list",
   {
@@ -174,7 +193,8 @@ server.registerTool(
 server.registerTool(
   "node_get",
   {
-    description: "Get one node with its content, edges (in/out), and route memberships.",
+    description:
+      "Get one node with its content, NEDF slots, edges (in/out), and route memberships with each stop's next review (per NEDF slot when the node has slots).",
     inputSchema: { palace: palaceArg, node: z.string().describe("Node id, title, or alias") },
   },
   tool(nodes.nodeGet),
@@ -194,6 +214,7 @@ server.registerTool(
           "Body content — the vivid encoding imagery. HTML allowed; when encoding from notes, end with a sources paragraph like <p>📖 <a href=\"obsidian://open?vault=Neural%20OS&file=path/to/note\">note</a></p>",
         ),
       tags: z.array(z.string()).optional(),
+      nedf: nedfSlotsArg.optional(),
       position: z
         .object({ x: z.number(), y: z.number() })
         .optional()
@@ -206,7 +227,7 @@ server.registerTool(
 server.registerTool(
   "node_update",
   {
-    description: "Update a node's title, content, alias, or tags.",
+    description: "Update a node's title, content, alias, tags, or NEDF slots.",
     inputSchema: {
       palace: palaceArg,
       node: z.string(),
@@ -214,6 +235,7 @@ server.registerTool(
       content: z.string().optional(),
       alias: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      nedf: nedfSlotsArg.nullable().optional().describe("NEDF slots to change; null clears all four"),
     },
   },
   tool(nodes.nodeUpdate),

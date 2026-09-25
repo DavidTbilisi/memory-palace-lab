@@ -2,10 +2,36 @@ import type { Editor } from "@tldraw/editor";
 import { toRichText } from "@tldraw/tlschema";
 import { createGeoMemoryNode } from "../../../src/canvas/createMemoryShapes";
 import { nodeShapeHasLabel } from "../../../src/canvas/memoryNodeShape";
+import type { NedfEncoding, NedfSlot } from "../../../src/domain/entities/types";
+import type { MemoryPalaceMeta } from "../../../src/canvas/memoryMeta";
+import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
 import type { ServerContext } from "./shared";
 import { nextNodePosition, nodeView, resolveNodeRef, shapeIdForNode } from "./shared";
+
+/**
+ * Slots to change on a node. A slot left out keeps its value; `null` or an empty string clears
+ * that one slot.
+ */
+export type NedfPatch = {
+  nameHook?: string | null;
+  essence?: string | null;
+  distinguisher?: { prompt: string; reason: string } | null;
+  failure?: { scenario: string; correction: string } | null;
+};
+
+function applyNedfPatch(current: NedfEncoding | null, patch: NedfPatch | null | undefined): NedfEncoding | null {
+  if (!patch) return current;
+  const next: Record<string, unknown> = { ...current };
+  for (const slot of Object.keys(patch) as NedfSlot[]) {
+    const value = patch[slot];
+    if (value === undefined) continue;
+    if (value === null || value === "") delete next[slot];
+    else next[slot] = value;
+  }
+  return normalizeNedf(next);
+}
 
 export function nodeList(ctx: ServerContext, args: { palace: string; query?: string }) {
   const palace = resolvePalace(ctx.db, args.palace);
@@ -54,7 +80,18 @@ export function nodeGet(ctx: ServerContext, args: { palace: string; node: string
       routeName: snapshot.routes.find((r) => r.id === l.routeId)?.name ?? l.routeId,
       locusId: l.id,
       orderIndex: l.orderIndex,
-      nextReviewAt: l.nextReviewAt,
+      nextReviewAt: stopNextReviewAt(l, node.nedf),
+      // One schedule per filled NEDF slot; absent for a node reviewed on the stop's own schedule.
+      slots: node.nedf
+        ? stopCards(l, node.nedf)
+            .filter((card) => card.slot !== null)
+            .map((card) => ({
+              slot: card.slot,
+              nextReviewAt: card.schedule.nextReviewAt,
+              interval: card.schedule.interval,
+              repetitions: card.schedule.repetitions,
+            }))
+        : undefined,
     }));
 
   return { ...nodeView(node, snapshot.canvasObjects), outgoing, incoming, routes };
@@ -67,6 +104,7 @@ export async function nodeCreate(
     title: string;
     content?: string;
     tags?: string[];
+    nedf?: NedfPatch | null;
     position?: { x: number; y: number };
   },
 ) {
@@ -76,9 +114,11 @@ export async function nodeCreate(
       title: args.title,
       content: args.content ?? "",
     });
-    if (args.tags && args.tags.length > 0) {
-      m.editor.updateShape({ id: created.shapeId, type: "geo", meta: { mpTags: args.tags } });
-    }
+    const meta: Partial<MemoryPalaceMeta> = {};
+    if (args.tags && args.tags.length > 0) meta.mpTags = args.tags;
+    const nedf = applyNedfPatch(null, args.nedf);
+    if (nedf) meta.mpNedf = nedf;
+    if (Object.keys(meta).length > 0) m.editor.updateShape({ id: created.shapeId, type: "geo", meta });
     m.recordEvent("node_created", "graph", {
       nodeId: created.nodeId,
       payload: { title: args.title },
@@ -97,6 +137,7 @@ export async function nodeUpdate(
     content?: string;
     alias?: string;
     tags?: string[];
+    nedf?: NedfPatch | null;
   },
 ) {
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_update", (m) => {
@@ -113,6 +154,11 @@ export async function nodeUpdate(
     if (args.content !== undefined) meta.mpContent = args.content;
     if (args.alias !== undefined) meta.mpAlias = args.alias;
     if (args.tags !== undefined) meta.mpTags = args.tags;
+    if (args.nedf !== undefined) {
+      const current = normalizeNedf((shape.meta as MemoryPalaceMeta).mpNedf);
+      // `null` is the only value that clears meta through tldraw's key-by-key merge.
+      meta.mpNedf = args.nedf === null ? null : applyNedfPatch(current, args.nedf);
+    }
     m.editor.updateShape({
       id: shapeId,
       type: shape.type,
