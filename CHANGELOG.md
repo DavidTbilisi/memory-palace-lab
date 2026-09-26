@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.17.0 — 2026-09-26
+
+### Encode speed
+
+- **See how long each encode takes.** The app now times how long you spend building a node or an edge, counting only active time. Any gap with no input counts for at most a minute, and time with the app hidden doesn't count. Changing an existing node or edge is counted as a re-edit, not a new encode. Nodes made several at a time, for example by applying DSL, are not timed.
+- **Speed bands.** Once you have 12 timed node encodes, each node is labelled **Fast**, **Typical** or **Slow** compared with your own encodes over the last 90 days. Until then its time is shown without a band. Bands are worked out across all your palaces.
+- **Encode time in Difficulty and the inspector.** The Difficulty table has an **Encode** column, such as "38s · Fast", and the node inspector shows the same badge. It's for information only and doesn't change a node's difficulty.
+- **Encode speed in Insights.** A new section shows your median encode time for nodes and for edges over the last four weeks, and weekly charts with first encodes and re-edits as separate lines. The charts can also be shown as a table. Until your encodes span four weeks, the section shows how many days it has so far. Recent events lists each encode with its time, such as "new node - 38s".
+
+### Fixes
+
+- **The header no longer covers its own buttons.** In windows up to 1280px wide, including the desktop app's default size, the buttons on the right of the header could sit on top of the page buttons and tabs, so clicking a tab such as Insights › Difficulty could hit the wrong button. Below 1280px those buttons now move to a second row.
+
 ## v0.16.0 — 2026-09-25
 
 ### NEDF slots
