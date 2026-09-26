@@ -8,6 +8,7 @@ import type {
 } from "../../../src/domain/entities/types";
 import type { SnapshotEditor } from "../snapshotEditor";
 import { isMemoryNodeShape } from "../../../src/canvas/memoryNodeShape";
+import { attributeWarnings } from "../../../src/domain/services/attributes";
 import { isNedfEncoded, unencodedNedfSlots } from "../../../src/domain/services/nedf";
 
 export type ServerContext = {
@@ -114,6 +115,8 @@ export function nodeView(node: MemoryNode, canvasObjects: CanvasObject[]) {
     nedf: node.nedf ?? undefined,
     // Slots a partly encoded node still lacks, so a client can prompt for them.
     unencodedSlots: isNedfEncoded(node.nedf) ? unencodedNedfSlots(node.nedf) : undefined,
+    attributes: node.attributes ?? undefined,
+    attributeWarnings: node.attributes ? attributeWarnings(node.attributes).map((w) => w.message) : undefined,
     position: obj ? { x: obj.x, y: obj.y, width: obj.width, height: obj.height } : undefined,
   };
 }
