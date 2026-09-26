@@ -19,6 +19,7 @@ The Palace DSL is a minimal line-oriented text format for describing a memory pa
    - [Edge Semantic Aliases](#edge-semantic-aliases)
    - [Portals](#portals)
    - [NEDF Slots](#nedf-slots)
+   - [Attribute Channels](#attribute-channels)
 6. [Routes](#routes)
    - [Route Metadata](#route-metadata)
    - [Route Settings and Notes](#route-settings-and-notes)
@@ -367,6 +368,44 @@ Mutex
 - An NEDF line is only a slot under a node. Before the first node, a line such as `@N Queens` is still the palace header. After a route header, it is **E006 `misplaced-line`**.
 - The DSL is the whole intent for slots, as it is for `@image`: applying a node without NEDF lines clears its slots. Exporting a palace writes them, so an export → edit → apply round trip keeps them.
 
+### Attribute Channels
+
+A node can carry attributes, each on one of UMTF's seven channels. Write one `@A` line per attribute under the node:
+
+```text
+Mutex
+@A spatial where: north tower
+@A temporal days [enumerate 3]: Mon | Wed | Fri
+@A state phase [address]: locked | free
+```
+
+The form is `@A <channel> <name> [<route> <count>]: <value> | <value>`. The name and the bracket are optional.
+
+| Channel | Answers |
+|---|---|
+| `spatial` | Where is it? |
+| `sensory` | How does it feel? |
+| `state` | What condition is it in? |
+| `relation` | What does it connect to? |
+| `pattern` | What larger structure does this resemble? |
+| `temporal` | When does it happen? |
+| `priority` | How important is it? |
+
+An attribute with several values needs a route, chosen by what recall will ask for:
+
+| Route | Use it when | Count |
+|---|---|---|
+| `[dissolve]` | Context always supplies the key, and nothing asks for the whole set. Split it into separate nodes. | — |
+| `[address]` | A small, ordered key picks the value, like a table row. | — |
+| `[enumerate N]` | You will be asked for the whole set. `N` is the checksum that shows a missing member. | required |
+
+- Two attributes on one channel is **W123 `attribute-channel-collision`**. It is reported on the first attribute's line, with the others as related lines. Several values of one attribute are not a collision.
+- Several values with no route is **W124**. `[enumerate]` with no count is **W125**, and a count that differs from the number of values is **W126**. A count on `[address]` or `[dissolve]` is **W127**.
+- More than four channels on one node is **I128**, an info note: a scene stays retrievable at three or four.
+- A channel that is not one of the seven is **E122**, and a line that does not fit the form is **E121**. The line is skipped and the node's other attributes are kept.
+- As with `@N`, a line such as `@A Tale of Two Cities` before the first node is the palace header. Under a route it is **E006 `misplaced-line`**.
+- The DSL is the whole intent for attributes: applying a node without `@A` lines clears them. Exporting a palace writes them. Since `|` separates values, a value never contains one, and a name drops `:`, `[` and `]`. This holds wherever attributes are written (the inspector and MCP too), so an export always parses back the same.
+
 ---
 
 ## Routes
@@ -537,6 +576,14 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | W007 | `unknown-target` | warning | Edge or route step targets an undeclared node |
 | W008 | `tag-syntax` | warning | Tag token contains invalid characters |
 | W009 | `nedf-pair-incomplete` | warning | `@D` or `@F` is missing the half before or after `=>` |
+| E121 | `attribute-malformed` | error | `@A` line does not fit `channel name [route N]: values` |
+| E122 | `attribute-channel-unknown` | error | `@A` names a channel outside UMTF's seven |
+| W123 | `attribute-channel-collision` | warning | Two attributes of one node are on the same channel |
+| W124 | `attribute-route-missing` | warning | An attribute has several values and no route |
+| W125 | `attribute-count-missing` | warning | `[enumerate]` has no count |
+| W126 | `attribute-count-mismatch` | warning | The enumerate count differs from the number of values |
+| W127 | `attribute-count-unexpected` | warning | A count on a route other than enumerate |
+| I128 | `attribute-channel-budget` | info | More than four channels on one node |
 | E101 | `malformed-node-id` | error | `[id]` contains invalid characters |
 | E102 | `duplicate-node-id` | error | Same explicit id declared on two nodes |
 | E103 | `reserved-node-id` | error | `[palace]` is a reserved identifier |

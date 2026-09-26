@@ -22,6 +22,16 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "tag-syntax":                 "W008",
   "nedf-pair-incomplete":       "W009",
 
+  // E12x/W12x — Attribute channels (backlog 12)
+  "attribute-malformed":        "E121",
+  "attribute-channel-unknown":  "E122",
+  "attribute-channel-collision":"W123",
+  "attribute-route-missing":    "W124",
+  "attribute-count-missing":    "W125",
+  "attribute-count-mismatch":   "W126",
+  "attribute-count-unexpected": "W127",
+  "attribute-channel-budget":   "I128",
+
   // E1xx — Stable node identifiers (Feature 1)
   "malformed-node-id":          "E101",
   "duplicate-node-id":          "E102",
