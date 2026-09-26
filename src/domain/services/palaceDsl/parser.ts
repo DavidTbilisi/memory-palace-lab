@@ -1,4 +1,15 @@
-import { ROUTE_COLORS, ROUTE_DIRECTIONS, type NedfEncoding, type PalacePortalRef } from "../../entities/types";
+import {
+  ATTRIBUTE_ROUTES,
+  ROUTE_COLORS,
+  ROUTE_DIRECTIONS,
+  UMTF_CHANNELS,
+  type AttributeRoute,
+  type NedfEncoding,
+  type NodeAttribute,
+  type PalacePortalRef,
+  type UmtfChannel,
+} from "../../entities/types";
+import { attributeWarnings, type AttributeWarningKind } from "../attributes";
 import { normalizeNedf } from "../nedf";
 import { parseCast } from "./cast";
 import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
@@ -59,6 +70,7 @@ type ClassifiedLine =
   | { type: "portal"; target: string }
   | { type: "image"; url: string }
   | { type: "nedf"; letter: "N" | "E" | "D" | "F"; text: string }
+  | { type: "attribute"; text: string }
   | { type: "body"; text: string }
   | { type: "tags" }
   | { type: "edge"; rest: string }
@@ -97,6 +109,11 @@ function classify(body: string): ClassifiedLine {
   const nedfMatch = body.match(/^@([NEDF])(?:\s+(.*))?$/);
   if (nedfMatch) {
     return { type: "nedf", letter: nedfMatch[1] as "N" | "E" | "D" | "F", text: (nedfMatch[2] ?? "").trim() };
+  }
+  // Attributes, with the same palace-header exception as NEDF lines.
+  const attributeMatch = body.match(/^@A(?:\s+(.*))?$/);
+  if (attributeMatch) {
+    return { type: "attribute", text: (attributeMatch[1] ?? "").trim() };
   }
   if (body.startsWith("@")) {
     return { type: "palace", name: body.slice(1).trim() };
@@ -174,6 +191,44 @@ const RESERVED_NODE_IDS = new Set(["palace", "import", "route"]);
 const NODE_ID_RE = /^[a-z_][a-z0-9_-]*$/;
 
 /** Validates a raw (already-lowercased) node id token. Returns error string or null. */
+/** `channel name [route N]: value | value`. The name and the bracket are optional. */
+const ATTRIBUTE_LINE = /^([^\s:[]+)\s*([^[:]*?)\s*(?:\[([^\]]*)\])?\s*:\s*(.*)$/;
+
+function parseAttributeLine(text: string): { attribute: NodeAttribute } | { error: "malformed" | "channel"; message: string } {
+  const match = text.match(ATTRIBUTE_LINE);
+  if (!match) {
+    return { error: "malformed", message: '@A needs "channel name: value", e.g. "@A spatial where: north tower"' };
+  }
+  const [, rawChannel, name, bracket, rawValues] = match;
+  const channel = rawChannel.toLowerCase();
+  if (!(UMTF_CHANNELS as readonly string[]).includes(channel)) {
+    return { error: "channel", message: `"${rawChannel}" is not a UMTF channel. Use one of: ${UMTF_CHANNELS.join(", ")}` };
+  }
+  const attribute: NodeAttribute = {
+    name: name.trim(),
+    channel: channel as UmtfChannel,
+    values: rawValues.split("|").map((v) => v.trim()).filter((v) => v !== ""),
+  };
+  if (bracket !== undefined) {
+    const route = bracket.trim().match(/^(\w+)(?:\s+(\d+))?$/);
+    if (!route || !(ATTRIBUTE_ROUTES as readonly string[]).includes(route[1].toLowerCase())) {
+      return { error: "malformed", message: `[${bracket}] should be [dissolve], [address], or [enumerate N]` };
+    }
+    attribute.route = route[1].toLowerCase() as AttributeRoute;
+    if (route[2] !== undefined) attribute.count = Number(route[2]);
+  }
+  return { attribute };
+}
+
+const ATTRIBUTE_WARNING_CODES: Record<AttributeWarningKind, DslDiagnosticCode> = {
+  "channel-collision": "attribute-channel-collision",
+  "route-missing": "attribute-route-missing",
+  "count-missing": "attribute-count-missing",
+  "count-mismatch": "attribute-count-mismatch",
+  "count-unexpected": "attribute-count-unexpected",
+  "channel-budget": "attribute-channel-budget",
+};
+
 function validateNodeId(id: string): string | null {
   if (id.length === 0) return "Node identifier must not be empty";
   if (id.length > 64) return `Node identifier "${id}" exceeds 64-character limit`;
@@ -560,6 +615,8 @@ export function parseDsl(text: string): DslParseResult {
   const seenIdLines = new Map<string, number>();
   let sawHeader = false;
   let currentNode: DslNode | null = null;
+  /** Source line of each `@A` attribute, so a warning can point at the attribute it names. */
+  const attributeLines = new Map<DslNode, number[]>();
   let currentRoute: DslRoute | null = null;
   let routeHasMembers = false;
   const seenNamespaces = new Set<string>();
@@ -661,6 +718,7 @@ export function parseDsl(text: string): DslParseResult {
           portal: null,
           imageUrl: null,
           nedf: null,
+          attributes: null,
           tags: [],
           structuredTags: [],
           edges: [],
@@ -917,6 +975,29 @@ export function parseDsl(text: string): DslParseResult {
         break;
       }
 
+      case "attribute": {
+        if (!currentNode) {
+          if (snapshot.nodes.length === 0 && snapshot.routes.length === 0 && !currentRoute) {
+            // Before any node: a palace header that happens to start with A.
+            flush();
+            sawHeader = true;
+            snapshot.palaceName = body.slice(1).trim();
+          } else {
+            diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "@A attribute lines must appear under a node");
+          }
+          break;
+        }
+        const parsed = parseAttributeLine(cl.text);
+        if ("error" in parsed) {
+          diag(diagnostics, "error", parsed.error === "channel" ? "attribute-channel-unknown" : "attribute-malformed",
+            num, 1, body.length, parsed.message);
+          break;
+        }
+        currentNode.attributes = [...(currentNode.attributes ?? []), parsed.attribute];
+        attributeLines.set(currentNode, [...(attributeLines.get(currentNode) ?? []), num]);
+        break;
+      }
+
       case "image":
         if (!currentNode) {
           diag(
@@ -1019,6 +1100,21 @@ export function parseDsl(text: string): DslParseResult {
         );
       }
     }
+  }
+
+  // Backlog 12 — attribute checks, reported on the line of the first attribute they name.
+  for (const node of snapshot.nodes) {
+    const lines = attributeLines.get(node);
+    if (!node.attributes || !lines) continue;
+    for (const warning of attributeWarnings(node.attributes)) {
+      const line = lines[warning.attributes[0]] ?? node.sourceLine;
+      const related = warning.attributes.slice(1).map((i) => ({ line: lines[i], column: 1, length: 1 }));
+      const severity = warning.kind === "channel-budget" ? "info" : "warning";
+      diag(diagnostics, severity, ATTRIBUTE_WARNING_CODES[warning.kind], line, 1, 1, warning.message, related);
+    }
+    // Entries with neither a name nor a value say nothing; drop them once they have been checked.
+    node.attributes = node.attributes.filter((a) => a.name || a.values.length > 0);
+    if (node.attributes.length === 0) node.attributes = null;
   }
 
   // Feature 7 — validate route prereq metadata tags. A prereq names a node by title or id

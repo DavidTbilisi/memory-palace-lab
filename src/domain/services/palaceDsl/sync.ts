@@ -17,6 +17,7 @@ import type {
   DslNode,
   DslSnapshot,
 } from "./types";
+import { normalizeAttributes } from "../attributes";
 import { normalizeNedf } from "../nedf";
 
 export interface DslApplyOptions {
@@ -89,6 +90,15 @@ function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta
   } else {
     delete next.mpNedf;
   }
+  // And for attributes.
+  const attributes = normalizeAttributes(intent.attributes);
+  if (attributes) {
+    next.mpAttributes = attributes;
+  } else if (prev.mpAttributes) {
+    next.mpAttributes = null;
+  } else {
+    delete next.mpAttributes;
+  }
   return next;
 }
 
@@ -102,6 +112,7 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
     (prev.mpImageUrl ?? null) !== (next.mpImageUrl ?? null) ||
     JSON.stringify(normalizeNedf(prev.mpNedf)) !== JSON.stringify(normalizeNedf(next.mpNedf)) ||
+    JSON.stringify(normalizeAttributes(prev.mpAttributes)) !== JSON.stringify(normalizeAttributes(next.mpAttributes)) ||
     !arraysEqual(prev.mpTags, next.mpTags)
   );
 }

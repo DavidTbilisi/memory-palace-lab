@@ -104,6 +104,23 @@ function addLineDecorations(
     return;
   }
 
+  // Attributes, `@A channel name [route N]: values`, with the same header exception as NEDF.
+  if (lineStart > 0 && /^@A(\s|$)/.test(body)) {
+    mark(builder, bodyStart, bodyStart + 2, "cm-dsl-keyword");
+    const channel = body.slice(2).match(/^\s*([^\s:[]+)/);
+    const afterChannel = channel ? 2 + channel[0].length : 2;
+    if (channel) mark(builder, afterChannel - channel[1].length + bodyStart, afterChannel + bodyStart, "cm-dsl-tag");
+    const colon = body.indexOf(":", afterChannel);
+    if (colon === -1) {
+      mark(builder, bodyStart + afterChannel, end, "cm-dsl-content");
+    } else {
+      mark(builder, bodyStart + afterChannel, bodyStart + colon, "cm-dsl-content");
+      mark(builder, bodyStart + colon, bodyStart + colon + 1, "cm-dsl-operator");
+      mark(builder, bodyStart + colon + 1, end, "cm-dsl-content");
+    }
+    return;
+  }
+
   if (body.startsWith("@")) {
     mark(builder, bodyStart, bodyStart + 1, "cm-dsl-keyword");
     mark(builder, bodyStart + 1, end, "cm-dsl-title");

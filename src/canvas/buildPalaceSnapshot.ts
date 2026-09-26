@@ -6,6 +6,7 @@ import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { resolveMemoryNodeTitle } from "./readShapeText";
 import { isMemoryNodeShape } from "./memoryNodeShape";
+import { normalizeAttributes } from "../domain/services/attributes";
 import { normalizeNedf } from "../domain/services/nedf";
 
 function metaOf(shape: TLShape): MemoryPalaceMeta {
@@ -58,6 +59,7 @@ export function buildPalaceSnapshot(
           tags: m.mpTags ?? [],
           difficulty: m.mpDifficulty ?? null,
           nedf: normalizeNedf(m.mpNedf),
+          attributes: normalizeAttributes(m.mpAttributes),
         });
       }
     }

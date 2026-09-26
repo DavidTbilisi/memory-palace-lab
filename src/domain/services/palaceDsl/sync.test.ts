@@ -194,6 +194,23 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(editor.getShape(shapeId)!.meta.mpNedf).toBeNull();
   });
 
+  it("sets, replaces, and clears attributes, and leaves unchanged attributes alone", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Mutex");
+    const attributes = [{ name: "where", channel: "spatial" as const, values: ["north tower"] }];
+
+    const set = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { attributes })]));
+    expect(set.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpAttributes).toEqual(attributes);
+
+    const same = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { attributes: [...attributes] })]));
+    expect(same.updated.nodes).toBe(0);
+
+    const cleared = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex")]));
+    expect(cleared.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpAttributes).toBeNull();
+  });
+
   it("applies the SOLID Citadel document that used to crash", () => {
     const { snapshot, diagnostics } = parseDsl(SOLID_CITADEL_DSL);
     expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);

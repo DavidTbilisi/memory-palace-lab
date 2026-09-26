@@ -5,6 +5,7 @@ import type {
   PalaceSnapshot,
 } from "../../entities/types";
 import { formatCastCompact } from "./cast";
+import { normalizeAttributes } from "../attributes";
 import { normalizeNedf } from "../nedf";
 
 function formatPortalTarget(p: PalacePortalRef): string | null {
@@ -58,6 +59,13 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
       for (const piece of nedf.essence?.split("\n") ?? []) lines.push(`@E ${piece}`);
       if (nedf.distinguisher) lines.push(`@D ${nedf.distinguisher.prompt} => ${nedf.distinguisher.reason}`.trimEnd());
       if (nedf.failure) lines.push(`@F ${nedf.failure.scenario} => ${nedf.failure.correction}`.trimEnd());
+    }
+
+    for (const attribute of normalizeAttributes(node.attributes) ?? []) {
+      // A count only has a place in the route bracket, so a count with no route is not written.
+      const route = attribute.route ? ` [${attribute.route}${attribute.count !== undefined ? ` ${attribute.count}` : ""}]` : "";
+      const name = attribute.name ? ` ${attribute.name}` : "";
+      lines.push(`@A ${attribute.channel}${name}${route}: ${attribute.values.join(" | ")}`.trimEnd());
     }
 
     if (node.tags && node.tags.length > 0) {

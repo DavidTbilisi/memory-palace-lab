@@ -78,6 +78,27 @@ export type NedfEncoding = {
   failure?: { scenario: string; correction: string };
 };
 
+/** UMTF's seven channels. The set is closed and unordered; each channel answers one question. */
+export const UMTF_CHANNELS = ["spatial", "sensory", "state", "relation", "pattern", "temporal", "priority"] as const;
+export type UmtfChannel = (typeof UMTF_CHANNELS)[number];
+
+/** How a multi-valued attribute is encoded, chosen by what retrieval will ask for. */
+export const ATTRIBUTE_ROUTES = ["dissolve", "address", "enumerate"] as const;
+export type AttributeRoute = (typeof ATTRIBUTE_ROUTES)[number];
+
+/**
+ * One attribute of a node, carried on one channel. Several values need a route; `count` is the
+ * completeness checksum an enumerated set carries.
+ */
+// A type alias rather than an interface, so it fits tldraw's JSON meta type.
+export type NodeAttribute = {
+  name: string;
+  channel: UmtfChannel;
+  values: string[];
+  route?: AttributeRoute;
+  count?: number;
+};
+
 export interface MemoryNode {
   id: string;
   objectId: string;
@@ -91,6 +112,8 @@ export interface MemoryNode {
   difficulty?: NodeDifficultyOverride | null;
   /** NEDF slots; a node with any slot filled reviews on one schedule per filled slot. */
   nedf?: NedfEncoding | null;
+  /** Attributes on UMTF channels, one attribute per channel. */
+  attributes?: NodeAttribute[] | null;
 }
 
 export interface MemoryEdge {

@@ -434,6 +434,92 @@ describe("parseDsl — NEDF slots", () => {
   });
 });
 
+describe("parseDsl — attribute channels", () => {
+  it("reads @A lines with a name, a route, a count, and several values", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "Mutex",
+        "@A spatial where: north tower",
+        "@A Temporal days [enumerate 3]: Mon | Wed | Fri",
+        "@A state [address]: locked | free",
+        "",
+      ].join("\n"),
+    );
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes[0]!.attributes).toEqual([
+      { name: "where", channel: "spatial", values: ["north tower"] },
+      { name: "days", channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+      { name: "", channel: "state", values: ["locked", "free"], route: "address" },
+    ]);
+  });
+
+  it("reports a channel collision on the first attribute's line, with the second as related", () => {
+    const { diagnostics } = parseDsl("@P\n\nMutex\n@A spatial where: north tower\n@A state phase: locked\n@A spatial room: kitchen\n");
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        code: "attribute-channel-collision",
+        numericCode: "W123",
+        line: 4,
+        related: [{ line: 6, column: 1, length: 1 }],
+        message: expect.stringContaining('"where" and "room" are both on Spatial'),
+      }),
+    ]);
+  });
+
+  it("warns about a missing route, a missing or wrong count, and a count off the enumerate route", () => {
+    const { diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "A",
+        "@A temporal days: Mon | Wed",
+        "@A spatial rooms [enumerate]: hall | kitchen",
+        "@A state phases [enumerate 3]: locked | free",
+        "@A relation uses [address 2]: locks | queues",
+      ].join("\n"),
+    );
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([
+      ["W124", 4],
+      ["W125", 5],
+      ["W126", 6],
+      ["W127", 7],
+    ]);
+  });
+
+  it("notes a fifth channel as info, not a warning", () => {
+    const channels = ["spatial", "sensory", "state", "temporal", "priority"];
+    const { diagnostics } = parseDsl(`@P\n\nA\n${channels.map((c) => `@A ${c} x: y`).join("\n")}\n`);
+    expect(diagnostics.map((d) => [d.code, d.severity, d.numericCode])).toEqual([["attribute-channel-budget", "info", "I128"]]);
+  });
+
+  it("rejects an unknown channel and a malformed line, and keeps the rest", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      "@P\n\nA\n@A size big: huge\n@A spatial where north tower\n@A state [list]: a | b\n@A spatial where: hall\n",
+    );
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([
+      ["E122", 4],
+      ["E121", 5],
+      ["E121", 6],
+    ]);
+    expect(diagnostics[0]!.message).toContain("spatial, sensory, state, relation, pattern, temporal, priority");
+    expect(snapshot.nodes[0]!.attributes).toEqual([{ name: "where", channel: "spatial", values: ["hall"] }]);
+  });
+
+  it("still reads a palace called A Tale of Two Cities from its header", () => {
+    const { snapshot, diagnostics } = parseDsl("@A Tale of Two Cities\n\nParis\n@A spatial where: the Bastille\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.palaceName).toBe("A Tale of Two Cities");
+    expect(snapshot.nodes[0]!.attributes).toEqual([{ name: "where", channel: "spatial", values: ["the Bastille"] }]);
+  });
+
+  it("rejects an attribute line under a route, and leaves a plain node with none", () => {
+    expect(parseDsl("@P\n\nA\n\n/Walk\n@A spatial x: y\n1 A\n").diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
+    expect(parseDsl("@P\n\nA\n: body\n").snapshot.nodes[0]!.attributes).toBeNull();
+  });
+});
+
 describe("parseDsl — route settings and notes", () => {
   const parseRoute = (lines: string) => parseDsl(`@palace P\n\nA\n\n/Walk\n${lines}\n1 A\n`);
 
