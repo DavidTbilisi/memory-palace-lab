@@ -12,6 +12,7 @@ import type {
 import type { MemoryPalaceMeta } from "../../src/canvas/memoryMeta";
 import type { SnapshotEditor } from "./snapshotEditor";
 import { isMemoryNodeShape } from "../../src/canvas/memoryNodeShape";
+import { normalizeAttributes } from "../../src/domain/services/attributes";
 import { normalizeNedf } from "../../src/domain/services/nedf";
 
 /**
@@ -59,6 +60,7 @@ export function buildRowsFromShapes(
         imageUrl: m.mpImageUrl ?? null,
         tags: m.mpTags ?? [],
         nedf: normalizeNedf(m.mpNedf),
+        attributes: normalizeAttributes(m.mpAttributes),
       });
     }
 

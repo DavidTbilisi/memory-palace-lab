@@ -214,6 +214,18 @@ describe("palaceDb", () => {
     expect(loaded.loci[0]!.slotSchedules).toEqual(slotSchedules);
   });
 
+  it("keeps a node's attributes through save and load", () => {
+    const palace = createPalace(db, "Attributed");
+    const snap = makeSnapshot(palace.id, palace);
+    const attributes = [{ name: "days", channel: "temporal" as const, values: ["Mon", "Wed"], route: "enumerate" as const, count: 2 }];
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, attributes } : node));
+    saveSnapshot(db, { ...snap, nodes });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)!.attributes).toEqual(attributes);
+    expect(loaded.nodes.find((node) => node.id !== nodes[0]!.id)).not.toHaveProperty("attributes");
+  });
+
   it("keeps a stop's saved view through save and load", () => {
     const palace = createPalace(db, "Framed");
     const snap = makeSnapshot(palace.id, palace);
