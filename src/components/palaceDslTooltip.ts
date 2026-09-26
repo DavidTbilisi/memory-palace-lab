@@ -74,6 +74,15 @@ function tipFor(body: string): TipContent | null {
     };
     return tips[nedf[1]!]!;
   }
+  if (/^@A(\s|$)/.test(body)) {
+    return {
+      syntax: "@A <channel> <name> [dissolve | address | enumerate N]: <value> | <value>",
+      desc:
+        "Attribute on one UMTF channel: spatial, sensory, state, relation, pattern, temporal, or priority. " +
+        "One attribute per channel. Several values need a route; enumerate carries the count as a checksum",
+      example: "@A temporal days [enumerate 3]: Mon | Wed | Fri",
+    };
+  }
   if (body.startsWith("@portal")) {
     return {
       syntax: "@portal <path>",

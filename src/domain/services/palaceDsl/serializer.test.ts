@@ -277,6 +277,29 @@ describe("serializeDsl", () => {
     expect(parseDsl(out).snapshot.nodes[0]!.nedf).toEqual(nedf);
   });
 
+  it("writes attributes as @A lines that parse back to the same attributes", () => {
+    const attributes = [
+      { name: "where", channel: "spatial" as const, values: ["north tower"] },
+      { name: "days", channel: "temporal" as const, values: ["Mon", "Wed", "Fri"], route: "enumerate" as const, count: 3 },
+      { name: "", channel: "state" as const, values: ["locked", "free"], route: "address" as const },
+      { name: "rank", channel: "priority" as const, values: [] },
+    ];
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Mutex", content: "", kind: "memory", portal: null, attributes }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "Mutex\n@A spatial where: north tower\n@A temporal days [enumerate 3]: Mon | Wed | Fri\n" +
+        "@A state [address]: locked | free\n@A priority rank:\n",
+    );
+    expect(parseDsl(out).snapshot.nodes[0]!.attributes).toEqual(attributes);
+  });
+
   it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },

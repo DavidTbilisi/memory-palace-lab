@@ -334,6 +334,46 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(got.routes[0]!.slots).toBeUndefined();
   });
 
+  it("node tools set, replace, and clear attributes, and report problems without refusing them", async () => {
+    const palace = palaceCreateHelper();
+    const created = await nodes.nodeCreate(ctx, {
+      palace: palace.id,
+      title: "Mutex",
+      attributes: [
+        { name: "where", channel: "spatial", values: ["north tower"] },
+        { name: "room", channel: "spatial", values: ["kitchen"] },
+      ],
+    });
+    expect(created.attributeWarnings).toEqual([expect.stringContaining('"where" and "room" are both on Spatial')]);
+
+    let got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toHaveLength(2);
+    expect(got.attributeWarnings).toHaveLength(1);
+
+    const updated = await nodes.nodeUpdate(ctx, {
+      palace: palace.id,
+      node: "Mutex",
+      attributes: [
+        { name: "where", channel: "spatial", values: ["north tower"] },
+        { channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+      ],
+    });
+    expect(updated.attributeWarnings).toBeUndefined();
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toEqual([
+      { name: "where", channel: "spatial", values: ["north tower"] },
+      { name: "", channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+    ]);
+    expect(got.attributeWarnings).toEqual([]);
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "@A spatial where: north tower\n@A temporal [enumerate 3]: Mon | Wed | Fri\n",
+    );
+
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Mutex", attributes: null });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toBeUndefined();
+  });
+
   function palaceCreateHelper() {
     return palaces.palaceCreate(ctx, { name: "Test Palace" });
   }

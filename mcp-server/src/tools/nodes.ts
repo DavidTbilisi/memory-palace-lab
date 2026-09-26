@@ -3,8 +3,9 @@ import { toRichText } from "@tldraw/tlschema";
 import { applyCountShape } from "../../../src/canvas/applyCountShape";
 import { createGeoMemoryNode } from "../../../src/canvas/createMemoryShapes";
 import { nodeShapeHasLabel } from "../../../src/canvas/memoryNodeShape";
-import type { NedfEncoding, NedfSlot } from "../../../src/domain/entities/types";
+import type { NedfEncoding, NedfSlot, NodeAttribute } from "../../../src/domain/entities/types";
 import type { MemoryPalaceMeta } from "../../../src/canvas/memoryMeta";
+import { attributeWarnings, normalizeAttributes } from "../../../src/domain/services/attributes";
 import type { CountShapeKind } from "../../../src/domain/services/countShape";
 import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
@@ -33,6 +34,15 @@ function applyNedfPatch(current: NedfEncoding | null, patch: NedfPatch | null | 
     else next[slot] = value;
   }
   return normalizeNedf(next);
+}
+
+/** An attribute as MCP takes it: the name may be left out. */
+export type AttributeInput = Omit<NodeAttribute, "name"> & { name?: string };
+
+/** Attribute problems as messages, so a client sees a collision without it being refused. */
+function attributeWarningMessages(attributes: NodeAttribute[] | null): string[] | undefined {
+  const warnings = attributeWarnings(attributes);
+  return warnings.length > 0 ? warnings.map((w) => w.message) : undefined;
 }
 
 export function nodeList(ctx: ServerContext, args: { palace: string; query?: string }) {
@@ -107,6 +117,7 @@ export async function nodeCreate(
     content?: string;
     tags?: string[];
     nedf?: NedfPatch | null;
+    attributes?: AttributeInput[] | null;
     position?: { x: number; y: number };
   },
 ) {
@@ -120,14 +131,21 @@ export async function nodeCreate(
     if (args.tags && args.tags.length > 0) meta.mpTags = args.tags;
     const nedf = applyNedfPatch(null, args.nedf);
     if (nedf) meta.mpNedf = nedf;
+    const attributes = normalizeAttributes(args.attributes);
+    if (attributes) meta.mpAttributes = attributes;
     if (Object.keys(meta).length > 0) m.editor.updateShape({ id: created.shapeId, type: "geo", meta });
     m.recordEvent("node_created", "graph", {
       nodeId: created.nodeId,
       payload: { title: args.title },
     });
-    return { nodeId: created.nodeId, position: point };
+    return { nodeId: created.nodeId, position: point, attributes };
   });
-  return { id: result.nodeId, title: args.title, position: result.position };
+  return {
+    id: result.nodeId,
+    title: args.title,
+    position: result.position,
+    attributeWarnings: attributeWarningMessages(result.attributes),
+  };
 }
 
 export async function nodeUpdate(
@@ -140,6 +158,7 @@ export async function nodeUpdate(
     alias?: string;
     tags?: string[];
     nedf?: NedfPatch | null;
+    attributes?: AttributeInput[] | null;
   },
 ) {
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_update", (m) => {
@@ -161,6 +180,8 @@ export async function nodeUpdate(
       // `null` is the only value that clears meta through tldraw's key-by-key merge.
       meta.mpNedf = args.nedf === null ? null : applyNedfPatch(current, args.nedf);
     }
+    // Attributes are replaced whole; `null` or an empty list clears them.
+    if (args.attributes !== undefined) meta.mpAttributes = normalizeAttributes(args.attributes);
     m.editor.updateShape({
       id: shapeId,
       type: shape.type,
@@ -168,9 +189,9 @@ export async function nodeUpdate(
       ...(Object.keys(props).length > 0 ? { props } : {}),
     });
     m.recordEvent("node_updated", "graph", { nodeId: node.id, payload: { fields: Object.keys(meta) } });
-    return { nodeId: node.id };
+    return { nodeId: node.id, attributes: args.attributes !== undefined ? normalizeAttributes(args.attributes) : null };
   });
-  return { id: result.nodeId, updated: true };
+  return { id: result.nodeId, updated: true, attributeWarnings: attributeWarningMessages(result.attributes) };
 }
 
 export async function nodeDelete(ctx: ServerContext, args: { palace: string; node: string }) {

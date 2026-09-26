@@ -21,7 +21,7 @@ import * as edges from "./tools/edges";
 import * as nodes from "./tools/nodes";
 import * as palaces from "./tools/palaces";
 import * as routes from "./tools/routes";
-import { ROUTE_COLORS, ROUTE_DIRECTIONS } from "../../src/domain/entities/types";
+import { ATTRIBUTE_ROUTES, ROUTE_COLORS, ROUTE_DIRECTIONS, UMTF_CHANNELS } from "../../src/domain/entities/types";
 import { CAST_AXIS_VALUES, type ServerContext } from "./tools/shared";
 
 const dbPath = resolveDbPath();
@@ -162,6 +162,32 @@ server.registerTool(
 
 // ── Node tools ───────────────────────────────────────────────────────
 
+const attributesArg = z
+  .array(
+    z.object({
+      name: z.string().optional().describe("What the attribute is, e.g. where, days, phase"),
+      channel: z
+        .enum(UMTF_CHANNELS)
+        .describe(
+          "UMTF channel, one question each: spatial (where), sensory (how it feels), state (what condition), " +
+            "relation (what it connects to), pattern (what structure it resembles), temporal (when), priority (how important)",
+        ),
+      values: z.array(z.string()).describe("One value, or several for a multi-valued attribute"),
+      route: z
+        .enum(ATTRIBUTE_ROUTES)
+        .optional()
+        .describe(
+          "For several values, by what recall will ask for: dissolve (context supplies the key; split into separate items), " +
+            "address (a small ordered key picks the value), enumerate (the whole set is asked for)",
+        ),
+      count: z.number().int().positive().optional().describe("Enumerate only: the member count, kept as a completeness checksum"),
+    }),
+  )
+  .describe(
+    "Attributes on UMTF channels, one attribute per channel. Replaces the node's attributes; problems such as two attributes " +
+      "on one channel are returned as attributeWarnings, not refused",
+  );
+
 const nedfSlotsArg = z
   .object({
     nameHook: z.string().nullable().optional().describe("Name-hook: a sound-alike, pun, or image. Drilled as recognition"),
@@ -215,6 +241,7 @@ server.registerTool(
         ),
       tags: z.array(z.string()).optional(),
       nedf: nedfSlotsArg.optional(),
+      attributes: attributesArg.optional(),
       position: z
         .object({ x: z.number(), y: z.number() })
         .optional()
@@ -227,7 +254,7 @@ server.registerTool(
 server.registerTool(
   "node_update",
   {
-    description: "Update a node's title, content, alias, tags, or NEDF slots.",
+    description: "Update a node's title, content, alias, tags, NEDF slots, or attributes.",
     inputSchema: {
       palace: palaceArg,
       node: z.string(),
@@ -236,6 +263,7 @@ server.registerTool(
       alias: z.string().optional(),
       tags: z.array(z.string()).optional(),
       nedf: nedfSlotsArg.nullable().optional().describe("NEDF slots to change; null clears all four"),
+      attributes: attributesArg.nullable().optional(),
     },
   },
   tool(nodes.nodeUpdate),

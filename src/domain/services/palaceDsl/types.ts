@@ -1,4 +1,4 @@
-import type { MemoryNodeKind, NedfEncoding, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
+import type { MemoryNodeKind, NedfEncoding, NodeAttribute, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
 
 export type DslDiagnosticCode =
   | "duplicate-title"
@@ -10,6 +10,15 @@ export type DslDiagnosticCode =
   | "misplaced-line"
   | "tag-syntax"
   | "nedf-pair-incomplete"
+  // Backlog 12 — attribute channels
+  | "attribute-malformed"
+  | "attribute-channel-unknown"
+  | "attribute-channel-collision"
+  | "attribute-route-missing"
+  | "attribute-count-missing"
+  | "attribute-count-mismatch"
+  | "attribute-count-unexpected"
+  | "attribute-channel-budget"
   // Feature 1 — stable node identifiers
   | "duplicate-node-id"
   | "malformed-node-id"
@@ -129,6 +138,8 @@ export interface DslNode {
   imageUrl: string | null;
   /** NEDF slots from `@N`, `@E`, `@D question => reason`, and `@F scenario => correction` lines. */
   nedf: NedfEncoding | null;
+  /** Attributes from `@A channel name [route N]: value | value` lines. */
+  attributes: NodeAttribute[] | null;
   tags: string[];
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];
