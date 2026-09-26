@@ -14,6 +14,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { NodeRouteMemberships } from "./NodeRouteMemberships";
+import { AttributesEditor } from "./AttributesEditor";
 import { NedfSlotsEditor } from "./NedfSlotsEditor";
 import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
 import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
@@ -683,6 +684,8 @@ export function NodeInspector() {
         </div>
 
         <NedfSlotsEditor nodeId={sh.meta.mpNodeId} />
+
+        <AttributesEditor nodeId={sh.meta.mpNodeId} />
 
         <NodeRouteMemberships nodeId={sh.meta.mpNodeId} />
 
