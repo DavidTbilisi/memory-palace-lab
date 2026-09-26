@@ -4,6 +4,9 @@
 # Tech leverage: Very high, and the cheapest item on this list: a mapping, not a subsystem.
 # Wiki source: theSystem/wiki/meter-overview.md; schema at Neural-OS-Research/tools/meter/meter/schema.py
 # Note: an Anki bridge already feeds METER (tools/meter-anki-addon/). Palace work does not.
+# Status: delivered 2026-09. `palace meter backfill` covers the mapping, data directory,
+#   idempotency and backfill scenarios; the live bridge (Settings › METER bridge, PRs #55/#56)
+#   appends as events are recorded. theSystem/measurement-framework.md now points at METER.
 
 Feature: METER event bridge
   In order to see palace work in the same reports as every other Neural OS activity

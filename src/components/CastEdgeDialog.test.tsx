@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { CAST_HOW } from "../domain/entities/types";
 import { CastEdgeDialog } from "./CastEdgeDialog";
 
 describe("CastEdgeDialog", () => {
@@ -70,5 +71,21 @@ describe("CastEdgeDialog", () => {
     await user.type(input, "supplies");
 
     expect(screen.queryByRole("alert", { name: /tier 1 verb collision/i })).toBeNull();
+  });
+
+  it("reports the tier and the slots moved off their defaults, for encode timing", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={onConfirm} />);
+
+    await user.click(screen.getByRole("button", { name: /create edge/i }));
+    expect(onConfirm).toHaveBeenLastCalledWith(expect.objectContaining({ castTier: "tier1", changedSlots: [] }));
+
+    await user.click(screen.getByRole("button", { name: /tier 2 \(decoded cast\)/i }));
+    await user.selectOptions(screen.getByRole("combobox", { name: /CAST action/i }), CAST_HOW[2]);
+    await user.click(screen.getByRole("button", { name: /create edge/i }));
+    expect(onConfirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ castTier: "tier2", cd: CAST_HOW[2], changedSlots: ["cd"] }),
+    );
   });
 });

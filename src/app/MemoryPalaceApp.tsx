@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
+import { activeEncodeTracker } from "../canvas/encodeTracker";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
 import { APP_VERSION } from "../appVersion";
@@ -280,12 +281,14 @@ export function MemoryPalaceApp() {
     ef: string;
     gh: string;
     label?: string;
+    castTier: string;
+    changedSlots: string[];
   }) => {
     const pending = usePalaceStore.getState().pendingCast;
     const editor = usePalaceStore.getState().editorRef;
     const palace = usePalaceStore.getState().currentPalace;
     if (!pending || !editor || !palace) return;
-    createMemoryArrow(
+    const created = createMemoryArrow(
       editor,
       palace.id,
       pending.fromShapeId,
@@ -294,6 +297,16 @@ export function MemoryPalaceApp() {
       pending.targetNodeId,
       cast,
     );
+    if (created) {
+      activeEncodeTracker()?.edgeCommitted({
+        edgeId: created.edgeId,
+        sourceNodeId: pending.sourceNodeId,
+        targetNodeId: pending.targetNodeId,
+        label: cast.label ?? "",
+        castTier: cast.castTier,
+        changedSlots: cast.changedSlots,
+      });
+    }
     setPendingCast(null);
   };
 

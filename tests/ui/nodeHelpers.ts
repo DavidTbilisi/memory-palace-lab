@@ -85,7 +85,7 @@ export async function selectAllNodes(page: Page) {
 
 type SavedNode = { title: string; alias?: string; content: string };
 
-function savedNodes(page: Page): Promise<SavedNode[]> {
+export function savedNodes(page: Page): Promise<SavedNode[]> {
   return page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => { nodes: SavedNode[] } } }).__mp_store;
     if (!store) throw new Error("missing dev store hook");

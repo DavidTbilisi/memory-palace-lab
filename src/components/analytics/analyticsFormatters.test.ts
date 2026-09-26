@@ -33,6 +33,12 @@ describe("formatEventDetail", () => {
     expect(formatEventDetail(event("node_updated", { title: "   " }))).toBe("memory node");
   });
 
+  it("says whether an encode was new or a re-edit, and how long it took", () => {
+    expect(formatEventDetail(event("node_encoded", { first: true, activeMs: 38_400 }))).toBe("new node - 38s");
+    expect(formatEventDetail(event("edge_encoded", { first: false, activeMs: 125_000 }))).toBe("edge re-edit - 2m 05s");
+    expect(formatEventDetail(event("node_encoded", { first: true, activeMs: null }))).toBe("new node - unmeasured");
+  });
+
   it("uses edge label, route name, and pipeline title", () => {
     expect(formatEventDetail(event("edge_created", { label: "causes" }))).toBe("causes");
     expect(formatEventDetail(event("route_created", { name: "Grand Tour" }))).toBe("Grand Tour");

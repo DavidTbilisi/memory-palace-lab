@@ -22,7 +22,18 @@ import {
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 
-type EdgeCastPayload = { ab: string; cd: string; ef: string; gh: string; label?: string };
+type EdgeCastPayload = {
+  ab: string;
+  cd: string;
+  ef: string;
+  gh: string;
+  label?: string;
+  /** For encode timing: which tier made the edge, and the slots moved off their defaults. */
+  castTier: "tier1" | "tier2";
+  changedSlots: string[];
+};
+
+const CAST_SLOT_DEFAULTS = { ab: CAST_WHO[0], cd: CAST_HOW[0], ef: CAST_WHAT[0], gh: CAST_WHEN[0] } as const;
 
 type Props = {
   open: boolean;
@@ -67,10 +78,10 @@ function hasTier1Verb(verbs: string[], candidate: string) {
 
 export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabels }: Props) {
   const [tier, setTier] = React.useState<"tier1" | "tier2">("tier1");
-  const [ab, setAb] = React.useState<string>(CAST_WHO[0]);
-  const [cd, setCd] = React.useState<string>(CAST_HOW[0]);
-  const [ef, setEf] = React.useState<string>(CAST_WHAT[0]);
-  const [gh, setGh] = React.useState<string>(CAST_WHEN[0]);
+  const [ab, setAb] = React.useState<string>(CAST_SLOT_DEFAULTS.ab);
+  const [cd, setCd] = React.useState<string>(CAST_SLOT_DEFAULTS.cd);
+  const [ef, setEf] = React.useState<string>(CAST_SLOT_DEFAULTS.ef);
+  const [gh, setGh] = React.useState<string>(CAST_SLOT_DEFAULTS.gh);
   const [tier1Verb, setTier1Verb] = React.useState(DEFAULT_TIER1_VERB);
   const [tier1Direction, setTier1Direction] = React.useState<"one-way" | "two-way">("one-way");
   const [helpOpen, setHelpOpen] = React.useState(false);
@@ -151,9 +162,15 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
         ef: CAST_WHAT[2],
         gh: CAST_WHEN[1],
         label: verbs.length > 0 ? verbs.join(" / ") : DEFAULT_TIER1_VERB,
+        castTier: "tier1",
+        changedSlots: [],
       };
     }
-    return { ab, cd, ef, gh };
+    const chosen = { ab, cd, ef, gh };
+    const changedSlots = (Object.keys(chosen) as (keyof typeof chosen)[]).filter(
+      (slot) => chosen[slot] !== CAST_SLOT_DEFAULTS[slot],
+    );
+    return { ...chosen, castTier: "tier2", changedSlots };
   };
 
   return (
