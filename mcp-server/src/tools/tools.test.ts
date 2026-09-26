@@ -109,6 +109,35 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(snap.loci).toHaveLength(1); // Alpha's locus dropped, Beta's stays
   });
 
+  it("node_count_shape puts a node's targets on a polygon, and takes a ladder above seven", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Hub", position: { x: 0, y: 0 } });
+    const members = Array.from({ length: 9 }, (_, i) => `M${i}`);
+    for (const [i, title] of members.entries()) {
+      await nodes.nodeCreate(ctx, { palace: palace.id, title, position: { x: 600 + i * 40, y: -400 + i * 100 } });
+    }
+    for (const title of members.slice(0, 5)) await edges.edgeCreate(ctx, { palace: palace.id, source: "Hub", target: title });
+
+    expect(await nodes.nodeCountShape(ctx, { palace: palace.id, node: "Hub" })).toEqual({
+      shape: "polygon",
+      count: 5,
+      polygon: "pentagon",
+    });
+    const centre = (title: string) => {
+      const p = nodes.nodeGet(ctx, { palace: palace.id, node: title }).position!;
+      return { x: p.x + p.width / 2, y: p.y + p.height / 2 };
+    };
+    const hub = centre("Hub");
+    const radii = members.slice(0, 5).map((title) => Math.round(Math.hypot(centre(title).x - hub.x, centre(title).y - hub.y)));
+    expect(new Set(radii).size).toBe(1);
+
+    for (const title of members.slice(5)) await edges.edgeCreate(ctx, { palace: palace.id, source: "Hub", target: title });
+    const nine = await nodes.nodeCountShape(ctx, { palace: palace.id, node: "Hub", shape: "polygon" });
+    expect(nine).toMatchObject({ shape: "ladder", count: 9, note: expect.stringContaining("Above seven") });
+
+    await expect(nodes.nodeCountShape(ctx, { palace: palace.id, node: "M0" })).rejects.toThrow(/at least two/);
+  });
+
   it("rejects invalid CAST values", async () => {
     const palace = palaceCreateHelper();
     await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
