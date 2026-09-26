@@ -9,6 +9,7 @@ import {
 import { writeNodeDifficulty } from "../canvas/writeNodeDifficulty";
 import type { NodeDifficultyOverride } from "../domain/entities/types";
 import { Button } from "./ui/button";
+import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
 
 const LEVEL_TONE: Record<number, string> = {
   1: "border-emerald-400/70 bg-emerald-500/15 text-emerald-200",
@@ -317,6 +318,12 @@ export function DifficultyPanel() {
               </th>
               <th className="px-2 py-2 text-right">Juggle</th>
               <th className="px-2 py-2 text-right">Breaks</th>
+              <th
+                className="px-2 py-2 text-right"
+                title="first-encode time and speed band — shown for reference, not part of the step"
+              >
+                Encode
+              </th>
               <th className="px-2 py-2 text-center">Src</th>
             </tr>
           </thead>
@@ -367,6 +374,9 @@ export function DifficultyPanel() {
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-zinc-400">
                   {n.result.breaks}
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <EncodeSpeedBadge speed={n.encode} />
                 </td>
                 <td className="px-2 py-2 text-center text-[10px] uppercase text-zinc-500">
                   {n.overridden ? "manual" : "auto"}

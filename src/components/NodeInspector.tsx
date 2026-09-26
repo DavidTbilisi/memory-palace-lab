@@ -15,6 +15,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { NodeRouteMemberships } from "./NodeRouteMemberships";
 import { NedfSlotsEditor } from "./NedfSlotsEditor";
+import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
+import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
 import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
@@ -175,6 +177,8 @@ export function NodeInspector() {
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
   const snapshotNodes = usePalaceStore((s) => s.nodes);
   const snapshotEdges = usePalaceStore((s) => s.edges);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const encodeSpeeds = useMemo(() => nodeEncodeSpeeds(analyticsEvents, new Date().toISOString()), [analyticsEvents]);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
   const [title, setTitle] = useState("");
@@ -553,7 +557,10 @@ export function NodeInspector() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
-          {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+          <div className="flex items-center gap-2">
+            {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+            {encodeSpeeds.has(sh.meta.mpNodeId) ? <EncodeSpeedBadge speed={encodeSpeeds.get(sh.meta.mpNodeId)!} /> : null}
+          </div>
         </div>
         <div>
           <Label htmlFor="mp-title">Title</Label>
