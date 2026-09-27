@@ -17,6 +17,7 @@ import { NodeRouteMemberships } from "./NodeRouteMemberships";
 import { AttributesEditor } from "./AttributesEditor";
 import { NedfSlotsEditor } from "./NedfSlotsEditor";
 import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
+import { CountShapeControls } from "./CountShapeControls";
 import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
 import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
@@ -697,6 +698,8 @@ export function NodeInspector() {
             subvalue={nextReviewInfo.routeName ? `Route: ${nextReviewInfo.routeName}` : undefined}
           />
         ) : null}
+
+        <CountShapeControls nodeId={sh.meta.mpNodeId} />
 
         {title.trim() || stripHtmlToText(content).trim() ? (
           <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">

@@ -278,6 +278,23 @@ server.registerTool(
   tool(nodes.nodeDelete),
 );
 
+server.registerTool(
+  "node_count_shape",
+  {
+    description:
+      "Lay a node's outgoing-edge targets out as a set around it. polygon: an unordered set of 2-7 sits on the corners of " +
+      "the polygon of its size (2 an axis, 3 a triangle, ... 7 a ring), so a missing member shows as an empty corner. " +
+      "ladder: an ordered set, stacked top to bottom in its current order. A polygon of more than 7 takes the ladder, and " +
+      "the result's note says why. Use polygon only for unordered sets.",
+    inputSchema: {
+      palace: palaceArg,
+      node: z.string().describe("The node whose outgoing targets are the set"),
+      shape: z.enum(["polygon", "ladder"]).optional().describe("Default polygon"),
+    },
+  },
+  tool(nodes.nodeCountShape),
+);
+
 // ── Edge tools ───────────────────────────────────────────────────────
 
 server.registerTool(

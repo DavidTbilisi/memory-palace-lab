@@ -46,6 +46,7 @@ Palace references accept an id, exact name, or alias. Node/route references acce
 - **Routes & loci** — `route_list`, `route_create`, `route_update`, `route_delete`, `locus_add`, `locus_remove`, `locus_reorder`. `route_list` returns each route's color, visibility, walk direction, review setting, and notes, and each stop's section. `route_update` renames a route and changes those settings; pass only what changes (`color: null` returns to the palette color, `inReview: false` makes the route a draft whose stops are never due, `notes: ""` clears them).
 - **DSL** — `palace_apply_dsl` (diff-based apply to an existing palace), `palace_import_dsl` (new palace from a DSL document)
 - **Analysis** — `graph_analyze`, `graph_crux`, `graph_motifs`, `review_queue`, `analytics_list`
+- **Layout** — `node_count_shape` lays a node's outgoing-edge targets out as a set around it. `shape: "polygon"` (the default) is for an unordered set of 2–7: the members sit on the corners of the polygon of their size (2 an axis, 3 a triangle, up to a ring of 7), so a missing member shows as an empty corner. `shape: "ladder"` stacks an ordered set top to bottom in its current order. A polygon of more than 7 takes the ladder, and the result's `note` says why.
 
 ### Linking node content to source notes (Obsidian)
 

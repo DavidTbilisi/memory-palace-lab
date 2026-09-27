@@ -1,10 +1,12 @@
 import type { Editor } from "@tldraw/editor";
 import { toRichText } from "@tldraw/tlschema";
+import { applyCountShape } from "../../../src/canvas/applyCountShape";
 import { createGeoMemoryNode } from "../../../src/canvas/createMemoryShapes";
 import { nodeShapeHasLabel } from "../../../src/canvas/memoryNodeShape";
 import type { NedfEncoding, NedfSlot, NodeAttribute } from "../../../src/domain/entities/types";
 import type { MemoryPalaceMeta } from "../../../src/canvas/memoryMeta";
 import { attributeWarnings, normalizeAttributes } from "../../../src/domain/services/attributes";
+import type { CountShapeKind } from "../../../src/domain/services/countShape";
 import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
@@ -205,4 +207,30 @@ export async function nodeDelete(ctx: ServerContext, args: { palace: string; nod
     return { nodeId: node.id, title: node.title };
   });
   return { id: result.nodeId, title: result.title, deleted: true, note: "Connected edges and route loci were removed too." };
+}
+
+/**
+ * Lay a node's outgoing targets out as a set around it: on the polygon of their count, or on an
+ * ordered ladder. A polygon of more than seven takes the ladder, and the result says why.
+ */
+export async function nodeCountShape(
+  ctx: ServerContext,
+  args: { palace: string; node: string; shape?: CountShapeKind },
+) {
+  const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_count_shape", (m) => {
+    const node = resolveNodeRef(m.snapshot.nodes, args.node);
+    const laid = applyCountShape(m.editor, node.id, args.shape ?? "polygon");
+    if (!laid.ok) throw new Error(laid.message);
+    m.recordEvent("node_updated", "graph", {
+      nodeId: node.id,
+      payload: { action: "count_shape", shape: laid.kind, count: laid.count },
+    });
+    return laid;
+  });
+  return {
+    shape: result.kind,
+    count: result.count,
+    polygon: result.shapeName ?? undefined,
+    note: result.note ?? undefined,
+  };
 }
