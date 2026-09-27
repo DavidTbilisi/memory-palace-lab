@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.18.0 — 2026-09-27
+
+### Attribute channels
+
+- **Give a node attributes, one per channel.** A node's inspector has a new **Attributes** section. Each attribute has a name, its values, and one of seven channels: **Spatial** (where is it?), **Sensory** (how does it feel?), **State** (what condition is it in?), **Relation** (what does it connect to?), **Pattern** (what larger structure does it resemble?), **Temporal** (when does it happen?) and **Priority** (how important is it?).
+- **Two attributes on one channel are flagged.** If two attributes answer the same question, one of them is on the wrong channel, so the inspector points it out. Several values of one attribute are fine. Using more than four channels on one node gets a gentle note, since a scene is easiest to recall with three or four.
+- **Choose how to remember several values.** Once an attribute has more than one value, the inspector asks "Will anything ever ask you for all of them?":
+  - **Dissolve** is for when you never need the whole set. **Split into separate nodes** turns each value into its own linked node, and one undo puts it back.
+  - **Address** is for when a small, ordered key picks the value, like a row in a table.
+  - **Enumerate** is for when you will be asked for the whole set. It keeps a count, and the inspector warns if the values don't add up to it.
+- **Attributes in the DSL.** Under a node, `@A spatial where: north tower` writes an attribute, and `@A temporal days [enumerate 3]: Mon | Wed | Fri` gives it a route and a count. Exporting a palace writes them back. Problems show as warnings W123–W127. Applying DSL takes the attributes from the text, so a node written without `@A` lines has its attributes cleared, as with `@image`.
+- **Attributes over MCP.** `node_create` and `node_update` take an `attributes` list, and `node_get` returns it. Problems such as two attributes on one channel are returned as `attributeWarnings` rather than refused.
+
+### Count-shape layout
+
+- **Lay a set out by its size.** Select a node with two or more outgoing edges, and the inspector's **Count-shape** section asks whether the set is ordered.
+  - **Polygon (unordered)** places the linked nodes on the corners of a shape of their own size: two on an axis, three on a triangle, four on a square, up to a ring of seven. If a member goes missing later, its empty corner shows before you read a single label.
+  - **Ladder (ordered)** stacks them top to bottom in their current order.
+  - One undo puts the nodes back.
+- **Above seven, a ladder.** A set of more than seven only offers the ladder. At that size a polygon can no longer be read at a glance, so an empty corner would not show a missing member.
+- **Count-shape over MCP.** A new `node_count_shape` tool does the same for a node, with `shape` set to `polygon` or `ladder`.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.17 or older, update it too. An older version drops attributes when it saves a palace, and the next sync removes them on your other devices as well.
+
 ## v0.17.0 — 2026-09-26
 
 ### Encode speed
