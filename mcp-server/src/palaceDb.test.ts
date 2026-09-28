@@ -230,6 +230,35 @@ describe("palaceDb", () => {
     expect(loadPalace(db, palace.id)!.palace.storeJson).toBe(storeJson);
   });
 
+  it("keeps a confusion link's kind through save and load, and leaves an ordinary edge without one", () => {
+    const palace = createPalace(db, "P");
+    const snap = makeSnapshot(palace.id, palace);
+    const confusion = { ...snap.edges[0], id: "edge-2", objectId: "obj-4", kind: "confusion" as const };
+    const objects = [...snap.canvasObjects, { ...snap.canvasObjects[2], id: "obj-4" }];
+    saveSnapshot(db, { ...snap, canvasObjects: objects, edges: [...snap.edges, confusion] });
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.edges.find((e) => e.id === "edge-2")!.kind).toBe("confusion");
+    expect(loaded.edges.find((e) => e.id === "edge-1")!).not.toHaveProperty("kind");
+  });
+
+  it("upgrades a database created before confusion links with an empty edge kind", () => {
+    const legacyPath = join(dir, "legacy-edges.sqlite3");
+    const legacy = openDb(legacyPath);
+    legacy.exec(`
+      CREATE TABLE edges (id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL,
+        source_node_id TEXT NOT NULL, target_node_id TEXT NOT NULL);
+      INSERT INTO edges (id, object_id, source_node_id, target_node_id) VALUES ('e', 'o', 'a', 'b');
+    `);
+    legacy.close();
+    const upgraded = openDb(legacyPath);
+    try {
+      initDb(upgraded);
+      expect(upgraded.prepare("SELECT kind FROM edges").all()).toEqual([{ kind: "" }]);
+    } finally {
+      upgraded.close();
+    }
+  });
+
   it("keeps a node's attributes through save and load", () => {
     const palace = createPalace(db, "Attributed");
     const snap = makeSnapshot(palace.id, palace);

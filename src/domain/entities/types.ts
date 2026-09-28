@@ -131,7 +131,16 @@ export interface MemoryEdge {
   castCd: string;
   castEf: string;
   castGh: string;
+  /**
+   * Absent (or "") for an ordinary CAST edge. "confusion" marks a confusion link: two look-alike
+   * nodes the learner mixes up. It carries no meaning in the graph — it is undirected, has no
+   * CAST label, and only feeds the discrimination card (see domain/services/confusion.ts).
+   */
+  kind?: EdgeKind;
 }
+
+/** What an edge is: an ordinary CAST edge ("") or a confusion link. */
+export type EdgeKind = "" | "confusion";
 
 /** Palette for route paths and stop badges on the canvas. */
 export const ROUTE_COLORS = ["violet", "sky", "emerald", "amber", "rose", "cyan", "orange", "fuchsia"] as const;

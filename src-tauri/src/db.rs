@@ -111,6 +111,9 @@ pub struct EdgeDto {
     pub cast_cd: String,
     pub cast_ef: String,
     pub cast_gh: String,
+    /// "" for an ordinary CAST edge, "confusion" for a confusion link between two look-alike nodes.
+    #[serde(default)]
+    pub kind: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -276,7 +279,8 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             cast_ab TEXT NOT NULL DEFAULT '',
             cast_cd TEXT NOT NULL DEFAULT '',
             cast_ef TEXT NOT NULL DEFAULT '',
-            cast_gh TEXT NOT NULL DEFAULT ''
+            cast_gh TEXT NOT NULL DEFAULT '',
+            kind TEXT NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS routes (
@@ -428,6 +432,13 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
         }
     }
     if let Err(err) = conn.execute("ALTER TABLE edges ADD COLUMN alias TEXT NOT NULL DEFAULT ''", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
+    // Confusion links; mcp-server/src/palaceDb.ts adds the same column.
+    if let Err(err) = conn.execute("ALTER TABLE edges ADD COLUMN kind TEXT NOT NULL DEFAULT ''", []) {
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
             _ => return Err(err),
@@ -671,7 +682,7 @@ fn load_nodes(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<NodeDt
 fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDto>> {
     let mut stmt = conn.prepare(
         "SELECT e.id, e.object_id, e.source_node_id, e.target_node_id, e.alias,
-                e.cast_ab, e.cast_cd, e.cast_ef, e.cast_gh
+                e.cast_ab, e.cast_cd, e.cast_ef, e.cast_gh, e.kind
          FROM edges e
          INNER JOIN canvas_objects c ON c.id = e.object_id
          WHERE c.palace_id = ?1",
@@ -688,6 +699,7 @@ fn load_edges(conn: &Connection, palace_id: &str) -> rusqlite::Result<Vec<EdgeDt
                 cast_cd: r.get(6)?,
                 cast_ef: r.get(7)?,
                 cast_gh: r.get(8)?,
+                kind: r.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -896,8 +908,8 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
 
     for e in &snap.edges {
         tx.execute(
-            "INSERT INTO edges (id, object_id, source_node_id, target_node_id, alias, cast_ab, cast_cd, cast_ef, cast_gh)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO edges (id, object_id, source_node_id, target_node_id, alias, cast_ab, cast_cd, cast_ef, cast_gh, kind)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 e.id,
                 e.object_id,
@@ -907,7 +919,8 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
                 e.cast_ab,
                 e.cast_cd,
                 e.cast_ef,
-                e.cast_gh
+                e.cast_gh,
+                e.kind
             ],
         )?;
     }
@@ -1183,6 +1196,70 @@ mod tests {
             .exists([])
             .unwrap();
         assert!(has_column);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    fn snapshot_with_edges(kinds: &[&str]) -> PalaceSnapshot {
+        let object = |id: &str, kind: &str| {
+            serde_json::json!({ "id": id, "palaceId": "p1", "type": kind, "x": 0.0, "y": 0.0,
+                "width": 10.0, "height": 10.0, "zIndex": 0, "payloadJson": "{}" })
+        };
+        let mut objects = vec![object("oa", "node"), object("ob", "node")];
+        let mut edges = vec![];
+        for (i, kind) in kinds.iter().enumerate() {
+            let oid = format!("oe{i}");
+            objects.push(object(&oid, "edge"));
+            edges.push(serde_json::json!({ "id": format!("e{i}"), "objectId": oid, "sourceNodeId": "a",
+                "targetNodeId": "b", "castAb": "", "castCd": "", "castEf": "", "castGh": "", "kind": kind }));
+        }
+        serde_json::from_value(serde_json::json!({
+            "palace": { "id": "p1", "name": "Pairs", "createdAt": "2026-09-28T10:00:00Z" },
+            "canvasObjects": objects,
+            "nodes": [
+                { "id": "a", "objectId": "oa", "title": "Affect", "content": "" },
+                { "id": "b", "objectId": "ob", "title": "Effect", "content": "" }
+            ],
+            "edges": edges, "routes": [], "loci": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn an_edge_kind_survives_save_and_load() {
+        let path = temp_db();
+        init_db(&path).unwrap();
+        let mut conn = Connection::open(&path).unwrap();
+        save_snapshot(&mut conn, &snapshot_with_edges(&["", "confusion"])).unwrap();
+        let mut edges = load_palace(&conn, "p1").unwrap().unwrap().edges;
+        edges.sort_by(|a, b| a.id.cmp(&b.id));
+        let kinds: Vec<&str> = edges.iter().map(|e| e.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["", "confusion"]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn an_edge_saved_without_a_kind_is_an_ordinary_edge() {
+        let json = serde_json::json!({ "id": "e", "objectId": "o", "sourceNodeId": "a", "targetNodeId": "b",
+            "castAb": "", "castCd": "", "castEf": "", "castGh": "" });
+        let edge: EdgeDto = serde_json::from_value(json).unwrap();
+        assert_eq!(edge.kind, "");
+    }
+
+    #[test]
+    fn a_database_from_before_confusion_links_gains_the_edge_kind_column() {
+        let path = temp_db();
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE edges (id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL,
+                 source_node_id TEXT NOT NULL, target_node_id TEXT NOT NULL);
+                 INSERT INTO edges VALUES ('e', 'o', 'a', 'b');",
+            )
+            .unwrap();
+        init_db(&path).unwrap();
+        let conn = Connection::open(&path).unwrap();
+        let kind: String = conn.query_row("SELECT kind FROM edges WHERE id = 'e'", [], |r| r.get(0)).unwrap();
+        assert_eq!(kind, "");
         let _ = std::fs::remove_file(&path);
     }
 }

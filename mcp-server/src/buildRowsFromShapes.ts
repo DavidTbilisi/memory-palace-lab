@@ -90,6 +90,7 @@ export function buildRowsFromShapes(
         castCd: m.castCd ?? "",
         castEf: m.castEf ?? "",
         castGh: m.castGh ?? "",
+        ...(m.mpEdgeKind === "confusion" ? { kind: "confusion" as const } : {}),
       });
     }
   }

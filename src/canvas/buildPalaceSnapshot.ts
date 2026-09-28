@@ -91,6 +91,7 @@ export function buildPalaceSnapshot(
           castCd: m.castCd ?? "",
           castEf: m.castEf ?? "",
           castGh: m.castGh ?? "",
+          ...(m.mpEdgeKind === "confusion" ? { kind: "confusion" as const } : {}),
         });
       }
     }
