@@ -20,6 +20,7 @@ The Palace DSL is a minimal line-oriented text format for describing a memory pa
    - [Portals](#portals)
    - [NEDF Slots](#nedf-slots)
    - [Attribute Channels](#attribute-channels)
+   - [Concept Glyphs](#concept-glyphs)
 6. [Routes](#routes)
    - [Route Metadata](#route-metadata)
    - [Route Settings and Notes](#route-settings-and-notes)
@@ -408,6 +409,21 @@ An attribute with several values needs a route, chosen by what recall will ask f
 
 ---
 
+### Concept Glyphs
+
+A node can carry a concept glyph: one symbol that stands for the concept and for no other node in the palace.
+
+```text
+Attention
+@glyph 🔦
+```
+
+- The glyph is one visible symbol. An emoji written with its variation selector, such as `👁️`, is still one symbol, and `👁` and `👁️` count as the same glyph. Anything else is **E151 `glyph-invalid`**.
+- Two nodes cannot share a glyph. The first node in the document keeps it; a later one is **W152 `glyph-duplicate`** and gets none.
+- Renaming a node does not change its glyph, since a changed identity mark reads as a different concept.
+- "Glyph" here always means the concept glyph: not a glyph size (a level of detail) and not an alphabet glyph (one piece of a drawing grammar).
+- The DSL is the whole intent, as for `@image`: applying a node without `@glyph` clears its glyph. Exporting writes it.
+
 ## Routes
 
 A route declares an ordered sequence of nodes (loci) for a walk session:
@@ -584,6 +600,8 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | W126 | `attribute-count-mismatch` | warning | The enumerate count differs from the number of values |
 | W127 | `attribute-count-unexpected` | warning | A count on a route other than enumerate |
 | I128 | `attribute-channel-budget` | info | More than four channels on one node |
+| E151 | `glyph-invalid` | error | `@glyph` is not exactly one symbol |
+| W152 | `glyph-duplicate` | warning | Another node earlier in the document already holds this glyph |
 | E101 | `malformed-node-id` | error | `[id]` contains invalid characters |
 | E102 | `duplicate-node-id` | error | Same explicit id declared on two nodes |
 | E103 | `reserved-node-id` | error | `[palace]` is a reserved identifier |

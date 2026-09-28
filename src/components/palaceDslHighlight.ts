@@ -84,6 +84,12 @@ function addLineDecorations(
     return;
   }
 
+  if (/^@glyph(\s|$)/.test(body)) {
+    mark(builder, bodyStart, bodyStart + "@glyph".length, "cm-dsl-keyword");
+    mark(builder, bodyStart + "@glyph".length, end, "cm-dsl-title");
+    return;
+  }
+
   if (body.startsWith("@portal")) {
     mark(builder, bodyStart, bodyStart + "@portal".length, "cm-dsl-keyword");
     mark(builder, bodyStart + "@portal".length, end, "cm-dsl-path");
