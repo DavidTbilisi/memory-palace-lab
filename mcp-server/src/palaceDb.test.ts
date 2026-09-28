@@ -214,6 +214,22 @@ describe("palaceDb", () => {
     expect(loaded.loci[0]!.slotSchedules).toEqual(slotSchedules);
   });
 
+  it("keeps a generated store's marker and its cells' addresses through save and load", () => {
+    const palace = createPalace(db, "Chemistry · block");
+    const snap = makeSnapshot(palace.id, palace);
+    const storeJson = '{"kind":"four-level-block","theme":"Chemistry","generatedAt":"","routeId":null}';
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, address: "2.3.4", storeRole: "cell" as const } : node));
+    saveSnapshot(db, { ...snap, palace: { ...snap.palace, storeJson }, nodes });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.palace.storeJson).toBe(storeJson);
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)).toMatchObject({ address: "2.3.4", storeRole: "cell" });
+    expect(listPalaces(db).find((p) => p.id === palace.id)!.storeJson).toBe(storeJson);
+    // A plain save of what was loaded keeps it: an MCP edit must not drop the marker.
+    saveSnapshot(db, loaded);
+    expect(loadPalace(db, palace.id)!.palace.storeJson).toBe(storeJson);
+  });
+
   it("keeps a node's attributes through save and load", () => {
     const palace = createPalace(db, "Attributed");
     const snap = makeSnapshot(palace.id, palace);

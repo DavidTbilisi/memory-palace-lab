@@ -684,6 +684,21 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
+        {meta.mpStoreRole ? (
+          <ReadOnlyMetaField
+            id="mp-store-address"
+            label="Store address"
+            value={meta.mpAddress ?? "Theme (not addressed)"}
+            subvalue={
+              meta.mpStoreRole === "cell"
+                ? "A cell: rename it and fill it freely, it keeps this address."
+                : meta.mpStoreRole === "sticker"
+                  ? "A sticker: rename it to your own image. Its five parts are the cells below it."
+                  : "The block's theme image."
+            }
+          />
+        ) : null}
+
         <NedfSlotsEditor nodeId={sh.meta.mpNodeId} />
 
         <AttributesEditor nodeId={sh.meta.mpNodeId} />

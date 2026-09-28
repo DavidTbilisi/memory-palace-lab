@@ -98,6 +98,18 @@ describe("palaceContentHash", () => {
     expect(await palaceContentHash(a)).toBe(await palaceContentHash(b));
   });
 
+  it("keeps an ordinary palace's hash, and changes when a palace becomes a store", async () => {
+    const plain = snapshot();
+    const unset = snapshot();
+    unset.palace.storeJson = null;
+    expect(canonicalPalaceContent(unset)).toBe(canonicalPalaceContent(plain));
+    expect(canonicalPalaceContent(plain)).not.toContain("storeJson");
+
+    const store = snapshot();
+    store.palace.storeJson = '{"kind":"four-level-block","theme":"Chemistry"}';
+    expect(await palaceContentHash(store)).not.toBe(await palaceContentHash(plain));
+  });
+
   it("changes when the canvas blob changes", async () => {
     const a = snapshot();
     const b = snapshot();

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { GenerateStoreForm, StoreBadge, StorePanel } from "./GeneratedStore";
 import { requestNavigation } from "../app/navigationEvents";
 import { useValue } from "@tldraw/editor";
 import {
@@ -162,7 +163,10 @@ function PalaceListItem({
           : "text-zinc-300 hover:bg-zinc-900"
       }`}
     >
-      <div>{palace.name}</div>
+      <div>
+        {palace.name}
+        <StoreBadge storeJson={palace.storeJson} />
+      </div>
       {palace.alias?.trim() ? (
         <div className="text-[11px] text-violet-300">Alias: {palace.alias}</div>
       ) : null}
@@ -377,6 +381,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
           >
             Import notes
           </Button>
+          <GenerateStoreForm />
         </div>
       </div>
 
@@ -386,6 +391,7 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
             Current palace
           </div>
           <div className="mt-2 space-y-2">
+            <StorePanel />
             <Input
               aria-label="Current palace name"
               value={currentName}

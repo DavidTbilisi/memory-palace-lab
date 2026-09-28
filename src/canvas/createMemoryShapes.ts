@@ -75,6 +75,12 @@ type CreateGeoMemoryNodeOptions = {
   content?: string;
   kind?: MemoryNodeKind;
   portal?: PalacePortalRef | null;
+  /** Box size; 180 × 100 by default. */
+  size?: { w: number; h: number };
+  /** Extra meta, such as a generated store's address. */
+  meta?: Partial<MemoryPalaceMeta>;
+  /** Select the new node (the default). Generators making many nodes pass false. */
+  select?: boolean;
 };
 
 export type ImportedMemoryNodeInput = {
@@ -106,16 +112,17 @@ export function createGeoMemoryNode(
     options.portal,
   );
   const kindProps = nodeKindProps(kind);
+  const { w, h } = options.size ?? { w: 180, h: 100 };
   editor.createShape({
     id: shapeId,
     type: "geo",
-    x: pagePoint.x - 90,
-    y: pagePoint.y - 50,
-    meta,
+    x: pagePoint.x - w / 2,
+    y: pagePoint.y - h / 2,
+    meta: { ...meta, ...options.meta },
     props: {
       geo: "rectangle",
-      w: 180,
-      h: 100,
+      w,
+      h,
       dash: "draw",
       growY: 0,
       url: "",
@@ -130,7 +137,7 @@ export function createGeoMemoryNode(
       richText: toRichText(title),
     },
   });
-  editor.select(shapeId);
+  if (options.select !== false) editor.select(shapeId);
   return { shapeId, objectId, nodeId };
 }
 

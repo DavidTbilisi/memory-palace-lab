@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS palaces (
     deleted_at TEXT,
     purge_at TEXT,
     rev INTEGER NOT NULL DEFAULT 0,
-    updated_at TEXT
+    updated_at TEXT,
+    store_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sync_state (
@@ -166,6 +167,8 @@ const COLUMN_UPGRADES = [
   // invisible to a sync run started from the app.
   "ALTER TABLE palaces ADD COLUMN rev INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE palaces ADD COLUMN updated_at TEXT",
+  // Generated loci stores; src-tauri/src/db.rs adds the same column.
+  "ALTER TABLE palaces ADD COLUMN store_json TEXT",
   `CREATE TABLE IF NOT EXISTS sync_state (
     palace_id TEXT PRIMARY KEY NOT NULL,
     base_rev INTEGER NOT NULL DEFAULT 0,
@@ -229,6 +232,7 @@ function palaceFromRow(row: Row): Palace {
     purgeAt: optStr(row, "purge_at"),
     rev: typeof row.rev === "number" ? row.rev : 0,
     updatedAt: optStr(row, "updated_at"),
+    storeJson: optStr(row, "store_json"),
   };
 }
 
@@ -276,7 +280,7 @@ export function listPalaces(db: DatabaseSync): Palace[] {
   purgeExpiredPalaces(db);
   const rows = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
        FROM palaces
        WHERE deleted_at IS NULL
        ORDER BY COALESCE(atlas_path, ''), created_at DESC`,
@@ -289,7 +293,7 @@ export function listTrashedPalaces(db: DatabaseSync): Palace[] {
   purgeExpiredPalaces(db);
   const rows = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
        FROM palaces
        WHERE deleted_at IS NOT NULL
        ORDER BY purge_at ASC, created_at DESC`,
@@ -319,6 +323,7 @@ export function createPalace(
     purgeAt: null,
     rev: 1,
     updatedAt: createdAt,
+    storeJson: null,
   };
 }
 
@@ -326,7 +331,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
   purgeExpiredPalaces(db);
   const palaceRow = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at
+      `SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at, store_json
        FROM palaces WHERE id = ? AND deleted_at IS NULL`,
     )
     .get(palaceId) as Row | undefined;
@@ -447,15 +452,16 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
   // the stored row, never from the caller, so a snapshot cannot forge a revision.
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 1, ?)
+    `INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at, store_json)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 1, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          alias = excluded.alias,
          atlas_path = excluded.atlas_path,
          editor_snapshot = excluded.editor_snapshot,
          rev = palaces.rev + 1,
-         updated_at = excluded.updated_at`,
+         updated_at = excluded.updated_at,
+         store_json = excluded.store_json`,
   ).run(
     palaceId,
     snap.palace.name,
@@ -464,6 +470,7 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
     snap.palace.atlasPath ?? null,
     snap.palace.editorSnapshot ?? null,
     now,
+    snap.palace.storeJson ?? null,
   );
 
   db.prepare("DELETE FROM loci WHERE route_id IN (SELECT id FROM routes WHERE palace_id = ?)").run(
@@ -618,7 +625,7 @@ export function appendAnalyticsEvents(db: DatabaseSync, events: AnalyticsEvent[]
 export function resolvePalace(db: DatabaseSync, ref: string): Palace {
   const byId = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
        FROM palaces WHERE id = ? AND deleted_at IS NULL`,
     )
     .get(ref) as Row | undefined;
@@ -626,7 +633,7 @@ export function resolvePalace(db: DatabaseSync, ref: string): Palace {
 
   const matches = db
     .prepare(
-      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+      `SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
        FROM palaces
        WHERE deleted_at IS NULL AND (name = ? COLLATE NOCASE OR alias = ? COLLATE NOCASE)`,
     )

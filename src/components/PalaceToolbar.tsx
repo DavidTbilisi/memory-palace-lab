@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { GoToAddress } from "./GeneratedStore";
 import * as Popover from "@radix-ui/react-popover";
 import {
   ArrowRight,
@@ -397,6 +398,7 @@ export function PalaceToolbar({ onHoverHintChange, onOpenRepresent }: Props) {
           </Button>
         ) : null}
       </div>
+      <GoToAddress />
       {(availableTags?.length ?? 0) > 0 && (
         <Popover.Root>
           <Popover.Trigger asChild>

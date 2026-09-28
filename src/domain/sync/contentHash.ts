@@ -65,6 +65,8 @@ export function canonicalPalaceContent(snapshot: PalaceSnapshot): string {
     editorSnapshot: palace.editorSnapshot ?? null,
     routes,
     loci,
+    // Only when set, so every palace hashed before stores existed keeps its hash.
+    ...(palace.storeJson ? { storeJson: palace.storeJson } : {}),
   });
 }
 
