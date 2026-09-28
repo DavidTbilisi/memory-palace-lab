@@ -29,6 +29,8 @@ export function invalidateDueQueueCache(palaceId?: string) {
 
 export type DueQueueState = {
   queue: DueQueue;
+  /** Every palace the queue was built from: the open one live, the others from the cache. */
+  snapshots: DueQueueSnapshot[];
   items: GlobalDueItem[];
   dueCountAll: number;
   dueCountCurrent: number;
@@ -124,13 +126,14 @@ export function useDueQueue(): DueQueueState {
     };
   }, [currentPalaceId, palaces, version]);
 
-  const queue = useMemo(() => {
-    const snapshots: DueQueueSnapshot[] = currentPalace
-      ? [{ palace: currentPalace, routes, loci, nodes }, ...otherSnapshots]
-      : otherSnapshots;
-    if (snapshots.length === 0) return EMPTY_DUE_QUEUE;
-    return buildDueQueue(snapshots);
-  }, [currentPalace, loci, nodes, otherSnapshots, routes]);
+  const snapshots = useMemo<DueQueueSnapshot[]>(
+    () => (currentPalace ? [{ palace: currentPalace, routes, loci, nodes }, ...otherSnapshots] : otherSnapshots),
+    [currentPalace, loci, nodes, otherSnapshots, routes],
+  );
+  const queue = useMemo(
+    () => (snapshots.length === 0 ? EMPTY_DUE_QUEUE : buildDueQueue(snapshots)),
+    [snapshots],
+  );
 
   const reviewedToday = useMemo(() => countReviewedToday(analyticsEvents), [analyticsEvents]);
   const streak = useMemo(() => computeDailyStreak(analyticsEvents), [analyticsEvents]);
@@ -138,6 +141,7 @@ export function useDueQueue(): DueQueueState {
 
   return {
     queue,
+    snapshots,
     items: queue.items,
     dueCountAll: queue.items.length,
     dueCountCurrent: currentPalaceId ? (queue.countByPalace.get(currentPalaceId) ?? 0) : 0,
