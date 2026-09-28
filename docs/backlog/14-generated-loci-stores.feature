@@ -5,6 +5,13 @@
 #   this app can do that a markdown wiki cannot.
 # Wiki source: theSystem/wiki/table-of-support-images.md, theSystem/wiki/four-level-blocks.md,
 #   theSystem/wiki/peg-system.md
+# Status: delivered 2026-09. Stores are palaces marked by palaces.store_json; their nodes carry
+#   an address and a role, and are found with Go to address or the command palette. A
+#   four-level block is theme -> 25 stickers -> 125 cells 1.1.1-5.5.5 (the wiki's 5x5x5, not a
+#   5x5 lattice), with a hidden draft route in address order. A table of support images grows
+#   one number at a time: the learner's image, three chained associations, three parts each as
+#   cells NN.1-NN.9. The app makes structure and addresses; every image is the learner's.
+#   Regenerating a block or rewriting a number never clears a filled node without asking.
 
 Feature: Generated addressable loci stores
   In order to stop hand-placing every locus
