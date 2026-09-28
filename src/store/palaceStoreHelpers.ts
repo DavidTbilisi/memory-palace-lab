@@ -1,5 +1,6 @@
 import type { Locus, RecallRating } from "../domain/entities/types";
 import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { DEFAULT_STORM_TARGET, DEFAULT_WAKE_TIME, clampStormTarget, parseWakeTime } from "../domain/services/storm";
 
 export const DRAFT_SAVE_DELAY_MS = 900;
 export const DAILY_REVIEW_GOAL_STORAGE_KEY = "mp-daily-review-goal";
@@ -91,4 +92,37 @@ export function persistSaveStopViews(on: boolean) {
   } catch {
     // Storage unavailable; the in-memory value still applies for this session.
   }
+}
+
+export const STORM_TARGET_STORAGE_KEY = "mp-storm-target";
+export const WAKE_TIME_STORAGE_KEY = "mp-wake-time";
+
+function readStorage(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredValue(key: string, value: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable (private mode); the value just is not remembered.
+  }
+}
+
+/** The last Storm target the learner chose. */
+export function loadStormTarget(): number {
+  const raw = readStorage(STORM_TARGET_STORAGE_KEY);
+  return clampStormTarget(raw ? Number(raw) : DEFAULT_STORM_TARGET);
+}
+
+/** The learner's wake time, "HH:MM", used to schedule first reviews after sleep. */
+export function loadWakeTime(): string {
+  const raw = readStorage(WAKE_TIME_STORAGE_KEY);
+  return raw && parseWakeTime(raw) ? raw : DEFAULT_WAKE_TIME;
 }

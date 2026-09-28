@@ -91,7 +91,22 @@ import {
   saveAtlasLevelLabels,
   loadSaveStopViews,
   persistSaveStopViews,
+  STORM_TARGET_STORAGE_KEY,
+  WAKE_TIME_STORAGE_KEY,
+  loadStormTarget,
+  loadWakeTime,
+  writeStoredValue,
 } from "./palaceStoreHelpers";
+import { readClock, setClockHidden, startClock, tickClock, type ActiveClock } from "../domain/services/activeClock";
+import {
+  bestStormCount,
+  clampStormTarget,
+  firstReviewAfterSleep,
+  isPersonalBest,
+  parseWakeTime,
+  stormRatePerHour,
+  type StormResult,
+} from "../domain/services/storm";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 const repo = getPalaceRepository();
@@ -119,6 +134,21 @@ export type RouteNotice = {
   /** The notice reports a route edit that `undoRouteChange` can reverse. */
   canUndo: boolean;
 };
+
+/** A Storm in progress: one push that encodes new nodes onto its own route. */
+export type StormSession = {
+  id: string;
+  palaceId: string;
+  routeId: string;
+  routeName: string;
+  target: number;
+  startedAt: string;
+  /** Nodes encoded so far, in order; each is a stop on the Storm's route. */
+  nodeIds: string[];
+};
+
+/** What a finished Storm shows on its results screen. */
+export type StormSummary = StormResult & { routeName: string; firstReviewAt: string | null };
 
 type WalkSummary = {
   sessionId: string | null;
@@ -187,6 +217,12 @@ export type PalaceStore = {
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
   dailyReviewGoal: number;
+  storm: StormSession | null;
+  stormSummary: StormSummary | null;
+  /** The last Storm target chosen, offered again next time. */
+  stormTarget: number;
+  /** "HH:MM"; material from a Storm is first reviewed at this time after the next sleep. */
+  wakeTime: string;
   /** User-chosen names for atlas hierarchy levels (Domain / Place / Section by default). */
   atlasLevelLabels: string[];
   persistenceState: PalacePersistenceState;
@@ -310,6 +346,15 @@ export type PalaceStore = {
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
   setDailyReviewGoal: (goal: number) => void;
+  /** Start a Storm in the open palace, on a new route of its own. Returns its id, or null with no palace open. */
+  startStorm: (target: number) => string | null;
+  /** A node was encoded for the first time; during a Storm it counts and becomes the next stop. */
+  countStormEncode: (nodeId: string) => void;
+  stopStorm: () => void;
+  /** Active and wall time of the Storm so far. */
+  readStormClock: () => { activeMs: number | null; wallMs: number } | null;
+  dismissStormSummary: () => void;
+  setWakeTime: (value: string) => void;
   setAtlasLevelLabels: (labels: string[]) => void;
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
@@ -335,6 +380,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
   let pendingRouteUndo: (() => void) | null = null;
   const detachedStopsByNode = new Map<string, RemovedLocus[]>();
   let routeNoticeCounter = 0;
+
+  // The Storm's clock lives outside the store so input does not re-render anything.
+  let stormClock: ActiveClock | null = null;
+  const STORM_ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
+  const onStormActivity = () => {
+    if (stormClock) stormClock = tickClock(stormClock, Date.now());
+  };
+  const onStormVisibility = () => {
+    if (stormClock) stormClock = setClockHidden(stormClock, document.visibilityState === "hidden", Date.now());
+  };
+  const watchStormActivity = (on: boolean) => {
+    if (typeof window === "undefined") return;
+    const method = on ? "addEventListener" : "removeEventListener";
+    for (const name of STORM_ACTIVITY_EVENTS) window[method](name, onStormActivity, { passive: true } as AddEventListenerOptions);
+    document[method]("visibilitychange", onStormVisibility);
+  };
 
   /** Show a route notice; with `undo`, its Undo button runs that until the next notice. */
   const pushRouteNotice = (message: string, undo?: () => void) => {
@@ -440,6 +501,47 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     void mirrorToMeter(events);
   };
 
+  /** End the Storm: record its result, mark a personal best, and show the summary. */
+  const finishStorm = (endedBy: StormResult["endedBy"]) => {
+    const state = get();
+    const storm = state.storm;
+    if (!storm) return;
+    const now = Date.now();
+    const reading = stormClock ? readClock(stormClock, now) : { activeMs: null, wallMs: now - Date.parse(storm.startedAt) };
+    stormClock = null;
+    watchStormActivity(false);
+    const count = storm.nodeIds.length;
+    const personalBest = isPersonalBest(count, bestStormCount(state.analyticsEvents));
+    const firstReviewAt =
+      state.loci
+        .filter((locus) => locus.routeId === storm.routeId)
+        .map((locus) => locus.nextReviewAt)
+        .filter((at): at is string => !!at)
+        .sort()[0] ?? null;
+    const summary: StormSummary = {
+      stormId: storm.id,
+      routeId: storm.routeId,
+      routeName: storm.routeName,
+      target: storm.target,
+      count,
+      activeMs: reading.activeMs,
+      wallMs: reading.wallMs,
+      ratePerHour: stormRatePerHour(count, reading.activeMs),
+      endedBy,
+      personalBest,
+      firstReviewAt,
+    };
+    // Recorded while the Storm is still set, so the event carries the Storm phase too.
+    void recordAnalytics({
+      eventType: "storm_completed",
+      eventGroup: "review",
+      palaceId: storm.palaceId,
+      routeId: storm.routeId,
+      payload: { ...summary },
+    });
+    set({ storm: null, stormSummary: summary });
+  };
+
   const recordAnalytics = async (input: RecordAnalyticsInput) => {
     const state = get();
     const event = createAnalyticsEvent({
@@ -455,7 +557,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           : (state.currentPalace?.id ?? null),
       routeId: "routeId" in input ? (input.routeId ?? null) : null,
       nodeId: "nodeId" in input ? (input.nodeId ?? null) : null,
-      payload: input.payload,
+      // Events in a Storm's palace are marked, so Storm activity can be told apart from Siege.
+      payload:
+        state.storm && (("palaceId" in input ? input.palaceId : state.currentPalace?.id) ?? null) === state.storm.palaceId
+          ? { ...input.payload, phase: "storm" }
+          : input.payload,
     });
     await appendAnalyticsEvents([event]);
     return event;
@@ -703,6 +809,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
     dailyReviewGoal: loadDailyReviewGoal(),
+    storm: null,
+    stormSummary: null,
+    stormTarget: loadStormTarget(),
+    wakeTime: loadWakeTime(),
     atlasLevelLabels: loadAtlasLevelLabels(DEFAULT_ATLAS_LEVEL_LABELS),
     persistenceState: "clean",
     lastDraftSavedAt: null,
@@ -863,6 +973,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     async openPalace(id: string) {
+      // A Storm belongs to its palace; leaving the palace ends it.
+      const storm = get().storm;
+      if (storm && storm.palaceId !== id) finishStorm("stopped");
       await get().flushDraftSave();
       clearDraftTimer();
       let snap: PalaceSnapshot | null;
@@ -1843,6 +1956,79 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           String(normalized),
         );
       }
+    },
+
+    startStorm(target) {
+      const state = get();
+      if (!state.currentPalace) return null;
+      if (state.storm) finishStorm("stopped");
+      const goal = clampStormTarget(target);
+      // A fixed month list: locale data spells September "Sep" in some runtimes and "Sept" in others.
+      const today = new Date();
+      const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][today.getMonth()];
+      const routeId = get().createRoute({ name: `Storm · ${today.getDate()} ${month}` });
+      const route = get().routes.find((candidate) => candidate.id === routeId);
+      if (!routeId || !route) return null;
+      const storm: StormSession = {
+        id: crypto.randomUUID(),
+        palaceId: state.currentPalace.id,
+        routeId,
+        routeName: route.name,
+        target: goal,
+        startedAt: new Date().toISOString(),
+        nodeIds: [],
+      };
+      stormClock = startClock(Date.now(), typeof document !== "undefined" && document.visibilityState === "hidden");
+      watchStormActivity(true);
+      writeStoredValue(STORM_TARGET_STORAGE_KEY, String(goal));
+      // createRoute shows the Routes tab; a Storm is spent naming nodes, so keep the Node tab.
+      set({ storm, stormSummary: null, stormTarget: goal, routePanelOpen: false });
+      void recordAnalytics({
+        eventType: "storm_started",
+        eventGroup: "review",
+        routeId,
+        payload: { stormId: storm.id, target: goal, routeName: route.name },
+      });
+      return storm.id;
+    },
+
+    countStormEncode(nodeId) {
+      const state = get();
+      const storm = state.storm;
+      if (!storm || state.currentPalace?.id !== storm.palaceId || storm.nodeIds.includes(nodeId)) return;
+      get().addStopsToRoute(storm.routeId, [nodeId]);
+      // First review after the next sleep, not a fixed day later.
+      const due = firstReviewAfterSleep(new Date(), state.wakeTime).toISOString();
+      set((current) => ({
+        loci: current.loci.map((locus) =>
+          locus.routeId === storm.routeId && locus.nodeId === nodeId && locus.repetitions === 0
+            ? { ...locus, nextReviewAt: due }
+            : locus,
+        ),
+        storm: current.storm ? { ...current.storm, nodeIds: [...current.storm.nodeIds, nodeId] } : null,
+      }));
+      scheduleDraftSave();
+      if (storm.nodeIds.length + 1 >= storm.target) finishStorm("target");
+    },
+
+    stopStorm() {
+      finishStorm("stopped");
+    },
+
+    readStormClock() {
+      const storm = get().storm;
+      if (!storm) return null;
+      return stormClock ? readClock(stormClock, Date.now()) : { activeMs: null, wallMs: Date.now() - Date.parse(storm.startedAt) };
+    },
+
+    dismissStormSummary() {
+      set({ stormSummary: null });
+    },
+
+    setWakeTime(value) {
+      if (!parseWakeTime(value)) return;
+      set({ wakeTime: value });
+      writeStoredValue(WAKE_TIME_STORAGE_KEY, value);
     },
 
     setAtlasLevelLabels(labels) {

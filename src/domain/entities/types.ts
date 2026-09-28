@@ -230,6 +230,8 @@ export type AnalyticsEventType =
   | "walk_recall_rated"
   | "walk_closed"
   | "walk_completed"
+  | "storm_started"
+  | "storm_completed"
   | "system_run_materialized";
 
 export type RecallRating = "again" | "hard" | "good" | "easy";

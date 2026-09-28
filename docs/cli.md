@@ -74,6 +74,7 @@ Mapping (everything else is skipped and counted, on purpose: METER wants signal,
 | `walk_recall_rated` | performance / review | `hit` (Hard, Good, Easy) or `miss` (Again), plus a separate `latency_ms` event when the reveal time is known | 1 / 0, ms | node | `palace::walk` |
 | `walk_started`, `walk_completed` | performance / review | `walk.started`, `walk.completed` | route length, reviewed count | route | `palace::walk` |
 | `palace_created`, `node_created`, `edge_created`, `route_created`, `system_run_materialized` | encoding / encode | `palace.<event>` | 1 | palace, node, node, route, palace | null |
+| `storm_completed` | encoding / encode | `palace.storm_completed` | nodes encoded in the Storm | route | null |
 
 Conventions mirror the Anki bridge so METER's reports need no changes: `hit`/`miss` feed the Daily Glance hit rate, `latency_ms` events feed its latency line, `mode` gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up (for `palace.created` the name comes from the event's own payload, since the palace list does not know the new palace yet). `context` also carries `source`, the app event id and type, palace and route ids, and the app's full payload.
 
