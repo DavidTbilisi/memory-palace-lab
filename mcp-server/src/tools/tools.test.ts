@@ -138,7 +138,29 @@ describe("MCP tools (end to end on a temp DB)", () => {
     await expect(nodes.nodeCountShape(ctx, { palace: palace.id, node: "M0" })).rejects.toThrow(/at least two/);
   });
 
-  it("rejects invalid CAST values", async () => {
+  it("node tools set, refuse a taken, and clear a concept glyph", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Attention", glyph: "👁️" });
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Vision" });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention" }).glyph).toBe("👁️");
+
+    await expect(nodes.nodeCreate(ctx, { palace: palace.id, title: "Sight", glyph: "👁" })).rejects.toThrow(
+      "👁 is already Attention's concept glyph.",
+    );
+    expect(nodes.nodeList(ctx, { palace: palace.id }).nodes.map((n: { title: string }) => n.title)).not.toContain("Sight");
+    await expect(nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "👁️" })).rejects.toThrow(/already Attention/);
+    await expect(nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "ab" })).rejects.toThrow(/single symbol/);
+
+    // A node keeps its own glyph when updated with it again, and null clears it.
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Attention", title: "Attention span", glyph: "👁️" });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention span" }).glyph).toBe("👁️");
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Attention span", glyph: null });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention span" }).glyph).toBeUndefined();
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "👁️" });
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain("Vision\n@glyph 👁️\n");
+  });
+
+    it("rejects invalid CAST values", async () => {
     const palace = palaceCreateHelper();
     await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
     await nodes.nodeCreate(ctx, { palace: palace.id, title: "B" });

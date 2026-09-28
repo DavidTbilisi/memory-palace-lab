@@ -250,7 +250,17 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(editor.getShape(shapeId)!.meta.mpAttributes).toBeNull();
   });
 
-  it("applies the SOLID Citadel document that used to crash", () => {
+  it("sets and clears a concept glyph from the text", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Attention");
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention", { glyph: "🔦" })])).updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpGlyph).toBe("🔦");
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention", { glyph: "🔦" })])).updated.nodes).toBe(0);
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention")])).updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpGlyph).toBeNull();
+  });
+
+    it("applies the SOLID Citadel document that used to crash", () => {
     const { snapshot, diagnostics } = parseDsl(SOLID_CITADEL_DSL);
     expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
 

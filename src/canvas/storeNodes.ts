@@ -92,6 +92,7 @@ export function resetStoreNode(editor: Editor, node: StoreNode, slot: BlockSlot,
     mpImageUrl: null,
     mpNedf: null,
     mpAttributes: null,
+    mpGlyph: null,
   };
   editor.updateShape({ id: node.shapeId, type: node.type, ...position, meta });
   // Only a geo node draws its title; an image node keeps it in meta alone.

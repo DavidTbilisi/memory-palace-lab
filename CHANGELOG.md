@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.21.0 — 2026-09-29
+
+### Concept glyphs
+
+- **One symbol per concept.** Give a node a concept glyph, one emoji or character that stands for that concept and nothing else in the palace. Set it in the inspector, under the title. Renaming the node or rewriting its content keeps the glyph.
+- **No two concepts share a mark.** A glyph another node in the palace already holds is refused, and the inspector names that node, such as **🔦 is already Attention Framework's concept glyph.**
+- **Changing it is deliberate.** Once a node has a glyph, you change it with **Change glyph**, and the inspector reminds you that a new mark reads as a new concept. **Remove** clears it.
+- **See it on the canvas.** The glyph sits in a chip above its node. Zoom out far enough that the labels disappear and the glyph fills the node instead, so the palace still reads at a glance.
+- **Glyphs from the wiki.** Wiki concept pages carry a glyph. **Add as node** from the Library gives the new node that glyph, unless the palace already uses it; then the node is added without it and the inspector says why.
+- **In the DSL and MCP.** Write `@glyph 🔦` under a node in the Palace DSL. An invalid glyph is error E151, and a glyph used twice is warning W152, with the first node keeping it. The MCP node tools read and set `glyph`, and `null` clears it.
+
+### Fixes
+
+- A Library document opened a second time no longer stays stuck on **Loading document**.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.20 or older, update it too. An older version does not know about glyphs, so once it saves a palace and that sync reaches your other devices, the palace's glyphs are gone. The nodes themselves are kept.
+
 ## v0.20.0 — 2026-09-28
 
 ### Generated loci stores

@@ -27,6 +27,7 @@ import { isMemoryNodeShape } from "./memoryNodeShape";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
 import { WalkAnswerCover } from "./WalkAnswerCover";
+import { ConceptGlyphOverlay } from "./ConceptGlyphOverlay";
 import {
   captureStopView,
   liveMemoryNodeIds,
@@ -161,6 +162,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
   const [motifBadges, setMotifBadges] = useState<MotifBadge[]>([]);
+  const [nodeGlyphs, setNodeGlyphs] = useState<ReadonlyMap<string, string>>(new Map());
   const [difficultyBadges, setDifficultyBadges] = useState<DifficultyBadge[]>(
     [],
   );
@@ -337,6 +339,16 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const recomputeNodeBoxes = useCallback(() => {
     const editor = editorRef.current;
     setNodeBoxes(editor ? viewportBoxesByNode(editor) : new Map());
+    // Concept glyphs are read live from the canvas, so one set a moment ago shows at once.
+    const glyphs = new Map<string, string>();
+    for (const shape of editor?.getCurrentPageShapes() ?? []) {
+      if (!isMemoryNodeShape(shape)) continue;
+      const meta = shape.meta as MemoryPalaceMeta;
+      if (meta.mpNodeId && meta.mpGlyph) glyphs.set(meta.mpNodeId, meta.mpGlyph);
+    }
+    setNodeGlyphs((prev) =>
+      prev.size === glyphs.size && [...glyphs].every(([id, glyph]) => prev.get(id) === glyph) ? prev : glyphs,
+    );
   }, []);
 
   // An image node has no label of its own, so its title is drawn under it.
@@ -894,6 +906,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       </div>
       <RouteOverlay boxes={nodeBoxes} />
       <WalkAnswerCover boxes={nodeBoxes} />
+      <ConceptGlyphOverlay boxes={nodeBoxes} glyphs={nodeGlyphs} />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button

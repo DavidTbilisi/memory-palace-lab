@@ -95,6 +95,14 @@ function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta
   } else {
     delete next.mpNedf;
   }
+  // And for the concept glyph.
+  if (intent.glyph) {
+    next.mpGlyph = intent.glyph;
+  } else if (prev.mpGlyph) {
+    next.mpGlyph = null;
+  } else {
+    delete next.mpGlyph;
+  }
   // And for attributes.
   const attributes = normalizeAttributes(intent.attributes);
   if (attributes) {
@@ -116,6 +124,7 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalRouteName !== next.mpPortalRouteName ||
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
     (prev.mpImageUrl ?? null) !== (next.mpImageUrl ?? null) ||
+    (prev.mpGlyph ?? null) !== (next.mpGlyph ?? null) ||
     JSON.stringify(normalizeNedf(prev.mpNedf)) !== JSON.stringify(normalizeNedf(next.mpNedf)) ||
     JSON.stringify(normalizeAttributes(prev.mpAttributes)) !== JSON.stringify(normalizeAttributes(next.mpAttributes)) ||
     !arraysEqual(prev.mpTags, next.mpTags)

@@ -19,6 +19,9 @@ export type DslDiagnosticCode =
   | "attribute-count-mismatch"
   | "attribute-count-unexpected"
   | "attribute-channel-budget"
+  // Backlog 15 — concept glyphs
+  | "glyph-invalid"
+  | "glyph-duplicate"
   // Feature 1 — stable node identifiers
   | "duplicate-node-id"
   | "malformed-node-id"
@@ -150,6 +153,8 @@ export interface DslNode {
   nedf: NedfEncoding | null;
   /** Attributes from `@A channel name [route N]: value | value` lines. */
   attributes: NodeAttribute[] | null;
+  /** Concept glyph from a `@glyph <symbol>` line. */
+  glyph: string | null;
   tags: string[];
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];

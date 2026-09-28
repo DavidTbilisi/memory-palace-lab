@@ -6,6 +6,7 @@ import { nodeShapeHasLabel } from "../../../src/canvas/memoryNodeShape";
 import type { NedfEncoding, NedfSlot, NodeAttribute } from "../../../src/domain/entities/types";
 import type { MemoryPalaceMeta } from "../../../src/canvas/memoryMeta";
 import { attributeWarnings, normalizeAttributes } from "../../../src/domain/services/attributes";
+import { checkGlyph, glyphHolder, glyphTakenMessage } from "../../../src/domain/services/conceptGlyph";
 import type { CountShapeKind } from "../../../src/domain/services/countShape";
 import { confusionNeighbours, meaningEdges } from "../../../src/domain/services/confusion";
 import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
@@ -35,6 +36,15 @@ function applyNedfPatch(current: NedfEncoding | null, patch: NedfPatch | null | 
     else next[slot] = value;
   }
   return normalizeNedf(next);
+}
+
+/** A concept glyph checked against the palace: one symbol, held by no other node. Throws otherwise. */
+function acceptedGlyph(glyph: string, nodes: readonly { id: string; title: string; glyph?: string | null }[], nodeId: string | null): string {
+  const check = checkGlyph(glyph);
+  if ("error" in check) throw new Error(check.error);
+  const holder = glyphHolder(nodes, check.glyph, nodeId);
+  if (holder) throw new Error(glyphTakenMessage(check.glyph, holder));
+  return check.glyph;
 }
 
 /** An attribute as MCP takes it: the name may be left out. */
@@ -129,10 +139,13 @@ export async function nodeCreate(
     tags?: string[];
     nedf?: NedfPatch | null;
     attributes?: AttributeInput[] | null;
+    glyph?: string | null;
     position?: { x: number; y: number };
   },
 ) {
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_create", (m) => {
+    // Checked before anything is drawn: a refused glyph refuses the whole call.
+    const glyph = args.glyph ? acceptedGlyph(args.glyph, m.snapshot.nodes, null) : null;
     const point = args.position ?? nextNodePosition(m.editor);
     const created = createGeoMemoryNode(m.editor as unknown as Editor, m.palace.id, point, {
       title: args.title,
@@ -144,6 +157,7 @@ export async function nodeCreate(
     if (nedf) meta.mpNedf = nedf;
     const attributes = normalizeAttributes(args.attributes);
     if (attributes) meta.mpAttributes = attributes;
+    if (glyph) meta.mpGlyph = glyph;
     if (Object.keys(meta).length > 0) m.editor.updateShape({ id: created.shapeId, type: "geo", meta });
     m.recordEvent("node_created", "graph", {
       nodeId: created.nodeId,
@@ -170,6 +184,7 @@ export async function nodeUpdate(
     tags?: string[];
     nedf?: NedfPatch | null;
     attributes?: AttributeInput[] | null;
+    glyph?: string | null;
   },
 ) {
   const { result } = await withPalaceMutation(ctx.db, ctx.sentinelDir, args.palace, "node_update", (m) => {
@@ -193,6 +208,8 @@ export async function nodeUpdate(
     }
     // Attributes are replaced whole; `null` or an empty list clears them.
     if (args.attributes !== undefined) meta.mpAttributes = normalizeAttributes(args.attributes);
+    // `null` clears the glyph; tldraw merges meta key by key.
+    if (args.glyph !== undefined) meta.mpGlyph = args.glyph === null ? null : acceptedGlyph(args.glyph, m.snapshot.nodes, node.id);
     m.editor.updateShape({
       id: shapeId,
       type: shape.type,

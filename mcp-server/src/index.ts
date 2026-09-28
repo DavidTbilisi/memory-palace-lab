@@ -33,7 +33,7 @@ initDb(db); // no-op on the app's DB; creates schema for fresh override paths
 
 const ctx: ServerContext = { db, sentinelDir: sentinelDirFor(dbPath) };
 
-const server = new McpServer({ name: "memory-palace", version: "0.20.0" });
+const server = new McpServer({ name: "memory-palace", version: "0.21.0" });
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 
@@ -167,6 +167,13 @@ server.registerTool(
 
 // ── Node tools ───────────────────────────────────────────────────────
 
+const glyphArg = z
+  .string()
+  .describe(
+    "Concept glyph: one symbol (usually an emoji) that stands for this concept and no other node in the palace. " +
+      "Refused if another node already holds it. A wiki concept page declares its glyph as `glyph:` in its frontmatter",
+  );
+
 const attributesArg = z
   .array(
     z.object({
@@ -247,6 +254,7 @@ server.registerTool(
       tags: z.array(z.string()).optional(),
       nedf: nedfSlotsArg.optional(),
       attributes: attributesArg.optional(),
+      glyph: glyphArg.optional(),
       position: z
         .object({ x: z.number(), y: z.number() })
         .optional()
@@ -259,7 +267,7 @@ server.registerTool(
 server.registerTool(
   "node_update",
   {
-    description: "Update a node's title, content, alias, tags, NEDF slots, or attributes.",
+    description: "Update a node's title, content, alias, tags, NEDF slots, attributes, or concept glyph (null clears it).",
     inputSchema: {
       palace: palaceArg,
       node: z.string(),
@@ -269,6 +277,7 @@ server.registerTool(
       tags: z.array(z.string()).optional(),
       nedf: nedfSlotsArg.nullable().optional().describe("NEDF slots to change; null clears all four"),
       attributes: attributesArg.nullable().optional(),
+      glyph: glyphArg.nullable().optional(),
     },
   },
   tool(nodes.nodeUpdate),

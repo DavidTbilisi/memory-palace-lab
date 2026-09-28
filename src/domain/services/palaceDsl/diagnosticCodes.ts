@@ -32,6 +32,10 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "attribute-count-unexpected": "W127",
   "attribute-channel-budget":   "I128",
 
+  // E15x/W15x — Concept glyphs (backlog 15)
+  "glyph-invalid":              "E151",
+  "glyph-duplicate":            "W152",
+
   // E16x/W16x — Confusion links (backlog 07)
   "confusion-malformed":        "E161",
   "confusion-duplicate":        "W162",

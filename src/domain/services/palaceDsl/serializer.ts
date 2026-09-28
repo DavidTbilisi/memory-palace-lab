@@ -63,6 +63,10 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
       lines.push(`@image ${node.imageUrl}`);
     }
 
+    if (node.glyph) {
+      lines.push(`@glyph ${node.glyph}`);
+    }
+
     const nedf = normalizeNedf(node.nedf);
     if (nedf) {
       // A multi-line slot takes one line per line, as `:` content does.

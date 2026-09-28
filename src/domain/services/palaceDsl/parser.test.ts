@@ -1273,3 +1273,24 @@ describe("parseDsl — @image directive", () => {
     expect(snapshot.nodes[1]!.imageUrl).toBe("https://b.example/2.jpg");
   });
 });
+
+describe("parseDsl — concept glyphs", () => {
+  it("reads @glyph under a node", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAttention\n@glyph 🔦\n\nFocus\n: body\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes.map((n) => n.glyph)).toEqual(["🔦", null]);
+  });
+
+  it("warns when a later node claims a glyph already taken, and gives it none", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAttention\n@glyph 👁️\n\nVision\n@glyph 👁\n");
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([["W152", 7]]);
+    expect(diagnostics[0]!.message).toContain("already Attention's concept glyph");
+    expect(snapshot.nodes.map((n) => n.glyph)).toEqual(["👁️", null]);
+  });
+
+  it("rejects a glyph that is not one symbol, and a @glyph line outside a node", () => {
+    expect(parseDsl("@P\n\nA\n@glyph ab\n").diagnostics.map((d) => d.numericCode)).toEqual(["E151"]);
+    expect(parseDsl("@P\n\nA\n@glyph\n").diagnostics.map((d) => d.numericCode)).toEqual(["E151"]);
+    expect(parseDsl("@P\n\nA\n\n/Walk\n@glyph 🔦\n1 A\n").diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
+  });
+});

@@ -119,6 +119,8 @@ export interface MemoryNode {
   /** In a generated store: the node's address and its part in the store. */
   address?: string | null;
   storeRole?: "theme" | "sticker" | "number" | "image" | "cell" | null;
+  /** The node's concept glyph: one symbol, unique in the palace, kept through renames. */
+  glyph?: string | null;
 }
 
 export interface MemoryEdge {
