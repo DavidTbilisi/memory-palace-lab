@@ -5,6 +5,12 @@
 # Wiki source: theSystem/wiki/representation-rules.md (Rule 11), theSystem/wiki/glossary.md (Rule 4)
 # Note: the wiki enforces one unique glyph per concept and keeps a registry. The app has
 #   imageUrl but no identity mark and no collision check.
+# Status: delivered 2026-09. A concept glyph is one visible symbol (an emoji with its variation
+#   selector counts once, and "👁" equals "👁️"), stored on the node and unique in the palace: a
+#   taken glyph is refused and its holder named, in the inspector, the DSL (E151/W152) and MCP.
+#   Renames never touch it; changing it is a deliberate step. It shows as a chip above the node
+#   and fills the node when zoomed out. "Add as node" from a wiki page adopts the page's
+#   frontmatter glyph, now carried in wiki-index.json.
 
 Feature: Concept glyphs
   In order to recognize a concept without reading its label
