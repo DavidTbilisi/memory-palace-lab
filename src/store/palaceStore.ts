@@ -218,6 +218,8 @@ export type PalaceStore = {
   walkRevealLatencyMs: number | null;
   dailyReviewGoal: number;
   storm: StormSession | null;
+  /** Why a node has no concept glyph when one was offered (e.g. the wiki page's was taken). */
+  glyphNotice: { nodeId: string; message: string } | null;
   stormSummary: StormSummary | null;
   /** The last Storm target chosen, offered again next time. */
   stormTarget: number;
@@ -359,6 +361,7 @@ export type PalaceStore = {
   readStormClock: () => { activeMs: number | null; wallMs: number } | null;
   dismissStormSummary: () => void;
   setWakeTime: (value: string) => void;
+  setGlyphNotice: (notice: { nodeId: string; message: string } | null) => void;
   setAtlasLevelLabels: (labels: string[]) => void;
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
@@ -814,6 +817,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRevealLatencyMs: null,
     dailyReviewGoal: loadDailyReviewGoal(),
     storm: null,
+    glyphNotice: null,
     stormSummary: null,
     stormTarget: loadStormTarget(),
     wakeTime: loadWakeTime(),
@@ -2038,6 +2042,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
     dismissStormSummary() {
       set({ stormSummary: null });
+    },
+
+    setGlyphNotice(glyphNotice) {
+      set({ glyphNotice });
     },
 
     setWakeTime(value) {

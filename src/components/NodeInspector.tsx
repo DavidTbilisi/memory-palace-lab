@@ -15,6 +15,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { NodeRouteMemberships } from "./NodeRouteMemberships";
 import { AttributesEditor } from "./AttributesEditor";
+import { ConceptGlyphField } from "./ConceptGlyphField";
 import { NedfSlotsEditor } from "./NedfSlotsEditor";
 import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
 import { CountShapeControls } from "./CountShapeControls";
@@ -582,6 +583,7 @@ export function NodeInspector() {
             onBlur={applyNodeChanges}
           />
         </div>
+        <ConceptGlyphField nodeId={meta.mpNodeId!} />
         <div>
           <Label htmlFor="mp-alias">Alias</Label>
           <Input
