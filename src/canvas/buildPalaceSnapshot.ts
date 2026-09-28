@@ -60,6 +60,8 @@ export function buildPalaceSnapshot(
           difficulty: m.mpDifficulty ?? null,
           nedf: normalizeNedf(m.mpNedf),
           attributes: normalizeAttributes(m.mpAttributes),
+          address: m.mpAddress ?? null,
+          storeRole: m.mpStoreRole ?? null,
         });
       }
     }

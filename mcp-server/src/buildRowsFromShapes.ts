@@ -61,6 +61,8 @@ export function buildRowsFromShapes(
         tags: m.mpTags ?? [],
         nedf: normalizeNedf(m.mpNedf),
         attributes: normalizeAttributes(m.mpAttributes),
+        address: m.mpAddress ?? null,
+        storeRole: m.mpStoreRole ?? null,
       });
     }
 

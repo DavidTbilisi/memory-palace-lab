@@ -23,6 +23,12 @@ describe("node meta codec", () => {
     expect(decodeNodeMeta(json)).toEqual({ portal: null, imageUrl: null, nedf, attributes });
   });
 
+  it("round-trips a store node's address and role, and drops an unknown role", () => {
+    const json = encodeNodeMeta({ portal: null, imageUrl: null, address: "2.3.4", storeRole: "cell" });
+    expect(decodeNodeMeta(json)).toEqual({ portal: null, imageUrl: null, address: "2.3.4", storeRole: "cell" });
+    expect(decodeNodeMeta('{"portal":null,"imageUrl":null,"storeRole":"tower"}')).toEqual({ portal: null, imageUrl: null });
+  });
+
   it("writes a plain node as before, without an nedf key", () => {
     expect(encodeNodeMeta({ portal: null, imageUrl: null })).toBe('{"portal":null,"imageUrl":null}');
     expect(encodeNodeMeta({ portal: null, imageUrl: null, nedf: { essence: "  " } })).toBe(

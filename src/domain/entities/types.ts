@@ -17,6 +17,8 @@ export interface Palace {
   rev?: number;
   /** When `rev` last changed. Display only — no sync decision reads a peer's clock. */
   updatedAt?: string | null;
+  /** Set on a generated loci store: its kind and parameters, as JSON. Read it with `parseStore`. */
+  storeJson?: string | null;
 }
 
 export interface CanvasObject {
@@ -114,6 +116,9 @@ export interface MemoryNode {
   nedf?: NedfEncoding | null;
   /** Attributes on UMTF channels, one attribute per channel. */
   attributes?: NodeAttribute[] | null;
+  /** In a generated store: the node's address and its part in the store. */
+  address?: string | null;
+  storeRole?: "theme" | "sticker" | "cell" | null;
 }
 
 export interface MemoryEdge {

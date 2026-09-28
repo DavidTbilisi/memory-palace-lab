@@ -1,4 +1,5 @@
 import type { NedfEncoding, NodeAttribute, NodeDifficultyOverride } from "../domain/entities/types";
+import type { StoreRole } from "../domain/services/generatedStore";
 
 export type MemoryPalaceMeta = {
   mpPalaceId?: string;
@@ -20,6 +21,9 @@ export type MemoryPalaceMeta = {
   mpNedf?: NedfEncoding | null;
   /** Attributes on UMTF channels; `null` clears them, for the same reason as `mpImageUrl`. */
   mpAttributes?: NodeAttribute[] | null;
+  /** In a generated store: where the node is found ("2.3.4"), and what part it plays. */
+  mpAddress?: string;
+  mpStoreRole?: StoreRole;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;

@@ -26,6 +26,9 @@ pub struct PalaceDto {
     /// When `rev` last changed. Display only — sync decisions never trust a peer's clock.
     #[serde(default)]
     pub updated_at: Option<String>,
+    /// Set on a generated loci store: its kind and the parameters it was generated from, as JSON.
+    #[serde(default)]
+    pub store_json: Option<String>,
 }
 
 /// What this device last agreed on with the vault, per palace. Absent means "never synced",
@@ -207,7 +210,8 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             deleted_at TEXT,
             purge_at TEXT,
             rev INTEGER NOT NULL DEFAULT 0,
-            updated_at TEXT
+            updated_at TEXT,
+            store_json TEXT
         );
 
         -- What this device last agreed on with the vault, per palace. `base_hash` is the
@@ -393,6 +397,13 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
             _ => return Err(err),
         }
     }
+    // Generated loci stores; mcp-server/src/palaceDb.ts adds the same column.
+    if let Err(err) = conn.execute("ALTER TABLE palaces ADD COLUMN store_json TEXT", []) {
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) if msg.contains("duplicate column name") => {}
+            _ => return Err(err),
+        }
+    }
     if let Err(err) =
         conn.execute("ALTER TABLE nodes ADD COLUMN node_kind TEXT NOT NULL DEFAULT 'memory'", [])
     {
@@ -485,7 +496,7 @@ pub fn init_db(path: &Path) -> rusqlite::Result<()> {
 pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
     purge_expired_palaces(conn)?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
          FROM palaces
          WHERE deleted_at IS NULL
          ORDER BY COALESCE(atlas_path, ''), created_at DESC",
@@ -503,6 +514,7 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
                 purge_at: r.get(6)?,
                 rev: r.get(7)?,
                 updated_at: r.get(8)?,
+                store_json: r.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -512,7 +524,7 @@ pub fn list_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
 pub fn list_trashed_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto>> {
     purge_expired_palaces(conn)?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at
+        "SELECT id, name, created_at, alias, atlas_path, deleted_at, purge_at, rev, updated_at, store_json
          FROM palaces
          WHERE deleted_at IS NOT NULL
          ORDER BY purge_at ASC, created_at DESC",
@@ -530,6 +542,7 @@ pub fn list_trashed_palaces(conn: &Connection) -> rusqlite::Result<Vec<PalaceDto
                 purge_at: r.get(6)?,
                 rev: r.get(7)?,
                 updated_at: r.get(8)?,
+                store_json: r.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -559,6 +572,7 @@ pub fn create_palace(
         purge_at: None,
         rev: 1,
         updated_at: Some(created_at.to_string()),
+        store_json: None,
     })
 }
 
@@ -566,7 +580,7 @@ pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Optio
     purge_expired_palaces(conn)?;
     let palace: Option<PalaceDto> = conn
         .query_row(
-            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at
+            "SELECT id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at, store_json
              FROM palaces
              WHERE id = ?1 AND deleted_at IS NULL",
             params![palace_id],
@@ -582,6 +596,7 @@ pub fn load_palace(conn: &Connection, palace_id: &str) -> rusqlite::Result<Optio
                     purge_at: r.get(7)?,
                     rev: r.get(8)?,
                     updated_at: r.get(9)?,
+                    store_json: r.get(10)?,
                 })
             },
         )
@@ -806,15 +821,16 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
     // bumps it here; mcp-server/src/palaceDb.ts does the same in its saveSnapshot.
     let now = Utc::now().to_rfc3339();
     tx.execute(
-        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at)
-         VALUES (?1, ?2, ?6, ?3, ?4, ?5, NULL, NULL, 1, ?7)
+        "INSERT INTO palaces (id, name, created_at, alias, atlas_path, editor_snapshot, deleted_at, purge_at, rev, updated_at, store_json)
+         VALUES (?1, ?2, ?6, ?3, ?4, ?5, NULL, NULL, 1, ?7, ?8)
          ON CONFLICT(id) DO UPDATE SET
              name = ?2,
              alias = ?3,
              atlas_path = ?4,
              editor_snapshot = ?5,
              rev = palaces.rev + 1,
-             updated_at = ?7",
+             updated_at = ?7,
+             store_json = ?8",
         params![
             palace_id,
             snap.palace.name,
@@ -822,7 +838,8 @@ pub fn save_snapshot(conn: &mut Connection, snap: &PalaceSnapshot) -> rusqlite::
             snap.palace.atlas_path.as_deref(),
             snap.palace.editor_snapshot.as_deref(),
             snap.palace.created_at,
-            now
+            now,
+            snap.palace.store_json.as_deref()
         ],
     )?;
 
@@ -1116,4 +1133,56 @@ pub fn apply_sync_state(conn: &mut Connection, patch: &SyncStateBundleDto) -> ru
     }
     tx.commit()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("mpl-db-test-{}.sqlite", uuid::Uuid::new_v4()))
+    }
+
+    fn snapshot(store_json: Option<&str>) -> PalaceSnapshot {
+        serde_json::from_value(serde_json::json!({
+            "palace": { "id": "p1", "name": "Block", "createdAt": "2026-09-28T10:00:00Z", "storeJson": store_json },
+            "canvasObjects": [], "nodes": [], "edges": [], "routes": [], "loci": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn store_json_survives_save_and_load_and_shows_in_the_list() {
+        let path = temp_db();
+        init_db(&path).unwrap();
+        let mut conn = Connection::open(&path).unwrap();
+        let store = r#"{"kind":"four-level-block","theme":"Chemistry"}"#;
+        save_snapshot(&mut conn, &snapshot(Some(store))).unwrap();
+        let loaded = load_palace(&conn, "p1").unwrap().unwrap();
+        assert_eq!(loaded.palace.store_json.as_deref(), Some(store));
+        assert_eq!(list_palaces(&conn).unwrap()[0].store_json.as_deref(), Some(store));
+
+        // A palace saved without one is an ordinary palace again.
+        save_snapshot(&mut conn, &snapshot(None)).unwrap();
+        assert_eq!(load_palace(&conn, "p1").unwrap().unwrap().palace.store_json, None);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_database_from_before_stores_gains_the_column() {
+        let path = temp_db();
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE palaces (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL);")
+            .unwrap();
+        init_db(&path).unwrap();
+        let conn = Connection::open(&path).unwrap();
+        let has_column: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('palaces') WHERE name = 'store_json'")
+            .unwrap()
+            .exists([])
+            .unwrap();
+        assert!(has_column);
+        let _ = std::fs::remove_file(&path);
+    }
 }
