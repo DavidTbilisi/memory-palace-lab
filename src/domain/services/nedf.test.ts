@@ -176,6 +176,22 @@ describe("card text", () => {
     });
   });
 
+  it("names both candidates on the distinguisher card when the node has a confusion neighbour", () => {
+    // Alphabetical, so the answer is sometimes second.
+    expect(nedfCardText("distinguisher", full, "BFS", "DFS")).toEqual({
+      cue: "Why a queue and not a stack?",
+      prompt: "Which is it: BFS or DFS? Say why.",
+      answer: "BFS, because FIFO gives layer order; a stack dives deep",
+    });
+    expect(nedfCardText("distinguisher", full, "DFS", "BFS")).toMatchObject({
+      prompt: "Which is it: BFS or DFS? Say why.",
+      answer: "DFS, because FIFO gives layer order; a stack dives deep",
+    });
+    // Only the distinguisher card changes; a blank neighbour is no neighbour.
+    expect(nedfCardText("essence", full, "BFS", "DFS")).toEqual(nedfCardText("essence", full, "BFS"));
+    expect(nedfCardText("distinguisher", full, "BFS", "  ")).toEqual(nedfCardText("distinguisher", full, "BFS"));
+  });
+
   it("leaves unfilled slots out of the recognition answer", () => {
     expect(nedfCardText("nameHook", { nameHook: "Mute-X" }, "Mutex").answer).toBe("Mutex");
   });

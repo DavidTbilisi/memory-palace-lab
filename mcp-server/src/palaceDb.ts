@@ -95,7 +95,8 @@ CREATE TABLE IF NOT EXISTS edges (
     cast_ab TEXT NOT NULL DEFAULT '',
     cast_cd TEXT NOT NULL DEFAULT '',
     cast_ef TEXT NOT NULL DEFAULT '',
-    cast_gh TEXT NOT NULL DEFAULT ''
+    cast_gh TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS routes (
@@ -169,6 +170,8 @@ const COLUMN_UPGRADES = [
   "ALTER TABLE palaces ADD COLUMN updated_at TEXT",
   // Generated loci stores; src-tauri/src/db.rs adds the same column.
   "ALTER TABLE palaces ADD COLUMN store_json TEXT",
+  // Confusion links; src-tauri/src/db.rs adds the same column.
+  "ALTER TABLE edges ADD COLUMN kind TEXT NOT NULL DEFAULT ''",
   `CREATE TABLE IF NOT EXISTS sync_state (
     palace_id TEXT PRIMARY KEY NOT NULL,
     base_rev INTEGER NOT NULL DEFAULT 0,
@@ -373,7 +376,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
     db
       .prepare(
         `SELECT e.id, e.object_id, e.source_node_id, e.target_node_id, e.alias,
-                e.cast_ab, e.cast_cd, e.cast_ef, e.cast_gh
+                e.cast_ab, e.cast_cd, e.cast_ef, e.cast_gh, e.kind
          FROM edges e
          INNER JOIN canvas_objects c ON c.id = e.object_id
          WHERE c.palace_id = ?`,
@@ -390,6 +393,7 @@ export function loadPalace(db: DatabaseSync, palaceId: string): PalaceSnapshot |
       castCd: str(r, "cast_cd"),
       castEf: str(r, "cast_ef"),
       castGh: str(r, "cast_gh"),
+      ...(str(r, "kind") === "confusion" ? { kind: "confusion" as const } : {}),
     }),
   );
 
@@ -501,8 +505,8 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
   }
 
   const insertEdge = db.prepare(
-    `INSERT INTO edges (id, object_id, source_node_id, target_node_id, alias, cast_ab, cast_cd, cast_ef, cast_gh)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO edges (id, object_id, source_node_id, target_node_id, alias, cast_ab, cast_cd, cast_ef, cast_gh, kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const e of snap.edges) {
     insertEdge.run(
@@ -515,6 +519,7 @@ export function saveSnapshot(db: DatabaseSync, snap: PalaceSnapshot): void {
       e.castCd,
       e.castEf,
       e.castGh,
+      e.kind ?? "",
     );
   }
 

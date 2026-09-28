@@ -128,6 +128,15 @@ function tipFor(body: string): TipContent | null {
       extra: castTable(),
     };
   }
+  if (body.startsWith("<>")) {
+    return {
+      syntax: "<><neighbour>",
+      desc:
+        "Confusion link — this node is easily mixed up with the neighbour. Undirected, no CAST, one line per pair " +
+        "under either node. With @D filled, the walk asks which of the two it is",
+      example: "<>Semaphore",
+    };
+  }
   if (body.startsWith("/")) {
     return {
       syntax: "/<name>",

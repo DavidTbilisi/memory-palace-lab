@@ -8,6 +8,7 @@ import type { MemoryPalaceMeta } from "../../../src/canvas/memoryMeta";
 import { attributeWarnings, normalizeAttributes } from "../../../src/domain/services/attributes";
 import { checkGlyph, glyphHolder, glyphTakenMessage } from "../../../src/domain/services/conceptGlyph";
 import type { CountShapeKind } from "../../../src/domain/services/countShape";
+import { confusionNeighbours, meaningEdges } from "../../../src/domain/services/confusion";
 import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
@@ -79,7 +80,9 @@ export function nodeGet(ctx: ServerContext, args: { palace: string; node: string
   const node = resolveNodeRef(snapshot.nodes, args.node);
   const titleOf = (id: string) => snapshot.nodes.find((n) => n.id === id)?.title ?? id;
 
-  const outgoing = snapshot.edges
+  // Confusion links are not CAST edges; they are listed apart, by the neighbour's title.
+  const castEdges = meaningEdges(snapshot.edges);
+  const outgoing = castEdges
     .filter((e) => e.sourceNodeId === node.id)
     .map((e) => ({
       edgeId: e.id,
@@ -87,7 +90,7 @@ export function nodeGet(ctx: ServerContext, args: { palace: string; node: string
       targetNodeId: e.targetNodeId,
       cast: { who: e.castAb, how: e.castCd, what: e.castEf, when: e.castGh },
     }));
-  const incoming = snapshot.edges
+  const incoming = castEdges
     .filter((e) => e.targetNodeId === node.id)
     .map((e) => ({
       edgeId: e.id,
@@ -116,7 +119,15 @@ export function nodeGet(ctx: ServerContext, args: { palace: string; node: string
         : undefined,
     }));
 
-  return { ...nodeView(node, snapshot.canvasObjects), outgoing, incoming, routes };
+  const confusedWith = confusionNeighbours(snapshot.edges, node.id).map((id) => ({ nodeId: id, title: titleOf(id) }));
+
+  return {
+    ...nodeView(node, snapshot.canvasObjects),
+    outgoing,
+    incoming,
+    ...(confusedWith.length > 0 ? { confusedWith } : {}),
+    routes,
+  };
 }
 
 export async function nodeCreate(

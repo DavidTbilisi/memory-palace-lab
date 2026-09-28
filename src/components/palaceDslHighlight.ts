@@ -15,6 +15,7 @@ import {
 //   :        → body content
 //   #        → tags
 //   >        → edge
+//   <>       → confusion link
 //   /        → route header
 //   \d+ ' '  → route step
 //   --       → comment
@@ -159,6 +160,12 @@ function addLineDecorations(
     } else {
       mark(builder, bodyStart + 1, end, "cm-dsl-reference");
     }
+    return;
+  }
+
+  if (body.startsWith("<>")) {
+    mark(builder, bodyStart, bodyStart + 2, "cm-dsl-operator");
+    mark(builder, bodyStart + 2, end, "cm-dsl-reference");
     return;
   }
 

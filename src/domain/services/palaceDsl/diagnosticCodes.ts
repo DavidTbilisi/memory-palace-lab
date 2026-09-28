@@ -36,6 +36,11 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "glyph-invalid":              "E151",
   "glyph-duplicate":            "W152",
 
+  // E16x/W16x — Confusion links (backlog 07)
+  "confusion-malformed":        "E161",
+  "confusion-duplicate":        "W162",
+  "confusion-unknown-target":   "W163",
+
   // E1xx — Stable node identifiers (Feature 1)
   "malformed-node-id":          "E101",
   "duplicate-node-id":          "E102",

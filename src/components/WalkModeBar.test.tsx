@@ -73,6 +73,7 @@ function buildState(overrides: Record<string, unknown> = {}) {
     walkIndex: 0,
     walkDirection: "forward",
     editorRef: null,
+    edges: [],
     nodes: [BASE_NODE, { ...BASE_NODE, id: "node-2", objectId: "obj-node-2", title: "Nucleus", content: "Control center" }],
     ...overrides,
   };
@@ -529,6 +530,21 @@ describe("WalkModeBar — NEDF cards", () => {
     render(<WalkModeBar />);
     expect(document.getElementById("walk-cue")).toHaveTextContent("Turns food into ATP");
     expect(document.getElementById("walk-answer")).toHaveTextContent("Mitochondria · Power plant");
+  });
+
+  it("names the confusion neighbour on the distinguisher card and reveals why", () => {
+    const edges = [
+      { id: "e1", objectId: "eo1", sourceNodeId: "node-2", targetNodeId: "node-1", castAb: "", castCd: "", castEf: "", castGh: "", kind: "confusion" },
+    ];
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkSlot: "distinguisher", nodes, edges });
+    const { unmount } = render(<WalkModeBar />);
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Makes energy, or stores the genome?");
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Which is it: Mitochondria or Nucleus?");
+    unmount();
+
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: true, walkSlot: "distinguisher", nodes, edges });
+    render(<WalkModeBar />);
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Mitochondria, because the nucleus stores the genome");
   });
 
   it("falls back to the classic cue when the step's slot is not filled", () => {

@@ -8,7 +8,9 @@ import { APP_VERSION } from "../appVersion";
 import { AppErrorBanner } from "../components/AppErrorBanner";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { WebModeBanner } from "../components/WebModeBanner";
-import { CastEdgeDialog } from "../components/CastEdgeDialog";
+import { CastEdgeDialog, type ConfusionPayload, type EdgeCastPayload } from "../components/CastEdgeDialog";
+import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
+import { hasConfusionLink } from "../domain/services/confusion";
 import {
   CommandPalette,
   type PaletteCommand,
@@ -276,19 +278,18 @@ export function MemoryPalaceApp() {
     [contextualTipContext, currentPage],
   );
 
-  const onCastConfirm = (cast: {
-    ab: string;
-    cd: string;
-    ef: string;
-    gh: string;
-    label?: string;
-    castTier: string;
-    changedSlots: string[];
-  }) => {
+  const onCastConfirm = (payload: EdgeCastPayload | ConfusionPayload) => {
     const pending = usePalaceStore.getState().pendingCast;
     const editor = usePalaceStore.getState().editorRef;
     const palace = usePalaceStore.getState().currentPalace;
     if (!pending || !editor || !palace) return;
+    if ("kind" in payload) {
+      // Refused (and so a no-op) when the pair is already linked; the dialog disables it too.
+      linkConfusion(editor, palace.id, pending.sourceNodeId, pending.targetNodeId);
+      setPendingCast(null);
+      return;
+    }
+    const cast = payload;
     const created = createMemoryArrow(
       editor,
       palace.id,
@@ -596,12 +597,20 @@ export function MemoryPalaceApp() {
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (meta.mpSourceNodeId !== pendingCast.sourceNodeId) continue;
       if (meta.mpTargetNodeId === pendingCast.targetNodeId) continue;
+      if (meta.mpEdgeKind === "confusion") continue; // no verb to collide with
       const text = plainTextFromRichText(
         (shape.props as { richText?: unknown } | undefined)?.richText,
       );
       if (text) labels.push(text);
     }
     return labels;
+  }, [pendingCast]);
+
+  const castConfusionLinked = useMemo(() => {
+    if (!pendingCast) return false;
+    const editor = usePalaceStore.getState().editorRef;
+    if (!editor) return false;
+    return hasConfusionLink(canvasConfusionEdges(editor), pendingCast.sourceNodeId, pendingCast.targetNodeId);
   }, [pendingCast]);
 
   return (
@@ -711,6 +720,7 @@ export function MemoryPalaceApp() {
         }}
         onConfirm={onCastConfirm}
         siblingEdgeLabels={castSiblingEdgeLabels}
+        confusionLinked={castConfusionLinked}
       />
 
       <RepresentMotifDialog

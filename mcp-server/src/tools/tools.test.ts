@@ -396,6 +396,60 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(got.attributes).toBeUndefined();
   });
 
+  it("creates a confusion link once per pair, lists its kind, and keeps it out of CAST reasoning", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Mutex" });
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Semaphore" });
+    await edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore" });
+
+    const link = await edges.edgeCreate(ctx, { palace: palace.id, source: "Semaphore", target: "Mutex", kind: "confusion" });
+    expect(link.kind).toBe("confusion");
+    // One link per pair, whichever way it is asked for; and no CAST on one.
+    await expect(
+      edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore", kind: "confusion" }),
+    ).rejects.toThrow(/already linked as a confusion/);
+    await expect(
+      edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore", kind: "confusion", label: "x" }),
+    ).rejects.toThrow(/no CAST/);
+
+    const listed = edges.edgeList(ctx, { palace: palace.id }).edges;
+    expect(listed.map((e) => e.kind).sort()).toEqual(["cast", "confusion"]);
+
+    const mutex = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(mutex.outgoing).toHaveLength(1);
+    expect(mutex.incoming).toHaveLength(0);
+    expect(mutex.confusedWith).toEqual([{ nodeId: expect.any(String), title: "Semaphore" }]);
+    expect(analysis.graphAnalyze(ctx, { palace: palace.id }).edgeCount).toBe(1);
+
+    const arrowProps = (edgeId: string) => {
+      const blob = JSON.parse(loadPalace(ctx.db, palace.id)!.palace.editorSnapshot!);
+      const store = (blob.document ?? blob).store as Record<string, { meta?: { mpEdgeId?: string }; props?: Record<string, unknown> }>;
+      return Object.values(store).find((r) => r.meta?.mpEdgeId === edgeId)!.props!;
+    };
+    expect(arrowProps(link.id)).toMatchObject({ dash: "dashed", color: "orange", arrowheadStart: "none", arrowheadEnd: "none" });
+
+    // A confusion link takes no CAST; an alias change keeps its look.
+    await expect(
+      edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, cast: { who: "Mermaid" } }),
+    ).rejects.toThrow(/no CAST/);
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, alias: "look-alikes" });
+    expect(arrowProps(link.id)).toMatchObject({ dash: "dashed", arrowheadEnd: "none" });
+
+    // Turning it back into a CAST edge restyles it; turning the CAST edge into a second link is refused.
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, kind: "cast" });
+    expect(arrowProps(link.id)).toMatchObject({ dash: "solid", color: "violet", arrowheadEnd: "arrow" });
+    expect(loadPalace(ctx.db, palace.id)!.edges.every((e) => e.kind !== "confusion")).toBe(true);
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, kind: "confusion" });
+    const castEdge = listed.find((e) => e.kind === "cast")!;
+    await expect(edges.edgeUpdate(ctx, { palace: palace.id, edge: castEdge.id, kind: "confusion" })).rejects.toThrow(
+      /already linked as a confusion/,
+    );
+
+    // The DSL export writes the pair once.
+    const exported = palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl;
+    expect(exported.match(/^<>/gm)).toHaveLength(1);
+  });
+
   function palaceCreateHelper() {
     return palaces.palaceCreate(ctx, { name: "Test Palace" });
   }

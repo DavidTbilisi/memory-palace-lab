@@ -27,6 +27,15 @@ describe("detectMotifs", () => {
     expect(cascades[0]?.nodeIds).toEqual(["a", "b", "c", "d", "e"]);
   });
 
+  it("ignores confusion links, which say two nodes look alike and not that one leads to the other", () => {
+    const chain = [edge("a", "b"), edge("b", "c"), edge("c", "d"), edge("d", "e")];
+    const withLoop = detectMotifs({
+      nodes: nodes("a", "b", "c", "d", "e"),
+      edges: [...chain, { ...edge("e", "a"), kind: "confusion" }],
+    });
+    expect(withLoop).toEqual(detectMotifs({ nodes: nodes("a", "b", "c", "d", "e"), edges: chain }));
+  });
+
   it("does not report cascades shorter than 3 hops", () => {
     // a → b → c is only 2 hops — below threshold.
     const motifs = detectMotifs({

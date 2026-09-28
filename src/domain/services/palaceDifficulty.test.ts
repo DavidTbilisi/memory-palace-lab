@@ -56,6 +56,13 @@ describe("computePalaceDifficulty", () => {
     expect(d.byNodeId.get("c")!.result.needs).toEqual(["b"]);
   });
 
+  it("does not count a confusion link as a prerequisite", () => {
+    const confusion: MemoryEdge = { ...edge("e3", "c", "a"), kind: "confusion" };
+    const d = computePalaceDifficulty(nodes, [...edges, confusion], []);
+    expect(d.byNodeId.get("a")!.result.needs).toEqual([]);
+    expect(d.byNodeId.get("a")!.result).toEqual(computePalaceDifficulty(nodes, edges, []).byNodeId.get("a")!.result);
+  });
+
   it("scores every node and rolls up the palace", () => {
     const d = computePalaceDifficulty(nodes, edges, []);
     expect(d.nodes).toHaveLength(3);

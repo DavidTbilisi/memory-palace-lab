@@ -810,6 +810,20 @@ export function NodeInspector() {
     const source = resolveNodeSummary(editorRef, resolvedEdge.sourceNodeId, snapshotNodes);
     const target = resolveNodeSummary(editorRef, resolvedEdge.targetNodeId, snapshotNodes);
 
+    if (meta.mpEdgeKind === "confusion") {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-orange-300">Confusion link</div>
+          <p className="text-xs leading-5 text-zinc-400">
+            {source.title} and {target.title} are easy to mix up. The link has no direction and no CAST meaning; a
+            node's Distinguisher card asks which of the two it is. Delete the arrow to unlink them.
+          </p>
+          <ReadOnlyMetaField id="mp-edge-source" label="Between" value={source.title} subvalue={source.id} />
+          <ReadOnlyMetaField id="mp-edge-target" label="And" value={target.title} subvalue={target.id} />
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">

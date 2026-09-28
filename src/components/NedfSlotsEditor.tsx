@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useValue } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
+import { canvasConfusionEdges, linkConfusion, unlinkConfusion } from "../canvas/confusionLinks";
+import { confusionNeighbours } from "../domain/services/confusion";
+import { useCanvasNodeTitles } from "./hooks/useCanvasNodeTitles";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { writeNodeNedf } from "../canvas/writeNodeNedf";
 import { NEDF_SLOTS, type NedfEncoding, type NedfSlot } from "../domain/entities/types";
@@ -60,6 +64,80 @@ function NedfSquare({ filled }: { filled: readonly NedfSlot[] }) {
         <span key={slot} className={cn("rounded-[1px]", filled.includes(slot) ? "bg-emerald-400" : "bg-zinc-900")} />
       ))}
     </span>
+  );
+}
+
+const EMPTY_NEIGHBOURS: string[] = [];
+
+/**
+ * The nodes this one is confused with. Naming the neighbour is what turns the Distinguisher into
+ * a discrimination card ("Which is it: A or B?"), so the picker sits beside it.
+ */
+function ConfusedWithPicker({ nodeId }: { nodeId: string }) {
+  const editorRef = usePalaceStore((s) => s.editorRef);
+  const palaceId = usePalaceStore((s) => s.currentPalace?.id ?? null);
+  const titles = useCanvasNodeTitles(editorRef);
+  const neighbours = useValue(
+    "confusion neighbours",
+    () => (editorRef ? confusionNeighbours(canvasConfusionEdges(editorRef), nodeId) : EMPTY_NEIGHBOURS),
+    [editorRef, nodeId],
+  );
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => setMessage(null), [nodeId]);
+
+  const candidates = useMemo(
+    () =>
+      [...titles.entries()]
+        .filter(([id]) => id !== nodeId && !neighbours.includes(id))
+        .sort((a, b) => a[1].localeCompare(b[1])),
+    [titles, nodeId, neighbours],
+  );
+
+  const link = (otherId: string) => {
+    if (!editorRef || !palaceId || !otherId) return;
+    const result = linkConfusion(editorRef, palaceId, nodeId, otherId);
+    setMessage(result.ok ? null : result.message);
+  };
+
+  return (
+    <div className="mt-2 space-y-1">
+      {neighbours.length > 0 ? (
+        <ul aria-label="Confused with" className="flex flex-wrap gap-1">
+          {neighbours.map((id) => (
+            <li
+              key={id}
+              className="flex items-center gap-1 rounded border border-orange-700/60 bg-orange-950/40 px-1.5 py-0.5 text-[11px] text-orange-100"
+            >
+              <span>≈ {titles.get(id) ?? "Untitled"}</span>
+              <button
+                type="button"
+                aria-label={`Stop marking as confused with ${titles.get(id) ?? "Untitled"}`}
+                className="text-orange-300 hover:text-orange-100"
+                onClick={() => editorRef && unlinkConfusion(editorRef, nodeId, id)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {candidates.length > 0 ? (
+        <select
+          aria-label="Confused with"
+          className="block w-full rounded-md border border-zinc-700 bg-zinc-900/70 px-2 py-1 text-xs text-zinc-200"
+          value=""
+          onChange={(event) => link(event.target.value)}
+        >
+          <option value="">Confused with…</option>
+          {candidates.map(([id, title]) => (
+            <option key={id} value={id}>
+              {title}
+            </option>
+          ))}
+        </select>
+      ) : null}
+      {message ? <p className="text-[10px] text-amber-300">{message}</p> : null}
+    </div>
   );
 }
 
@@ -189,6 +267,7 @@ export function NedfSlotsEditor({ nodeId }: { nodeId: string }) {
             <p className="mt-0.5 text-[10px] text-zinc-500">
               {status("distinguisher", pairStatus(draft.prompt, draft.reason, "Needs the question too", "Needs the reason too"))}
             </p>
+            <ConfusedWithPicker nodeId={nodeId} />
           </fieldset>
           <fieldset>
             <legend className="text-sm font-medium text-zinc-200">Failure</legend>

@@ -16,6 +16,25 @@ describe("CastEdgeDialog", () => {
     expect(screen.getByText(/what is moving across the edge/i)).toBeInTheDocument();
   });
 
+  it("creates a confusion link instead of an edge when marked as confusion", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={onConfirm} />);
+
+    await user.click(screen.getByRole("button", { name: "Mark as confusion" }));
+    expect(screen.queryByLabelText(/Tier 1 edge verb/i)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Create confusion link" }));
+    expect(onConfirm).toHaveBeenCalledWith({ kind: "confusion" });
+  });
+
+  it("refuses a second confusion link on a pair that has one", async () => {
+    const user = userEvent.setup();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={vi.fn()} confusionLinked />);
+    await user.click(screen.getByRole("button", { name: "Mark as confusion" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("already linked as a confusion");
+    expect(screen.getByRole("button", { name: "Create confusion link" })).toBeDisabled();
+  });
+
   it("warns when a Tier 1 verb collides with a sibling edge", async () => {
     const user = userEvent.setup();
     render(

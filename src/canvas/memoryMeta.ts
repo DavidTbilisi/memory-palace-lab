@@ -36,6 +36,8 @@ export type MemoryPalaceMeta = {
   mpPortalNodeId?: string;
   mpSourceNodeId?: string;
   mpTargetNodeId?: string;
+  /** On an arrow: "confusion" marks a confusion link; absent or `null` is an ordinary CAST edge. */
+  mpEdgeKind?: "confusion" | null;
   castAb?: string;
   castCd?: string;
   castEf?: string;

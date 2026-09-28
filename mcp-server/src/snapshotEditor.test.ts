@@ -1,6 +1,7 @@
 import type { Editor } from "@tldraw/editor";
 import { describe, expect, it } from "vitest";
 import {
+  createConfusionLink,
   createGeoMemoryNode,
   createMemoryArrow,
 } from "../../src/canvas/createMemoryShapes";
@@ -109,6 +110,36 @@ describe("SnapshotEditor", () => {
     expect(edge.castAb).toBe("Giant");
 
     expect(snap.palace.editorSnapshot).toBe(editor.serialize());
+  });
+
+  it("draws a confusion link dashed amber and unlabelled, and projects its kind into the rows", async () => {
+    const baseline = await createBaselineSnapshotJson();
+    const editor = new SnapshotEditor(baseline);
+    const a = createGeoMemoryNode(asEditor(editor), PALACE.id, { x: 200, y: 200 }, { title: "Affect" });
+    const b = createGeoMemoryNode(asEditor(editor), PALACE.id, { x: 500, y: 200 }, { title: "Effect" });
+    createMemoryArrow(asEditor(editor), PALACE.id, a.shapeId, b.shapeId, a.nodeId, b.nodeId, {
+      ab: "Giant",
+      cd: "Crushing",
+      ef: "Rock",
+      gh: "Red cave",
+      label: "drives",
+    });
+    const link = createConfusionLink(asEditor(editor), PALACE.id, a.shapeId, b.shapeId, a.nodeId, b.nodeId)!;
+
+    const store = await loadIntoRealStore(editor.serialize());
+    const arrow = store
+      .allRecords()
+      .find((r) => r.typeName === "shape" && (r as { meta: { mpEdgeId?: string } }).meta.mpEdgeId === link.edgeId) as
+      | { props: Record<string, unknown>; meta: Record<string, unknown> }
+      | undefined;
+    expect(arrow?.props).toMatchObject({ dash: "dashed", color: "orange", arrowheadStart: "none", arrowheadEnd: "none" });
+    expect(arrow?.meta.mpEdgeKind).toBe("confusion");
+    // It curves away from the CAST edge already joining the pair.
+    expect(arrow?.props.bend).not.toBe(0);
+
+    const snap = buildRowsFromShapes(editor, PALACE, [], []);
+    expect(snap.edges.find((e) => e.id === link.edgeId)!.kind).toBe("confusion");
+    expect(snap.edges.find((e) => e.id !== link.edgeId)!).not.toHaveProperty("kind");
   });
 
   it("projects an image node into rows and lets it take an edge", async () => {

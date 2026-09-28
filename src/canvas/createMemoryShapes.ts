@@ -2,7 +2,7 @@ import type { Editor } from "@tldraw/editor";
 import { createShapeId } from "@tldraw/editor";
 import type { TLImageShape, TLShapeId } from "@tldraw/tlschema";
 import { toRichText } from "@tldraw/tlschema";
-import type { MemoryNodeKind, PalacePortalRef } from "../domain/entities/types";
+import type { EdgeKind, MemoryNodeKind, PalacePortalRef } from "../domain/entities/types";
 import { CAST_WHO } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { applyPortalRefToMeta, nodeKindProps } from "./palacePortal";
@@ -11,6 +11,24 @@ function arrowheadsFromCastWho(role: string): { start: "none" | "arrow"; end: "n
   // Mermaid encodes peer/mutual relation, so render as bidirectional.
   if (role === CAST_WHO[1]) return { start: "arrow", end: "arrow" };
   return { start: "none", end: "arrow" };
+}
+
+export type MemoryArrowStyle = {
+  color: "violet" | "orange";
+  dash: "solid" | "dashed";
+  arrowheadStart: "none" | "arrow";
+  arrowheadEnd: "none" | "arrow";
+};
+
+/**
+ * How a memory arrow looks. A CAST edge is solid violet with heads from its C slot; a confusion
+ * link is dashed amber with no heads, since "A looks like B" has no direction. Every path that
+ * restyles an arrow goes through here so a confusion link keeps its look.
+ */
+export function memoryArrowStyle(kind: EdgeKind | null | undefined, castWho: string): MemoryArrowStyle {
+  if (kind === "confusion") return { color: "orange", dash: "dashed", arrowheadStart: "none", arrowheadEnd: "none" };
+  const heads = arrowheadsFromCastWho(castWho);
+  return { color: "violet", dash: "solid", arrowheadStart: heads.start, arrowheadEnd: heads.end };
 }
 
 function pairedArrowBendMagnitude(
@@ -54,6 +72,7 @@ function reservePairedArrowCurve(
     if (!shape || shape.type !== "arrow") continue;
     const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
     if (meta.mpSourceNodeId !== targetNodeId || meta.mpTargetNodeId !== sourceNodeId) continue;
+    if (meta.mpEdgeKind === "confusion") continue; // keeps its own curve
 
     editor.updateShape({
       id: shape.id,
@@ -68,6 +87,50 @@ function reservePairedArrowCurve(
   }
 
   return paired ? bend : 0;
+}
+
+/**
+ * A confusion link curves away when a CAST edge already joins the pair, so the two stay apart;
+ * it never moves the CAST edge.
+ */
+function confusionLinkBend(
+  editor: Editor,
+  sourceNodeId: string,
+  targetNodeId: string,
+  fromBounds: { x: number; y: number; w: number; h: number },
+  toBounds: { x: number; y: number; w: number; h: number },
+) {
+  for (const currentShapeId of editor.getCurrentPageShapeIds()) {
+    const shape = editor.getShape(currentShapeId);
+    if (!shape || shape.type !== "arrow") continue;
+    const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+    const joins =
+      (meta.mpSourceNodeId === sourceNodeId && meta.mpTargetNodeId === targetNodeId) ||
+      (meta.mpSourceNodeId === targetNodeId && meta.mpTargetNodeId === sourceNodeId);
+    if (joins) return -pairedArrowBendMagnitude(fromBounds, toBounds) * pairedArrowBendDirection(fromBounds, toBounds);
+  }
+  return 0;
+}
+
+/** Draw a confusion link: an unlabelled, dashed amber arc between two look-alike nodes. */
+export function createConfusionLink(
+  editor: Editor,
+  palaceId: string,
+  fromShapeId: string,
+  toShapeId: string,
+  sourceNodeId: string,
+  targetNodeId: string,
+) {
+  return createMemoryArrow(
+    editor,
+    palaceId,
+    fromShapeId,
+    toShapeId,
+    sourceNodeId,
+    targetNodeId,
+    { ab: "", cd: "", ef: "", gh: "" },
+    { kind: "confusion" },
+  );
 }
 
 type CreateGeoMemoryNodeOptions = {
@@ -269,7 +332,9 @@ export function createMemoryArrow(
   sourceNodeId: string,
   targetNodeId: string,
   cast: { ab: string; cd: string; ef: string; gh: string; label?: string },
+  options: { kind?: EdgeKind } = {},
 ) {
+  const confusion = options.kind === "confusion";
   const b1 = editor.getShapePageBounds(fromShapeId as TLShapeId);
   const b2 = editor.getShapePageBounds(toShapeId as TLShapeId);
   if (!b1 || !b2) return null;
@@ -292,9 +357,12 @@ export function createMemoryArrow(
     castCd: cast.cd,
     castEf: cast.ef,
     castGh: cast.gh,
+    ...(confusion ? { mpEdgeKind: "confusion" as const } : {}),
   };
-  const arrowheads = arrowheadsFromCastWho(cast.ab);
-  const bend = reservePairedArrowCurve(editor, sourceNodeId, targetNodeId, b1, b2);
+  const style = memoryArrowStyle(options.kind, cast.ab);
+  const bend = confusion
+    ? confusionLinkBend(editor, sourceNodeId, targetNodeId, b1, b2)
+    : reservePairedArrowCurve(editor, sourceNodeId, targetNodeId, b1, b2);
 
   editor.createShape({
     id: shapeId,
@@ -305,17 +373,17 @@ export function createMemoryArrow(
     props: {
       kind: "arc",
       labelColor: "black",
-      color: "violet",
+      color: style.color,
       fill: "none",
-      dash: "solid",
+      dash: style.dash,
       size: "m",
-      arrowheadStart: arrowheads.start,
-      arrowheadEnd: arrowheads.end,
+      arrowheadStart: style.arrowheadStart,
+      arrowheadEnd: style.arrowheadEnd,
       font: "draw",
       start: { x: ax, y: ay },
       end: { x: bx, y: by },
       bend,
-      richText: toRichText(cast.label ?? ""),
+      richText: toRichText(confusion ? "" : (cast.label ?? "")),
       labelPosition: 0.5,
       scale: 1,
       elbowMidPoint: 0.5,
