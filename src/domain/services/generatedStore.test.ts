@@ -6,8 +6,10 @@ import {
   fourLevelBlockSlots,
   isStoreNodeFilled,
   normalizeAddress,
+  numberClusterSlots,
   parseStore,
   serializeStore,
+  type NumberClusterInput,
 } from "./generatedStore";
 
 describe("four-level block slots", () => {
@@ -79,5 +81,70 @@ describe("store helpers", () => {
     expect(isStoreNodeFilled({ ...empty, imageUrl: "data:x" })).toBe(true);
     expect(isStoreNodeFilled({ ...empty, hasNedf: true })).toBe(true);
     expect(isStoreNodeFilled({ ...empty, hasAttributes: true })).toBe(true);
+  });
+});
+
+describe("table of support images", () => {
+  const hedgehog: NumberClusterInput = {
+    number: 47,
+    image: "hedgehog",
+    associations: ["apple", "orchard", " "],
+    parts: [["stem", "skin", "core"], ["gate", "", "ladder"], ["", "", ""]],
+  };
+  const slots = numberClusterSlots(hedgehog);
+  const at = (address: string) => slots.find((s) => s.address === address)!;
+
+  it("gives a number its image, three chained images and nine cells, cells 1-3 under image a", () => {
+    expect(slots.map((s) => [s.role, s.address])).toEqual([
+      ["number", "47"],
+      ["image", "47.a"], ["cell", "47.1"], ["cell", "47.2"], ["cell", "47.3"],
+      ["image", "47.b"], ["cell", "47.4"], ["cell", "47.5"], ["cell", "47.6"],
+      ["image", "47.c"], ["cell", "47.7"], ["cell", "47.8"], ["cell", "47.9"],
+    ]);
+    expect(at("47.1").x).toBe(at("47.a").x);
+    expect(at("47.4").x).toBe(at("47.b").x);
+    expect(at("47.3").y).toBeGreaterThan(at("47.1").y);
+  });
+
+  it("titles nodes with what the learner wrote, and keeps a placeholder for anything blank", () => {
+    expect([at("47"), at("47.a"), at("47.c"), at("47.1"), at("47.5"), at("47.9")].map((s) => s.title)).toEqual([
+      "hedgehog", "apple", "47 · image c", "stem", "47.5", "47.9",
+    ]);
+    expect(at("47.1").placeholder).toBe("47.1");
+  });
+
+  it("places each number on a 10 × 10 grid by its digits, and no two nodes in the table overlap", () => {
+    const zero = numberClusterSlots({ ...hedgehog, number: 0 });
+    const seven = numberClusterSlots({ ...hedgehog, number: 7 });
+    const forty = numberClusterSlots({ ...hedgehog, number: 40 });
+    expect(zero[0]!.address).toBe("00");
+    expect(seven[0]!.y).toBe(zero[0]!.y);
+    expect(seven[0]!.x).toBeGreaterThan(zero[0]!.x);
+    expect(slots[0]!.x).toBe(seven[0]!.x);
+    expect(slots[0]!.y).toBe(forty[0]!.y);
+    expect(forty[0]!.y).toBeGreaterThan(zero[0]!.y);
+
+    const all = Array.from({ length: 100 }, (_, n) => numberClusterSlots({ ...hedgehog, number: n })).flat();
+    const boxes = all.map((s) => ({ l: s.x - s.w / 2, r: s.x + s.w / 2, t: s.y - s.h / 2, b: s.y + s.h / 2 }));
+    const sorted = boxes.map((box, i) => ({ ...box, i })).sort((a, b) => a.l - b.l);
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length && sorted[j]!.l < sorted[i]!.r; j++) {
+        const [a, b] = [sorted[i]!, sorted[j]!];
+        expect(a.t < b.b && b.t < a.b, `${all[a.i]!.address} / ${all[b.i]!.address}`).toBe(false);
+      }
+    }
+  });
+
+  it("reads a table address with its number zero-padded", () => {
+    expect(["47.3", "47 3", "473", "47/3"].map((a) => normalizeAddress(a, "support-table"))).toEqual(Array(4).fill("47.3"));
+    expect(normalizeAddress("7.3", "support-table")).toBe("07.3");
+    expect(normalizeAddress("47", "support-table")).toBe("47");
+    expect(normalizeAddress("5", "support-table")).toBe("05");
+    expect(["47.0", "100.1", "4.7.3", "ab"].map((a) => normalizeAddress(a, "support-table"))).toEqual([null, null, null, null]);
+  });
+
+  it("round-trips a table store", () => {
+    const table = { kind: "support-table" as const, generatedAt: "2026-09-28T10:00:00.000Z" };
+    expect(parseStore(serializeStore(table))).toEqual(table);
   });
 });

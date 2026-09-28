@@ -90,3 +90,53 @@ test("a four-level block is generated, reached by address, filled, and regenerat
   await expect.poll(async () => (await storeState(page, "3.2.4")).cell).toEqual({ title: "3.2.4", address: "3.2.4" });
   await expect(panel.getByTestId("store-fill")).toHaveText("0 of 125 cells filled");
 });
+
+test("a table of support images grows one number at a time, and rewriting a number keeps what a cell holds", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Generate store" }).click();
+  await page.getByRole("region", { name: "Generate store" }).getByRole("button", { name: "Generate table" }).click();
+  await expect(page.getByRole("heading", { name: "Table of support images" })).toBeVisible();
+  const panel = page.getByRole("region", { name: "Store", exact: true });
+  await expect(panel.getByTestId("store-fill")).toHaveText("0 of 100 numbers · 0 of 0 cells filled");
+
+  await panel.getByRole("button", { name: "Add number" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a number" });
+  await dialog.getByLabel("Number", { exact: true }).fill("47");
+  await dialog.getByLabel("Number image").fill("hedgehog");
+  await dialog.getByLabel("Image a", { exact: true }).fill("apple");
+  await dialog.getByLabel("Cell 47.1").fill("stem");
+  await dialog.getByLabel("Cell 47.3").fill("core");
+  await dialog.getByRole("button", { name: "Add 47" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect.poll(async () => (await storeState(page, "47.3")).nodes).toBe(13);
+  expect((await storeState(page, "47.3")).cell).toEqual({ title: "core", address: "47.3" });
+  expect((await storeState(page, "47.5")).cell).toEqual({ title: "47.5", address: "47.5" });
+  await expect(panel.getByTestId("store-fill")).toHaveText("1 of 100 numbers · 0 of 9 cells filled");
+
+  // Straight to a cell; renaming it from its part makes it the learner's.
+  const goTo = page.getByLabel("Go to address");
+  await goTo.fill("473");
+  await goTo.press("Enter");
+  await openNodeTab(page);
+  await expect(page.locator("#mp-store-address")).toHaveText("47.3");
+  await editSelectedNode(page, { title: "Sodium" });
+  await expect(panel.getByTestId("store-fill")).toHaveText("1 of 100 numbers · 1 of 9 cells filled");
+
+  // Editing the number loads what it holds, and asks before touching the filled cell.
+  await panel.getByRole("button", { name: "Add number" }).click();
+  await dialog.getByLabel("Number", { exact: true }).fill("47");
+  await expect(dialog.getByLabel("Number image")).toHaveValue("hedgehog");
+  await expect(dialog.getByLabel("Cell 47.3")).toHaveValue("Sodium");
+  await dialog.getByLabel("Image a", { exact: true }).fill("pear");
+  await dialog.getByRole("button", { name: "Save 47" }).click();
+  const confirm = dialog.getByRole("alertdialog", { name: "Rewrite number" });
+  await expect(confirm).toContainText("1 node of 47 holds your material");
+  await confirm.getByRole("button", { name: "Keep them" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  expect((await storeState(page, "47.3")).cell).toEqual({ title: "Sodium", address: "47.3" });
+  await expect.poll(async () => (await storeState(page, "47.a")).cell).toEqual({ title: "pear", address: "47.a" });
+  expect((await storeState(page, "47.3")).nodes).toBe(13);
+});

@@ -158,6 +158,14 @@ function resolvePortalDraft(meta: MemoryPalaceMeta, snapshotNodes: MemoryNode[])
   };
 }
 
+const STORE_ROLE_HINTS: Record<NonNullable<MemoryPalaceMeta["mpStoreRole"]>, string> = {
+  cell: "A cell: rename it and fill it freely, it keeps this address.",
+  sticker: "A sticker: rename it to your own image. Its five parts are the cells below it.",
+  theme: "The block's theme image.",
+  number: "Your image for this number. Edit the number from the store panel to change its cells.",
+  image: "An image the number brings to mind. Its three parts are the cells below it.",
+};
+
 function ReadOnlyMetaField({ id, label, value, subvalue }: { id: string; label: string; value: string; subvalue?: string }) {
   return (
     <div>
@@ -689,13 +697,7 @@ export function NodeInspector() {
             id="mp-store-address"
             label="Store address"
             value={meta.mpAddress ?? "Theme (not addressed)"}
-            subvalue={
-              meta.mpStoreRole === "cell"
-                ? "A cell: rename it and fill it freely, it keeps this address."
-                : meta.mpStoreRole === "sticker"
-                  ? "A sticker: rename it to your own image. Its five parts are the cells below it."
-                  : "The block's theme image."
-            }
+            subvalue={STORE_ROLE_HINTS[meta.mpStoreRole]}
           />
         ) : null}
 

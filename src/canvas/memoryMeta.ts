@@ -24,6 +24,8 @@ export type MemoryPalaceMeta = {
   /** In a generated store: where the node is found ("2.3.4"), and what part it plays. */
   mpAddress?: string;
   mpStoreRole?: StoreRole;
+  /** The title a store node was generated with; a node still titled this holds nothing of the learner's yet. */
+  mpPlaceholder?: string;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;
