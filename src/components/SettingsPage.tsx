@@ -122,6 +122,8 @@ type UpdateUi =
 export function SettingsPage() {
   const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
   const setDailyReviewGoal = usePalaceStore((s) => s.setDailyReviewGoal);
+  const wakeTime = usePalaceStore((s) => s.wakeTime);
+  const setWakeTime = usePalaceStore((s) => s.setWakeTime);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const loadAARRecords = usePalaceStore((s) => s.loadAARRecords);
   const palaces = usePalaceStore((s) => s.palaces);
@@ -277,7 +279,7 @@ export function SettingsPage() {
         <Section
           icon={Target}
           title="Review"
-          blurb="How many loci you aim to review per day. The Review page tracks progress against it."
+          blurb="How many loci you aim to review per day, and when you wake. Material from a Storm is first reviewed at your wake time, after you have slept on it."
         >
           <div className="flex items-center gap-2">
             <Label
@@ -298,6 +300,18 @@ export function SettingsPage() {
                 if (event.key === "Enter") commitGoal();
               }}
               className="h-8 w-24 text-xs"
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Label htmlFor="settings-wake-time" className="text-xs text-zinc-400">
+              Wake time
+            </Label>
+            <Input
+              id="settings-wake-time"
+              type="time"
+              value={wakeTime}
+              onChange={(event) => setWakeTime(event.target.value)}
+              className="h-8 w-28 text-xs"
             />
           </div>
         </Section>

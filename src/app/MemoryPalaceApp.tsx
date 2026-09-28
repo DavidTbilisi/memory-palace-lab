@@ -38,6 +38,7 @@ import {
 import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
 import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
 import { SessionSummaryModal } from "../components/SessionSummaryModal";
+import { StormSummaryModal } from "../components/StormSummaryModal";
 import { OnboardingPanel } from "../components/OnboardingPanel";
 import { buildPrimaryContextHint } from "../domain/services/contextualTips";
 import { usePalaceStore } from "../store/palaceStore";
@@ -740,6 +741,7 @@ export function MemoryPalaceApp() {
         onReviewAnother={() => setCurrentPage("review")}
         onBackToPalace={() => setCurrentPage("graph")}
       />
+      <StormSummaryModal />
     </div>
   );
 }
