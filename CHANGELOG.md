@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.19.0 — 2026-09-28
+
+### Storm sessions
+
+- **Run a Storm.** The daily reviews are the slow, steady part of learning, the Siege. A Storm is the other part: one big push of new material. Start one from the Review page with a target, typed in or picked from presets (100, 200, 400, 700, 1000). The app remembers your last target. The Storm runs in the open palace, on a new route of its own, such as **Storm · 28 Sep**.
+- **Follow it on the canvas.** While a Storm runs, a bar above the canvas shows how many new nodes you have encoded against the target, a progress bar, your active time and, after the first minute, your rate per hour. Active time leaves out the time you were away. **Stop** ends the Storm early.
+- **Everything you encode goes into the review queue.** Each new node you encode becomes the next stop on the Storm's route. Its first review is due at your wake time after the next night, not 24 hours later, so you sleep on it before it is tested. A node encoded late in the evening, or after midnight, is due that same morning. Set your wake time in **Settings › Review**. It defaults to 07:00.
+- **See how it went.** When the Storm reaches its target or you stop it, a summary shows what you encoded against the target, your active time and rate, and when the stops are first due. **Personal best** is marked when you beat every earlier Storm.
+
+### Keeping Storm and daily reviews apart
+
+- **The daily goal and streak count daily reviews only.** A burst of reviews during a Storm no longer meets the goal or keeps a streak by itself. When there were Storm reviews today, the Review page says how many were left out.
+- **Retention by phase.** In Insights, the retention chart and heatmap can show **Siege and Storm**, **Siege only** or **Storm only**.
+- **Storm records.** A new card in Insights shows the most you have encoded in a Storm, your fastest rate, and your last five Storms.
+- **Speed bands leave Storms out.** The Fast / Typical / Slow bands describe your ordinary encoding, so encodes made during a Storm, which is fast on purpose, don't shift them.
+- **METER.** A finished Storm is sent to METER as an encoding event, `palace.storm_completed`, counting the nodes encoded.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.18 or older, update it too. An older version does not know Storm events, so it counts Storm reviews toward the daily goal and streak, and it shows no Storm records.
+
 ## v0.18.0 — 2026-09-27
 
 ### Attribute channels
