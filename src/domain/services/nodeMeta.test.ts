@@ -29,6 +29,11 @@ describe("node meta codec", () => {
     expect(decodeNodeMeta('{"portal":null,"imageUrl":null,"storeRole":"tower"}')).toEqual({ portal: null, imageUrl: null });
   });
 
+  it("round-trips a concept glyph and drops one that is not a single symbol", () => {
+    expect(decodeNodeMeta(encodeNodeMeta({ portal: null, imageUrl: null, glyph: "👁️" }))).toEqual({ portal: null, imageUrl: null, glyph: "👁️" });
+    expect(encodeNodeMeta({ portal: null, imageUrl: null, glyph: "ab" })).toBe('{"portal":null,"imageUrl":null}');
+  });
+
   it("writes a plain node as before, without an nedf key", () => {
     expect(encodeNodeMeta({ portal: null, imageUrl: null })).toBe('{"portal":null,"imageUrl":null}');
     expect(encodeNodeMeta({ portal: null, imageUrl: null, nedf: { essence: "  " } })).toBe(

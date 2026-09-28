@@ -62,6 +62,7 @@ export function buildPalaceSnapshot(
           attributes: normalizeAttributes(m.mpAttributes),
           address: m.mpAddress ?? null,
           storeRole: m.mpStoreRole ?? null,
+          glyph: m.mpGlyph ?? null,
         });
       }
     }
