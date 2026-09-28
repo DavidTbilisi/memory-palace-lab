@@ -10,6 +10,7 @@ import {
   type UmtfChannel,
 } from "../../entities/types";
 import { attributeWarnings, type AttributeWarningKind } from "../attributes";
+import { checkGlyph, glyphHolder, glyphTakenMessage } from "../conceptGlyph";
 import { normalizeNedf } from "../nedf";
 import { parseCast } from "./cast";
 import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
@@ -69,6 +70,7 @@ type ClassifiedLine =
   | { type: "atlas"; path: string }
   | { type: "portal"; target: string }
   | { type: "image"; url: string }
+  | { type: "glyph"; glyph: string }
   | { type: "nedf"; letter: "N" | "E" | "D" | "F"; text: string }
   | { type: "attribute"; text: string }
   | { type: "body"; text: string }
@@ -103,6 +105,9 @@ function classify(body: string): ClassifiedLine {
   }
   if (body.startsWith("@image")) {
     return { type: "image", url: body.slice("@image".length).trim() };
+  }
+  if (/^@glyph(\s|$)/.test(body)) {
+    return { type: "glyph", glyph: body.slice("@glyph".length).trim() };
   }
   // NEDF slots. Only under a node: the parse loop reads one before any node as a palace
   // header, so a palace called "N Queens" keeps its `@N Queens` header.
@@ -719,6 +724,7 @@ export function parseDsl(text: string): DslParseResult {
           imageUrl: null,
           nedf: null,
           attributes: null,
+          glyph: null,
           tags: [],
           structuredTags: [],
           edges: [],
@@ -1013,6 +1019,31 @@ export function parseDsl(text: string): DslParseResult {
         }
         currentNode.imageUrl = cl.url || null;
         break;
+
+      case "glyph": {
+        if (!currentNode) {
+          diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "@glyph must appear under a node");
+          break;
+        }
+        const check = checkGlyph(cl.glyph);
+        if ("error" in check) {
+          diag(diagnostics, "error", "glyph-invalid", num, 1, body.length, check.error);
+          break;
+        }
+        // The first node to claim a glyph keeps it; a later one is warned and goes without.
+        const holder = glyphHolder(
+          snapshot.nodes.map((n) => ({ id: n.implicitId, title: n.title, glyph: n.glyph })),
+          check.glyph,
+          currentNode.implicitId,
+        );
+        if (holder) {
+          diag(diagnostics, "warning", "glyph-duplicate", num, 1, body.length,
+            `${glyphTakenMessage(check.glyph, holder)} ${currentNode.title} keeps no glyph.`);
+          break;
+        }
+        currentNode.glyph = check.glyph;
+        break;
+      }
 
       case "query-decl": {
         const { verb, args } = cl;

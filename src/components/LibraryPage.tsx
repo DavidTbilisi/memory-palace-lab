@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { writeNodeGlyph } from "../canvas/nodeGlyph";
+import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { APP_VERSION } from "../appVersion";
 import {
   BookOpen,
@@ -393,10 +395,11 @@ export function LibraryPage({
         }));
       })
       .finally(() => {
-        if (!cancelled)
-          setBodyLoadingId((current) =>
-            current === selectedEntry.id ? null : current,
-          );
+        // Not guarded by `cancelled`: storing the body re-runs this effect, whose cleanup would
+        // otherwise leave the flag set and the document stuck on "Loading document...".
+        setBodyLoadingId((current) =>
+          current === selectedEntry.id ? null : current,
+        );
       });
     return () => {
       cancelled = true;
@@ -472,6 +475,14 @@ export function LibraryPage({
             content: `<p>${selectedEntry.summary}</p><p>Source: Library › ${sectionLabel} › ${selectedEntry.title}</p>`,
           },
         );
+        // A node added from a wiki concept page adopts the page's glyph, unless another node here holds it.
+        if (selectedEntry.glyph) {
+          const nodeId = (editorRef.getShape(shapeId as TLShapeId)?.meta as MemoryPalaceMeta | undefined)?.mpNodeId;
+          const adopted = nodeId ? writeNodeGlyph(editorRef, nodeId, selectedEntry.glyph) : null;
+          if (adopted && !adopted.ok && nodeId) {
+            usePalaceStore.getState().setGlyphNotice({ nodeId, message: `${adopted.message} This node was added without it.` });
+          }
+        }
         editorRef.setSelectedShapes([shapeId as TLShapeId]);
         editorRef.zoomToSelectionIfOffscreen(96, { animation: { duration: 240 } });
         requestNavigation("graph");
