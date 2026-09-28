@@ -118,7 +118,7 @@ export interface MemoryNode {
   attributes?: NodeAttribute[] | null;
   /** In a generated store: the node's address and its part in the store. */
   address?: string | null;
-  storeRole?: "theme" | "sticker" | "cell" | null;
+  storeRole?: "theme" | "sticker" | "number" | "image" | "cell" | null;
 }
 
 export interface MemoryEdge {
