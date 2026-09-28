@@ -85,3 +85,45 @@ test("a Storm counts new nodes to its target and hands them to the queue, due af
   await summary.getByRole("button", { name: "Done" }).click();
   await expect(summary).toHaveCount(0);
 });
+
+test("Storm reviews stay out of the daily goal, and Insights keeps Storm records apart", async ({ page }) => {
+  await openTutorialPalace(page);
+  await page.evaluate(() => {
+    type Event = {
+      id: string; eventType: string; eventGroup: string; sessionId: string | null; palaceId: string | null;
+      routeId: string | null; nodeId: string | null; createdAt: string; payloadJson: string;
+    };
+    const store = (window as { __mp_store?: { getState: () => { analyticsEvents: Event[] }; setState: (s: object) => void } }).__mp_store!;
+    const now = new Date().toISOString();
+    const event = (id: string, eventType: string, payload: object): Event => ({
+      id, eventType, eventGroup: "review", sessionId: null, palaceId: null, routeId: null, nodeId: null, createdAt: now,
+      payloadJson: JSON.stringify(payload),
+    });
+    store.setState({
+      analyticsEvents: [
+        event("siege-1", "walk_recall_rated", { rating: "good" }),
+        ...[1, 2, 3].map((i) => event(`storm-${i}`, "walk_recall_rated", { rating: "good", phase: "storm" })),
+        event("storm-done", "storm_completed", {
+          count: 64, target: 100, activeMs: 40 * 60_000, ratePerHour: 96, routeName: "Storm · 1 Sep", personalBest: true, phase: "storm",
+        }),
+        ...store.getState().analyticsEvents,
+      ],
+    });
+  });
+
+  await page.locator('[data-nav-primary="review"]').click();
+  // One Siege review of the default goal of ten; the three Storm reviews are left out.
+  await expect(page.getByText(/^1\/10$/).first()).toBeVisible();
+  await expect(page.getByTestId("storm-reviews-note")).toHaveText(
+    "3 reviews during a Storm today are not counted: the goal measures the daily reviews.",
+  );
+
+  await page.getByRole("button", { name: /^Insights$/ }).click();
+  const records = page.getByRole("region", { name: "Storm records" });
+  await expect(records.getByTestId("storm-best-count")).toHaveText("64");
+  await expect(records.getByTestId("storm-best-rate")).toHaveText("96/h");
+  await expect(records.getByRole("row", { name: /Storm · 1 Sep/ })).toContainText("64 / 100");
+  await expect(page.getByLabel("Filter retention by phase")).toHaveValue("all");
+  await page.getByLabel("Filter retention by phase").selectOption("storm");
+  await expect(page.getByLabel("Filter retention by phase")).toHaveValue("storm");
+});
