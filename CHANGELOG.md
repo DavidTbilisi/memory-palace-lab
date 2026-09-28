@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.20.0 — 2026-09-28
+
+### Generated loci stores
+
+- **Palaces that lay themselves out.** A store is a palace the app builds for you, whose cells you find by address instead of walking to them. Choose **Generate store** in the sidebar. The app makes the structure and the addresses; every image in it is yours, starting as a placeholder you rename.
+- **Four-level block.** Give a theme and get a block: the theme, 5 branches of 5 stickers, and 125 cells addressed **1.1.1** to **5.5.5**, with each sticker's five cells stacked under it and arrows keeping each branch in order. Rename the stickers to your own images and fill the cells; a cell keeps its address whatever you put in it. The block also gets a route in address order, hidden and not in review until you turn it on.
+- **Table of support images.** Grow a table from your two-digit number images, one number at a time. **Add number** asks for your image for the number, three images that come to mind one from the next, and three parts of each. The nine parts become cells **47.1** to **47.9**, and each number takes its place on a 10 × 10 grid by its digits. Type a number the table already holds to edit it.
+- **Go to address.** In a store, the toolbar has a **Go to address** box: type **2.3.4** in a block, or **47.3** in a table, and the canvas jumps straight to that cell. Spaces or no dots work too, such as **3 2 4** or **473**. The command palette also finds cells by address.
+- **Stores look different.** A store has a **Store** badge in the sidebar and is drawn as a dashed square on the atlas map, so it isn't mistaken for a palace you walk. Selecting a store node shows its address in the inspector.
+- **Nothing you stored is overwritten without asking.** The store panel shows how many cells you have filled. **Regenerate** on a block puts every node back in its place and redraws any you deleted. Editing a number rewrites its cluster. Either way, if a node holds your material, the app asks first: keep it, or replace it. Undo reverses both.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.19 or older, update it too. An older version does not know about stores, so once it saves a store and that sync reaches your other devices, the store becomes an ordinary palace: its badge, panel and **Go to address** disappear. Its nodes and their content are kept.
+
 ## v0.19.0 — 2026-09-28
 
 ### Storm sessions
