@@ -5,6 +5,16 @@ const nodes = (...ids: string[]) => ids.map((id) => ({ id }));
 const edge = (sourceNodeId: string, targetNodeId: string) => ({ sourceNodeId, targetNodeId });
 
 describe("analyzeGraph", () => {
+  it("ignores confusion links in degrees, bridges, and the edge count", () => {
+    const plain = analyzeGraph({ nodes: nodes("a", "b", "c"), edges: [edge("a", "b")] });
+    const withConfusion = analyzeGraph({
+      nodes: nodes("a", "b", "c"),
+      edges: [edge("a", "b"), { ...edge("b", "c"), kind: "confusion" }],
+    });
+    expect(withConfusion).toEqual(plain);
+    expect(withConfusion.edgeCount).toBe(1);
+  });
+
   it("handles empty input", () => {
     const r = analyzeGraph({ nodes: [], edges: [] });
     expect(r.nodeCount).toBe(0);

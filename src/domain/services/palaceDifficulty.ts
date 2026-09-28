@@ -11,6 +11,7 @@
  * repetition state: a node whose locus has been reviewed enough counts as known.
  */
 import type { Locus, MemoryEdge, MemoryNode } from "../entities/types";
+import { meaningEdges } from "./confusion";
 import {
   DEFAULT_CAPACITY,
   DEFAULT_WALL,
@@ -142,7 +143,8 @@ export function computePalaceDifficulty(
   // prerequisites: predecessors in the directed edge graph (edge A→B ⇒ B needs A)
   const needsByNode = new Map<string, string[]>(nodes.map((n) => [n.id, []]));
   const inDegree = new Map<string, number>(nodes.map((n) => [n.id, 0]));
-  for (const e of edges) {
+  for (const e of meaningEdges(edges)) {
+    // A confusion link is not a prerequisite: telling A from B does not mean B needs A.
     if (!nodeIds.has(e.sourceNodeId) || !nodeIds.has(e.targetNodeId)) continue;
     if (e.sourceNodeId === e.targetNodeId) continue;
     const list = needsByNode.get(e.targetNodeId)!;

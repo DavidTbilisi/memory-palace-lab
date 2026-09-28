@@ -315,6 +315,7 @@ export function AnalyticsPanel() {
             edges: snap.edges.map((e) => ({
               sourceNodeId: e.sourceNodeId,
               targetNodeId: e.targetNodeId,
+              kind: e.kind,
             })),
           };
           const analysis = analyzeGraph(input);

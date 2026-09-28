@@ -181,6 +181,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       edges: (palaceEdges ?? []).map((e) => ({
         sourceNodeId: e.sourceNodeId,
         targetNodeId: e.targetNodeId,
+        kind: e.kind,
       })),
     });
     const map = motifRolesByNode(motifs);

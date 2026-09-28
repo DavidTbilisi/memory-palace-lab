@@ -16,6 +16,8 @@ import {
 } from "../domain/services/nedf";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
+import { canvasConfusionEdges } from "../canvas/confusionLinks";
+import { confusionNeighbours } from "../domain/services/confusion";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -138,6 +140,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const walkSlot = usePalaceStore((s) => s.walkSlot);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const snapshotNodes = usePalaceStore((s) => s.nodes);
+  const snapshotEdges = usePalaceStore((s) => s.edges);
 
   const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
   const currentRouteLoci = useMemo(
@@ -163,8 +166,22 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     [currentLocus?.nodeId, editorRef, snapshotNodes],
   );
 
+  // The node's confusion neighbour, named on its Distinguisher card. With several, the first by title.
+  const neighbourTitle = useMemo(() => {
+    const nodeId = currentLocus?.nodeId;
+    if (!nodeId) return undefined;
+    const edges = editorRef ? canvasConfusionEdges(editorRef) : snapshotEdges;
+    const titles = confusionNeighbours(edges, nodeId)
+      .map((id) => resolveCurrentNodeReviewState(id, editorRef, snapshotNodes).title)
+      .sort((a, b) => a.localeCompare(b));
+    return titles[0];
+  }, [currentLocus?.nodeId, editorRef, snapshotNodes, snapshotEdges]);
+
   // An NEDF step asks its slot's own question; a stop without slots keeps the classic cue.
-  const card = walkSlot && isSlotFilled(nodeState.nedf, walkSlot) ? nedfCardText(walkSlot, nodeState.nedf!, nodeState.title) : null;
+  const card =
+    walkSlot && isSlotFilled(nodeState.nedf, walkSlot)
+      ? nedfCardText(walkSlot, nodeState.nedf!, nodeState.title, neighbourTitle)
+      : null;
   const cueText = card
     ? card.cue
     : walkCueOnly

@@ -50,6 +50,7 @@ export function outgoingTargetNodeIds(editor: CountShapeEditor, nodeId: string):
   for (const id of editor.getCurrentPageShapeIds()) {
     const meta = editor.getShape(id)?.meta as MemoryPalaceMeta | undefined;
     if (!meta?.mpEdgeId || meta.mpSourceNodeId !== nodeId) continue;
+    if (meta.mpEdgeKind === "confusion") continue; // a look-alike, not a member
     const target = meta.mpTargetNodeId;
     if (target && target !== nodeId && !targets.includes(target)) targets.push(target);
   }

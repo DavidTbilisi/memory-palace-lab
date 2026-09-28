@@ -22,7 +22,7 @@ import {
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 
-type EdgeCastPayload = {
+export type EdgeCastPayload = {
   ab: string;
   cd: string;
   ef: string;
@@ -33,18 +33,23 @@ type EdgeCastPayload = {
   changedSlots: string[];
 };
 
+/** "Mark as confusion": link the two nodes as look-alikes instead of drawing a CAST edge. */
+export type ConfusionPayload = { kind: "confusion" };
+
 const CAST_SLOT_DEFAULTS = { ab: CAST_WHO[0], cd: CAST_HOW[0], ef: CAST_WHAT[0], gh: CAST_WHEN[0] } as const;
 
 type Props = {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onConfirm: (cast: EdgeCastPayload) => void;
+  onConfirm: (payload: EdgeCastPayload | ConfusionPayload) => void;
   /**
    * Tier-1 labels of other edges already leaving the same source node.
    * Used to warn about exact duplicates and confusable verbs from the same
    * Tier-1 group. Optional — the dialog still works without it.
    */
   siblingEdgeLabels?: readonly string[];
+  /** The two nodes already have a confusion link, so another cannot be made. */
+  confusionLinked?: boolean;
 };
 
 const DEFAULT_TIER1_VERB = "links";
@@ -76,8 +81,12 @@ function hasTier1Verb(verbs: string[], candidate: string) {
   return verbs.some((verb) => verb.toLowerCase() === key);
 }
 
-export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabels }: Props) {
+export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabels, confusionLinked }: Props) {
   const [tier, setTier] = React.useState<"tier1" | "tier2">("tier1");
+  const [markConfusion, setMarkConfusion] = React.useState(false);
+  React.useEffect(() => {
+    if (open) setMarkConfusion(false);
+  }, [open]);
   const [ab, setAb] = React.useState<string>(CAST_SLOT_DEFAULTS.ab);
   const [cd, setCd] = React.useState<string>(CAST_SLOT_DEFAULTS.cd);
   const [ef, setEf] = React.useState<string>(CAST_SLOT_DEFAULTS.ef);
@@ -210,11 +219,36 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
             >
               Tier 2 (Decoded CAST)
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={markConfusion ? "default" : "secondary"}
+              aria-pressed={markConfusion}
+              onClick={() => setMarkConfusion((value) => !value)}
+            >
+              Mark as confusion
+            </Button>
           </div>
           <div className="mt-2 rounded-md border border-zinc-700/70 bg-zinc-950/70 px-2 py-1.5 text-xs text-zinc-300">
             {activeHint}
           </div>
-          {tier === "tier1" ? (
+          {markConfusion ? (
+            <div
+              aria-label="Confusion link"
+              className="mt-4 rounded-md border border-orange-700/50 bg-orange-950/30 p-3 text-xs leading-5 text-orange-100"
+            >
+              <div className="font-medium text-orange-200">These two are easy to mix up</div>
+              <p className="mt-1">
+                A confusion link is not a relationship: it has no direction and no CAST label, and it is drawn dashed. When
+                either node has a Distinguisher, its walk card asks which of the two it is.
+              </p>
+              {confusionLinked ? (
+                <p role="alert" className="mt-2 text-amber-300">
+                  These two nodes are already linked as a confusion.
+                </p>
+              ) : null}
+            </div>
+          ) : tier === "tier1" ? (
             <div className="mt-4 grid gap-3">
               <div>
                 <Label htmlFor="tier1-verb">Tier 1 connections (source -&gt; target)</Label>
@@ -428,12 +462,13 @@ export function CastEdgeDialog({ open, onOpenChange, onConfirm, siblingEdgeLabel
             </Button>
             <Button
               type="button"
+              disabled={markConfusion && confusionLinked}
               onClick={() => {
-                onConfirm(buildPayload());
+                onConfirm(markConfusion ? { kind: "confusion" } : buildPayload());
                 onOpenChange(false);
               }}
             >
-              Create edge
+              {markConfusion ? "Create confusion link" : "Create edge"}
             </Button>
           </div>
         </Dialog.Content>

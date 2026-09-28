@@ -19,8 +19,11 @@
  * (dozens to a few hundred nodes) it is comfortably fast.
  */
 
+import { meaningEdges } from "../confusion";
+
 export type GraphAnalysisNode = { id: string };
-export type GraphAnalysisEdge = { sourceNodeId: string; targetNodeId: string };
+/** `kind: "confusion"` marks a confusion link, which carries no meaning and is skipped. */
+export type GraphAnalysisEdge = { sourceNodeId: string; targetNodeId: string; kind?: string | null };
 
 export type GraphAnalysisInput = {
   nodes: readonly GraphAnalysisNode[];
@@ -258,8 +261,10 @@ function classifyRoles(
   return roles;
 }
 
-export function analyzeGraph(input: GraphAnalysisInput): GraphAnalysisResult {
-  if (input.nodes.length === 0) return empty();
+export function analyzeGraph(graph: GraphAnalysisInput): GraphAnalysisResult {
+  if (graph.nodes.length === 0) return empty();
+  // Confusion links say two nodes look alike, not that one leads to the other.
+  const input = { nodes: graph.nodes, edges: meaningEdges(graph.edges) };
 
   const { out, undirected } = buildAdjacency(input);
   const nodeIds = input.nodes.map((n) => n.id);

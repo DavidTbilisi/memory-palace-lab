@@ -6,6 +6,7 @@ import {
   type RecallRating,
   type SlotSchedule,
 } from "../entities/types";
+import { discriminationChoices } from "./confusion";
 import { applySm2Schedule, normalizeLocusSchedule } from "./spacedRepetition";
 
 export const NEDF_SLOT_LABELS: Record<NedfSlot, string> = {
@@ -218,9 +219,14 @@ export interface NedfCardText {
 /**
  * What one slot's card asks and answers, following the four card types of encoded spaced
  * repetition. Every answer names the concept, since naming it is what the card drills.
+ *
+ * `neighbour` is the title of a node linked to this one as a confusion. When it is given, the
+ * Distinguisher card becomes a true discrimination card that names both candidates; without it
+ * the card cannot say what the concept is being told apart from.
  */
-export function nedfCardText(slot: NedfSlot, nedf: NedfEncoding, title: string): NedfCardText {
+export function nedfCardText(slot: NedfSlot, nedf: NedfEncoding, title: string, neighbour?: string): NedfCardText {
   const name = title.trim() || "Untitled node";
+  const other = neighbour?.trim();
   switch (slot) {
     case "nameHook": {
       const details = [
@@ -240,12 +246,21 @@ export function nedfCardText(slot: NedfSlot, nedf: NedfEncoding, title: string):
         prompt: "Recall: name the concept that does this.",
         answer: nedf.nameHook ? `${name} · ${nedf.nameHook}` : name,
       };
-    case "distinguisher":
+    case "distinguisher": {
+      if (other) {
+        const [first, second] = discriminationChoices(name, other);
+        return {
+          cue: nedf.distinguisher?.prompt ?? "",
+          prompt: `Which is it: ${first} or ${second}? Say why.`,
+          answer: `${name}, because ${nedf.distinguisher?.reason ?? ""}`,
+        };
+      }
       return {
         cue: nedf.distinguisher?.prompt ?? "",
         prompt: "Discrimination: which concept is this, and not its neighbour? Say why.",
         answer: `${name}, because ${nedf.distinguisher?.reason ?? ""}`,
       };
+    }
     case "failure":
       return {
         cue: nedf.failure?.scenario ?? "",

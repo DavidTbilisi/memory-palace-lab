@@ -116,6 +116,8 @@ export function drawMissingLinks(editor: Editor, palaceId: string, links: readon
   const existing = new Set<string>();
   for (const shape of editor.getCurrentPageShapes()) {
     const meta = shape.meta as MemoryPalaceMeta;
+    // A confusion link between two cells is not the store's link, so it does not stand in for one.
+    if (meta.mpEdgeKind === "confusion") continue;
     if (meta.mpEdgeId && meta.mpSourceNodeId && meta.mpTargetNodeId) existing.add(`${meta.mpSourceNodeId}>${meta.mpTargetNodeId}`);
   }
   for (const link of links) {
