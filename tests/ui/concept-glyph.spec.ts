@@ -4,7 +4,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { editSelectedNode, openNodeTab } from "./nodeHelpers";
-import { createNamedNodes, openTutorialPalace } from "./routeHelpers";
+import { countSnapshotNodes, createNamedNodes, openTutorialPalace } from "./routeHelpers";
 
 type Glyphed = { title: string; glyph: string | null };
 
@@ -39,7 +39,9 @@ test("concept glyphs come from the wiki, stay unique in the palace, survive a re
   await expect(page.getByTestId("canvas-glyph")).toHaveText("🔦");
   await expect(page.getByTestId("canvas-glyph")).toHaveAttribute("data-mode", "chip");
 
-  // A glyph the palace already uses is refused, and the holder is named.
+  // A glyph the palace already uses is refused, and the holder is named. createNamedNodes counts
+  // saved nodes, so the Library node must reach the saved snapshot first.
+  await expect.poll(() => countSnapshotNodes(page)).toBe(1);
   await createNamedNodes(page, ["Focus"]);
   await openNodeTab(page);
   const field = page.getByLabel("Concept glyph");
