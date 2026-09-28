@@ -1,5 +1,6 @@
 import type { MemoryNode, NedfEncoding, NodeAttribute, PalacePortalRef } from "../entities/types";
 import { normalizeAttributes } from "./attributes";
+import { normalizeGlyph } from "./conceptGlyph";
 import { isStoreRole, type StoreRole } from "./generatedStore";
 import { normalizeNedf } from "./nedf";
 
@@ -11,11 +12,12 @@ export type NodeMetaFields = {
   attributes?: NodeAttribute[];
   address?: string;
   storeRole?: StoreRole;
+  glyph?: string;
 };
 
 /** JSON for `nodes.node_meta_json`. `portal` and `imageUrl` are always written; `nedf` and `attributes` only when set. */
 export function encodeNodeMeta(
-  node: Pick<MemoryNode, "portal" | "imageUrl" | "nedf" | "attributes" | "address" | "storeRole">,
+  node: Pick<MemoryNode, "portal" | "imageUrl" | "nedf" | "attributes" | "address" | "storeRole" | "glyph">,
 ): string {
   const nedf = normalizeNedf(node.nedf);
   const attributes = normalizeAttributes(node.attributes);
@@ -26,6 +28,7 @@ export function encodeNodeMeta(
     ...(attributes ? { attributes } : {}),
     ...(node.address ? { address: node.address } : {}),
     ...(isStoreRole(node.storeRole) ? { storeRole: node.storeRole } : {}),
+    ...(normalizeGlyph(node.glyph) ? { glyph: normalizeGlyph(node.glyph)! } : {}),
   });
 }
 
@@ -54,5 +57,6 @@ export function decodeNodeMeta(json: string | null | undefined): NodeMetaFields 
     ...(attributes ? { attributes } : {}),
     ...(typeof raw.address === "string" && raw.address ? { address: raw.address } : {}),
     ...(isStoreRole(raw.storeRole) ? { storeRole: raw.storeRole } : {}),
+    ...(normalizeGlyph(raw.glyph) ? { glyph: normalizeGlyph(raw.glyph)! } : {}),
   };
 }

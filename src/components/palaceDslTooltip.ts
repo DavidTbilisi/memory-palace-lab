@@ -74,6 +74,15 @@ function tipFor(body: string): TipContent | null {
     };
     return tips[nedf[1]!]!;
   }
+  if (/^@glyph(\s|$)/.test(body)) {
+    return {
+      syntax: "@glyph <symbol>",
+      desc:
+        "Concept glyph: one symbol that stands for this concept and no other node in the palace. " +
+        "It stays when the node is renamed. Not a glyph size and not an alphabet glyph",
+      example: "@glyph 🔦",
+    };
+  }
   if (/^@A(\s|$)/.test(body)) {
     return {
       syntax: "@A <channel> <name> [dissolve | address | enumerate N]: <value> | <value>",

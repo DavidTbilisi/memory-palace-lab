@@ -300,7 +300,21 @@ describe("serializeDsl", () => {
     expect(parseDsl(out).snapshot.nodes[0]!.attributes).toEqual(attributes);
   });
 
-  it("emits @image line when imageUrl is set", () => {
+  it("writes a concept glyph as @glyph, which parses back", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Attention", content: "", kind: "memory", portal: null, glyph: "👁️" }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain("Attention\n@glyph 👁️\n");
+    expect(parseDsl(out).snapshot.nodes[0]!.glyph).toBe("👁️");
+  });
+
+    it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
       canvasObjects: [],

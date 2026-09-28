@@ -37,7 +37,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 89
+    "room": 89,
+    "glyph": "🧲"
   },
   {
     "slug": "after-action-review",
@@ -107,7 +108,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 8
+    "room": 8,
+    "glyph": "🧰"
   },
   {
     "slug": "argument-anatomy",
@@ -137,7 +139,8 @@
     "palace": "core-memory",
     "level": 7,
     "domain": 10,
-    "room": 5
+    "room": 5,
+    "glyph": "🔦"
   },
   {
     "slug": "automatic-success-mechanism",
@@ -177,7 +180,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 65
+    "room": 65,
+    "glyph": "🎲"
   },
   {
     "slug": "bdnf-and-neurogenesis",
@@ -422,7 +426,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 8
+    "room": 8,
+    "glyph": "🃏"
   },
   {
     "slug": "cast-drill-ladder",
@@ -432,7 +437,8 @@
     "palace": "tactical-memory",
     "level": 5,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "🧗"
   },
   {
     "slug": "cast-example-city-streets",
@@ -441,7 +447,8 @@
     "source": "wiki/encoders/cast-example-city-streets.md",
     "palace": "strategic-memory",
     "level": 4,
-    "domain": 10
+    "domain": 10,
+    "glyph": "🚦"
   },
   {
     "slug": "cast-example-math-program",
@@ -450,7 +457,8 @@
     "source": "wiki/encoders/cast-example-math-program.md",
     "palace": "strategic-memory",
     "level": 8,
-    "domain": 10
+    "domain": 10,
+    "glyph": "🎓"
   },
   {
     "slug": "cast-ingest-summary",
@@ -460,7 +468,8 @@
     "palace": "tactical-memory",
     "level": 5,
     "domain": 10,
-    "room": 3
+    "room": 3,
+    "glyph": "🧾"
   },
   {
     "slug": "cast-overview",
@@ -470,7 +479,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 1
+    "room": 1,
+    "glyph": "🕸️"
   },
   {
     "slug": "cast-research-roadmap",
@@ -480,7 +490,8 @@
     "palace": "tactical-memory",
     "level": 4,
     "domain": 10,
-    "room": 1
+    "room": 1,
+    "glyph": "🔌"
   },
   {
     "slug": "categorical-syllogism",
@@ -580,7 +591,8 @@
     "palace": "meta-knowledge",
     "level": 8,
     "domain": 10,
-    "room": 11
+    "room": 11,
+    "glyph": "👂"
   },
   {
     "slug": "connected-learning",
@@ -610,7 +622,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 6
+    "room": 6,
+    "glyph": "🎞"
   },
   {
     "slug": "content-process-premise-reflection",
@@ -730,7 +743,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 57
+    "room": 57,
+    "glyph": "🎯"
   },
   {
     "slug": "cross-tradition-convergence-unmoved-mover",
@@ -859,7 +873,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 204
+    "room": 204,
+    "glyph": "🪛"
   },
   {
     "slug": "dictee-gym",
@@ -1014,7 +1029,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 74
+    "room": 74,
+    "glyph": "🧊"
   },
   {
     "slug": "encoding-quantities-in-cast",
@@ -1084,7 +1100,8 @@
     "palace": "core-memory",
     "level": 7,
     "domain": 10,
-    "room": 10
+    "room": 10,
+    "glyph": "🎨"
   },
   {
     "slug": "external-problem-solving-frameworks",
@@ -1224,7 +1241,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 10
+    "room": 10,
+    "glyph": "👁️"
   },
   {
     "slug": "fibonacci-and-golden-ratio",
@@ -1374,7 +1392,8 @@
     "palace": "tactical-memory",
     "level": 5,
     "domain": 10,
-    "room": 17
+    "room": 17,
+    "glyph": "🔗"
   },
   {
     "slug": "generation-effect",
@@ -1464,7 +1483,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 7
+    "room": 7,
+    "glyph": "🤝"
   },
   {
     "slug": "growth-mindset",
@@ -1524,7 +1544,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 3
+    "room": 3,
+    "glyph": "🪪"
   },
   {
     "slug": "hilbert-david",
@@ -1622,7 +1643,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 47
+    "room": 47,
+    "glyph": "🪞"
   },
   {
     "slug": "intonation-fluency-gym",
@@ -1732,7 +1754,8 @@
     "palace": "tactical-memory",
     "level": 5,
     "domain": 10,
-    "room": 9
+    "room": 9,
+    "glyph": "🗣️"
   },
   {
     "slug": "language-learning-protocol-english",
@@ -1971,7 +1994,8 @@
     "palace": "meta-knowledge",
     "level": 2,
     "domain": 10,
-    "room": 2
+    "room": 2,
+    "glyph": "📶"
   },
   {
     "slug": "memory-atomic-design",
@@ -2091,7 +2115,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 9
+    "room": 9,
+    "glyph": "📊"
   },
   {
     "slug": "method-of-guiding-associations",
@@ -2147,7 +2172,8 @@
     "source": "wiki/encoders/mnemonic-checksum.md",
     "palace": "strategic-memory",
     "level": 7,
-    "domain": 10
+    "domain": 10,
+    "glyph": "💥"
   },
   {
     "slug": "mnemonic-methods-master",
@@ -2176,7 +2202,8 @@
     "source": "wiki/learning-systems/mnemonics.md",
     "palace": "meta-knowledge",
     "level": 6,
-    "domain": 10
+    "domain": 10,
+    "glyph": "🪢"
   },
   {
     "slug": "modal-logic-primer",
@@ -2186,7 +2213,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 60
+    "room": 60,
+    "glyph": "🪐"
   },
   {
     "slug": "money-atomic-design",
@@ -2216,7 +2244,8 @@
     "palace": "core-memory",
     "level": 7,
     "domain": 10,
-    "room": 46
+    "room": 46,
+    "glyph": "🧵"
   },
   {
     "slug": "multi-valued-attributes",
@@ -2226,7 +2255,8 @@
     "palace": "core-memory",
     "level": 7,
     "domain": 10,
-    "room": 47
+    "room": 47,
+    "glyph": "⬟"
   },
   {
     "slug": "music-generation-frameworks",
@@ -2276,7 +2306,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "🧩"
   },
   {
     "slug": "nedf-song-cycle",
@@ -2286,7 +2317,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "🎼"
   },
   {
     "slug": "neighborhood-palace",
@@ -2396,7 +2428,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 11
+    "room": 11,
+    "glyph": "⚓"
   },
   {
     "slug": "onset-peg-alphabet",
@@ -2426,7 +2459,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 6
+    "room": 6,
+    "glyph": "🔭"
   },
   {
     "slug": "orient-method",
@@ -2525,7 +2559,8 @@
     "source": "wiki/learning-systems/peg-system.md",
     "palace": "meta-knowledge",
     "level": 6,
-    "domain": 10
+    "domain": 10,
+    "glyph": "🪝"
   },
   {
     "slug": "penrose-tilings-and-platonic-solids",
@@ -2585,7 +2620,8 @@
     "palace": "meta-knowledge",
     "level": 8,
     "domain": 10,
-    "room": 49
+    "room": 49,
+    "glyph": "🧱"
   },
   {
     "slug": "phrase-based-acquisition",
@@ -2625,7 +2661,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 12
+    "room": 12,
+    "glyph": "🛤️"
   },
   {
     "slug": "place-paris",
@@ -2715,7 +2752,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 6
+    "room": 6,
+    "glyph": "🗝"
   },
   {
     "slug": "polyglot-architecture",
@@ -2735,7 +2773,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 7
+    "room": 7,
+    "glyph": "🪧"
   },
   {
     "slug": "practice-is-required-not-optional",
@@ -2765,7 +2804,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "🧅"
   },
   {
     "slug": "principia-mathematica",
@@ -2785,7 +2825,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 87
+    "room": 87,
+    "glyph": "🩻"
   },
   {
     "slug": "probability-as-logic",
@@ -2945,7 +2986,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 13
+    "room": 13,
+    "glyph": "🧮"
   },
   {
     "slug": "psycho-cybernetics-maltz",
@@ -2965,7 +3007,8 @@
     "palace": "meta-knowledge",
     "level": 2,
     "domain": 10,
-    "room": 5
+    "room": 5,
+    "glyph": "🎚️"
   },
   {
     "slug": "puzzle-archetype-taxonomy",
@@ -3015,7 +3058,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 20
+    "room": 20,
+    "glyph": "🔎"
   },
   {
     "slug": "red-herring-resistance",
@@ -3065,7 +3109,8 @@
     "palace": "tactical-memory",
     "level": 5,
     "domain": 10,
-    "room": 6
+    "room": 6,
+    "glyph": "🔁"
   },
   {
     "slug": "representation-rules",
@@ -3075,7 +3120,8 @@
     "palace": "meta-knowledge",
     "level": 7,
     "domain": 10,
-    "room": 2
+    "room": 2,
+    "glyph": "📐"
   },
   {
     "slug": "rhyme-couplet-mnemonics",
@@ -3165,7 +3211,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 3
+    "room": 3,
+    "glyph": "📡"
   },
   {
     "slug": "sem3-chain-ballad",
@@ -3175,7 +3222,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 8
+    "room": 8,
+    "glyph": "🦕"
   },
   {
     "slug": "sem3-linking-chains",
@@ -3185,7 +3233,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 7
+    "room": 7,
+    "glyph": "⛓"
   },
   {
     "slug": "sem3-love-poem",
@@ -3195,7 +3244,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 6
+    "room": 6,
+    "glyph": "❄"
   },
   {
     "slug": "sem3-ordinal-song",
@@ -3205,7 +3255,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 5
+    "room": 5,
+    "glyph": "📿"
   },
   {
     "slug": "sem3-song",
@@ -3215,7 +3266,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "🌫"
   },
   {
     "slug": "semantic-input-cheat-sheet",
@@ -3501,7 +3553,8 @@
     "palace": "meta-knowledge",
     "level": 2,
     "domain": 10,
-    "room": 4
+    "room": 4,
+    "glyph": "✨"
   },
   {
     "slug": "spatial-coding",
@@ -3521,7 +3574,8 @@
     "palace": "meta-knowledge",
     "level": 5,
     "domain": 10,
-    "room": 2
+    "room": 2,
+    "glyph": "🎬"
   },
   {
     "slug": "speed-math-unifying-generator",
@@ -3550,7 +3604,8 @@
     "source": "wiki/encoders/step-zero-analysis.md",
     "palace": "strategic-memory",
     "level": 7,
-    "domain": 10
+    "domain": 10,
+    "glyph": "🛰️"
   },
   {
     "slug": "sticker-number-sense-curriculum",
@@ -3570,7 +3625,8 @@
     "palace": "meta-knowledge",
     "level": 8,
     "domain": 10,
-    "room": 8
+    "room": 8,
+    "glyph": "⚔️"
   },
   {
     "slug": "strategic-thinking-cognitive-cluster",
@@ -3590,7 +3646,8 @@
     "palace": "core-memory",
     "level": 8,
     "domain": 10,
-    "room": 2
+    "room": 2,
+    "glyph": "🪜"
   },
   {
     "slug": "sub-formula-property",
@@ -3948,7 +4005,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 7
+    "room": 7,
+    "glyph": "🏷️"
   },
   {
     "slug": "validity-vs-soundness",
@@ -4177,7 +4235,8 @@
     "palace": "meta-knowledge",
     "level": 6,
     "domain": 10,
-    "room": 1
+    "room": 1,
+    "glyph": "⚗️"
   },
   {
     "slug": "wiki-ingest-meta-pattern",
@@ -4187,7 +4246,8 @@
     "palace": "meta-knowledge",
     "level": 4,
     "domain": 10,
-    "room": 70
+    "room": 70,
+    "glyph": "♻️"
   },
   {
     "slug": "willingham-cognitive-principles",
@@ -4327,6 +4387,7 @@
     "palace": "core-memory",
     "level": 8,
     "domain": 10,
-    "room": 3
+    "room": 3,
+    "glyph": "🧭"
   }
 ]
