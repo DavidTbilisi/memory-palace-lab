@@ -109,3 +109,10 @@ rather than after `08`.
     server and no account, just a folder the learner already syncs and a passphrase only
     they hold.
 
+## Follow-ups
+
+19. [Adaptive Review Interventions](./19-adaptive-review-interventions.feature)
+    Why next: analytics should not stop at observation. The highest payoff now is converting
+    weak signals into direct actions like re-encode, split a route, add confusion contrast, or
+    shorten a cognitively expensive sequence. Written in April beside `04` and left on its
+    branch; it builds on the Strength tab's weak stops, route friction, and palace hotspots.
