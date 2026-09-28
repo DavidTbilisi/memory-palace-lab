@@ -393,10 +393,11 @@ export function LibraryPage({
         }));
       })
       .finally(() => {
-        if (!cancelled)
-          setBodyLoadingId((current) =>
-            current === selectedEntry.id ? null : current,
-          );
+        // Not guarded by `cancelled`: storing the body re-runs this effect, whose cleanup would
+        // otherwise leave the flag set and the document stuck on "Loading document...".
+        setBodyLoadingId((current) =>
+          current === selectedEntry.id ? null : current,
+        );
       });
     return () => {
       cancelled = true;
