@@ -275,6 +275,10 @@ export type PalaceStore = {
   setCurrentPalaceMeta: (
     patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>,
   ) => void;
+  /** Mark the open palace as a generated store (or, with null, an ordinary palace again). */
+  setCurrentStore: (
+    storeJson: string | null,
+  ) => void;
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
@@ -1133,6 +1137,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     queueDraftSave() {
+      scheduleDraftSave();
+    },
+
+    setCurrentStore(storeJson) {
+      const { currentPalace, palaces } = get();
+      if (!currentPalace) return;
+      const next = { ...currentPalace, storeJson };
+      set({
+        currentPalace: next,
+        palaces: palaces.map((palace) => (palace.id === next.id ? { ...palace, storeJson } : palace)),
+      });
       scheduleDraftSave();
     },
 
