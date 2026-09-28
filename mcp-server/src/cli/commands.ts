@@ -305,7 +305,7 @@ export const VERBS: Verb[] = [
   {
     name: "edges",
     group: "palace",
-    summary: "List CAST edges.",
+    summary: "List edges: CAST edges and confusion links.",
     usage: `edges ${palaceArg}`,
     arity: [1, 1],
     mcpTools: ["edge_list"],

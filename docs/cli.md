@@ -40,7 +40,7 @@ Palace references accept an id, exact name, or alias, exactly like the MCP tools
 | `import <file\|-> [--atlas PATH]` | New palace from a DSL document (name from `@header`) | `palace_import_dsl` |
 | `apply <palace> <file\|-> [--force]` | Diff-apply DSL to an existing palace | `palace_apply_dsl` |
 | `nodes <palace> [--query TEXT]` / `node <palace> <ref>` | List or inspect nodes | `node_list`, `node_get` |
-| `edges <palace>` / `routes <palace>` | List CAST edges, routes with loci | `edge_list`, `route_list` |
+| `edges <palace>` / `routes <palace>` | List edges (CAST edges and confusion links), routes with loci | `edge_list`, `route_list` |
 | `analyze` / `crux` / `motifs` / `review <palace>` | Graph analysis, crux with nine-dive questions, motifs, review queue | `graph_*`, `review_queue` |
 | `events [--palace P] [--type T] [--limit N]` | Analytics events, newest first | `analytics_list` |
 

@@ -47,6 +47,9 @@ export function unformattableConstructs(text: string, parsed: DslParseResult): s
   if (parsed.diagnostics.some((d) => d.code === "unknown-target")) {
     reasons.push("edges or loci to unknown targets (W007)");
   }
+  if (parsed.diagnostics.some((d) => d.code === "confusion-unknown-target")) {
+    reasons.push("confusion links to unknown targets (W163)");
+  }
   return reasons;
 }
 

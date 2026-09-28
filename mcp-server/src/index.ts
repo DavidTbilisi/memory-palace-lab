@@ -58,6 +58,11 @@ const palaceArg = z
   .string()
   .describe("Palace reference: id, exact name, or alias (case-insensitive)");
 
+const edgeKindArg = z
+  .enum(["cast", "confusion"])
+  .optional()
+  .describe('"cast" (default) for a CAST edge; "confusion" for a confusion link between two look-alike nodes');
+
 const castShape = {
   who: z
     .enum(["", ...CAST_AXIS_VALUES.who])
@@ -300,7 +305,8 @@ server.registerTool(
 server.registerTool(
   "edge_list",
   {
-    description: "List all CAST edges in a palace.",
+    description:
+      "List all edges in a palace: CAST edges (kind \"cast\") and confusion links between look-alike nodes (kind \"confusion\").",
     inputSchema: { palace: palaceArg },
   },
   tool(edges.edgeList),
@@ -309,13 +315,17 @@ server.registerTool(
 server.registerTool(
   "edge_create",
   {
-    description: "Create a directed CAST edge between two nodes.",
+    description:
+      "Create a directed CAST edge between two nodes, or with kind \"confusion\" a confusion link: an undirected " +
+      "mark that the two are easily mixed up, which names the neighbour on the Distinguisher card. A pair has one " +
+      "confusion link; a second is refused.",
     inputSchema: {
       palace: palaceArg,
       source: z.string().describe("Source node id, title, or alias"),
       target: z.string().describe("Target node id, title, or alias"),
       cast: z.object(castShape).optional(),
       label: z.string().optional().describe("Optional arrow label text"),
+      kind: edgeKindArg,
     },
   },
   tool(edges.edgeCreate),
@@ -324,12 +334,15 @@ server.registerTool(
 server.registerTool(
   "edge_update",
   {
-    description: "Update an edge's CAST values or alias (find ids with edge_list).",
+    description:
+      "Update an edge's CAST values, alias, or kind (find ids with edge_list). Turning an edge into a confusion " +
+      "link clears its CAST and label; a confusion link takes no CAST.",
     inputSchema: {
       palace: palaceArg,
       edge: z.string().describe("Edge id"),
       cast: z.object(castShape).optional(),
       alias: z.string().optional(),
+      kind: edgeKindArg,
     },
   },
   tool(edges.edgeUpdate),
