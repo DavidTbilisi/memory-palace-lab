@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { parseStore } from "../domain/services/generatedStore";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
 import { splitAtlasPath } from "../domain/services/atlasHierarchy";
@@ -15,6 +16,8 @@ type GNode = {
   label: string;
   atlasPath: string | null;
   nodeCount: number;
+  /** A generated store: found by address, drawn square so it is not taken for a walked palace. */
+  store: boolean;
   x: number;
   y: number;
 };
@@ -165,6 +168,7 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
             label: palace.alias ?? palace.name,
             atlasPath: palace.atlasPath ?? null,
             nodeCount,
+            store: parseStore(palace.storeJson) !== null,
             x: 0,
             y: 0,
           });
@@ -319,13 +323,20 @@ export function AtlasGraphView({ palaces, currentPalaceId, onOpenPalace }: Props
             onClick={() => { if (!didMoveRef.current) onOpenPalace(n.id); }}
             style={{ cursor: draggingId === n.id ? "grabbing" : "grab" }}
             role="button"
-            aria-label={`Open palace ${n.label}`}
+            aria-label={`Open ${n.store ? "store" : "palace"} ${n.label}`}
           >
             {/* Outer ring for current palace */}
-            {isCurrent && (
-              <circle r={NODE_R + 5} fill="none" stroke="#7c3aed" strokeWidth={2} opacity={0.7} />
+            {isCurrent &&
+              (n.store ? (
+                <rect x={-NODE_R - 5} y={-NODE_R - 5} width={(NODE_R + 5) * 2} height={(NODE_R + 5) * 2} rx={8} fill="none" stroke="#7c3aed" strokeWidth={2} opacity={0.7} />
+              ) : (
+                <circle r={NODE_R + 5} fill="none" stroke="#7c3aed" strokeWidth={2} opacity={0.7} />
+              ))}
+            {n.store ? (
+              <rect data-testid="atlas-store" x={-NODE_R} y={-NODE_R} width={NODE_R * 2} height={NODE_R * 2} rx={6} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={isCurrent ? 2 : 1.5} strokeDasharray="4 2" />
+            ) : (
+              <circle r={NODE_R} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={isCurrent ? 2 : 1.5} />
             )}
-            <circle r={NODE_R} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={isCurrent ? 2 : 1.5} />
 
             {/* Palace name */}
             <text
