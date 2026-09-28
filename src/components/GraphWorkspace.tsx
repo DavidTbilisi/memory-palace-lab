@@ -10,6 +10,7 @@ import { PalaceDslEditor } from "./PalaceDslEditor";
 import { PalaceToolbar } from "./PalaceToolbar";
 import { RightPanel } from "./RightPanel";
 import { WalkModeBar } from "./WalkModeBar";
+import { StormBar } from "./StormBar";
 import type { AssessHint } from "./hooks/useAssessHint";
 
 /** Route messages fade on their own; one that offers Undo stays up longer. */
@@ -66,6 +67,7 @@ export function GraphWorkspace({
     <section className={isActive ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
       <PalaceToolbar onHoverHintChange={onHoverHintChange} onOpenRepresent={onOpenRepresent} />
       <WalkModeBar onHoverHintChange={onHoverHintChange} />
+      <StormBar />
       <ExternalChangeBanner />
       {assessHint && currentPalace ? (
         <div className="border-b border-zinc-800 px-2 py-2">

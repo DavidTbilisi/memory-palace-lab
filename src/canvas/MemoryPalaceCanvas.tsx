@@ -465,13 +465,18 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       // Duplicating or pasting a node copies its ids; a copy needs its own.
       const stopIdGuard = registerMemoryIdGuard(editor, () => palaceId);
       const encodes = installEncodeTracker(editor, (event) => {
-        void usePalaceStore.getState().recordAnalyticsEvent({
+        const store = usePalaceStore.getState();
+        void store.recordAnalyticsEvent({
           eventType: event.eventType,
           eventGroup: "graph",
           palaceId,
           nodeId: event.nodeId,
           payload: event.payload,
         });
+        // A node's first encode is what a Storm counts; recorded first, so the event is marked as Storm.
+        if (event.eventType === "node_encoded" && event.payload.first === true && event.nodeId) {
+          store.countStormEncode(event.nodeId);
+        }
       });
       setEditor(editor);
       queueBadgeRefresh();

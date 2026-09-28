@@ -10,6 +10,7 @@ import { startReviewAt } from "../app/reviewNavigation";
 import type { GlobalDueItem } from "../domain/services/dueQueue";
 import { usePalaceStore } from "../store/palaceStore";
 import { useDueQueue } from "./hooks/useDueQueue";
+import { StormStartCard } from "./StormStartCard";
 import { Button } from "./ui/button";
 
 type Props = {
@@ -153,6 +154,8 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
                 : "Keep the chain alive today."}
           </div>
         </section>
+
+        <StormStartCard onStarted={onOpenPalaceWorkspace} />
 
         <section className="mt-4 rounded-[28px] border border-zinc-800 bg-zinc-900/40 p-5">
           <div className="text-sm font-semibold text-zinc-100">Due Loci</div>
