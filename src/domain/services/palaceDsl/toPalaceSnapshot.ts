@@ -56,6 +56,21 @@ export function dslToPalaceSnapshot(dsl: DslSnapshot): PalaceSnapshot {
         castGh: e.cast.gh,
       });
     });
+    (n.confusions ?? []).forEach((c, j) => {
+      const targetId = titleToId.get(c.targetTitle);
+      if (!targetId) return;
+      edges.push({
+        id: `c-${i}-${j}`,
+        objectId: `co-${i}-${j}`,
+        sourceNodeId: titleToId.get(n.title)!,
+        targetNodeId: targetId,
+        castAb: "",
+        castCd: "",
+        castEf: "",
+        castGh: "",
+        kind: "confusion",
+      });
+    });
   });
 
   const routes: MemoryRoute[] = dsl.routes.map((r, i) => ({

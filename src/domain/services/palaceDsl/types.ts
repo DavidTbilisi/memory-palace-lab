@@ -46,7 +46,11 @@ export type DslDiagnosticCode =
   | "query-path-missing-arg"
   | "query-unresolved-node"
   | "query-unresolved-route"
-  | "query-path-ambiguous";
+  | "query-path-ambiguous"
+  // Backlog 07 — confusion links
+  | "confusion-malformed"
+  | "confusion-duplicate"
+  | "confusion-unknown-target";
 
 export interface SuggestedFix {
   description: string;
@@ -123,6 +127,12 @@ export interface DslEdgeIntent {
   sourceLine: number;
 }
 
+/** A `<>Neighbour` line: this node is easily confused with the named one. Undirected. */
+export interface DslConfusionIntent {
+  targetTitle: string;
+  sourceLine: number;
+}
+
 export interface DslNode {
   title: string;
   /** Explicit stable identifier declared as `[id] Title`. Null if not declared. */
@@ -144,6 +154,8 @@ export interface DslNode {
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];
   edges: DslEdgeIntent[];
+  /** Confusion links from `<>Neighbour` lines, one per pair across the document. */
+  confusions: DslConfusionIntent[];
   sourceLine: number;
 }
 

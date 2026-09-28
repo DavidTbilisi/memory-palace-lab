@@ -7,6 +7,7 @@ import type {
 import { formatCastCompact } from "./cast";
 import { normalizeAttributes } from "../attributes";
 import { normalizeNedf } from "../nedf";
+import { isConfusionEdge } from "../confusion";
 
 function formatPortalTarget(p: PalacePortalRef): string | null {
   if (!p.targetPalaceName) return null;
@@ -27,7 +28,17 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
   for (const n of snapshot.nodes) idToTitle.set(n.id, n.title);
 
   const edgesBySource = new Map<string, MemoryEdge[]>();
+  // A confusion pair is written once, under the node it was drawn from.
+  const confusionsBySource = new Map<string, string[]>();
+  const confusionPairs = new Set<string>();
   for (const e of snapshot.edges) {
+    if (isConfusionEdge(e)) {
+      const key = [e.sourceNodeId, e.targetNodeId].sort().join("|");
+      if (confusionPairs.has(key) || e.sourceNodeId === e.targetNodeId) continue;
+      confusionPairs.add(key);
+      confusionsBySource.set(e.sourceNodeId, [...(confusionsBySource.get(e.sourceNodeId) ?? []), e.targetNodeId]);
+      continue;
+    }
     const list = edgesBySource.get(e.sourceNodeId) ?? [];
     list.push(e);
     edgesBySource.set(e.sourceNodeId, list);
@@ -83,6 +94,9 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
         gh: edge.castGh,
       });
       lines.push(cast === "0000" ? `>${target}` : `>${target} ${cast}`);
+    }
+    for (const targetId of confusionsBySource.get(node.id) ?? []) {
+      lines.push(`<>${idToTitle.get(targetId) ?? "<unknown>"}`);
     }
   }
 

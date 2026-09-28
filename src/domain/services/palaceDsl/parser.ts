@@ -59,6 +59,7 @@ function preprocess(text: string): Line[] {
 //   :        → body content
 //   #        → tag line
 //   >        → edge
+//   <>       → confusion link
 //   /        → route header
 //   \d+ ' '  → route step
 //   (other)  → node title
@@ -74,6 +75,7 @@ type ClassifiedLine =
   | { type: "body"; text: string }
   | { type: "tags" }
   | { type: "edge"; rest: string }
+  | { type: "confusion"; target: string }
   | { type: "route-hdr"; name: string }
   | { type: "route-step"; title: string }
   | { type: "node"; title: string; id: string | null }
@@ -126,6 +128,9 @@ function classify(body: string): ClassifiedLine {
   }
   if (body.startsWith(">")) {
     return { type: "edge", rest: body.slice(1).trim() };
+  }
+  if (body.startsWith("<>")) {
+    return { type: "confusion", target: body.slice(2).trim() };
   }
   if (body.startsWith("/")) {
     return { type: "route-hdr", name: body.slice(1).trim() };
@@ -722,6 +727,7 @@ export function parseDsl(text: string): DslParseResult {
           tags: [],
           structuredTags: [],
           edges: [],
+          confusions: [],
           sourceLine: num,
         };
         break;
@@ -909,6 +915,22 @@ export function parseDsl(text: string): DslParseResult {
         }
         break;
 
+      case "confusion":
+        if (!currentNode) {
+          diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "<> confusion lines must appear under a node");
+          break;
+        }
+        if (!cl.target) {
+          diag(diagnostics, "error", "confusion-malformed", num, 1, body.length,
+            "A confusion line names the node this one is confused with: <>Neighbour");
+        } else if (cl.target === currentNode.title) {
+          diag(diagnostics, "error", "confusion-malformed", num, 1, body.length,
+            `"${cl.target}" cannot be confused with itself`);
+        } else {
+          currentNode.confusions.push({ targetTitle: cl.target, sourceLine: num });
+        }
+        break;
+
       case "portal":
         if (!currentNode) {
           diag(
@@ -1086,6 +1108,28 @@ export function parseDsl(text: string): DslParseResult {
       }
     }
   }
+  // Backlog 07 — a confusion pair is undirected and declared once, under either node.
+  const confusionPairs = new Map<string, number>();
+  for (const node of snapshot.nodes) {
+    node.confusions = node.confusions.filter((c) => {
+      if (!titleSet.has(c.targetTitle)) {
+        diag(diagnostics, "warning", "confusion-unknown-target", c.sourceLine, 1, 1,
+          `Confusion target "${c.targetTitle}" does not match any node`);
+        return false;
+      }
+      const key = [node.title, c.targetTitle].sort().join("\u0000");
+      const first = confusionPairs.get(key);
+      if (first !== undefined) {
+        diag(diagnostics, "warning", "confusion-duplicate", c.sourceLine, 1, 1,
+          `"${node.title}" and "${c.targetTitle}" are already linked as a confusion on line ${first}; a pair needs one line`,
+          [{ line: first, column: 1, length: 1 }]);
+        return false;
+      }
+      confusionPairs.set(key, c.sourceLine);
+      return true;
+    });
+  }
+
   for (const route of snapshot.routes) {
     for (const locusTitle of route.loci) {
       if (!titleSet.has(locusTitle)) {

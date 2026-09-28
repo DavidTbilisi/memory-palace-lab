@@ -123,6 +123,45 @@ describe("applyDslToCanvas", () => {
     expect(arrows[0]!.meta.castAb).toBe("Mermaid");
   });
 
+  it("creates, keeps, and removes confusion links as the whole intent, apart from CAST edges", () => {
+    const editor = new MockEditor();
+    const confusion = (targetTitle: string) => ({ targetTitle, sourceLine: 0 });
+    const withLink = intent([
+      memoryNode("A", { edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }] }),
+      memoryNode("B", { confusions: [confusion("A")] }),
+    ]);
+    const first = applyDslToCanvas(asEditor(editor), PALACE_ID, withLink);
+    expect(first.added.edges).toBe(2);
+    const arrows = () => shapesOf(editor).filter((s) => s.type === "arrow");
+    expect(arrows().map((s) => s.meta.mpEdgeKind ?? "")).toEqual(["", "confusion"]);
+
+    // Declared under the other node now: same pair, nothing changes. The CAST edge is kept too,
+    // even though an empty CAST and a confusion link have the same slots.
+    const again = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("A", {
+          edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }],
+          confusions: [confusion("B")],
+        }),
+        memoryNode("B"),
+      ]),
+    );
+    expect(again.added.edges + again.deleted.edges).toBe(0);
+
+    const removed = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("A", { edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }] }),
+        memoryNode("B"),
+      ]),
+    );
+    expect(removed.deleted.edges).toBe(1);
+    expect(arrows().map((s) => s.meta.mpEdgeKind ?? "")).toEqual([""]);
+  });
+
   it("propagates portal and tag updates onto existing nodes", () => {
     const editor = new MockEditor();
     const shapeId = editor.seedNode(PALACE_ID, "A", "");

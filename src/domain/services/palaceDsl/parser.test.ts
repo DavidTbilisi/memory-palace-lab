@@ -124,6 +124,29 @@ describe("parseDsl — diagnostics", () => {
     ]);
   });
 
+  it("reads <> lines as confusion links, one per pair, whichever node declares it", () => {
+    const text = "@P\n\nMutex\n<>Semaphore\n\nSemaphore\n<>Mutex\n<>Ghost\n\nLock\n<>Mutex\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(snapshot.nodes.map((n) => n.confusions.map((c) => c.targetTitle))).toEqual([["Semaphore"], [], ["Mutex"]]);
+    const dup = diagnostics.filter((d) => d.code === "confusion-duplicate");
+    expect(dup).toHaveLength(1);
+    expect(dup[0]).toMatchObject({ numericCode: "W162", severity: "warning", line: 7, related: [{ line: 4 }] });
+    const unknown = diagnostics.filter((d) => d.code === "confusion-unknown-target");
+    expect(unknown).toMatchObject([{ numericCode: "W163", severity: "warning", line: 8 }]);
+    // A `<>` line is not an edge.
+    expect(snapshot.nodes.every((n) => n.edges.length === 0)).toBe(true);
+  });
+
+  it("refuses an empty or self confusion line and one outside a node", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n<>A\n\nA\n<>\n<>A\n");
+    expect(snapshot.nodes[0]!.confusions).toEqual([]);
+    expect(diagnostics.filter((d) => d.code === "confusion-malformed").map((d) => [d.numericCode, d.line])).toEqual([
+      ["E161", 5],
+      ["E161", 6],
+    ]);
+    expect(diagnostics.filter((d) => d.code === "misplaced-line").map((d) => d.line)).toEqual([2]);
+  });
+
   it("emits malformed-cast for invalid compact tokens", () => {
     const text = "@P\n\nA\n>B 5678\n\nB\n";
     const { diagnostics } = parseDsl(text);

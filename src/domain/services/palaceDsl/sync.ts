@@ -2,6 +2,7 @@ import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { toRichText } from "@tldraw/tlschema";
 import {
+  createConfusionLink,
   createImportedMemoryNodes,
   createMemoryArrow,
 } from "../../../canvas/createMemoryShapes";
@@ -41,6 +42,10 @@ interface NodeIndexEntry {
 interface EdgeIndexEntry {
   shapeId: string;
   meta: MemoryPalaceMeta;
+}
+
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 const DEFAULT_LAYOUT = {
@@ -133,6 +138,9 @@ export function applyDslToCanvas(
   editor.run(() => {
     const nodesByTitle = new Map<string, NodeIndexEntry>();
     const edgesByKey = new Map<string, EdgeIndexEntry>();
+    // Confusion links, keyed by their unordered pair; extra links on one pair are stale.
+    const confusionsByPair = new Map<string, EdgeIndexEntry>();
+    const staleConfusions: EdgeIndexEntry[] = [];
 
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
@@ -156,6 +164,16 @@ export function applyDslToCanvas(
       }
 
       if (
+        shape.type === "arrow" &&
+        meta.mpEdgeId &&
+        meta.mpSourceNodeId &&
+        meta.mpTargetNodeId &&
+        meta.mpEdgeKind === "confusion"
+      ) {
+        const key = pairKey(meta.mpSourceNodeId, meta.mpTargetNodeId);
+        if (confusionsByPair.has(key)) staleConfusions.push({ shapeId: String(shape.id), meta });
+        else confusionsByPair.set(key, { shapeId: String(shape.id), meta });
+      } else if (
         shape.type === "arrow" &&
         meta.mpEdgeId &&
         meta.mpSourceNodeId &&
@@ -303,6 +321,33 @@ export function applyDslToCanvas(
         target.mpNodeId,
         intentEdge.cast,
       );
+      result.added.edges += 1;
+    }
+
+    // Confusion links: the DSL is the whole intent, as for edges. A pair is undirected, so a
+    // link drawn either way satisfies a `<>` line under either node.
+    const intentConfusions = new Map<string, { source: NodeIndexEntry; target: NodeIndexEntry }>();
+    for (const node of intent.nodes) {
+      const source = nodesByTitle.get(node.title);
+      if (!source) continue;
+      for (const confusion of node.confusions ?? []) {
+        const target = nodesByTitle.get(confusion.targetTitle);
+        if (!target || target.mpNodeId === source.mpNodeId) continue;
+        const key = pairKey(source.mpNodeId, target.mpNodeId);
+        if (!intentConfusions.has(key)) intentConfusions.set(key, { source, target });
+      }
+    }
+    for (const [key, entry] of confusionsByPair.entries()) {
+      if (!intentConfusions.has(key)) staleConfusions.push(entry);
+    }
+    for (const entry of staleConfusions) {
+      if (!editor.getShape(entry.shapeId as TLShapeId)) continue;
+      editor.deleteShape(entry.shapeId as TLShapeId);
+      result.deleted.edges += 1;
+    }
+    for (const [key, { source, target }] of intentConfusions.entries()) {
+      if (confusionsByPair.has(key)) continue;
+      createConfusionLink(editor, palaceId, source.shapeId, target.shapeId, source.mpNodeId, target.mpNodeId);
       result.added.edges += 1;
     }
   });

@@ -19,6 +19,7 @@ The Palace DSL is a minimal line-oriented text format for describing a memory pa
    - [Edge Semantic Aliases](#edge-semantic-aliases)
    - [Portals](#portals)
    - [NEDF Slots](#nedf-slots)
+   - [Confusion Links](#confusion-links)
    - [Attribute Channels](#attribute-channels)
 6. [Routes](#routes)
    - [Route Metadata](#route-metadata)
@@ -82,6 +83,7 @@ The lexer is deterministic: the first character of each trimmed line defines its
 | `:` | Body content | `: fundamental laws of motion` |
 | `#` | Tags (plain + structured) | `#security #domain:auth` |
 | `>` | Edge | `>Gravity 1110` |
+| `<>` | Confusion link | `<>Semaphore` |
 | `/` | Route header | `/First Walk` |
 | `N ` (digit+space) | Route locus step | `1 Newton's Laws` |
 | `--` | Comment (ignored) | `-- a comment` |
@@ -368,6 +370,28 @@ Mutex
 - An NEDF line is only a slot under a node. Before the first node, a line such as `@N Queens` is still the palace header. After a route header, it is **E006 `misplaced-line`**.
 - The DSL is the whole intent for slots, as it is for `@image`: applying a node without NEDF lines clears its slots. Exporting a palace writes them, so an export → edit → apply round trip keeps them.
 
+### Confusion Links
+
+Two concepts that are easy to mix up are linked as a confusion with a `<>` line under either one:
+
+```text
+@Locks
+
+Mutex
+: Mutual exclusion lock.
+@D One key, or a bowl of keys? => a mutex has one owner; a semaphore counts
+<>Semaphore
+
+Semaphore
+: A counter of free slots.
+```
+
+- A confusion link is not an edge. It has no direction and no CAST, and graph analysis, motifs, the crux, and difficulty ignore it. On the canvas it is a dashed amber line with no arrowheads.
+- A pair is linked once. Write the line under either node; a second `<>` line for the same pair, from either side, emits **W162 `confusion-duplicate`** and is ignored.
+- A `<>` line with no title, or naming its own node, is **E161 `confusion-malformed`**. A title that matches no node is **W163 `confusion-unknown-target`**. A `<>` line before any node is **E006 `misplaced-line`**.
+- The link names the neighbour on the Distinguisher card. When a node has `@D` filled and a confusion neighbour, its walk card asks "Which is it: Mutex or Semaphore?" (the two names in alphabetical order), with the `@D` question as the cue, and reveals "Mutex, because …". Without a neighbour the card is unchanged.
+- The DSL is the whole intent for confusion links, as it is for edges: applying a document without a pair's `<>` line removes the link. Exporting writes each pair once, under the node it was drawn from.
+
 ### Attribute Channels
 
 A node can carry attributes, each on one of UMTF's seven channels. Write one `@A` line per attribute under the node:
@@ -584,6 +608,9 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | W126 | `attribute-count-mismatch` | warning | The enumerate count differs from the number of values |
 | W127 | `attribute-count-unexpected` | warning | A count on a route other than enumerate |
 | I128 | `attribute-channel-budget` | info | More than four channels on one node |
+| E161 | `confusion-malformed` | error | `<>` line names no node, or its own node |
+| W162 | `confusion-duplicate` | warning | A confusion pair is declared a second time, from either side |
+| W163 | `confusion-unknown-target` | warning | `<>` names a node that is not declared |
 | E101 | `malformed-node-id` | error | `[id]` contains invalid characters |
 | E102 | `duplicate-node-id` | error | Same explicit id declared on two nodes |
 | E103 | `reserved-node-id` | error | `[palace]` is a reserved identifier |

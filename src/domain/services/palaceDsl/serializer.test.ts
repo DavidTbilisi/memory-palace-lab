@@ -254,6 +254,35 @@ describe("serializeDsl", () => {
     expect(snapshot.routes[1]).not.toHaveProperty("inReview");
   });
 
+  it("writes a confusion pair once as a <> line, apart from CAST edges, and parses it back", () => {
+    const node = (id: string, title: string) => ({ id, objectId: `o-${id}`, title, content: "", kind: "memory" as const, portal: null });
+    const edge = (id: string, source: string, target: string, kind?: "confusion") => ({
+      id,
+      objectId: `eo-${id}`,
+      sourceNodeId: source,
+      targetNodeId: target,
+      castAb: "",
+      castCd: "",
+      castEf: "",
+      castGh: "",
+      ...(kind ? { kind } : {}),
+    });
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "Locks", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [node("a", "Mutex"), node("b", "Semaphore")],
+      // The same pair twice, drawn both ways: written once.
+      edges: [edge("e1", "a", "b"), edge("c1", "b", "a", "confusion"), edge("c2", "a", "b", "confusion")],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toBe("@Locks\n\nMutex\n>Semaphore\n\nSemaphore\n<>Mutex\n");
+    const back = parseDsl(out);
+    expect(back.diagnostics).toEqual([]);
+    expect(dslToPalaceSnapshot(back.snapshot).edges.map((e) => e.kind ?? "")).toEqual(["", "confusion"]);
+  });
+
   it("writes NEDF slots as @N @E @D @F lines that parse back to the same slots", () => {
     const nedf = {
       nameHook: "Mute-X\na gagged guard",
