@@ -4,6 +4,7 @@ import { AnalyticsPanel } from "./AnalyticsPanel";
 import { AtlasEditorPage } from "./AtlasEditorPage";
 import { DifficultyPanel } from "./DifficultyPanel";
 import { LibraryPage, type LibraryTarget } from "./LibraryPage";
+import { MemoryStrengthPanel } from "./MemoryStrengthPanel";
 import { ReviewPage } from "./ReviewPage";
 import { SettingsPage } from "./SettingsPage";
 import { TheSystemWorkbench } from "./TheSystemWorkbench";
@@ -90,6 +91,7 @@ const PAGE_BODIES: Record<
       props,
     ),
   difficulty: (props) => card("difficulty", <DifficultyPanel />, props),
+  strength: (props) => card("strength", <MemoryStrengthPanel />, props),
   atlas: (props) =>
     card(
       "atlas",

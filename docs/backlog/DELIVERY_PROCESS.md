@@ -53,4 +53,6 @@ Do not commit unless:
 15. `15-concept-glyphs.feature`
 16. `16-information-architecture.feature`
 17. `17-route-builder.feature`
+18. `18-device-sync-vault.feature`
+19. `19-adaptive-review-interventions.feature`
 

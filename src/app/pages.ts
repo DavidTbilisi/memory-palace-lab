@@ -3,6 +3,7 @@ import {
   BarChart2,
   BookOpen,
   Cpu,
+  Gauge,
   Globe,
   LayoutDashboard,
   Layers,
@@ -21,6 +22,7 @@ export type AppPage =
   | "insights"
   | "system"
   | "difficulty"
+  | "strength"
   | "atlas"
   | "library"
   | "settings";
@@ -122,6 +124,20 @@ export const PAGES: readonly PageDefinition[] = [
     palette: {
       subtitle: "Learner-relative difficulty per node",
       keywords: "difficulty acquisition cost walls",
+    },
+  },
+  {
+    id: "strength",
+    group: "insights",
+    label: "Strength",
+    groupLabel: "Insights",
+    icon: Gauge,
+    hint: "Strength ranks weak and overdue stops, palace health, recall trend, and route friction — click any row to review it.",
+    placement: "primary",
+    librarySlug: "measurement-framework",
+    palette: {
+      subtitle: "Memory strength: weak stops, palace health, trend, route friction",
+      keywords: "memory strength weak overdue decay trend friction health dashboard",
     },
   },
   {
