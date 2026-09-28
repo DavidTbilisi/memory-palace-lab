@@ -15,6 +15,8 @@ export type WikiIndexEntry = {
   level?: number;
   domain?: number;
   room?: number;
+  /** The page's concept glyph, declared as `glyph:` in its frontmatter. */
+  glyph?: string;
 };
 
 const wikiModules = import.meta.glob("../../theSystem/wiki/*.md", {

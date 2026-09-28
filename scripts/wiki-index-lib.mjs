@@ -83,7 +83,8 @@ export function buildWikiIndex(pages) {
       summary: extractSummary(page.text),
       source: page.sourceRel ?? front.wiki_source ?? "",
     };
-    for (const key of ["palace", "level", "domain", "room"]) {
+    // `glyph` is the page's concept glyph; a node added from the page adopts it.
+    for (const key of ["palace", "level", "domain", "room", "glyph"]) {
       const value = front[key];
       if (value === undefined || value === "") continue;
       if (NUMERIC_KEYS.has(key)) {
