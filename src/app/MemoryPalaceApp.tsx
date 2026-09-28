@@ -607,8 +607,9 @@ export function MemoryPalaceApp() {
   }, [pendingCast]);
 
   const castConfusionLinked = useMemo(() => {
+    if (!pendingCast) return false;
     const editor = usePalaceStore.getState().editorRef;
-    if (!pendingCast || !editor) return false;
+    if (!editor) return false;
     return hasConfusionLink(canvasConfusionEdges(editor), pendingCast.sourceNodeId, pendingCast.targetNodeId);
   }, [pendingCast]);
 
