@@ -9,6 +9,7 @@ import {
 import { startReviewAt } from "../app/reviewNavigation";
 import type { GlobalDueItem } from "../domain/services/dueQueue";
 import { usePalaceStore } from "../store/palaceStore";
+import { countStormReviewedToday } from "../domain/services/reviewMetrics";
 import { useDueQueue } from "./hooks/useDueQueue";
 import { StormStartCard } from "./StormStartCard";
 import { Button } from "./ui/button";
@@ -39,6 +40,8 @@ function StatCard({
 
 export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
   const palaces = usePalaceStore((s) => s.palaces);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const stormReviewedToday = useMemo(() => countStormReviewedToday(analyticsEvents), [analyticsEvents]);
   const {
     items: dueItems,
     loading: loadingDue,
@@ -153,6 +156,12 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
                 ? "Start your streak again today."
                 : "Keep the chain alive today."}
           </div>
+          {stormReviewedToday > 0 ? (
+            <div data-testid="storm-reviews-note" className="mt-1 text-xs text-zinc-500">
+              {stormReviewedToday} {stormReviewedToday === 1 ? "review" : "reviews"} during a Storm today{" "}
+              {stormReviewedToday === 1 ? "is" : "are"} not counted: the goal measures the daily reviews.
+            </div>
+          ) : null}
         </section>
 
         <StormStartCard onStarted={onOpenPalaceWorkspace} />

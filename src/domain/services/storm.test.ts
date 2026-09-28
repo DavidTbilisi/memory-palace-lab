@@ -7,6 +7,7 @@ import {
   isPersonalBest,
   parseWakeTime,
   stormRatePerHour,
+  stormRecords,
 } from "./storm";
 
 /** A local time, so the tests hold in any time zone. */
@@ -59,7 +60,8 @@ describe("storm helpers", () => {
   });
 
   it("finds the best recorded count and marks a new best only when it is beaten", () => {
-    const event = (eventType: string, payloadJson: string) => ({ eventType, payloadJson }) as AnalyticsEvent;
+    const event = (eventType: string, payloadJson: string) =>
+      ({ eventType, payloadJson, createdAt: "2026-09-20T10:00:00.000Z" }) as AnalyticsEvent;
     const events = [
       event("storm_completed", '{"count":40}'),
       event("storm_completed", '{"count":120}'),
@@ -72,5 +74,29 @@ describe("storm helpers", () => {
     expect(isPersonalBest(120, 120)).toBe(false);
     expect(isPersonalBest(0, 0)).toBe(false);
     expect(isPersonalBest(1, 0)).toBe(true);
+  });
+});
+
+describe("stormRecords", () => {
+  const storm = (createdAt: string, payload: Record<string, unknown>) =>
+    ({ eventType: "storm_completed", createdAt, payloadJson: JSON.stringify(payload) }) as AnalyticsEvent;
+
+  it("lists Storms newest first with the best count and the best rate", () => {
+    const records = stormRecords([
+      storm("2026-09-20T10:00:00.000Z", { count: 120, target: 100, activeMs: 3_600_000, ratePerHour: 120, routeName: "Storm · 20 Sep", personalBest: true }),
+      storm("2026-09-27T10:00:00.000Z", { count: 80, target: 200, activeMs: 1_800_000, ratePerHour: 160, routeName: "Storm · 27 Sep" }),
+      { eventType: "walk_completed", createdAt: "2026-09-28T10:00:00.000Z", payloadJson: "{}" } as AnalyticsEvent,
+      storm("2026-09-28T10:00:00.000Z", { target: 5 }),
+    ]);
+    expect(records.storms.map((s) => [s.routeName, s.count, s.personalBest])).toEqual([
+      ["Storm · 27 Sep", 80, false],
+      ["Storm · 20 Sep", 120, true],
+    ]);
+    expect(records.bestCount).toBe(120);
+    expect(records.bestRatePerHour).toBe(160);
+  });
+
+  it("is empty without Storms", () => {
+    expect(stormRecords([])).toEqual({ storms: [], bestCount: 0, bestRatePerHour: null });
   });
 });

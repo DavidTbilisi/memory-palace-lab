@@ -40,8 +40,10 @@ import { StatCard } from "./analytics/StatCard";
 import { RetentionChart } from "./analytics/RetentionChart";
 import { NedfCoverage } from "./analytics/NedfCoverage";
 import { EncodeSpeedTrend } from "./analytics/EncodeSpeedTrend";
+import { StormRecords } from "./analytics/StormRecords";
+import { stormRecords } from "../domain/services/storm";
 import { buildEncodeTrend, encodeSamples, speedBandThresholds } from "../domain/services/encodeSpeed";
-import { buildSlotRetention } from "../domain/services/reviewMetrics";
+import { buildSlotRetention, type ReviewPhase } from "../domain/services/reviewMetrics";
 import { ReviewHeatmap } from "./analytics/ReviewHeatmap";
 import { RecentEventsList } from "./analytics/RecentEventsList";
 
@@ -60,6 +62,7 @@ export function AnalyticsPanel() {
   const [selectedPalaceFilter, setSelectedPalaceFilter] =
     useState<string>("all");
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>("all");
+  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<"all" | ReviewPhase>("all");
 
   useEffect(() => {
     if (!analyticsLoaded) {
@@ -80,8 +83,9 @@ export function AnalyticsPanel() {
       palaceId:
         selectedPalaceFilter === "all" ? undefined : selectedPalaceFilter,
       routeId: selectedRouteFilter === "all" ? undefined : selectedRouteFilter,
+      phase: selectedPhaseFilter === "all" ? undefined : selectedPhaseFilter,
     }),
-    [selectedPalaceFilter, selectedRouteFilter],
+    [selectedPalaceFilter, selectedRouteFilter, selectedPhaseFilter],
   );
 
   const {
@@ -96,6 +100,7 @@ export function AnalyticsPanel() {
     () => buildEncodeTrend(analyticsEvents, new Date().toISOString(), { palaceId: filter?.palaceId }),
     [analyticsEvents, filter],
   );
+  const storms = useMemo(() => stormRecords(analyticsEvents), [analyticsEvents]);
   // Bands follow the learner across palaces, so they ignore the palace filter.
   const encodeBands = useMemo(
     () => speedBandThresholds(encodeSamples(analyticsEvents), new Date().toISOString()),
@@ -878,6 +883,17 @@ export function AnalyticsPanel() {
                   </option>
                 ))}
               </select>
+              <select
+                className="h-8 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
+                value={selectedPhaseFilter}
+                onChange={(event) => setSelectedPhaseFilter(event.target.value as "all" | ReviewPhase)}
+                aria-label="Filter retention by phase"
+                title="Siege is the daily review drip; Storm is a big encoding push"
+              >
+                <option value="all">Siege and Storm</option>
+                <option value="siege">Siege only</option>
+                <option value="storm">Storm only</option>
+              </select>
             </div>
           </div>
           <RetentionChart series={retentionSeries} trendDown={trendDown} />
@@ -893,6 +909,8 @@ export function AnalyticsPanel() {
         <NedfCoverage retention={slotRetention} nodes={palaceNodes} />
 
         <EncodeSpeedTrend trend={encodeTrend} thresholds={encodeBands} />
+
+        <StormRecords records={storms} />
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
           <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">

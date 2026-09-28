@@ -49,9 +49,21 @@ describe("encode samples", () => {
       { ...nodeEncode("b", 1, 0), eventType: "node_updated" },
     ]);
     expect(samples).toEqual([
-      { kind: "edge", id: "e1", palaceId: "p1", first: false, activeMs: 7000, at: daysAgo(3) },
-      { kind: "node", id: "a", palaceId: "p1", first: true, activeMs: 5000, at: daysAgo(1) },
+      { kind: "edge", id: "e1", palaceId: "p1", first: false, activeMs: 7000, at: daysAgo(3), storm: false },
+      { kind: "node", id: "a", palaceId: "p1", first: true, activeMs: 5000, at: daysAgo(1), storm: false },
     ]);
+  });
+
+  it("leaves Storm encodes out of the speed bands", () => {
+    const storm = (event: AnalyticsEvent): AnalyticsEvent => ({
+      ...event,
+      payloadJson: JSON.stringify({ ...JSON.parse(event.payloadJson), phase: "storm" }),
+    });
+    const withStorm = [...twelve, ...Array.from({ length: 20 }, (_, i) => storm(nodeEncode(`s${i}`, 1_000, 1)))];
+    expect(encodeSamples(withStorm).filter((sample) => sample.storm)).toHaveLength(20);
+    expect(speedBandThresholds(encodeSamples(withStorm), NOW)).toEqual(speedBandThresholds(encodeSamples(twelve), NOW));
+    // Storm encodes alone never make bands.
+    expect(speedBandThresholds(encodeSamples(twelve.slice(0, 11).concat(storm(nodeEncode("x", 1, 1)))), NOW)).toBeNull();
   });
 
   it("takes the median of an even or odd list", () => {

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { NedfSlot, RecallRating } from "../entities/types";
 import { createAnalyticsEvent } from "./analyticsService";
-import { buildSlotRetention } from "./reviewMetrics";
+import {
+  buildRetentionSeries,
+  buildSlotRetention,
+  computeDailyStreak,
+  countReviewedToday,
+  countStormReviewedToday,
+  eventPhase,
+} from "./reviewMetrics";
 
 const rated = (rating: RecallRating, slot: NedfSlot | null, routeId = "r1") =>
   createAnalyticsEvent({
@@ -35,5 +42,44 @@ describe("buildSlotRetention", () => {
     const events = [rated("good", "essence", "r1"), rated("again", "essence", "r2")];
     const essence = buildSlotRetention(events, { routeId: "r2" }).find((row) => row.slot === "essence")!;
     expect(essence).toMatchObject({ reviews: 1, retentionPct: 0 });
+  });
+});
+
+describe("Storm and Siege reviews", () => {
+  const NOW = new Date(2026, 8, 28, 20).toISOString();
+  const at = (daysAgo: number) => new Date(2026, 8, 28 - daysAgo, 12).toISOString();
+  const review = (daysAgo: number, phase?: "storm") =>
+    createAnalyticsEvent({
+      eventType: "walk_recall_rated",
+      eventGroup: "review",
+      palaceId: "p1",
+      routeId: "r1",
+      nodeId: "n1",
+      createdAt: at(daysAgo),
+      payload: { rating: "good", ...(phase ? { phase } : {}) },
+    });
+
+  it("reads the phase from the payload, Siege unless marked Storm", () => {
+    expect(eventPhase(review(0))).toBe("siege");
+    expect(eventPhase(review(0, "storm"))).toBe("storm");
+  });
+
+  it("counts only Siege reviews toward today's goal, and reports the Storm ones apart", () => {
+    const events = [review(0), ...Array.from({ length: 30 }, () => review(0, "storm"))];
+    expect(countReviewedToday(events, NOW)).toBe(1);
+    expect(countStormReviewedToday(events, NOW)).toBe(30);
+  });
+
+  it("does not keep a streak alive on Storm reviews alone", () => {
+    expect(computeDailyStreak([review(0), review(1), review(2)], NOW)).toBe(3);
+    expect(computeDailyStreak([review(0), review(1, "storm"), review(2)], NOW)).toBe(1);
+  });
+
+  it("filters retention by phase, and counts both when no phase is asked for", () => {
+    const events = [review(1), review(1, "storm"), review(1, "storm")];
+    const count = (phase?: "siege" | "storm") => buildRetentionSeries(events, 30, { phase }, NOW)[0]?.count;
+    expect(count()).toBe(3);
+    expect(count("siege")).toBe(1);
+    expect(count("storm")).toBe(2);
   });
 });

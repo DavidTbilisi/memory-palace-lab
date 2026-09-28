@@ -6,7 +6,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type ReviewFilter = {
   palaceId?: string | null;
   routeId?: string | null;
+  /** Siege is the daily drip; Storm is a big encoding push. Unset counts both. */
+  phase?: ReviewPhase;
 };
+
+export type ReviewPhase = "siege" | "storm";
+
+/** Events recorded during a Storm carry `phase: "storm"`; everything else is Siege. */
+export function eventPhase(event: AnalyticsEvent): ReviewPhase {
+  return parseAnalyticsPayload(event).phase === "storm" ? "storm" : "siege";
+}
 
 export type DailyReviewPoint = {
   dayKey: string;
@@ -49,6 +58,7 @@ function filteredRatingEvents(events: AnalyticsEvent[], filter?: ReviewFilter) {
     if (event.eventType !== "walk_recall_rated") return false;
     if (filter?.palaceId && event.palaceId !== filter.palaceId) return false;
     if (filter?.routeId && event.routeId !== filter.routeId) return false;
+    if (filter?.phase && eventPhase(event) !== filter.phase) return false;
     return true;
   });
 }
@@ -86,8 +96,9 @@ export function buildDailyReviewPoints(events: AnalyticsEvent[], filter?: Review
     }));
 }
 
+/** Consecutive days with a Siege review, ending today. A day of Storm reviews alone does not keep it. */
 export function computeDailyStreak(events: AnalyticsEvent[], todayIso = new Date().toISOString()) {
-  const daySet = new Set(buildDailyReviewPoints(events).map((point) => point.dayKey));
+  const daySet = new Set(buildDailyReviewPoints(events, { phase: "siege" }).map((point) => point.dayKey));
   if (daySet.size === 0) return 0;
   const today = new Date(todayIso);
   let streak = 0;
@@ -101,9 +112,16 @@ export function computeDailyStreak(events: AnalyticsEvent[], todayIso = new Date
   return streak;
 }
 
+/** Reviews toward the daily goal: Siege only, so a Storm burst cannot meet the goal by itself. */
 export function countReviewedToday(events: AnalyticsEvent[], todayIso = new Date().toISOString(), filter?: ReviewFilter) {
   const todayKey = toDayKey(todayIso);
-  return filteredRatingEvents(events, filter).filter((event) => toDayKey(event.createdAt) === todayKey).length;
+  return filteredRatingEvents(events, { ...filter, phase: "siege" }).filter((event) => toDayKey(event.createdAt) === todayKey).length;
+}
+
+/** Reviews made during a Storm today, which the goal leaves out. */
+export function countStormReviewedToday(events: AnalyticsEvent[], todayIso = new Date().toISOString()) {
+  const todayKey = toDayKey(todayIso);
+  return filteredRatingEvents(events, { phase: "storm" }).filter((event) => toDayKey(event.createdAt) === todayKey).length;
 }
 
 export function buildRetentionSeries(events: AnalyticsEvent[], days = 30, filter?: ReviewFilter, nowIso = new Date().toISOString()) {

@@ -23,6 +23,8 @@ export type EncodeSample = {
   /** Null when the encode could not be timed honestly. */
   activeMs: number | null;
   at: string;
+  /** Encoded during a Storm, which is fast by design. */
+  storm: boolean;
 };
 
 export type SpeedBandThresholds = {
@@ -49,7 +51,15 @@ export function encodeSamples(events: readonly AnalyticsEvent[]): EncodeSample[]
     const id = kind === "node" ? event.nodeId : typeof payload.edgeId === "string" ? payload.edgeId : null;
     if (!id) continue;
     const activeMs = typeof payload.activeMs === "number" && Number.isFinite(payload.activeMs) ? payload.activeMs : null;
-    samples.push({ kind, id, palaceId: event.palaceId ?? null, first: payload.first === true, activeMs, at: event.createdAt });
+    samples.push({
+      kind,
+      id,
+      palaceId: event.palaceId ?? null,
+      first: payload.first === true,
+      activeMs,
+      at: event.createdAt,
+      storm: payload.phase === "storm",
+    });
   }
   return samples.sort((a, b) => a.at.localeCompare(b.at));
 }
@@ -69,12 +79,13 @@ export function median(values: readonly number[]): number | null {
 
 /**
  * The learner's thirds: the 33rd and 67th percentiles of timed first node encodes over the
- * last 90 days. Null with fewer than 12 of them.
+ * last 90 days. Null with fewer than 12 of them. Storm encodes are left out: a Storm is fast on
+ * purpose, and the bands describe ordinary encoding.
  */
 export function speedBandThresholds(samples: readonly EncodeSample[], nowIso: string): SpeedBandThresholds | null {
   const floor = Date.parse(nowIso) - SPEED_BAND_WINDOW_DAYS * DAY_MS;
   const times = samples
-    .filter((sample) => sample.kind === "node" && sample.first && sample.activeMs !== null && Date.parse(sample.at) >= floor)
+    .filter((sample) => sample.kind === "node" && sample.first && !sample.storm && sample.activeMs !== null && Date.parse(sample.at) >= floor)
     .map((sample) => sample.activeMs as number)
     .sort((a, b) => a - b);
   if (times.length < SPEED_BAND_MIN_SAMPLES) return null;

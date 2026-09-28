@@ -64,20 +64,61 @@ export type StormResult = {
 
 /** The largest count among recorded Storms, or 0 when there are none. */
 export function bestStormCount(events: readonly AnalyticsEvent[]): number {
-  let best = 0;
-  for (const event of events) {
-    if (event.eventType !== "storm_completed") continue;
-    try {
-      const count = Number((JSON.parse(event.payloadJson) as { count?: unknown }).count);
-      if (Number.isFinite(count) && count > best) best = count;
-    } catch {
-      // a malformed payload is not a record
-    }
-  }
-  return best;
+  return stormRecords(events).bestCount;
 }
 
 /** A Storm sets a personal best when it encoded something and beat every earlier Storm. */
 export function isPersonalBest(count: number, previousBest: number): boolean {
   return count > 0 && count > previousBest;
+}
+
+export type StormRecord = {
+  at: string;
+  routeName: string;
+  target: number;
+  count: number;
+  activeMs: number | null;
+  ratePerHour: number | null;
+  personalBest: boolean;
+};
+
+export type StormRecords = {
+  /** Newest first. */
+  storms: StormRecord[];
+  bestCount: number;
+  bestRatePerHour: number | null;
+};
+
+const finite = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+
+/** Every recorded Storm, with the best count and the best rate among them. */
+export function stormRecords(events: readonly AnalyticsEvent[]): StormRecords {
+  const storms: StormRecord[] = [];
+  for (const event of events) {
+    if (event.eventType !== "storm_completed") continue;
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(event.payloadJson) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    const count = finite(payload.count);
+    if (count === null) continue;
+    storms.push({
+      at: event.createdAt,
+      routeName: typeof payload.routeName === "string" ? payload.routeName : "Storm",
+      target: finite(payload.target) ?? count,
+      count,
+      activeMs: finite(payload.activeMs),
+      ratePerHour: finite(payload.ratePerHour),
+      personalBest: payload.personalBest === true,
+    });
+  }
+  storms.sort((a, b) => b.at.localeCompare(a.at));
+  const rates = storms.map((storm) => storm.ratePerHour).filter((rate): rate is number => rate !== null);
+  return {
+    storms,
+    bestCount: storms.reduce((best, storm) => Math.max(best, storm.count), 0),
+    bestRatePerHour: rates.length > 0 ? Math.max(...rates) : null,
+  };
 }
