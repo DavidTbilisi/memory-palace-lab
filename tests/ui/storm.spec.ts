@@ -69,10 +69,12 @@ test("a Storm counts new nodes to its target and hands them to the queue, due af
   await expect(summary).toContainText("Storm target reached");
   await expect(summary.getByTestId("storm-summary-count")).toHaveText("3 of 3 encoded");
   await expect(summary.getByText("Personal best")).toBeVisible();
-  await expect(summary).toContainText("first due tomorrow at");
+  const wake = await nextWakeIso(page);
+  // Encoded after midnight but before the day turns over, the stops are due this same morning.
+  const dueDay = await page.evaluate((iso) => (new Date(iso).toDateString() === new Date().toDateString() ? "today" : "tomorrow"), wake);
+  await expect(summary).toContainText(`first due ${dueDay} at`);
   await expect(bar).toHaveCount(0);
 
-  const wake = await nextWakeIso(page);
   // The saved node list catches up with the last rename on the next draft save.
   await expect
     .poll(async () => (await stormState(page)).stops)
