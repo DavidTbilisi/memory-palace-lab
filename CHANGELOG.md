@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.22.0 — 2026-09-29
+
+### Memory strength
+
+- **A Strength tab in Insights.** Beside Analytics and Difficulty, **Strength** shows what is weak and what to review next. Only daily (Siege) reviews count; Storm reviews and draft routes are left out.
+- **Needs attention.** Up to 8 stops, weakest first, each marked Critical, Weak, Stable or Strong. A stop with NEDF cards is as strong as its weakest card, and a stop due for a day or more counts as overdue. Click a stop to start a review at it.
+- **Palace health.** Each palace gets a health score, its due, overdue and weak stops, its own trend, and its weakest stop. Click a palace to open it.
+- **Trend.** A 7-day chart of recall, and whether it is improving, stagnating or decaying: the last three days you reviewed against the three before them.
+- **Route friction.** Routes that are hard to walk are marked **Unstable** or **Cognitively expensive**, with the reasons in plain words, such as "33% of recalls failed" or "slow to recall". Click a route to walk it.
+
+### Confusion pairs
+
+- **Link look-alike nodes.** Two concepts you keep mixing up can be linked as a confusion: **Mark as confusion** when connecting them, or **Confused with…** in a node's Distinguisher. A confusion link is drawn as a dashed amber line. It is not a relationship between the ideas, so Difficulty and graph analysis leave it out.
+- **A real discrimination card.** When a node has a confusion link, its Distinguisher card asks **"Which is it: A or B? Say why."**
+- **Say why you missed.** After you rate a recall **Again**, the walk moves on as before and a strip asks what happened: **Mixed it up with…** another node, or **Couldn't produce it**. The first time you log a pair, the app offers to link them.
+- **Mix-ups come back sooner.** Logging a mix-up makes both nodes' Distinguisher cards due now, so you drill telling them apart while it matters. If a node has no Distinguisher yet, the app says so.
+- **Confusion hotspots.** The Strength tab lists the pairs you mix up most. Click one to review its Distinguisher.
+- **In the DSL and MCP.** A `<>Neighbour` line under a node declares a confusion link. An empty or self link is error E161, a pair declared twice is warning W162, and an unknown node is warning W163. The MCP edge tools take `kind: "confusion"`, and `node_get` lists a node's `confusedWith`.
+
+### Note for sync
+
+- If you sync with a device that is still on v0.21 or older, update it too. An older version draws confusion links as ordinary arrows and counts them in Difficulty and graph analysis. The link type is kept on the canvas, so the links come back as confusion links once a device on v0.22 opens the palace.
+
 ## v0.21.0 — 2026-09-29
 
 ### Concept glyphs
