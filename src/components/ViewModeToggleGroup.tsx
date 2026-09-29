@@ -7,6 +7,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { AppModeToggle } from "./AppModeToggle";
+import { SyncStatusChip } from "./SyncStatusChip";
 import { Button } from "./ui/button";
 
 export type ViewMode = "balanced" | "focus";
@@ -35,6 +36,7 @@ export function ViewModeToggleGroup({
 }) {
   return (
     <div className="ml-auto flex flex-wrap items-center justify-end gap-2 xl:flex-nowrap">
+      <SyncStatusChip onOpenSettings={onOpenSettings} />
       <AppModeToggle
         onHoverHintChange={onHoverHintChange}
         disabled={modeToggleDisabled}

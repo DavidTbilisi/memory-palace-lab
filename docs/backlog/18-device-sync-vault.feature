@@ -60,6 +60,25 @@ Feature: Device sync vault
     Then sync is locked until I enter the passphrase
     And the passphrase is not stored on this device in any form
 
+  Scenario: The card says whether a folder is a new vault or an existing one
+    Given Settings with no vault connected
+    When I pick a folder
+    Then I am told whether it already holds a vault before anything is written
+    And an existing vault asks for its passphrase and offers to join
+    And an empty folder asks for a new passphrase twice and offers to create
+
+  Scenario: The connection survives an update
+    Given a vault connected in a previous session
+    When the webview's own storage is lost — an update, a new origin, a cleared cache
+    Then the app still starts connected and locked, with the same device id
+    # The connection is kept in sync-settings.json in the app data folder, beside the
+    # palace database. The passphrase is never in it.
+
+  Scenario: Sync's state is visible outside Settings
+    Given a vault is connected
+    Then the header shows whether sync is locked, has conflicts, failed, or when it last ran
+    And unlocking or connecting runs a sync straight away
+
   # Syncing
 
   Scenario: A palace reaches the other device

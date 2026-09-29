@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { VAULT_DESCRIPTOR_PATH, type VaultRemote } from "../domain/repositories/vaultRemote";
+import {
+  VAULT_DESCRIPTOR_PATH,
+  type VaultProbe,
+  type VaultRemote,
+} from "../domain/repositories/vaultRemote";
 import {
   createVaultDescriptor,
   parseVaultDescriptor,
@@ -48,9 +52,23 @@ export function setVaultRemoteFactory(factory: () => VaultRemote) {
 
 export type SyncStatus = "disconnected" | "locked" | "ready" | "working" | "error";
 
+/** What is in a folder the user is about to connect to, so the card can say which it is. */
+export type FolderCheck =
+  | { kind: "new"; probe: VaultProbe | null }
+  | { kind: "existing"; probe: VaultProbe }
+  | { kind: "unreadable"; message: string };
+
 export type SyncStore = {
   status: SyncStatus;
   dir: string | null;
+  /**
+   * Whether the passphrase has been entered this session. Separate from `status`, which also
+   * passes through "working" and "error": an error after a failed unlock must not read as
+   * unlocked just because this device has synced before.
+   */
+  unlocked: boolean;
+  /** Bumped to ask the Sync card to scroll into view and focus itself. */
+  attention: number;
   deviceName: string;
   lastSyncedAt: string | null;
   /** Non-conflict work the last plan found, for the "N to push, M to pull" summary. */
@@ -62,8 +80,12 @@ export type SyncStore = {
   garbage: GarbageReport | null;
   error: string | null;
 
+  /** Re-reads the stored connection; called once the durable settings file has loaded. */
+  restore(): void;
+  checkFolder(dir: string): Promise<FolderCheck>;
   connect(dir: string, passphrase: string): Promise<void>;
   unlock(passphrase: string): Promise<void>;
+  requestAttention(): void;
   disconnect(): void;
   setDeviceName(name: string): void;
   chooseConflict(palaceId: string, choice: ConflictChoice): void;
@@ -97,6 +119,8 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   // every launch starts locked and the user types it once.
   status: connection ? "locked" : "disconnected",
   dir: connection?.dir ?? null,
+  unlocked: false,
+  attention: 0,
   deviceName: loadDeviceName(),
   lastSyncedAt: loadLastSyncedAt(),
   pending: [],
@@ -105,6 +129,32 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   report: null,
   garbage: null,
   error: null,
+
+  restore() {
+    const state = get();
+    if (state.unlocked || state.status === "working") return;
+    const stored = loadSyncConnection();
+    set({
+      status: stored ? "locked" : "disconnected",
+      dir: stored?.dir ?? null,
+      deviceName: loadDeviceName(),
+      lastSyncedAt: loadLastSyncedAt(),
+    });
+  },
+
+  async checkFolder(dir) {
+    try {
+      const probe = await remoteFactory().probe(dir);
+      if (probe.hasDescriptor) return { kind: "existing", probe };
+      return { kind: "new", probe };
+    } catch (error) {
+      return { kind: "unreadable", message: messageOf(error) };
+    }
+  },
+
+  requestAttention() {
+    set((state) => ({ attention: state.attention + 1 }));
+  },
 
   async connect(dir, passphrase) {
     set({ status: "working", error: null });
@@ -129,10 +179,10 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
         saveSyncConnection({ dir: canonicalDir, vaultId: descriptor.vaultId });
       }
 
-      set({ status: "ready", dir: canonicalDir, error: null });
+      set({ status: "ready", dir: canonicalDir, unlocked: true, error: null });
     } catch (error) {
       sessionKey = null;
-      set({ status: "error", error: messageOf(error) });
+      set({ status: "error", unlocked: false, error: messageOf(error) });
     }
   },
 
@@ -148,10 +198,10 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       const key = await unlockVault(passphrase, descriptor);
       if (!key) throw new Error("Wrong passphrase.");
       sessionKey = key;
-      set({ status: "ready", error: null });
+      set({ status: "ready", unlocked: true, error: null });
     } catch (error) {
       sessionKey = null;
-      set({ status: "error", error: messageOf(error) });
+      set({ status: "error", unlocked: false, error: messageOf(error) });
     }
   },
 
@@ -163,6 +213,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
     set({
       status: "disconnected",
       dir: null,
+      unlocked: false,
       pending: [],
       conflicts: [],
       choices: {},
@@ -185,7 +236,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   async syncNow() {
     const { dir } = get();
     if (!dir || !sessionKey) {
-      set({ status: "locked", error: "Enter your passphrase to sync." });
+      set({ status: "locked", unlocked: false, error: "Enter your passphrase to sync." });
       return;
     }
 
@@ -254,7 +305,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   async reclaimSpace() {
     const { dir } = get();
     if (!dir || !sessionKey) {
-      set({ status: "locked", error: "Enter your passphrase first." });
+      set({ status: "locked", unlocked: false, error: "Enter your passphrase first." });
       return;
     }
     set({ status: "working", error: null, garbage: null });

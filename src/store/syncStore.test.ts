@@ -3,9 +3,16 @@ import { createMemoryVaultRemote, type MemoryVaultRemote } from "../infrastructu
 import { VAULT_DESCRIPTOR_PATH } from "../domain/repositories/vaultRemote";
 import { parseVaultDescriptor } from "../domain/sync/vaultCrypto";
 import {
+  SYNC_DEVICE_ID_KEY,
   SYNC_VAULT_DIR_KEY,
   SYNC_VAULT_ID_KEY,
+  flushSyncPreferences,
+  hydrateSyncPreferences,
+  loadOrCreateDeviceId,
   loadSyncConnection,
+  resetDurableSyncPreferences,
+  type DurableSyncPreferences,
+  type SyncPreferenceValues,
 } from "../domain/services/syncPreferences";
 
 // The store reaches for SQLite-backed sync state and the palace store on save; neither is
@@ -39,11 +46,13 @@ const { useSyncStore, setVaultRemoteFactory } = await import("./syncStore");
 describe("syncStore", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    resetDurableSyncPreferences();
     remote = createMemoryVaultRemote();
     setVaultRemoteFactory(() => remote);
     useSyncStore.setState({
       status: "disconnected",
       dir: null,
+      unlocked: false,
       pending: [],
       conflicts: [],
       choices: {},
@@ -159,5 +168,111 @@ describe("syncStore", () => {
     expect(useSyncStore.getState().status).toBe("disconnected");
     expect(loadSyncConnection()).toBeNull();
     expect(remote.files.size).toBe(fileCount);
+  });
+
+  it("says whether a folder already holds a vault, so joining is never mistaken for creating", async () => {
+    expect((await useSyncStore.getState().checkFolder("/vault")).kind).toBe("new");
+
+    await useSyncStore.getState().connect("/vault", "shared passphrase");
+    useSyncStore.getState().disconnect();
+
+    expect((await useSyncStore.getState().checkFolder("/vault")).kind).toBe("existing");
+  });
+
+  it("stays locked after a wrong passphrase, even on a device that has synced before", async () => {
+    await useSyncStore.getState().connect("/vault", "the real passphrase");
+    setVaultRemoteFactory(() => remote); // a fresh launch: no key in memory
+    useSyncStore.setState({ status: "locked", unlocked: false, lastSyncedAt: "2026-09-28T10:00:00Z" });
+
+    await useSyncStore.getState().unlock("a guess");
+
+    expect(useSyncStore.getState().unlocked).toBe(false);
+    expect(useSyncStore.getState().error).toMatch(/passphrase/i);
+
+    await useSyncStore.getState().unlock("the real passphrase");
+    expect(useSyncStore.getState().unlocked).toBe(true);
+  });
+});
+
+function fakeFile(initial: SyncPreferenceValues | null = null) {
+  const file = { contents: initial as SyncPreferenceValues | null };
+  const backend: DurableSyncPreferences = {
+    load: async () => file.contents,
+    save: async (values) => {
+      file.contents = { ...values };
+    },
+  };
+  return { file, backend };
+}
+
+describe("sync settings outlive the webview's storage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetDurableSyncPreferences();
+    remote = createMemoryVaultRemote();
+    setVaultRemoteFactory(() => remote);
+    useSyncStore.setState({ status: "disconnected", dir: null, unlocked: false, error: null, lastSyncedAt: null });
+  });
+
+  it("brings the connection back from the app data file when localStorage was wiped", async () => {
+    const { file, backend } = fakeFile();
+    await hydrateSyncPreferences(backend);
+    await useSyncStore.getState().connect("/vault", "shared passphrase");
+    const deviceId = loadOrCreateDeviceId();
+    await flushSyncPreferences();
+
+    // An update, a new webview origin, a cleared cache: webview storage is gone.
+    window.localStorage.clear();
+    resetDurableSyncPreferences();
+    useSyncStore.setState({ status: "disconnected", dir: null, unlocked: false });
+
+    await hydrateSyncPreferences(fakeFile(file.contents).backend);
+    useSyncStore.getState().restore();
+
+    expect(useSyncStore.getState().status).toBe("locked");
+    expect(useSyncStore.getState().dir).toBe("/vault");
+    // The same device id, or this device would orphan its own shard in the vault.
+    expect(loadOrCreateDeviceId()).toBe(deviceId);
+  });
+
+  it("carries a connection made before the file existed into it", async () => {
+    window.localStorage.setItem(SYNC_VAULT_DIR_KEY, "/vault");
+    window.localStorage.setItem(SYNC_VAULT_ID_KEY, "vault-1");
+    window.localStorage.setItem(SYNC_DEVICE_ID_KEY, "device-1");
+    const { file, backend } = fakeFile();
+
+    await hydrateSyncPreferences(backend);
+    await flushSyncPreferences();
+
+    expect(file.contents).toMatchObject({
+      [SYNC_VAULT_DIR_KEY]: "/vault",
+      [SYNC_VAULT_ID_KEY]: "vault-1",
+      [SYNC_DEVICE_ID_KEY]: "device-1",
+    });
+  });
+
+  it("keeps the passphrase out of the file", async () => {
+    const passphrase = "a-very-distinctive-passphrase";
+    const { file, backend } = fakeFile();
+    await hydrateSyncPreferences(backend);
+
+    await useSyncStore.getState().connect("/vault", passphrase);
+    await flushSyncPreferences();
+
+    expect(JSON.stringify(file.contents)).toContain("/vault");
+    expect(JSON.stringify(file.contents)).not.toContain(passphrase);
+  });
+
+  it("forgets the folder in the file too on disconnect, but keeps the device id", async () => {
+    const { file, backend } = fakeFile();
+    await hydrateSyncPreferences(backend);
+    await useSyncStore.getState().connect("/vault", "shared passphrase");
+    loadOrCreateDeviceId();
+
+    useSyncStore.getState().disconnect();
+    await flushSyncPreferences();
+
+    expect(file.contents?.[SYNC_VAULT_DIR_KEY]).toBeUndefined();
+    expect(file.contents?.[SYNC_DEVICE_ID_KEY]).toBeTruthy();
   });
 });
