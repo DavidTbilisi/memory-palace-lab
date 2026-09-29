@@ -108,6 +108,10 @@ import {
   type StormResult,
 } from "../domain/services/storm";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
+import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
+import { hasConfusionLink } from "../domain/services/confusion";
+import { hasLoggedConfusion, pullDistinguishersForward, type MissCause } from "../domain/services/confusionReview";
+import type { ReviewPhase } from "../domain/services/reviewMetrics";
 
 const repo = getPalaceRepository();
 
@@ -149,6 +153,35 @@ export type StormSession = {
 
 /** What a finished Storm shows on its results screen. */
 export type StormSummary = StormResult & { routeName: string; firstReviewAt: string | null };
+
+/**
+ * A recall just rated Again, waiting for the learner to say why (backlog 07). It outlives the
+ * step: Again still moves on at once, and the question stays about the stop that was missed.
+ */
+export type WalkMissPrompt = {
+  palaceId: string;
+  routeId: string;
+  locusId: string | null;
+  nodeId: string;
+  nodeTitle: string;
+  slot: NedfSlot | null;
+  sessionId: string | null;
+  ratedAt: string;
+  phase: ReviewPhase;
+};
+
+/** What the learner is told once a confusion is logged; with `offerLink`, Link and Not now. */
+export type WalkMissNotice = {
+  palaceId: string;
+  nodeId: string;
+  nodeTitle: string;
+  otherNodeId: string;
+  otherTitle: string;
+  offerLink: boolean;
+  message: string;
+  /** Nodes that could not be pulled forward, e.g. "Mutex has no Distinguisher yet — …". */
+  notes: string[];
+};
 
 type WalkSummary = {
   sessionId: string | null;
@@ -213,6 +246,8 @@ export type PalaceStore = {
   walkStepRated: boolean;
   walkRatingCounts: WalkRatingCounts;
   walkSummary: WalkSummary | null;
+  walkMissPrompt: WalkMissPrompt | null;
+  walkMissNotice: WalkMissNotice | null;
   walkStepEnteredAt: string | null;
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
@@ -366,6 +401,14 @@ export type PalaceStore = {
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
+  /**
+   * Say why the last Again missed: mixed up with another node, or a blank. A confusion pulls
+   * both nodes' Distinguisher cards forward and may offer to link the pair.
+   */
+  explainWalkMiss: (cause: MissCause, confusedWithNodeId?: string) => Promise<void>;
+  /** Accept the offer: link the logged pair as a confusion on the canvas. */
+  linkWalkMissConfusion: () => void;
+  dismissWalkMiss: () => void;
   walkNext: () => void;
   walkPrev: () => void;
   setWalkIndex: (index: number) => void;
@@ -812,6 +855,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkStepRated: false,
     walkRatingCounts: { ...EMPTY_WALK_RATINGS },
     walkSummary: null,
+    walkMissPrompt: null,
+    walkMissNotice: null,
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
@@ -1590,6 +1635,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkStepRated: false,
           walkRatingCounts: { ...EMPTY_WALK_RATINGS },
           walkSummary: null,
+          walkMissPrompt: null,
+          walkMissNotice: null,
           walkStepEnteredAt: null,
           walkRevealedAt: null,
           walkRevealLatencyMs: null,
@@ -1729,6 +1776,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkStepRated: false,
           walkRatingCounts: { ...EMPTY_WALK_RATINGS },
           walkSummary: null,
+          walkMissPrompt: null,
+          walkMissNotice: null,
           walkStepEnteredAt: null,
           walkRevealedAt: null,
           walkRevealLatencyMs: null,
@@ -1832,6 +1881,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkStepRated: false,
         walkRatingCounts: { ...EMPTY_WALK_RATINGS },
         walkSummary: null,
+        walkMissPrompt: null,
+        walkMissNotice: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -1895,6 +1946,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             ? { ...EMPTY_WALK_RATINGS }
             : state.walkRatingCounts,
         walkSummary: walkOpen && !wasOpen ? null : state.walkSummary,
+        // A walk that starts or is put away leaves no question about an earlier miss.
+        walkMissPrompt: walkOpen === wasOpen ? state.walkMissPrompt : null,
+        walkMissNotice: walkOpen === wasOpen ? state.walkMissNotice : null,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -2061,7 +2115,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     dismissWalkSummary() {
-      set({ walkSummary: null });
+      set({ walkSummary: null, walkMissPrompt: null, walkMissNotice: null });
     },
 
     revealWalkAnswer() {
@@ -2113,6 +2167,23 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       // Read before the update below: rating the last step clears walkSessionId.
       const sessionId = get().walkSessionId;
       const slot = get().walkSlot;
+      const palaceId = get().currentPalace?.id ?? null;
+      // An Again asks why it missed; the question stays about this stop after the walk moves on.
+      const missPrompt: WalkMissPrompt | null =
+        rating === "again" && palaceId
+          ? {
+              palaceId,
+              routeId: context.routeId,
+              locusId: context.locus?.id ?? null,
+              nodeId: context.nodeId,
+              nodeTitle: resolveNodeTitleForAnalytics(context.nodeId) ?? "Untitled node",
+              slot,
+              sessionId,
+              ratedAt,
+              // Stamped as the rating is: a miss in a Storm's palace belongs to the Storm.
+              phase: get().storm?.palaceId === palaceId ? "storm" : "siege",
+            }
+          : null;
 
       set((state) => {
         const nextLoci = state.loci.map((locus) => {
@@ -2131,6 +2202,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkRevealLatencyMs: revealLatencyMs,
           walkStepRated: true,
           walkRatingCounts: updatedRatings,
+          walkMissPrompt: missPrompt ?? state.walkMissPrompt,
+          walkMissNotice: missPrompt ? null : state.walkMissNotice,
           walkOpen: isLastStep ? false : state.walkOpen,
           walkSessionId: isLastStep ? null : state.walkSessionId,
           walkSummary: isLastStep
@@ -2198,6 +2271,89 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         return;
       }
       get().walkNext();
+    },
+
+    async explainWalkMiss(cause, confusedWithNodeId) {
+      const prompt = get().walkMissPrompt;
+      if (!prompt) return;
+      const otherId = cause === "confusion" ? (confusedWithNodeId ?? null) : null;
+      if (cause === "confusion" && (!otherId || otherId === prompt.nodeId)) return;
+      set({ walkMissPrompt: null, walkMissNotice: null });
+      if (get().currentPalace?.id !== prompt.palaceId) return;
+      const otherTitle = otherId ? (resolveNodeTitleForAnalytics(otherId) ?? "Untitled node") : null;
+      // Whether the pair was logged before is read before this one is recorded.
+      if (otherId && !get().analyticsLoaded) await get().loadAnalyticsEvents();
+      const loggedBefore = otherId ? hasLoggedConfusion(get().analyticsEvents, prompt.nodeId, otherId) : false;
+      void recordAnalytics({
+        eventType: "recall_miss_explained",
+        eventGroup: "review",
+        sessionId: prompt.sessionId,
+        palaceId: prompt.palaceId,
+        routeId: prompt.routeId,
+        nodeId: prompt.nodeId,
+        payload: {
+          cause,
+          confusedWithNodeId: otherId,
+          confusedWithTitle: otherTitle,
+          locusId: prompt.locusId,
+          slot: prompt.slot,
+          nodeTitle: prompt.nodeTitle,
+          ratedAt: prompt.ratedAt,
+          ...(prompt.phase === "storm" ? { phase: "storm" } : {}),
+        },
+      });
+      if (!otherId || !otherTitle) return;
+
+      const pulled = pullDistinguishersForward(get().loci, get().routes, nedfOfNode, [prompt.nodeId, otherId], prompt.ratedAt);
+      if (pulled.pulledLocusIds.length > 0) {
+        set({ loci: pulled.loci });
+        scheduleDraftSave();
+      }
+      const { editorRef, edges } = get();
+      const linked = hasConfusionLink(editorRef ? canvasConfusionEdges(editorRef) : edges, prompt.nodeId, otherId);
+      const titleOf = (nodeId: string) => (nodeId === otherId ? otherTitle : prompt.nodeTitle);
+      const pair = `${prompt.nodeTitle} and ${otherTitle}`;
+      // A new pair is offered as a link once; after that it is only logged.
+      const offerLink = !linked && !loggedBefore;
+      set({
+        walkMissNotice: {
+          palaceId: prompt.palaceId,
+          nodeId: prompt.nodeId,
+          nodeTitle: prompt.nodeTitle,
+          otherNodeId: otherId,
+          otherTitle,
+          offerLink,
+          message: linked
+            ? `Logged. ${pair} are linked as a confusion.`
+            : offerLink
+              ? `Link ${pair} as a confusion?`
+              : `Logged: ${prompt.nodeTitle} mixed up with ${otherTitle}.`,
+          notes: pulled.withoutDistinguisher.map(
+            (nodeId) => `${titleOf(nodeId)} has no Distinguisher yet — add one so the review can tell them apart.`,
+          ),
+        },
+      });
+    },
+
+    linkWalkMissConfusion() {
+      const notice = get().walkMissNotice;
+      if (!notice?.offerLink) return;
+      const { editorRef, currentPalace } = get();
+      const result =
+        editorRef && currentPalace?.id === notice.palaceId
+          ? linkConfusion(editorRef, currentPalace.id, notice.nodeId, notice.otherNodeId)
+          : ({ ok: false, message: "Open the palace on the canvas to link them." } as const);
+      set({
+        walkMissNotice: {
+          ...notice,
+          offerLink: false,
+          message: result.ok ? `Linked ${notice.nodeTitle} and ${notice.otherTitle} as a confusion.` : result.message,
+        },
+      });
+    },
+
+    dismissWalkMiss() {
+      set({ walkMissPrompt: null, walkMissNotice: null });
     },
 
     walkNext() {
@@ -2293,6 +2449,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkStepRated: false,
         walkRatingCounts: { ...EMPTY_WALK_RATINGS },
         walkSummary: null,
+        walkMissPrompt: null,
+        walkMissNotice: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
