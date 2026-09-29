@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { computeDailyStreak, countReviewedToday } from "../domain/services/reviewMetrics";
 import { startReviewAt } from "../app/reviewNavigation";
 import { useDueQueue } from "./hooks/useDueQueue";
+import { RecallMissPrompt } from "./RecallMissPrompt";
 
 type Props = {
   onReviewAnother: () => void;
@@ -65,6 +66,8 @@ export function SessionSummaryModal({ onReviewAnother, onBackToPalace }: Props) 
           <Trophy className="h-4 w-4" />
           {streak}-day streak • {reviewedToday}/{dailyReviewGoal} today
         </div>
+        {/* The last step was missed: ask about it here, since the walk bar is gone. */}
+        <RecallMissPrompt placement="summary" />
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button

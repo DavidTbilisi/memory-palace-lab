@@ -10,6 +10,7 @@ import { PalaceDslEditor } from "./PalaceDslEditor";
 import { PalaceToolbar } from "./PalaceToolbar";
 import { RightPanel } from "./RightPanel";
 import { WalkModeBar } from "./WalkModeBar";
+import { RecallMissPrompt } from "./RecallMissPrompt";
 import { StormBar } from "./StormBar";
 import type { AssessHint } from "./hooks/useAssessHint";
 
@@ -67,6 +68,7 @@ export function GraphWorkspace({
     <section className={isActive ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col"}>
       <PalaceToolbar onHoverHintChange={onHoverHintChange} onOpenRepresent={onOpenRepresent} />
       <WalkModeBar onHoverHintChange={onHoverHintChange} />
+      <RecallMissPrompt placement="walk" />
       <StormBar />
       <ExternalChangeBanner />
       {assessHint && currentPalace ? (
