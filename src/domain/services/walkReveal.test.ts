@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hiddenStopCue, walkHiddenNodeIds, type WalkRevealInput } from "./walkReveal";
+import { dueStopName, hiddenStopCue, walkHiddenNodeIds, type WalkRevealInput } from "./walkReveal";
 
 const base: WalkRevealInput = {
   walkOpen: true,
@@ -38,5 +38,13 @@ describe("hiddenStopCue", () => {
     expect(hiddenStopCue("  by the door ")).toBe("by the door");
     expect(hiddenStopCue("")).toBe("What is stored at this stop?");
     expect(hiddenStopCue(null)).toBe("What is stored at this stop?");
+  });
+});
+
+describe("dueStopName", () => {
+  it("names a due stop by its place and card, never its node", () => {
+    expect(dueStopName("by the door", null)).toBe("by the door");
+    expect(dueStopName("", null)).toBe("Unlabelled stop");
+    expect(dueStopName(" ", "distinguisher")).toBe("Unlabelled stop · Distinguisher card");
   });
 });

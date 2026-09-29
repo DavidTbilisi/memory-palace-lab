@@ -4,6 +4,7 @@ import { requestNavigation } from "../app/navigationEvents";
 import { startReviewAt } from "../app/reviewNavigation";
 import { usePalaceStore } from "../store/palaceStore";
 import { useDueQueue } from "./hooks/useDueQueue";
+import { dueStopName } from "../domain/services/walkReveal";
 import { Button } from "./ui/button";
 
 const DISMISSED_KEY = "mp-next-up-dismissed";
@@ -57,7 +58,7 @@ export function NextUpCard() {
       <Footprints className="h-3.5 w-3.5 text-violet-300" />
       <span className="font-semibold uppercase tracking-wide text-violet-300">Next up</span>
       <span className="min-w-0 truncate">
-        <span className="text-zinc-100">{next.routeName}</span> · {next.locusLabel || next.nodeTitle}
+        <span className="text-zinc-100">{next.routeName}</span> · {dueStopName(next.locusLabel, next.slot)}
         {elsewhere ? <span className="text-zinc-500"> · {next.palaceName}</span> : null}
         <span className="text-zinc-500"> · {describeDue(next.nextReviewAt)}</span>
         {remaining > 0 ? <span className="text-zinc-500"> · {remaining} more due</span> : null}

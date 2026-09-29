@@ -1,3 +1,6 @@
+import type { NedfSlot } from "../entities/types";
+import { NEDF_SLOT_LABELS } from "./nedf";
+
 /**
  * What a recall-first walk keeps hidden. Walking a palace means standing at a place and saying
  * what is stored there, so every node on the walked route stays hidden until the learner has
@@ -44,4 +47,13 @@ export function walkHiddenNodeIds({
  */
 export function hiddenStopCue(label: string | null | undefined): string {
   return label?.trim() || "What is stored at this stop?";
+}
+
+/**
+ * How a due stop is named before its review starts (the Review page, Next up): by its place and
+ * the card it asks, never by the node stored there, which is the answer the review asks for.
+ */
+export function dueStopName(locusLabel: string | null | undefined, slot: NedfSlot | null): string {
+  const place = locusLabel?.trim() || "Unlabelled stop";
+  return slot ? `${place} · ${NEDF_SLOT_LABELS[slot]} card` : place;
 }

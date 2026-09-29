@@ -231,7 +231,7 @@ test("analytics panel shows local review and graph telemetry", async ({ page }) 
   await expect(page.getByText(/graph work: node create\/update, edge create\/update/i)).toBeVisible();
 });
 
-test("spaced review queue surfaces the due locus with its route and node", async ({ page }) => {
+test("spaced review queue surfaces the due locus by its route, not its node", async ({ page }) => {
   // Every rating schedules the next review at least a day out, so the clock is moved on.
   await page.clock.install();
   await bootstrapTutorialPalace(page);
@@ -262,7 +262,9 @@ test("spaced review queue surfaces the due locus with its route and node", async
   await reviewNav.click();
 
   await expect(page.getByText("Global Review Queue", { exact: true })).toBeVisible();
-  await expect(page.getByText("Tutorial Palace | Spaced Route | Queue Node")).toBeVisible();
+  const due = page.getByRole("region", { name: "Due loci" });
+  await expect(due.getByText("Tutorial Palace | Spaced Route", { exact: true })).toBeVisible();
+  await expect(due).not.toContainText("Queue Node");
   await expect(page.getByRole("button", { name: "Review now" })).toBeVisible();
 
   await page.getByRole("button", { name: "Review now" }).click();

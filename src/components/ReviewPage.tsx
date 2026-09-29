@@ -12,6 +12,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { countStormReviewedToday } from "../domain/services/reviewMetrics";
 import { useDueQueue } from "./hooks/useDueQueue";
 import { StormStartCard } from "./StormStartCard";
+import { dueStopName } from "../domain/services/walkReveal";
 import { Button } from "./ui/button";
 
 type Props = {
@@ -166,7 +167,7 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
 
         <StormStartCard onStarted={onOpenPalaceWorkspace} />
 
-        <section className="mt-4 rounded-[28px] border border-zinc-800 bg-zinc-900/40 p-5">
+        <section aria-label="Due loci" className="mt-4 rounded-[28px] border border-zinc-800 bg-zinc-900/40 p-5">
           <div className="text-sm font-semibold text-zinc-100">Due Loci</div>
           <div className="mt-4 space-y-3">
             {loadingDue ? (
@@ -187,10 +188,10 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="text-base font-medium text-zinc-100">
-                        {item.locusLabel || item.nodeTitle}
+                        {dueStopName(item.locusLabel, item.slot)}
                       </div>
                       <div className="mt-1 text-xs text-zinc-400">
-                        {item.palaceName} | {item.routeName} | {item.nodeTitle}
+                        {item.palaceName} | {item.routeName}
                       </div>
                       <div className="mt-1 text-xs text-zinc-500">
                         Due {new Date(item.nextReviewAt).toLocaleDateString()}{" "}
