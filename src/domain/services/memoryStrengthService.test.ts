@@ -4,6 +4,7 @@ import { createAnalyticsEvent } from "./analyticsService";
 import type { DueQueueSnapshot } from "./dueQueue";
 import {
   buildMemoryStrengthDashboard,
+  confusionHotspots,
   formatRouteFrictionStatus,
   formatTrendDirection,
   trendDirectionFromDelta,
@@ -304,5 +305,91 @@ describe("memoryStrengthService", () => {
       "decaying",
       "insufficient",
     ]);
+  });
+});
+
+describe("confusionHotspots", () => {
+  const D: NedfEncoding = { distinguisher: { prompt: "One key?", reason: "one owner" } };
+  const stops: StopSpec[] = [
+    { locusId: "l-mutex", nodeId: "mutex", title: "Mutex", routeId: "r", nextReviewAt: "2026-05-01T00:00:00.000Z", nedf: D },
+    { locusId: "l-sem", nodeId: "sem", title: "Semaphore", routeId: "r", nextReviewAt: "2026-05-01T00:00:00.000Z" },
+    { locusId: "l-mon", nodeId: "mon", title: "Monitor", routeId: "r", nextReviewAt: "2026-05-01T00:00:00.000Z" },
+    { locusId: "l-bar", nodeId: "bar", title: "Barrier", routeId: "r", nextReviewAt: "2026-05-01T00:00:00.000Z", nedf: D },
+  ];
+  const palace = (edges: DueQueueSnapshot["edges"] = []) => ({
+    ...snapshot({ id: "p", name: "Concurrency" }, [{ id: "r", name: "Locks" }], stops),
+    edges,
+  });
+  const mixedUp = (nodeId: string, other: string, createdAt: string, extra: Record<string, unknown> = {}) =>
+    createAnalyticsEvent({
+      eventType: "recall_miss_explained",
+      eventGroup: "review",
+      palaceId: "p",
+      routeId: "r",
+      nodeId,
+      createdAt,
+      payload: { cause: "confusion", confusedWithNodeId: other, ...extra },
+    });
+
+  it("counts a pair whichever node was missed, and starts at the node missed most", () => {
+    const events = [
+      mixedUp("sem", "mutex", "2026-04-20T09:00:00.000Z"),
+      mixedUp("mutex", "sem", "2026-04-21T09:00:00.000Z"),
+      mixedUp("sem", "mutex", "2026-04-22T09:00:00.000Z"),
+    ];
+    const [hotspot] = confusionHotspots([palace()], events);
+    expect(hotspot).toMatchObject({
+      palaceName: "Concurrency",
+      count: 3,
+      lastLoggedAt: "2026-04-22T09:00:00.000Z",
+      linked: false,
+      nodes: [
+        { nodeId: "sem", title: "Semaphore", missCount: 2, hasDistinguisher: false },
+        { nodeId: "mutex", title: "Mutex", missCount: 1, hasDistinguisher: true },
+      ],
+      // Semaphore has no Distinguisher, so the review starts at Mutex's.
+      review: { nodeId: "mutex", routeId: "r", locusId: "l-mutex" },
+    });
+  });
+
+  it("leaves out Storm misses, blanks, and a single miss of an already linked pair", () => {
+    const linkedEdge = { sourceNodeId: "bar", targetNodeId: "mon", kind: "confusion" as const };
+    const events = [
+      mixedUp("mutex", "sem", "2026-04-20T09:00:00.000Z", { phase: "storm" }),
+      createAnalyticsEvent({
+        eventType: "recall_miss_explained",
+        eventGroup: "review",
+        palaceId: "p",
+        nodeId: "mutex",
+        payload: { cause: "blank", confusedWithNodeId: null },
+      }),
+      mixedUp("mon", "bar", "2026-04-21T09:00:00.000Z"),
+    ];
+    expect(confusionHotspots([palace([linkedEdge])], events)).toEqual([]);
+    // Logged again, the linked pair is a hotspot after all.
+    const again = confusionHotspots([palace([linkedEdge])], [...events, mixedUp("bar", "mon", "2026-04-22T09:00:00.000Z")]);
+    expect(again.map((h) => [h.nodes.map((n) => n.title), h.count, h.linked])).toEqual([[["Barrier", "Monitor"], 2, true]]);
+  });
+
+  it("ranks by count, then by the latest miss, and skips pairs whose nodes are gone", () => {
+    const events = [
+      mixedUp("mutex", "sem", "2026-04-20T09:00:00.000Z"),
+      mixedUp("mon", "bar", "2026-04-23T09:00:00.000Z"),
+      mixedUp("mon", "sem", "2026-04-21T09:00:00.000Z"),
+      mixedUp("mon", "sem", "2026-04-22T09:00:00.000Z"),
+      mixedUp("mon", "deleted", "2026-04-24T09:00:00.000Z"),
+    ];
+    const hotspots = confusionHotspots([palace()], events);
+    expect(hotspots.map((h) => h.nodes.map((n) => n.nodeId).sort().join("+"))).toEqual(["mon+sem", "bar+mon", "mutex+sem"]);
+    expect(hotspots[0]!.review).toBeNull();
+  });
+
+  it("is part of the dashboard", () => {
+    const dashboard = buildMemoryStrengthDashboard({
+      snapshots: [palace()],
+      analyticsEvents: [mixedUp("mutex", "sem", "2026-04-20T09:00:00.000Z")],
+      now: NOW,
+    });
+    expect(dashboard.confusionHotspots).toHaveLength(1);
   });
 });

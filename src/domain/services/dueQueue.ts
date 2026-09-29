@@ -1,4 +1,4 @@
-import type { Locus, MemoryNode, MemoryRoute, NedfEncoding, NedfSlot, Palace } from "../entities/types";
+import type { Locus, MemoryEdge, MemoryNode, MemoryRoute, NedfEncoding, NedfSlot, Palace } from "../entities/types";
 import { dueStopCards, stopCards, type StopCard } from "./nedf";
 
 /** Looks up a node's NEDF slots; stops on nodes without any review on their single schedule. */
@@ -37,6 +37,8 @@ export type DueQueueSnapshot = {
   routes: MemoryRoute[];
   loci: Locus[];
   nodes: MemoryNode[];
+  /** Not needed for due-ness; the Strength tab reads confusion links from them. */
+  edges?: Pick<MemoryEdge, "sourceNodeId" | "targetNodeId" | "kind">[];
 };
 
 export type DueQueue = {

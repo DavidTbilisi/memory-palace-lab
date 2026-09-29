@@ -1,7 +1,9 @@
 import type { AnalyticsEvent, Locus, NedfSlot, RecallRating } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
+import { hasConfusionLink } from "./confusion";
+import { readLoggedConfusion, unorderedPairKey } from "./confusionReview";
 import { buildDueQueue, isRouteInReview, nedfLookup, reviewedLoci, type DueQueueSnapshot } from "./dueQueue";
-import { dueStopCards, stopCards, type StopCard } from "./nedf";
+import { dueStopCards, isSlotFilled, stopCards, type StopCard } from "./nedf";
 import { eventPhase } from "./reviewMetrics";
 
 /**
@@ -97,6 +99,32 @@ export type RouteFrictionItem = {
   reasons: string[];
 };
 
+/** One side of a confusion hotspot. */
+export type HotspotNode = {
+  nodeId: string;
+  title: string;
+  /** How often this node was the one missed. */
+  missCount: number;
+  hasDistinguisher: boolean;
+};
+
+/** Two nodes the learner keeps mixing up, from misses explained as a confusion. */
+export type ConfusionHotspot = {
+  palaceId: string;
+  palaceName: string;
+  /** Missed more often first; on a tie, the one missed last. */
+  nodes: [HotspotNode, HotspotNode];
+  count: number;
+  lastLoggedAt: string;
+  /** Whether a confusion link joins the pair. */
+  linked: boolean;
+  /**
+   * Where reviewing the pair starts: the first node, in `nodes` order, with a Distinguisher on a
+   * route in review. Null when neither has one; the pair then opens the palace at `nodes[0]`.
+   */
+  review: { nodeId: string; routeId: string; locusId: string } | null;
+};
+
 export type MemoryStrengthDashboard = {
   overview: {
     totalDue: number;
@@ -115,6 +143,7 @@ export type MemoryStrengthDashboard = {
   palaceHealth: PalaceHealthItem[];
   trend: TrendPoint[];
   routeFriction: RouteFrictionItem[];
+  confusionHotspots: ConfusionHotspot[];
 };
 
 type SiegeRating = {
@@ -512,6 +541,96 @@ function buildRouteFrictionItems(input: {
   return items.sort((a, b) => b.frictionScore - a.frictionScore || a.routeName.localeCompare(b.routeName));
 }
 
+type PairTally = {
+  palaceId: string;
+  count: number;
+  lastLoggedAt: string;
+  /** Per node: misses, the last miss, and the title the event recorded. */
+  misses: Map<string, { count: number; lastAt: string; title: string | null }>;
+};
+
+/**
+ * Pairs the learner mixed up in Siege reviews, per palace. A pair logged twice or more, or once
+ * and not yet linked, is a hotspot; most logged first, then most recent. Pairs whose palace or
+ * nodes are gone are left out, since there is nothing left to review.
+ */
+export function confusionHotspots(
+  snapshots: readonly DueQueueSnapshot[],
+  events: readonly AnalyticsEvent[],
+  limit = 8,
+): ConfusionHotspot[] {
+  const tallies = new Map<string, PairTally>();
+  for (const event of events) {
+    if (eventPhase(event) === "storm" || !event.palaceId) continue;
+    const logged = readLoggedConfusion(event);
+    if (!logged) continue;
+    const key = `${event.palaceId}|${unorderedPairKey(logged.nodeId, logged.otherNodeId)}`;
+    const tally = tallies.get(key) ?? { palaceId: event.palaceId, count: 0, lastLoggedAt: event.createdAt, misses: new Map() };
+    tally.count += 1;
+    if (event.createdAt > tally.lastLoggedAt) tally.lastLoggedAt = event.createdAt;
+    const note = (nodeId: string, title: string | null, missed: boolean) => {
+      const entry = tally.misses.get(nodeId) ?? { count: 0, lastAt: "", title };
+      if (missed) {
+        entry.count += 1;
+        if (event.createdAt > entry.lastAt) entry.lastAt = event.createdAt;
+      }
+      entry.title ??= title;
+      tally.misses.set(nodeId, entry);
+    };
+    note(logged.nodeId, logged.nodeTitle, true);
+    note(logged.otherNodeId, logged.otherTitle, false);
+    tallies.set(key, tally);
+  }
+
+  const byPalace = new Map(snapshots.map((snapshot) => [snapshot.palace.id, snapshot]));
+  const hotspots: ConfusionHotspot[] = [];
+  for (const tally of tallies.values()) {
+    const snapshot = byPalace.get(tally.palaceId);
+    if (!snapshot) continue;
+    const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
+    const ids = [...tally.misses.keys()];
+    if (ids.length !== 2 || !ids.every((id) => nodeById.has(id))) continue;
+    const linked = hasConfusionLink(snapshot.edges ?? [], ids[0]!, ids[1]!);
+    if (tally.count < 2 && linked) continue;
+    const sides = ids
+      .map((nodeId): HotspotNode & { lastAt: string } => {
+        const node = nodeById.get(nodeId)!;
+        const miss = tally.misses.get(nodeId)!;
+        return {
+          nodeId,
+          title: node.title.trim() || miss.title || "Untitled node",
+          missCount: miss.count,
+          hasDistinguisher: isSlotFilled(node.nedf, "distinguisher"),
+          lastAt: miss.lastAt,
+        };
+      })
+      .sort((a, b) => b.missCount - a.missCount || b.lastAt.localeCompare(a.lastAt));
+    const nodes = sides.map(({ lastAt: _lastAt, ...side }) => side) as [HotspotNode, HotspotNode];
+    const loci = reviewedLoci(snapshot.loci, snapshot.routes);
+    let review: ConfusionHotspot["review"] = null;
+    for (const side of nodes) {
+      if (!side.hasDistinguisher) continue;
+      const locus = loci.find((candidate) => candidate.nodeId === side.nodeId);
+      if (locus) {
+        review = { nodeId: side.nodeId, routeId: locus.routeId, locusId: locus.id };
+        break;
+      }
+    }
+    hotspots.push({
+      palaceId: snapshot.palace.id,
+      palaceName: snapshot.palace.name,
+      nodes,
+      count: tally.count,
+      lastLoggedAt: tally.lastLoggedAt,
+      linked,
+      review,
+    });
+  }
+  return hotspots
+    .sort((a, b) => b.count - a.count || b.lastLoggedAt.localeCompare(a.lastLoggedAt))
+    .slice(0, limit);
+}
+
 export function buildMemoryStrengthDashboard(input: {
   snapshots: readonly DueQueueSnapshot[];
   analyticsEvents: readonly AnalyticsEvent[];
@@ -557,6 +676,7 @@ export function buildMemoryStrengthDashboard(input: {
     palaceHealth,
     trend,
     routeFriction: buildRouteFrictionItems({ snapshots: input.snapshots, stops, ratings, dueByRoute: queue.countByRoute }),
+    confusionHotspots: confusionHotspots(input.snapshots, input.analyticsEvents),
   };
 }
 

@@ -49,6 +49,7 @@ export function useDueQueue(): DueQueueState {
   const routes = usePalaceStore((s) => s.routes);
   const loci = usePalaceStore((s) => s.loci);
   const nodes = usePalaceStore((s) => s.nodes);
+  const edges = usePalaceStore((s) => s.edges);
   const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
@@ -104,6 +105,7 @@ export function useDueQueue(): DueQueueState {
             routes: loaded.routes,
             loci: loaded.loci,
             nodes: loaded.nodes,
+            edges: loaded.edges,
           });
         }),
       );
@@ -127,8 +129,8 @@ export function useDueQueue(): DueQueueState {
   }, [currentPalaceId, palaces, version]);
 
   const snapshots = useMemo<DueQueueSnapshot[]>(
-    () => (currentPalace ? [{ palace: currentPalace, routes, loci, nodes }, ...otherSnapshots] : otherSnapshots),
-    [currentPalace, loci, nodes, otherSnapshots, routes],
+    () => (currentPalace ? [{ palace: currentPalace, routes, loci, nodes, edges }, ...otherSnapshots] : otherSnapshots),
+    [currentPalace, edges, loci, nodes, otherSnapshots, routes],
   );
   const queue = useMemo(
     () => (snapshots.length === 0 ? EMPTY_DUE_QUEUE : buildDueQueue(snapshots)),

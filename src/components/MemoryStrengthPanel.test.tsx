@@ -69,6 +69,7 @@ function mockStore(analyticsEvents: AnalyticsEvent[]) {
     loadAnalyticsEvents: vi.fn(),
     currentPalace: { id: "p1", name: "Concurrency" },
     openPalace: vi.fn(async () => undefined),
+    setFocusNodeId: vi.fn(),
   };
   vi.mocked(usePalaceStore).mockImplementation(((selector: (s: unknown) => unknown) => selector(state)) as never);
   return state;
@@ -146,5 +147,54 @@ describe("MemoryStrengthPanel", () => {
     expect(screen.getByTestId("strength-trend-verdict")).toHaveTextContent("Not enough data");
     expect(screen.getByRole("region", { name: "Trend" })).toHaveTextContent("No reviews in this window yet.");
     expect(screen.getByRole("region", { name: "Route friction" })).toHaveTextContent("No rated walks yet.");
+    expect(screen.getByRole("region", { name: "Confusion hotspots" })).toHaveTextContent("No mix-ups logged yet.");
+  });
+
+  const mixedUp = (nodeId: string, other: string, daysAgo: number): AnalyticsEvent =>
+    createAnalyticsEvent({
+      eventType: "recall_miss_explained",
+      eventGroup: "review",
+      palaceId: "p1",
+      routeId: "r1",
+      nodeId,
+      createdAt: ago(daysAgo),
+      payload: { cause: "confusion", confusedWithNodeId: other },
+    });
+
+  it("lists a mixed-up pair and starts at the Distinguisher of the node that has one", async () => {
+    const withD: DueQueueSnapshot = {
+      ...snapshots[0]!,
+      nodes: snapshots[0]!.nodes.map((node) =>
+        node.id === "n-sem" ? { ...node, nedf: { distinguisher: { prompt: "Many keys?", reason: "it counts" } } } : node,
+      ),
+    };
+    vi.mocked(useDueQueue).mockReturnValue({ snapshots: [withD] } as never);
+    mockStore([mixedUp("n-mutex", "n-sem", 2), mixedUp("n-mutex", "n-sem", 1)]);
+    const user = userEvent.setup();
+    render(<MemoryStrengthPanel />);
+    const row = within(screen.getByRole("region", { name: "Confusion hotspots" })).getByTestId("strength-confusion");
+    expect(row).toHaveTextContent("Mutex ↔ Semaphore");
+    expect(row).toHaveTextContent("Not linked");
+    expect(row).toHaveTextContent("2 mix-ups");
+    expect(row).toHaveTextContent("no Distinguisher: Mutex");
+    await user.click(row);
+    expect(startReviewAt).toHaveBeenCalledWith({
+      palaceId: "p1",
+      routeId: "r1",
+      locusId: "l-sem",
+      nodeId: "n-sem",
+      slot: "distinguisher",
+    });
+  });
+
+  it("opens the palace on the node when neither has a Distinguisher", async () => {
+    const state = mockStore([mixedUp("n-sem", "n-mutex", 1)]);
+    const user = userEvent.setup();
+    render(<MemoryStrengthPanel />);
+    await user.click(within(screen.getByRole("region", { name: "Confusion hotspots" })).getByTestId("strength-confusion"));
+    expect(startReviewAt).not.toHaveBeenCalled();
+    expect(state.openPalace).not.toHaveBeenCalled();
+    expect(state.setFocusNodeId).toHaveBeenCalledWith("n-sem");
+    expect(requestNavigation).toHaveBeenCalledWith("graph");
   });
 });
