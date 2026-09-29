@@ -103,12 +103,13 @@ function MixedUpPicker({ prompt, onPick }: { prompt: WalkMissPrompt; onPick: (no
         onKeyDown={onKeyDown}
         className="h-7 w-44 rounded-md border border-amber-800/60 bg-zinc-950 px-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500 focus:outline-none"
       />
+      {/* Above tldraw's panels (z 300), which share the page's stacking context. */}
       {open ? (
         <ul
           id={listId}
           role="listbox"
           aria-label="Nodes in this palace"
-          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-60 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-950 py-1 shadow-lg"
+          className="absolute left-0 top-full z-[500] mt-1 max-h-60 w-60 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-950 py-1 shadow-lg"
         >
           {matches.length === 0 ? (
             <li className="px-2 py-1 text-xs text-zinc-500">No matching node</li>
