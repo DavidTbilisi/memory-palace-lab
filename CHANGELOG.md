@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.23.1 — 2026-09-29
+
+### Sync that remembers its folder and says what it is doing
+
+- **The sync folder is remembered across updates.** The connection to your vault folder is now kept in a small file in the app's data folder, next to your palaces, instead of only in the window's own storage, which could lose it. The first time this version starts, it copies an existing connection into that file. If an earlier update already made the app forget the folder, connect to it once more. The passphrase is still never saved.
+- **Setting up says what will happen.** The Sync card lists the steps. When you pick a folder, it tells you whether it already holds a vault or is empty. An existing vault asks for its passphrase and offers **Join vault and sync**. An empty folder asks for a new passphrase twice before **Create vault and sync**. A folder that holds other files offers a **Memory Palace Vault** subfolder instead.
+- **Sync status in the header.** Once a vault is connected, the header shows **Unlock sync**, **Syncing…**, **N to resolve**, **Sync failed**, or when the last sync ran. Clicking it syncs, or takes you to the passphrase field.
+- **Unlocking syncs.** **Unlock and sync** and connecting both run a sync straight away. Nothing syncs in the background.
+- **Fixed:** a wrong passphrase on a device that had synced before could show the connected view while sync was still locked.
+
 ## v0.23.0 — 2026-09-29
 
 ### Recall that stays hidden until you reveal it
