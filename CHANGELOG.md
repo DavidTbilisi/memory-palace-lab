@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.23.0 — 2026-09-29
+
+### Recall that stays hidden until you reveal it
+
+- **The whole stop is hidden until you reveal it.** In a Recall-first walk, **Reveal** used to hide only the note in the walk bar, while the node's name stayed on the canvas, in the Routes list and in the cue itself. Now every node on the route you are walking is covered until you reveal it: you stand at the place and say what is stored there. The stop you are asked about is outlined and says **Recall?**, or the question of its NEDF card.
+- **Nothing gives it away.** A hidden node's image caption, concept glyph and edges are hidden too, since a link to a neighbour can name it. Its stop reads **Hidden until revealed** in the Routes list, and the inspector does not open it. The cue bar shows the stop's own label, such as "by the door", or asks **What is stored at this stop?** The name appears when you reveal it.
+- **What you have revealed stays shown.** A node you revealed earlier in the walk stays visible for the rest of it, and nodes that are not on the route are never hidden. Leaving the walk shows everything again.
+- **The review queue no longer names the answer.** The Review page and the **Next up** bar name a due stop by its label, or **Unlabelled stop**, and the NEDF card it asks, such as **· Distinguisher card**, instead of the node's title.
+
 ## v0.22.0 — 2026-09-29
 
 ### Memory strength
