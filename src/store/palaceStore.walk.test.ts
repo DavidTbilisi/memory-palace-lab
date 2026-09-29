@@ -61,6 +61,8 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
+    walkRevealedNodeIds: [],
+    walkRevealedSessionId: null,
     ...overrides,
   });
 }
@@ -318,6 +320,24 @@ describe("setWalkRecallMode", () => {
 // ── revealWalkAnswer ────────────────────────────────────────────────────────
 
 describe("revealWalkAnswer", () => {
+  it("remembers the revealed node for the rest of the walk, and starts afresh in a new walk", () => {
+    resetWalkState({ walkOpen: true, walkSessionId: "s1", walkRecallMode: true, walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    const first = usePalaceStore.getState().walkRevealedNodeIds;
+    expect(first).toHaveLength(1);
+    expect(usePalaceStore.getState().walkRevealedSessionId).toBe("s1");
+
+    usePalaceStore.setState({ walkIndex: 1, walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    const both = usePalaceStore.getState().walkRevealedNodeIds;
+    expect(both).toHaveLength(2);
+
+    usePalaceStore.setState({ walkSessionId: "s2", walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    expect(usePalaceStore.getState().walkRevealedNodeIds).toEqual([both[1]]);
+    expect(usePalaceStore.getState().walkRevealedSessionId).toBe("s2");
+  });
+
   it("sets walkAnswerRevealed to true", () => {
     resetWalkState({ walkOpen: true, walkSessionId: "s1", walkRecallMode: true, walkAnswerRevealed: false });
     usePalaceStore.getState().revealWalkAnswer();

@@ -10,6 +10,7 @@ import { isMemoryNodeShape, isNodeCapableShape } from "../canvas/memoryNodeShape
 import type { MemoryEdge, MemoryNode, MemoryNodeKind, MemoryRoute, PalacePortalRef } from "../domain/entities/types";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
+import { useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -186,6 +187,7 @@ export function NodeInspector() {
   const loci = usePalaceStore((s) => s.loci);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
+  const walkHidden = useWalkHiddenNodeIds();
   const snapshotNodes = usePalaceStore((s) => s.nodes);
   const snapshotEdges = usePalaceStore((s) => s.edges);
   const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
@@ -548,6 +550,19 @@ export function NodeInspector() {
   }
 
   const meta = sh.meta as MemoryPalaceMeta;
+
+  // A recall walk hides this node, or the node at an end of this edge, until it is revealed.
+  if (
+    (isMemoryNodeShape(sh) && meta.mpNodeId && walkHidden.has(meta.mpNodeId)) ||
+    (meta.mpSourceNodeId && walkHidden.has(meta.mpSourceNodeId)) ||
+    (meta.mpTargetNodeId && walkHidden.has(meta.mpTargetNodeId))
+  ) {
+    return (
+      <div className="p-3 text-sm text-zinc-500" data-testid="inspector-walk-hidden">
+        Hidden until you reveal it in the walk.
+      </div>
+    );
+  }
 
   if (isMemoryNodeShape(sh)) {
     const openLinkedPalace = async () => {

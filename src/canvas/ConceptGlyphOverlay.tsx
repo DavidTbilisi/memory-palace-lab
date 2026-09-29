@@ -1,28 +1,26 @@
-import { usePalaceStore } from "../store/palaceStore";
 import { glyphPlacement } from "./glyphOverlayGeometry";
 import type { NodeBox } from "./routeOverlayGeometry";
 
 /**
  * Every node's concept glyph, drawn over the canvas at a size that stays legible when zoomed out.
- * The node a walk is asking about shows none, since the glyph would give the concept away.
+ * A node a recall walk keeps hidden shows none, since the glyph would give the concept away.
  */
 export function ConceptGlyphOverlay({
   boxes,
   glyphs,
+  hidden,
 }: {
   boxes: ReadonlyMap<string, NodeBox>;
   glyphs: ReadonlyMap<string, string>;
+  hidden: ReadonlySet<string>;
 }) {
-  const coveredNodeId = usePalaceStore((s) =>
-    s.walkOpen && s.walkRecallMode && !s.walkAnswerRevealed ? s.currentWalkNodeId() : null,
-  );
   if (glyphs.size === 0) return null;
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
       {[...glyphs].map(([nodeId, glyph]) => {
         const box = boxes.get(nodeId);
-        if (!box || nodeId === coveredNodeId) return null;
+        if (!box || hidden.has(nodeId)) return null;
         const place = glyphPlacement(box);
         return (
           <span

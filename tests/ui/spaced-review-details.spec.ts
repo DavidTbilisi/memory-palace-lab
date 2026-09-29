@@ -332,14 +332,17 @@ test.describe("review queue UI", () => {
     expect(count).toBe(1);
   });
 
-  test("review queue page shows the due locus with its route and node", async ({ page }) => {
+  test("review queue page shows the due locus by its route, not its node", async ({ page }) => {
     await page.clock.install();
     await failThenWaitUntilDue(page, "Queue Panel Route");
 
     await reviewNav(page).click();
     await expect(page.getByText("Global Review Queue", { exact: true })).toBeVisible();
 
-    await expect(page.getByText("Tutorial Palace | Queue Panel Route | Review Subject")).toBeVisible();
+    const due = page.getByRole("region", { name: "Due loci" });
+    await expect(due.getByText("Tutorial Palace | Queue Panel Route", { exact: true })).toBeVisible();
+    // The node is the answer the review asks for, so the queue does not name it.
+    await expect(due).not.toContainText("Review Subject");
     await expect(page.getByRole("button", { name: "Start top due review" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Review now" })).toBeVisible();
   });

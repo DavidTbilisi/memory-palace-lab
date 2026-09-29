@@ -40,6 +40,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { cn } from "../utils/cn";
 import { confirmDestructive } from "../utils/confirmDestructive";
 import { useCanvasNodeTitles } from "./hooks/useCanvasNodeTitles";
+import { useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
 import { Button } from "./ui/button";
 
 const DIRECTION_LABELS: Record<RouteDirection, string> = {
@@ -54,7 +55,8 @@ const menuContentClass =
 const menuItemClass =
   "flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-zinc-800";
 
-type StopInfo = { title: string | null; missing: boolean };
+/** `hidden`: a recall walk keeps this stop's node hidden until it is revealed. */
+type StopInfo = { title: string | null; missing: boolean; hidden?: boolean };
 
 function IconButton({
   label,
@@ -550,8 +552,8 @@ function StopList({
   return (
     <ol aria-label="Stops" className="mt-2 space-y-px">
       {stops.map((stop, index) => {
-        const { title, missing } = infoFor(stop.nodeId);
-        const label = stopLabel(stop, title);
+        const { title, missing, hidden } = infoFor(stop.nodeId);
+        const label = hidden ? stop.label.trim() || "Hidden until revealed" : stopLabel(stop, title);
         const custom = stop.label.trim().length > 0;
         const current = currentIndex === index;
         const due = reviewed && countDueLoci([stop], nowIso, nedfOf) > 0;
@@ -623,7 +625,7 @@ function StopList({
                   type="button"
                   className={cn(
                     "min-w-0 flex-1 truncate rounded px-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500",
-                    missing ? "text-amber-300" : "text-zinc-200 hover:text-white",
+                    missing ? "text-amber-300" : hidden && !custom ? "italic text-zinc-500" : "text-zinc-200 hover:text-white",
                   )}
                   title={
                     missing
@@ -974,7 +976,9 @@ export function RoutesPanel() {
     return byRoute;
   }, [routes, loci]);
   // With a canvas mounted, a node it does not show is gone; otherwise trust the saved titles.
+  const walkHidden = useWalkHiddenNodeIds();
   const infoFor = (nodeId: string): StopInfo => {
+    if (walkHidden.has(nodeId)) return { title: null, missing: false, hidden: true };
     const live = canvasTitles.get(nodeId);
     if (live !== undefined) return { title: live, missing: false };
     return { title: snapshotTitles.get(nodeId) ?? null, missing: editorRef !== null };
