@@ -85,10 +85,11 @@ Ranked by the same ROI logic as `01`–`08`:
     Why last of the new set: smallest change, real payoff at zoom, but it depends on nothing
     and can be picked up whenever.
 
-`07-contrast-and-confusion-nodes` is unbuilt and now has wiki material behind it —
-`confusion-triage`, `word-knowledge-links`, `tip-of-the-tongue`, and a seeded confusion map at
-`wiki/assets/confusion-map-fr-seed.json` in the wiki repo. Treat it as ranked alongside `12`
-rather than after `08`.
+`07-contrast-and-confusion-nodes` drew on wiki material — `confusion-triage`,
+`word-knowledge-links`, `tip-of-the-tongue`, and a seeded confusion map at
+`wiki/assets/confusion-map-fr-seed.json` in the wiki repo — and was ranked alongside `12`
+rather than after `08`. Delivered 2026-09: confusion links, capture after Again, pulled-forward
+Distinguishers, and hotspots on the Strength tab.
 
 ## Workflow Items
 

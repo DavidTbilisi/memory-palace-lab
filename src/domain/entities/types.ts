@@ -246,6 +246,8 @@ export type AnalyticsEventType =
   | "walk_recall_rated"
   | "walk_closed"
   | "walk_completed"
+  /** Why a recall rated Again missed: a confusion with another node, or a blank. */
+  | "recall_miss_explained"
   | "storm_started"
   | "storm_completed"
   | "system_run_materialized";

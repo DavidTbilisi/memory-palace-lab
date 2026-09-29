@@ -1,10 +1,11 @@
 import { useEffect, useMemo, type ReactNode } from "react";
-import { Activity, AlertTriangle, Castle, Gauge, LineChart, Route, Target } from "lucide-react";
+import { Activity, AlertTriangle, Castle, Gauge, LineChart, Route, Shuffle, Target } from "lucide-react";
 import { requestNavigation } from "../app/navigationEvents";
 import { startReviewAt } from "../app/reviewNavigation";
 import { NEDF_SLOT_LABELS } from "../domain/services/nedf";
 import {
   buildMemoryStrengthDashboard,
+  type ConfusionHotspot,
   formatDashboardUrgency,
   formatRouteFrictionStatus,
   formatStrengthState,
@@ -247,15 +248,86 @@ function RouteFriction({ items, onStart }: { items: RouteFrictionItem[]; onStart
   );
 }
 
+function ConfusionHotspots({ items, onStart }: { items: ConfusionHotspot[]; onStart: (item: ConfusionHotspot) => void }) {
+  return (
+    <section aria-label="Confusion hotspots" className={SECTION}>
+      <SectionHeading
+        icon={<Shuffle className="h-4 w-4 text-orange-300" />}
+        title="Confusion hotspots"
+        note="Pairs you mix up, from misses explained as a mix-up; click one to drill the Distinguisher"
+      />
+      {items.length === 0 ? (
+        <Empty>
+          No mix-ups logged yet. After rating a stop Again, say what you mixed it up with and repeated pairs show here.
+        </Empty>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((item) => {
+            const [first, second] = item.nodes;
+            const missing = item.nodes.filter((node) => !node.hasDistinguisher).map((node) => node.title);
+            return (
+              <li key={`${item.palaceId}|${first.nodeId}|${second.nodeId}`}>
+                <button
+                  type="button"
+                  data-testid="strength-confusion"
+                  className={ROW_BUTTON}
+                  title={
+                    item.review
+                      ? `Start a recall walk at the Distinguisher of ${item.nodes.find((n) => n.nodeId === item.review!.nodeId)?.title}`
+                      : `Open ${first.title} in ${item.palaceName}`
+                  }
+                  onClick={() => onStart(item)}
+                >
+                  <Badge
+                    className={
+                      item.linked
+                        ? "border-orange-700/70 bg-orange-950/40 text-orange-200"
+                        : "border-zinc-700 bg-zinc-900 text-zinc-300"
+                    }
+                  >
+                    {item.linked ? "Linked" : "Not linked"}
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm text-zinc-100">
+                      {first.title} <span className="text-orange-300/80">↔</span> {second.title}
+                    </div>
+                    <div className="truncate text-xs text-zinc-500">
+                      {item.palaceName}
+                      {missing.length > 0 ? ` · no Distinguisher: ${missing.join(", ")}` : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-xs tabular-nums text-zinc-400">
+                    <div>
+                      {item.count} {item.count === 1 ? "mix-up" : "mix-ups"}
+                    </div>
+                    <div className="text-zinc-500">last {new Date(item.lastLoggedAt).toLocaleDateString()}</div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export type StrengthDashboardViewProps = {
   dashboard: MemoryStrengthDashboard;
   onStartStop: (item: StopStrengthItem) => void;
   onStartRoute: (item: RouteFrictionItem) => void;
   onOpenPalace: (palaceId: string) => void;
+  onStartHotspot: (item: ConfusionHotspot) => void;
 };
 
 /** The Strength tab's body for a computed dashboard. */
-export function StrengthDashboardView({ dashboard, onStartStop, onStartRoute, onOpenPalace }: StrengthDashboardViewProps) {
+export function StrengthDashboardView({
+  dashboard,
+  onStartStop,
+  onStartRoute,
+  onOpenPalace,
+  onStartHotspot,
+}: StrengthDashboardViewProps) {
   const { overview } = dashboard;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -297,6 +369,7 @@ export function StrengthDashboardView({ dashboard, onStartStop, onStartRoute, on
           <Trend dashboard={dashboard} />
         </div>
         <RouteFriction items={dashboard.routeFriction} onStart={onStartRoute} />
+        <ConfusionHotspots items={dashboard.confusionHotspots} onStart={onStartHotspot} />
       </div>
     </div>
   );
@@ -309,6 +382,7 @@ export function MemoryStrengthPanel() {
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const currentPalaceId = usePalaceStore((s) => s.currentPalace?.id ?? null);
   const openPalace = usePalaceStore((s) => s.openPalace);
+  const setFocusNodeId = usePalaceStore((s) => s.setFocusNodeId);
   const { snapshots } = useDueQueue();
 
   useEffect(() => {
@@ -335,6 +409,16 @@ export function MemoryStrengthPanel() {
       onStartRoute={(item) => void startReviewAt({ palaceId: item.palaceId, routeId: item.routeId })}
       onOpenPalace={async (palaceId) => {
         if (currentPalaceId !== palaceId) await openPalace(palaceId);
+        requestNavigation("graph");
+      }}
+      onStartHotspot={async (item) => {
+        if (item.review) {
+          await startReviewAt({ palaceId: item.palaceId, ...item.review, slot: "distinguisher" });
+          return;
+        }
+        // Neither node has a Distinguisher to drill: open the palace on the node to write one.
+        if (currentPalaceId !== item.palaceId) await openPalace(item.palaceId);
+        setFocusNodeId(item.nodes[0].nodeId);
         requestNavigation("graph");
       }}
     />

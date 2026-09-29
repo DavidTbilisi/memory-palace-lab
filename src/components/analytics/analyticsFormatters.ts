@@ -16,6 +16,11 @@ export function formatEventDetail(event: AnalyticsEvent): string {
     const latency = typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms` : "no timer";
     return `${rating} - ${latency}`;
   }
+  if (event.eventType === "recall_miss_explained") {
+    if (payload.cause === "blank") return "couldn't produce it";
+    const other = typeof payload.confusedWithTitle === "string" ? payload.confusedWithTitle.trim() : "";
+    return `mixed up with ${other || "another node"}`;
+  }
   if (event.eventType === "walk_answer_revealed") {
     return typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms to reveal` : "answer revealed";
   }
