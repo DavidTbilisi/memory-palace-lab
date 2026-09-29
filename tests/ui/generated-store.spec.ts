@@ -51,7 +51,9 @@ test("a four-level block is generated, reached by address, filled, and regenerat
   await form.getByRole("button", { name: "Generate four-level block" }).click();
 
   await expect(page.getByRole("heading", { name: "Chemistry · block" })).toBeVisible();
-  await expect.poll(async () => (await storeState(page, "3.2.4")).nodes).toBe(151);
+  // Drawing 151 nodes holds the main thread for about 4 s even on a quiet machine, so a 5 s poll
+  // only passes when the dev server is warm.
+  await expect.poll(async () => (await storeState(page, "3.2.4")).nodes, { timeout: 20_000 }).toBe(151);
   const generated = await storeState(page, "3.2.4");
   expect(JSON.parse(generated.storeJson!)).toMatchObject({ kind: "four-level-block", theme: "Chemistry" });
   expect(generated.cell).toEqual({ title: "3.2.4", address: "3.2.4" });
@@ -80,13 +82,13 @@ test("a four-level block is generated, reached by address, filled, and regenerat
   const confirm = panel.getByRole("alertdialog", { name: "Regenerate store" });
   await expect(confirm).toContainText("1 node holds your material");
   await confirm.getByRole("button", { name: "Keep them" }).click();
-  await expect(panel.getByRole("status")).toHaveText("Regenerated. Everything is back in its place.");
+  await expect(panel.getByRole("status")).toHaveText("Regenerated. Everything is back in its place.", { timeout: 20_000 });
   expect((await storeState(page, "3.2.4")).cell).toEqual({ title: "Sodium", address: "3.2.4" });
 
   // Only an explicit clear puts the placeholder back.
   await panel.getByRole("button", { name: "Regenerate" }).click();
   await panel.getByRole("button", { name: "Clear 1" }).click();
-  await expect(panel.getByRole("status")).toHaveText("Regenerated: cleared 1.");
+  await expect(panel.getByRole("status")).toHaveText("Regenerated: cleared 1.", { timeout: 20_000 });
   await expect.poll(async () => (await storeState(page, "3.2.4")).cell).toEqual({ title: "3.2.4", address: "3.2.4" });
   await expect(panel.getByTestId("store-fill")).toHaveText("0 of 125 cells filled");
 });
