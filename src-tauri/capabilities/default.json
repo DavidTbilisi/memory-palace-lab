@@ -33,6 +33,9 @@
         },
         {
           "path": "$APPDATA/mcp-sync.json"
+        },
+        {
+          "path": "$APPDATA/sync-settings.json"
         }
       ]
     }
