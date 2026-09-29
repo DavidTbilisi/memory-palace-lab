@@ -41,7 +41,8 @@ test("recall-first walk mode hides the answer until reveal and keeps controls st
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await page.getByRole("button", { name: "Recall-first" }).click();
 
-  await expect(page.locator("#walk-cue")).toContainText("Closure cue");
+  // The stop has no label of its own, so until the reveal the cue names nothing stored there.
+  await expect(page.locator("#walk-cue")).toHaveText("What is stored at this stop?");
   await expect(page.getByRole("button", { name: "Reveal answer" })).toBeVisible();
   await expect(page.locator("#walk-answer")).not.toContainText("lexical environment that created it");
 
@@ -49,6 +50,7 @@ test("recall-first walk mode hides the answer until reveal and keeps controls st
   if (!nextBefore) throw new Error("missing next button position before reveal");
 
   await page.getByRole("button", { name: "Reveal answer" }).click();
+  await expect(page.locator("#walk-cue")).toContainText("Closure cue");
   await expect(page.locator("#walk-answer")).toContainText("A closure keeps access to the lexical environment that created it.");
 
   const nextAfter = await page.getByRole("button", { name: "Next step" }).boundingBox();

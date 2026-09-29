@@ -251,6 +251,12 @@ export type PalaceStore = {
   walkStepEnteredAt: string | null;
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
+  /**
+   * Nodes revealed in the walk `walkRevealedSessionId`; a recall-first walk keeps every other node
+   * on its route hidden (see `walkHiddenNodeIds`). A new walk session starts the list afresh.
+   */
+  walkRevealedNodeIds: string[];
+  walkRevealedSessionId: string | null;
   dailyReviewGoal: number;
   storm: StormSession | null;
   /** Why a node has no concept glyph when one was offered (e.g. the wiki page's was taken). */
@@ -860,6 +866,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
+    walkRevealedNodeIds: [],
+    walkRevealedSessionId: null,
     dailyReviewGoal: loadDailyReviewGoal(),
     storm: null,
     glyphNotice: null,
@@ -2123,10 +2131,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const enteredAt = get().walkStepEnteredAt;
       const now = Date.now();
       const timeToRevealMs = safeElapsedMs(enteredAt, now);
-      set({
-        walkAnswerRevealed: true,
-        walkRevealedAt: new Date(now).toISOString(),
-        walkRevealLatencyMs: timeToRevealMs,
+      set((state) => {
+        const sameWalk = state.walkRevealedSessionId === state.walkSessionId;
+        const earlier = sameWalk ? state.walkRevealedNodeIds : [];
+        return {
+          walkAnswerRevealed: true,
+          walkRevealedAt: new Date(now).toISOString(),
+          walkRevealLatencyMs: timeToRevealMs,
+          walkRevealedNodeIds:
+            context.nodeId && !earlier.includes(context.nodeId) ? [...earlier, context.nodeId] : earlier,
+          walkRevealedSessionId: state.walkSessionId,
+        };
       });
       if (!context.routeId || !context.nodeId) return;
       void recordAnalytics({

@@ -18,6 +18,7 @@ import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 import { canvasConfusionEdges } from "../canvas/confusionLinks";
 import { confusionNeighbours } from "../domain/services/confusion";
+import { hiddenStopCue } from "../domain/services/walkReveal";
 
 type Props = {
   onHoverHintChange?: (hint: string | null) => void;
@@ -182,11 +183,15 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     walkSlot && isSlotFilled(nodeState.nedf, walkSlot)
       ? nedfCardText(walkSlot, nodeState.nedf!, nodeState.title, neighbourTitle)
       : null;
+  // Until the answer is revealed, the stop names only its place, never the node stored there.
+  const hiding = walkRecallMode && !walkAnswerRevealed;
   const cueText = card
     ? card.cue
-    : walkCueOnly
-      ? nodeState.title
-      : currentLocus?.label?.trim() || nodeState.title;
+    : hiding
+      ? hiddenStopCue(currentLocus?.label)
+      : walkCueOnly
+        ? nodeState.title
+        : currentLocus?.label?.trim() || nodeState.title;
   const answerText = card
     ? card.answer
     : walkCueOnly
@@ -195,7 +200,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
   const promptText = card
     ? card.prompt
     : walkCueOnly
-      ? "Recall the explanation before you reveal it."
+      ? "Recall what is stored here and what it means, then reveal."
       : "Use the locus cue first, then reveal the full answer.";
   const progressPct = count > 0 ? Math.round(((walkIndex + 1) / count) * 100) : 0;
   const waitingForRating = walkRecallMode && !walkStepRated;

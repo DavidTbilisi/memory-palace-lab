@@ -9,6 +9,7 @@ import type {
 import type {
   TLImageShape,
   TLShapeId,
+  TLShapePartial,
   TLStoreSnapshot,
 } from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
@@ -27,6 +28,7 @@ import { isMemoryNodeShape } from "./memoryNodeShape";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
 import { WalkAnswerCover } from "./WalkAnswerCover";
+import { useWalkHiddenNodeIds } from "../components/hooks/useWalkHiddenNodeIds";
 import { ConceptGlyphOverlay } from "./ConceptGlyphOverlay";
 import {
   captureStopView,
@@ -102,6 +104,7 @@ type ImageBackground = {
 
 type ImageCaption = {
   shapeId: TLShapeId;
+  nodeId: string | null;
   x: number;
   y: number;
   maxWidth: number;
@@ -137,6 +140,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkRecallMode = usePalaceStore((s) => s.walkRecallMode);
   const walkAnswerRevealed = usePalaceStore((s) => s.walkAnswerRevealed);
+  const walkHidden = useWalkHiddenNodeIds();
   const walkIndex = usePalaceStore((s) => s.walkIndex);
   const walkDirection = usePalaceStore((s) => s.walkDirection);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
@@ -362,7 +366,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
       if (!isMemoryNodeShape(shape) || shape.type !== "image") continue;
-      const title = ((shape.meta ?? {}) as MemoryPalaceMeta).mpTitle?.trim();
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      const title = meta.mpTitle?.trim();
       if (!title) continue;
       const bounds = editor.getShapePageBounds(shape.id);
       if (!bounds) continue;
@@ -376,6 +381,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       });
       captions.push({
         shapeId: shape.id,
+        nodeId: meta.mpNodeId ?? null,
         x: (bl.x + br.x) / 2,
         y: bl.y + 4,
         maxWidth: Math.max(80, br.x - bl.x),
@@ -788,6 +794,27 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [toolMode, connectFromShapeId, walkOpen]);
 
+  // A recall walk hides the edges of every node it hides: an edge label, or the neighbour at its
+  // other end, would name the answer. Restored as each node is revealed and when the walk ends.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const updates: TLShapePartial[] = [];
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (s?.type !== "arrow") continue;
+      const m = s.meta as MemoryPalaceMeta;
+      if (!m.mpEdgeId) continue;
+      const hide =
+        (!!m.mpSourceNodeId && walkHidden.has(m.mpSourceNodeId)) ||
+        (!!m.mpTargetNodeId && walkHidden.has(m.mpTargetNodeId));
+      const opacity = hide ? 0 : 1;
+      if (s.opacity !== opacity) updates.push({ id, type: s.type, opacity });
+    }
+    // Not an edit: keep it out of undo.
+    if (updates.length > 0) editor.run(() => editor.updateShapes(updates), { history: "ignore" });
+  }, [walkHidden]);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || walkOpen) return;
@@ -905,8 +932,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         ))}
       </div>
       <RouteOverlay boxes={nodeBoxes} />
-      <WalkAnswerCover boxes={nodeBoxes} />
-      <ConceptGlyphOverlay boxes={nodeBoxes} glyphs={nodeGlyphs} />
+      <WalkAnswerCover boxes={nodeBoxes} hidden={walkHidden} />
+      <ConceptGlyphOverlay boxes={nodeBoxes} glyphs={nodeGlyphs} hidden={walkHidden} />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button
@@ -959,7 +986,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             </div>
           );
         })}
-        {imageCaptions.map((caption) => (
+        {imageCaptions.filter((caption) => !caption.nodeId || !walkHidden.has(caption.nodeId)).map((caption) => (
           <div
             key={`caption-${caption.shapeId}`}
             className="pointer-events-none absolute -translate-x-1/2 select-none truncate rounded bg-zinc-950/75 px-1.5 py-0.5 text-center text-[11px] font-medium leading-tight text-zinc-100"

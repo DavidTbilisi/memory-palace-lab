@@ -275,8 +275,16 @@ describe("WalkModeBar — recall mode", () => {
 });
 
 describe("WalkModeBar — cue only mode", () => {
-  it("shows node title as cue and content as answer when walkCueOnly is true", () => {
-    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true });
+  it("hides the node title until the answer is revealed, cueing with the place instead", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true, walkAnswerRevealed: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    expect(screen.queryByText("Mitochondria")).not.toBeInTheDocument();
+    expect(screen.getByText("Living Room")).toBeInTheDocument();
+  });
+
+  it("shows node title as cue and content as answer once revealed when walkCueOnly is true", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true, walkAnswerRevealed: true });
     usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
     render(<WalkModeBar />);
     expect(screen.getByText("Mitochondria")).toBeInTheDocument();
