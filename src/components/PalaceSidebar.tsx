@@ -1,7 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+  type PalaceTreeDragItem,
+  usePalaceTreeDrag,
+} from "./hooks/usePalaceTreeDrag";
 import { requestNavigation } from "../app/navigationEvents";
 import { useValue } from "@tldraw/editor";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Folder,
+  FolderMinus,
+  FolderPlus,
   Globe,
   Image,
   ImageOff,
@@ -31,28 +49,29 @@ import { Input } from "./ui/input";
 
 type AtlasTreeNode = {
   key: string;
+  /** Atlas path a palace created in this group gets; "" for Ungrouped. */
+  path: string;
   label: string;
   children: AtlasTreeNode[];
   palaces: Palace[];
 };
 
-function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
+/** Groups come from palace atlas paths, plus hand-made groups that may hold no palace yet. */
+export function buildAtlasTree(
+  palaces: Palace[],
+  groupPaths: readonly string[] = [],
+): AtlasTreeNode[] {
   type MutableNode = AtlasTreeNode & { childMap: Map<string, MutableNode> };
   const root: MutableNode = {
     key: "root",
+    path: "",
     label: "root",
     children: [],
     palaces: [],
     childMap: new Map<string, MutableNode>(),
   };
 
-  for (const palace of palaces) {
-    const segments = splitAtlasPath(palace.atlasPath);
-    if (segments.length === 0) {
-      root.palaces.push(palace);
-      continue;
-    }
-
+  const ensureGroup = (segments: string[]) => {
     let cursor = root;
     const path: string[] = [];
     for (const segment of segments) {
@@ -61,6 +80,7 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
       if (!child) {
         child = {
           key: path.join("/"),
+          path: path.join("/"),
           label: segment,
           children: [],
           palaces: [],
@@ -70,7 +90,12 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
       }
       cursor = child;
     }
-    cursor.palaces.push(palace);
+    return cursor;
+  };
+
+  for (const groupPath of groupPaths) ensureGroup(splitAtlasPath(groupPath));
+  for (const palace of palaces) {
+    ensureGroup(splitAtlasPath(palace.atlasPath)).palaces.push(palace);
   }
 
   const finalize = (node: MutableNode): AtlasTreeNode => {
@@ -82,6 +107,7 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
       .sort((a, b) => a.name.localeCompare(b.name));
     return {
       key: node.key,
+      path: node.path,
       label: node.label,
       children,
       palaces,
@@ -93,6 +119,7 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
   if (finalized.palaces.length > 0) {
     groups.unshift({
       key: "ungrouped",
+      path: "",
       label: "Ungrouped",
       children: [],
       palaces: finalized.palaces,
@@ -101,34 +128,195 @@ function buildAtlasTree(palaces: Palace[]): AtlasTreeNode[] {
   return groups;
 }
 
-function PalaceListItem({
-  palace,
-  currentPalaceId,
-  onOpen,
+function countPalaces(node: AtlasTreeNode): number {
+  return node.children.reduce(
+    (total, child) => total + countPalaces(child),
+    node.palaces.length,
+  );
+}
+
+type SidebarDraft = { kind: "palace" | "group"; parentPath: string };
+
+const menuContentClass =
+  "z-50 min-w-[10rem] rounded-md border border-zinc-700 bg-zinc-950 p-1 text-xs text-zinc-200 shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
+const menuItemClass =
+  "flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-zinc-800";
+
+/** Right-click menu for the palace list, like a file tree's New File / New Folder. */
+function CreateContextMenu({
+  label,
+  children,
+  onCreate,
+  removeGroup,
 }: {
-  palace: Palace;
+  label: string;
+  children: ReactNode;
+  onCreate: (kind: SidebarDraft["kind"]) => void;
+  removeGroup?: { enabled: boolean; onSelect: () => void };
+}) {
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content
+          aria-label={label}
+          className={menuContentClass}
+          // The new-name input takes focus; do not hand it back to the trigger.
+          onCloseAutoFocus={(event) => event.preventDefault()}
+        >
+          <ContextMenu.Item
+            className={menuItemClass}
+            onSelect={() => onCreate("palace")}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New palace…
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            className={menuItemClass}
+            onSelect={() => onCreate("group")}
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            New group…
+          </ContextMenu.Item>
+          {removeGroup ? (
+            <>
+              <ContextMenu.Separator className="my-1 h-px bg-zinc-800" />
+              <ContextMenu.Item
+                className={menuItemClass}
+                disabled={!removeGroup.enabled}
+                onSelect={removeGroup.onSelect}
+              >
+                <FolderMinus className="h-3.5 w-3.5" />
+                {removeGroup.enabled
+                  ? "Remove group"
+                  : "Remove group (not empty)"}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  );
+}
+
+/** Inline name field for a new palace or group; Enter or leaving the field creates it, Escape cancels. */
+function DraftNameInput({
+  draft,
+  onCommit,
+  onCancel,
+}: {
+  draft: SidebarDraft;
+  onCommit: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const finished = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // The context menu that opened this field still traps focus while it
+    // closes, so autoFocus would be lost; focus once it has let go.
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const finish = (commit: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    if (commit && value.trim()) onCommit(value.trim());
+    else onCancel();
+  };
+  const isGroup = draft.kind === "group";
+  return (
+    <div className="flex items-center gap-1.5 px-1">
+      {isGroup ? (
+        <Folder className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+      ) : (
+        <Plus className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+      )}
+      <Input
+        ref={inputRef}
+        aria-label={isGroup ? "New group name" : "New palace name"}
+        placeholder={isGroup ? "Group name (a/b nests)" : "Palace name"}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") finish(true);
+          if (e.key === "Escape") {
+            e.preventDefault();
+            finish(false);
+          }
+        }}
+        className="h-7 text-xs"
+      />
+    </div>
+  );
+}
+
+type AtlasTreeControls = {
   currentPalaceId: string | null;
   onOpen: (palaceId: string) => void;
+  collapsed: ReadonlySet<string>;
+  onToggle: (key: string, open: boolean) => void;
+  draft: SidebarDraft | null;
+  onStartDraft: (draft: SidebarDraft) => void;
+  onCommitDraft: (name: string) => void;
+  onCancelDraft: () => void;
+  onRemoveGroup: (path: string) => void;
+  dragging: PalaceTreeDragItem | null;
+  /** Group path under the pointer that the dragged item would move into. */
+  dropPath: string | null;
+  startDrag: (event: ReactPointerEvent, item: PalaceTreeDragItem) => void;
+};
+
+const dropTargetClass = "bg-violet-500/10 ring-1 ring-violet-500/50";
+const treeToolButtonClass =
+  "inline-flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-30";
+
+function PalaceListItem({
+  palace,
+  tree,
+}: {
+  palace: Palace;
+  tree: AtlasTreeControls;
 }) {
-  const active = currentPalaceId === palace.id;
+  const active = tree.currentPalaceId === palace.id;
+  const groupPath = composeAtlasPath(splitAtlasPath(palace.atlasPath));
+  const beingDragged =
+    tree.dragging?.kind === "palace" && tree.dragging.palaceId === palace.id;
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(palace.id)}
-      className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
-        active
-          ? "bg-violet-900/40 text-violet-100"
-          : "text-zinc-300 hover:bg-zinc-900"
-      }`}
+    <CreateContextMenu
+      label={`${palace.name} actions`}
+      // New items land beside this palace, in the group it belongs to.
+      onCreate={(kind) => tree.onStartDraft({ kind, parentPath: groupPath })}
     >
-      <div>{palace.name}</div>
-      {palace.alias?.trim() ? (
-        <div className="text-[11px] text-violet-300">Alias: {palace.alias}</div>
-      ) : null}
-      {palace.atlasPath?.trim() ? (
-        <div className="text-[11px] text-zinc-500">{palace.atlasPath}</div>
-      ) : null}
-    </button>
+      <button
+        type="button"
+        onClick={() => tree.onOpen(palace.id)}
+        onPointerDown={(e) =>
+          tree.startDrag(e, {
+            kind: "palace",
+            palaceId: palace.id,
+            fromPath: groupPath,
+            label: palace.name,
+          })
+        }
+        className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
+          active
+            ? "bg-violet-900/40 text-violet-100"
+            : "text-zinc-300 hover:bg-zinc-900"
+        } ${beingDragged ? "opacity-40" : ""}`}
+      >
+        <div>{palace.name}</div>
+        {palace.alias?.trim() ? (
+          <div className="text-[11px] text-violet-300">
+            Alias: {palace.alias}
+          </div>
+        ) : null}
+        {palace.atlasPath?.trim() ? (
+          <div className="text-[11px] text-zinc-500">{palace.atlasPath}</div>
+        ) : null}
+      </button>
+    </CreateContextMenu>
   );
 }
 
@@ -139,34 +327,68 @@ function formatTrashLabel(palace: Palace) {
 
 function AtlasBranch({
   node,
-  currentPalaceId,
-  onOpen,
+  tree,
 }: {
   node: AtlasTreeNode;
-  currentPalaceId: string | null;
-  onOpen: (palaceId: string) => void;
+  tree: AtlasTreeControls;
 }) {
+  // Ungrouped shares the root path, so its drafts show at the top of the list instead.
+  const draftHere =
+    tree.draft && node.path !== "" && tree.draft.parentPath === node.path
+      ? tree.draft
+      : null;
+  const beingDragged =
+    tree.dragging?.kind === "group" && tree.dragging.path === node.path;
   return (
-    <details open className="rounded-md">
-      <summary className="cursor-pointer select-none rounded-md px-2 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 hover:bg-zinc-900">
-        {node.label}
-      </summary>
+    <details
+      open={!tree.collapsed.has(node.key)}
+      onToggle={(e) => tree.onToggle(node.key, e.currentTarget.open)}
+      data-drop-path={node.path}
+      className={`rounded-md ${tree.dropPath === node.path ? dropTargetClass : ""} ${
+        beingDragged ? "opacity-40" : ""
+      }`}
+    >
+      <CreateContextMenu
+        label={`${node.label} group actions`}
+        onCreate={(kind) => tree.onStartDraft({ kind, parentPath: node.path })}
+        removeGroup={
+          node.path
+            ? {
+                enabled: countPalaces(node) === 0,
+                onSelect: () => tree.onRemoveGroup(node.path),
+              }
+            : undefined
+        }
+      >
+        <summary
+          // Ungrouped is not a real group, so it cannot be moved.
+          onPointerDown={(e) => {
+            if (node.path)
+              tree.startDrag(e, {
+                kind: "group",
+                path: node.path,
+                label: node.label,
+              });
+          }}
+          className="cursor-pointer select-none rounded-md px-2 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 hover:bg-zinc-900"
+        >
+          {node.label}
+        </summary>
+      </CreateContextMenu>
       <div className="ml-2 mt-1 space-y-1 border-l border-zinc-800 pl-2">
-        {node.children.map((child) => (
-          <AtlasBranch
-            key={child.key}
-            node={child}
-            currentPalaceId={currentPalaceId}
-            onOpen={onOpen}
+        {draftHere ? (
+          <DraftNameInput
+            key={`${draftHere.kind}:${draftHere.parentPath}`}
+            draft={draftHere}
+            onCommit={tree.onCommitDraft}
+            onCancel={tree.onCancelDraft}
           />
+        ) : null}
+        {node.children.map((child) => (
+          <AtlasBranch key={child.key} node={child} tree={tree} />
         ))}
         {node.palaces.map((palace) => (
-          <PalaceListItem
-            key={palace.id}
-            palace={palace}
-            currentPalaceId={currentPalaceId}
-            onOpen={onOpen}
-          />
+          <PalaceListItem key={palace.id} palace={palace} tree={tree} />
         ))}
       </div>
     </details>
@@ -199,7 +421,16 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const [currentAlias, setCurrentAlias] = useState("");
   const [currentAtlasPath, setCurrentAtlasPath] = useState("");
   const levelLabels = usePalaceStore((s) => s.atlasLevelLabels);
+  const atlasGroups = usePalaceStore((s) => s.atlasGroups);
+  const addAtlasGroup = usePalaceStore((s) => s.addAtlasGroup);
+  const removeAtlasGroup = usePalaceStore((s) => s.removeAtlasGroup);
+  const movePalaceToGroup = usePalaceStore((s) => s.movePalaceToGroup);
+  const moveAtlasGroup = usePalaceStore((s) => s.moveAtlasGroup);
   const [hierarchySegments, setHierarchySegments] = useState<string[]>([]);
+  const [draft, setDraft] = useState<SidebarDraft | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     void loadPalaces();
@@ -212,7 +443,80 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
     setHierarchySegments(splitAtlasPath(currentPalace?.atlasPath));
   }, [currentPalace?.alias, currentPalace?.atlasPath, currentPalace?.name]);
 
-  const groupedPalaces = useMemo(() => buildAtlasTree(palaces), [palaces]);
+  const groupedPalaces = useMemo(
+    () => buildAtlasTree(palaces, atlasGroups),
+    [palaces, atlasGroups],
+  );
+
+  const setGroupOpen = useCallback((key: string, open: boolean) => {
+    setCollapsedGroups((current) => {
+      if (current.has(key) !== open) return current;
+      const next = new Set(current);
+      if (open) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const allGroupKeys = useMemo(() => {
+    const keys: string[] = [];
+    const collect = (nodes: AtlasTreeNode[]) => {
+      for (const node of nodes) {
+        keys.push(node.key);
+        collect(node.children);
+      }
+    };
+    collect(groupedPalaces);
+    return keys;
+  }, [groupedPalaces]);
+  const anyCollapsed = allGroupKeys.some((key) => collapsedGroups.has(key));
+  const allCollapsed =
+    allGroupKeys.length === 0 ||
+    allGroupKeys.every((key) => collapsedGroups.has(key));
+
+  const handleTreeDrop = useCallback(
+    (item: PalaceTreeDragItem, targetPath: string) => {
+      if (targetPath) setGroupOpen(targetPath, true);
+      if (item.kind === "palace")
+        void movePalaceToGroup(item.palaceId, targetPath);
+      else void moveAtlasGroup(item.path, targetPath);
+    },
+    [moveAtlasGroup, movePalaceToGroup, setGroupOpen],
+  );
+  const { dragging, dropPath, startDrag, ghostRef, ghostStart } =
+    usePalaceTreeDrag(handleTreeDrop);
+
+  const tree: AtlasTreeControls = {
+    dragging,
+    dropPath,
+    startDrag,
+    currentPalaceId: currentPalace?.id ?? null,
+    onOpen: (palaceId) => void openPalace(palaceId),
+    collapsed: collapsedGroups,
+    onToggle: setGroupOpen,
+    draft,
+    onStartDraft: (next) => {
+      // Unfold the target group so the name field is visible.
+      if (next.parentPath) setGroupOpen(next.parentPath, true);
+      setDraft(next);
+    },
+    onCommitDraft: (draftName) => {
+      if (!draft) return;
+      setDraft(null);
+      if (draft.kind === "palace") {
+        void createPalace(draftName, draft.parentPath);
+        return;
+      }
+      const path = composeAtlasPath([
+        ...splitAtlasPath(draft.parentPath),
+        ...splitAtlasPath(draftName),
+      ]);
+      addAtlasGroup(path);
+      setGroupOpen(path, true);
+    },
+    onCancelDraft: () => setDraft(null),
+    onRemoveGroup: removeAtlasGroup,
+  };
   const hierarchyRowCount = Math.max(
     levelLabels.length,
     hierarchySegments.length + 1,
@@ -234,15 +538,37 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
           <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Palaces
           </h2>
-          <button
-            type="button"
-            title="Open the atlas map of all palaces"
-            onClick={() => requestNavigation("atlas")}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            Atlas map
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              aria-label="Expand all groups"
+              title="Expand all groups"
+              disabled={!anyCollapsed}
+              onClick={() => setCollapsedGroups(new Set())}
+              className={treeToolButtonClass}
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Collapse all groups"
+              title="Collapse all groups"
+              disabled={allCollapsed}
+              onClick={() => setCollapsedGroups(new Set(allGroupKeys))}
+              className={treeToolButtonClass}
+            >
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Open the atlas map of all palaces"
+              onClick={() => requestNavigation("atlas")}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Atlas map
+            </button>
+          </div>
         </div>
         <div className="mt-2 space-y-2">
           <Input
@@ -288,274 +614,303 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
       </div>
 
       {currentPalace ? (
-        <div className="border-b border-zinc-800/50 p-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Current palace
-          </div>
-          <div className="mt-2 space-y-2">
-            <Input
-              aria-label="Current palace name"
-              value={currentName}
-              onChange={(e) => setCurrentName(e.target.value)}
-              placeholder="Palace name"
-              className="h-8 text-xs"
-            />
-            <Input
-              aria-label="Current palace alias"
-              value={currentAlias}
-              onChange={(e) => setCurrentAlias(e.target.value)}
-              placeholder="Alias"
-              className="h-8 text-xs"
-            />
-            <Input
-              aria-label="Current atlas path"
-              value={currentAtlasPath}
-              onChange={(e) => setCurrentAtlasPath(e.target.value)}
-              placeholder="Atlas path"
-              className="h-8 text-xs"
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              className="w-full justify-center"
-              type="button"
-              onClick={() => {
-                setCurrentPalaceMeta({
-                  name: currentName,
-                  alias: currentAlias,
-                  atlasPath: currentAtlasPath,
-                });
-                void saveCurrent();
-              }}
-            >
-              <Save className="h-4 w-4" />
-              Save details
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="w-full justify-center"
-              type="button"
-              disabled={!editorRef || !currentPalace}
-              title={
-                background.present
-                  ? "Choose a different image to place behind the graph"
-                  : "Choose an image to place behind the graph"
-              }
-              onClick={() => {
-                if (!editorRef || !currentPalace) return;
-                void insertBackgroundImageFromFile(editorRef, currentPalace.id);
-              }}
-            >
-              <Image className="h-4 w-4" />
-              {background.present ? "Replace background" : "Set background"}
-            </Button>
-            {background.present ? (
-              <>
-                <Button
-                  size="sm"
-                  variant={background.editable ? "default" : "secondary"}
-                  className="w-full justify-center"
-                  type="button"
-                  aria-pressed={background.editable}
-                  title={
-                    background.editable
-                      ? "Lock the background so clicks pass through to the graph again"
-                      : "Unlock the background to move, resize, or crop it"
-                  }
-                  onClick={() => {
-                    if (!editorRef) return;
-                    setBackgroundEditable(editorRef, !background.editable);
-                  }}
-                >
-                  {background.editable ? (
-                    <>
-                      <Lock className="h-4 w-4" />
-                      Lock background
-                    </>
-                  ) : (
-                    <>
-                      <Move className="h-4 w-4" />
-                      Adjust background
-                    </>
-                  )}
-                </Button>
-                {background.editable ? (
-                  <p className="px-1 text-[11px] leading-4 text-zinc-500">
-                    Drag the image to move it, use the handles to resize, or
-                    double-click to crop. Lock it when you are done.
-                  </p>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full justify-center"
-                  type="button"
-                  title="Remove the background image from this palace"
-                  onClick={() => {
-                    if (!editorRef) return;
-                    removeBackground(editorRef);
-                  }}
-                >
-                  <ImageOff className="h-4 w-4" />
-                  Remove background
-                </Button>
-              </>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full justify-center text-amber-200 hover:text-amber-100"
-              type="button"
-              onClick={() => {
-                if (!currentPalace) return;
-                if (
-                  !window.confirm(
-                    `Move "${currentPalace.name}" to trash for 30 days?`,
-                  )
-                )
-                  return;
-                void deletePalace(currentPalace.id);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Move to trash
-            </Button>
-            <details className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
-              <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Hierarchy editor
-              </summary>
-              <div className="mt-2 space-y-3">
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                    Terminology
-                  </div>
-                  <div className="mt-2">
-                    <AtlasLevelLabelsEditor
-                      minRows={hierarchyRowCount}
-                      compact
-                    />
-                  </div>
-                </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                    Current palace outline
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    {Array.from({ length: hierarchyRowCount }).map(
-                      (_, index) => {
-                        const label =
-                          levelLabels[index]?.trim() || `Level ${index + 1}`;
-                        return (
-                          <div
-                            key={`hierarchy-segment-${index}`}
-                            className="grid grid-cols-[6rem_1fr] items-center gap-2"
-                          >
-                            <div
-                              className="truncate text-[11px] text-zinc-500"
-                              title={label}
-                            >
-                              {label}
-                            </div>
-                            <Input
-                              aria-label={`${label} segment`}
-                              value={hierarchySegments[index] ?? ""}
-                              onChange={(e) =>
-                                updateHierarchySegment(index, e.target.value)
-                              }
-                              placeholder={
-                                index === 0 ? "e.g. Course" : "Optional"
-                              }
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                        );
-                      },
-                    )}
-                  </div>
+        <div className="space-y-2 border-b border-zinc-800/50 p-2">
+          <details className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
+            <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Current palace
+            </summary>
+            <div className="mt-2 space-y-2">
+              <Input
+                aria-label="Current palace name"
+                value={currentName}
+                onChange={(e) => setCurrentName(e.target.value)}
+                placeholder="Palace name"
+                className="h-8 text-xs"
+              />
+              <Input
+                aria-label="Current palace alias"
+                value={currentAlias}
+                onChange={(e) => setCurrentAlias(e.target.value)}
+                placeholder="Alias"
+                className="h-8 text-xs"
+              />
+              <Input
+                aria-label="Current atlas path"
+                value={currentAtlasPath}
+                onChange={(e) => setCurrentAtlasPath(e.target.value)}
+                placeholder="Atlas path"
+                className="h-8 text-xs"
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-full justify-center"
+                type="button"
+                onClick={() => {
+                  setCurrentPalaceMeta({
+                    name: currentName,
+                    alias: currentAlias,
+                    atlasPath: currentAtlasPath,
+                  });
+                  void saveCurrent();
+                }}
+              >
+                <Save className="h-4 w-4" />
+                Save details
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-full justify-center"
+                type="button"
+                disabled={!editorRef || !currentPalace}
+                title={
+                  background.present
+                    ? "Choose a different image to place behind the graph"
+                    : "Choose an image to place behind the graph"
+                }
+                onClick={() => {
+                  if (!editorRef || !currentPalace) return;
+                  void insertBackgroundImageFromFile(
+                    editorRef,
+                    currentPalace.id,
+                  );
+                }}
+              >
+                <Image className="h-4 w-4" />
+                {background.present ? "Replace background" : "Set background"}
+              </Button>
+              {background.present ? (
+                <>
                   <Button
                     size="sm"
-                    className="mt-2 w-full justify-center"
+                    variant={background.editable ? "default" : "secondary"}
+                    className="w-full justify-center"
                     type="button"
+                    aria-pressed={background.editable}
+                    title={
+                      background.editable
+                        ? "Lock the background so clicks pass through to the graph again"
+                        : "Unlock the background to move, resize, or crop it"
+                    }
                     onClick={() => {
-                      const atlasPath = composeAtlasPath(hierarchySegments);
-                      setCurrentAtlasPath(atlasPath);
-                      setCurrentPalaceMeta({ atlasPath });
-                      void saveCurrent();
+                      if (!editorRef) return;
+                      setBackgroundEditable(editorRef, !background.editable);
                     }}
                   >
-                    Save hierarchy
+                    {background.editable ? (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        Lock background
+                      </>
+                    ) : (
+                      <>
+                        <Move className="h-4 w-4" />
+                        Adjust background
+                      </>
+                    )}
                   </Button>
+                  {background.editable ? (
+                    <p className="px-1 text-[11px] leading-4 text-zinc-500">
+                      Drag the image to move it, use the handles to resize, or
+                      double-click to crop. Lock it when you are done.
+                    </p>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-center"
+                    type="button"
+                    title="Remove the background image from this palace"
+                    onClick={() => {
+                      if (!editorRef) return;
+                      removeBackground(editorRef);
+                    }}
+                  >
+                    <ImageOff className="h-4 w-4" />
+                    Remove background
+                  </Button>
+                </>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full justify-center text-amber-200 hover:text-amber-100"
+                type="button"
+                onClick={() => {
+                  if (!currentPalace) return;
+                  if (
+                    !window.confirm(
+                      `Move "${currentPalace.name}" to trash for 30 days?`,
+                    )
+                  )
+                    return;
+                  void deletePalace(currentPalace.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Move to trash
+              </Button>
+            </div>
+          </details>
+          <details className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
+            <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Hierarchy editor
+            </summary>
+            <div className="mt-2 space-y-3">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Terminology
+                </div>
+                <div className="mt-2">
+                  <AtlasLevelLabelsEditor minRows={hierarchyRowCount} compact />
                 </div>
               </div>
-            </details>
-          </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-2">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Current palace outline
+                </div>
+                <div className="mt-2 space-y-2">
+                  {Array.from({ length: hierarchyRowCount }).map((_, index) => {
+                    const label =
+                      levelLabels[index]?.trim() || `Level ${index + 1}`;
+                    return (
+                      <div
+                        key={`hierarchy-segment-${index}`}
+                        className="grid grid-cols-[6rem_1fr] items-center gap-2"
+                      >
+                        <div
+                          className="truncate text-[11px] text-zinc-500"
+                          title={label}
+                        >
+                          {label}
+                        </div>
+                        <Input
+                          aria-label={`${label} segment`}
+                          value={hierarchySegments[index] ?? ""}
+                          onChange={(e) =>
+                            updateHierarchySegment(index, e.target.value)
+                          }
+                          placeholder={index === 0 ? "e.g. Course" : "Optional"}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-2 w-full justify-center"
+                  type="button"
+                  onClick={() => {
+                    const atlasPath = composeAtlasPath(hierarchySegments);
+                    setCurrentAtlasPath(atlasPath);
+                    setCurrentPalaceMeta({ atlasPath });
+                    void saveCurrent();
+                  }}
+                >
+                  Save hierarchy
+                </Button>
+              </div>
+            </div>
+          </details>
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto p-2">
-        {groupedPalaces.map((group) => (
-          <AtlasBranch
-            key={group.key}
-            node={group}
-            currentPalaceId={currentPalace?.id ?? null}
-            onOpen={(palaceId) => void openPalace(palaceId)}
-          />
-        ))}
-        {trashedPalaces.length > 0 ? (
-          <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-900/30 p-2">
-            <div className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Trash
-            </div>
-            <div className="space-y-2">
-              {trashedPalaces.map((palace) => (
-                <div
-                  key={palace.id}
-                  className="rounded-md border border-zinc-800 bg-zinc-950/50 px-2 py-2"
-                >
-                  <div className="text-sm text-zinc-200">{palace.name}</div>
-                  {palace.atlasPath?.trim() ? (
-                    <div className="text-[11px] text-zinc-500">
-                      {palace.atlasPath}
+      <CreateContextMenu
+        label="Palace list actions"
+        onCreate={(kind) => tree.onStartDraft({ kind, parentPath: "" })}
+      >
+        <div
+          data-drop-path=""
+          className={`flex-1 overflow-y-auto rounded-md p-2 ${
+            dropPath === "" ? dropTargetClass : ""
+          }`}
+        >
+          {draft && draft.parentPath === "" ? (
+            <DraftNameInput
+              key={`${draft.kind}:root`}
+              draft={draft}
+              onCommit={tree.onCommitDraft}
+              onCancel={tree.onCancelDraft}
+            />
+          ) : null}
+          {groupedPalaces.map((group) => (
+            <AtlasBranch key={group.key} node={group} tree={tree} />
+          ))}
+          {trashedPalaces.length > 0 ? (
+            <div
+              data-drop-none
+              className="mt-4 rounded-md border border-zinc-800 bg-zinc-900/30 p-2"
+            >
+              <div className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Trash
+              </div>
+              <div className="space-y-2">
+                {trashedPalaces.map((palace) => (
+                  <div
+                    key={palace.id}
+                    className="rounded-md border border-zinc-800 bg-zinc-950/50 px-2 py-2"
+                  >
+                    <div className="text-sm text-zinc-200">{palace.name}</div>
+                    {palace.atlasPath?.trim() ? (
+                      <div className="text-[11px] text-zinc-500">
+                        {palace.atlasPath}
+                      </div>
+                    ) : null}
+                    <div className="mt-1 text-[11px] text-zinc-500">
+                      {formatTrashLabel(palace)}
                     </div>
-                  ) : null}
-                  <div className="mt-1 text-[11px] text-zinc-500">
-                    {formatTrashLabel(palace)}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      type="button"
-                      onClick={() => void restorePalace(palace.id)}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Restore
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Permanently delete "${palace.name}" now?`,
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => void restorePalace(palace.id)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Restore
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Permanently delete "${palace.name}" now?`,
+                            )
                           )
-                        )
-                          return;
-                        void purgePalace(palace.id);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete now
-                    </Button>
+                            return;
+                          void purgePalace(palace.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete now
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      </CreateContextMenu>
+      {dragging ? (
+        <div
+          ref={ghostRef}
+          aria-hidden
+          className="pointer-events-none fixed left-0 top-0 z-50 flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+          style={{
+            transform: `translate(${ghostStart.x + 12}px, ${ghostStart.y + 8}px)`,
+          }}
+        >
+          {dragging.kind === "group" ? (
+            <Folder className="h-3.5 w-3.5 text-zinc-400" />
+          ) : null}
+          {dragging.label}
+        </div>
+      ) : null}
     </aside>
   );
 }

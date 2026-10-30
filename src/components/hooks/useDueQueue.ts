@@ -6,6 +6,7 @@ import {
   type DueQueueSnapshot,
   type GlobalDueItem,
 } from "../../domain/services/dueQueue";
+import { isDeckPaused } from "../../domain/services/reviewDecks";
 import { computeDailyStreak, countReviewedToday } from "../../domain/services/reviewMetrics";
 import { getPalaceRepository } from "../../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../../store/palaceStore";
@@ -29,7 +30,10 @@ export function invalidateDueQueueCache(palaceId?: string) {
 
 export type DueQueueState = {
   queue: DueQueue;
+  /** Due stops outside paused decks: what the badge counts and reviews start from. */
   items: GlobalDueItem[];
+  /** Due stops held back because their deck is paused. */
+  pausedItems: GlobalDueItem[];
   dueCountAll: number;
   dueCountCurrent: number;
   averageInterval: number | null;
@@ -52,6 +56,7 @@ export function useDueQueue(): DueQueueState {
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
   const persistenceState = usePalaceStore((s) => s.persistenceState);
+  const pausedDecks = usePalaceStore((s) => s.pausedDecks);
 
   const [otherSnapshots, setOtherSnapshots] = useState<DueQueueSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,13 +129,21 @@ export function useDueQueue(): DueQueueState {
     };
   }, [currentPalaceId, palaces, version]);
 
-  const queue = useMemo(() => {
+  const { queue, pausedItems } = useMemo(() => {
     const snapshots: DueQueueSnapshot[] = currentPalace
       ? [{ palace: currentPalace, routes, loci, nodes }, ...otherSnapshots]
       : otherSnapshots;
-    if (snapshots.length === 0) return EMPTY_DUE_QUEUE;
-    return buildDueQueue(snapshots);
-  }, [currentPalace, loci, nodes, otherSnapshots, routes]);
+    if (snapshots.length === 0) return { queue: EMPTY_DUE_QUEUE, pausedItems: [] };
+    // Paths come from the palace list: a cached snapshot can predate a move.
+    const pathById = new Map(palaces.map((palace) => [palace.id, palace.atlasPath]));
+    const paused = (snapshot: DueQueueSnapshot) =>
+      isDeckPaused(pathById.get(snapshot.palace.id) ?? snapshot.palace.atlasPath, pausedDecks);
+    const held = snapshots.filter(paused);
+    return {
+      queue: buildDueQueue(snapshots.filter((snapshot) => !paused(snapshot))),
+      pausedItems: held.length > 0 ? buildDueQueue(held).items : [],
+    };
+  }, [currentPalace, loci, nodes, otherSnapshots, palaces, pausedDecks, routes]);
 
   const reviewedToday = useMemo(() => countReviewedToday(analyticsEvents), [analyticsEvents]);
   const streak = useMemo(() => computeDailyStreak(analyticsEvents), [analyticsEvents]);
@@ -139,6 +152,7 @@ export function useDueQueue(): DueQueueState {
   return {
     queue,
     items: queue.items,
+    pausedItems,
     dueCountAll: queue.items.length,
     dueCountCurrent: currentPalaceId ? (queue.countByPalace.get(currentPalaceId) ?? 0) : 0,
     averageInterval: queue.averageInterval,

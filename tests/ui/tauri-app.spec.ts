@@ -16,6 +16,7 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -308,6 +309,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Soft Delete Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect
@@ -328,6 +330,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Restore Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();
@@ -348,6 +351,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Purge Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Delete now" }).click();
@@ -479,6 +483,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     expect(palaceId).toBeTruthy();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect
@@ -507,6 +512,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     });
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(page.getByText("Trash")).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();

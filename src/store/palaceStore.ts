@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { TheSystemPipelineTemplate } from "../content/theSystemPipelines";
-import { DEFAULT_ATLAS_LEVEL_LABELS } from "../domain/services/atlasHierarchy";
+import {
+  composeAtlasPath,
+  DEFAULT_ATLAS_LEVEL_LABELS,
+  splitAtlasPath,
+} from "../domain/services/atlasHierarchy";
 import { meterBridge } from "../infrastructure/meterBridge";
 import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
@@ -81,6 +85,10 @@ import {
   safeElapsedMs,
   loadAtlasLevelLabels,
   saveAtlasLevelLabels,
+  loadAtlasGroups,
+  saveAtlasGroups,
+  loadPausedDecks,
+  savePausedDecks,
   loadSaveStopViews,
   persistSaveStopViews,
 } from "./palaceStoreHelpers";
@@ -173,6 +181,10 @@ export type PalaceStore = {
   dailyReviewGoal: number;
   /** User-chosen names for atlas hierarchy levels (Domain / Place / Section by default). */
   atlasLevelLabels: string[];
+  /** Atlas paths of groups created by hand, kept so a group shows before any palace is in it. */
+  atlasGroups: string[];
+  /** Review decks (atlas group paths, "" for Ungrouped) whose stops are held out of review. */
+  pausedDecks: string[];
   persistenceState: PalacePersistenceState;
   lastDraftSavedAt: string | null;
   lastCheckpointSavedAt: string | null;
@@ -287,6 +299,24 @@ export type PalaceStore = {
   setWalkCueOnly: (v: boolean) => void;
   setDailyReviewGoal: (goal: number) => void;
   setAtlasLevelLabels: (labels: string[]) => void;
+  addAtlasGroup: (path: string) => void;
+  /** Forgets a hand-made group and every hand-made group nested under it. */
+  removeAtlasGroup: (path: string) => void;
+  /** Moves a palace into a group ("" for no group); the group it leaves stays listed. */
+  movePalaceToGroup: (palaceId: string, groupPath: string) => Promise<void>;
+  /** Moves a group, with its palaces and subgroups, under another group ("" for the top level). */
+  moveAtlasGroup: (fromPath: string, toParentPath: string) => Promise<void>;
+  setDeckPaused: (path: string, paused: boolean) => void;
+  /**
+   * Sets when stops in any palace come up for review next: the listed stops,
+   * or every stop of a palace given without `locusIds`. The open palace takes
+   * it like a recall rating (in memory, then a draft); others are rewritten
+   * on disk.
+   */
+  rescheduleStops: (
+    targets: { palaceId: string; locusIds?: string[] }[],
+    nextReviewAt: string,
+  ) => Promise<void>;
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
@@ -353,6 +383,50 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         at: new Date().toISOString(),
       },
     });
+  };
+
+  /**
+   * Rewrites palaces' atlas paths. The open palace goes through its normal
+   * save; the others are rewritten on disk, and in any recovery draft so that
+   * reopening one does not restore the old path.
+   */
+  const movePalacesTo = async (
+    moves: { palaceId: string; atlasPath: string }[],
+  ) => {
+    const currentId = get().currentPalace?.id;
+    let savesCurrent = false;
+    for (const { palaceId, atlasPath } of moves) {
+      const nextPath = atlasPath || null;
+      if (palaceId === currentId) {
+        get().setCurrentPalaceMeta({ atlasPath: nextPath });
+        // Without a canvas there is no snapshot to save, so rewrite it on disk.
+        savesCurrent = !!get().editorRef;
+        if (savesCurrent) continue;
+      }
+      try {
+        const snap = await repo.loadPalace(palaceId);
+        if (!snap) continue;
+        await repo.savePalace({
+          ...snap,
+          palace: { ...snap.palace, atlasPath: nextPath },
+        });
+      } catch (error) {
+        reportError("Moving palace failed", error);
+        continue;
+      }
+      const draft = loadPalaceDraft(palaceId);
+      if (draft) {
+        savePalaceDraft(
+          {
+            ...draft.snapshot,
+            palace: { ...draft.snapshot.palace, atlasPath: nextPath },
+          },
+          draft.savedAt,
+        );
+      }
+    }
+    if (savesCurrent) await get().saveCurrent();
+    else await get().loadPalaces();
   };
 
   const mergeAnalyticsEvents = (
@@ -597,6 +671,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkRevealLatencyMs: null,
     dailyReviewGoal: loadDailyReviewGoal(),
     atlasLevelLabels: loadAtlasLevelLabels(DEFAULT_ATLAS_LEVEL_LABELS),
+    atlasGroups: loadAtlasGroups(),
+    pausedDecks: loadPausedDecks(),
     persistenceState: "clean",
     lastDraftSavedAt: null,
     lastCheckpointSavedAt: null,
@@ -1688,6 +1764,127 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const next = labels.length > 0 ? labels : [...DEFAULT_ATLAS_LEVEL_LABELS];
       set({ atlasLevelLabels: next });
       saveAtlasLevelLabels(next);
+    },
+
+    addAtlasGroup(path) {
+      const normalized = composeAtlasPath(splitAtlasPath(path));
+      if (!normalized || get().atlasGroups.includes(normalized)) return;
+      const next = [...get().atlasGroups, normalized];
+      set({ atlasGroups: next });
+      saveAtlasGroups(next);
+    },
+
+    removeAtlasGroup(path) {
+      const normalized = composeAtlasPath(splitAtlasPath(path));
+      const next = get().atlasGroups.filter(
+        (group) => group !== normalized && !group.startsWith(`${normalized}/`),
+      );
+      if (next.length === get().atlasGroups.length) return;
+      set({ atlasGroups: next });
+      saveAtlasGroups(next);
+    },
+
+    async movePalaceToGroup(palaceId, groupPath) {
+      const palace = get().palaces.find((entry) => entry.id === palaceId);
+      if (!palace) return;
+      const from = composeAtlasPath(splitAtlasPath(palace.atlasPath));
+      const to = composeAtlasPath(splitAtlasPath(groupPath));
+      if (from === to) return;
+      // Like a file tree, the group a palace leaves does not vanish with it.
+      if (from) get().addAtlasGroup(from);
+      await movePalacesTo([{ palaceId, atlasPath: to }]);
+    },
+
+    async moveAtlasGroup(fromPath, toParentPath) {
+      const from = composeAtlasPath(splitAtlasPath(fromPath));
+      const parent = composeAtlasPath(splitAtlasPath(toParentPath));
+      const segments = splitAtlasPath(from);
+      const name = segments[segments.length - 1];
+      if (!name) return;
+      // A group cannot move into itself or one of its own subgroups.
+      if (`${parent}/`.startsWith(`${from}/`)) return;
+      const to = composeAtlasPath([parent, name]);
+      if (to === from) return;
+
+      const inside = (path: string) =>
+        path === from || path.startsWith(`${from}/`);
+      const repath = (path: string) => `${to}${path.slice(from.length)}`;
+      const oldParent = composeAtlasPath(segments.slice(0, -1));
+      const groups = get().atlasGroups.map((group) =>
+        inside(group) ? repath(group) : group,
+      );
+      if (oldParent) groups.push(oldParent);
+      const nextGroups = [...new Set(groups)];
+      // A paused deck stays paused under its new path.
+      const nextPaused = get().pausedDecks.map((deck) =>
+        deck && inside(deck) ? repath(deck) : deck,
+      );
+      set({ atlasGroups: nextGroups, pausedDecks: nextPaused });
+      saveAtlasGroups(nextGroups);
+      savePausedDecks(nextPaused);
+
+      const moves = get().palaces.flatMap((palace) => {
+        const path = composeAtlasPath(splitAtlasPath(palace.atlasPath));
+        return inside(path)
+          ? [{ palaceId: palace.id, atlasPath: repath(path) }]
+          : [];
+      });
+      await movePalacesTo(moves);
+    },
+
+    setDeckPaused(path, paused) {
+      const deck = composeAtlasPath(splitAtlasPath(path));
+      const current = get().pausedDecks;
+      if (current.includes(deck) === paused) return;
+      const next = paused
+        ? [...current, deck]
+        : current.filter((entry) => entry !== deck);
+      set({ pausedDecks: next });
+      savePausedDecks(next);
+    },
+
+    async rescheduleStops(targets, nextReviewAt) {
+      // null: every stop of the palace.
+      const idsByPalace = new Map<string, Set<string> | null>();
+      for (const { palaceId, locusIds } of targets) {
+        const ids = idsByPalace.get(palaceId);
+        if (!locusIds || ids === null) {
+          idsByPalace.set(palaceId, null);
+          continue;
+        }
+        idsByPalace.set(palaceId, new Set([...(ids ?? []), ...locusIds]));
+      }
+      const reschedule = (loci: Locus[], ids: Set<string> | null) =>
+        loci.map((locus) =>
+          !ids || ids.has(locus.id) ? { ...locus, nextReviewAt } : locus,
+        );
+
+      for (const [palaceId, ids] of idsByPalace) {
+        if (palaceId === get().currentPalace?.id) {
+          set((state) => ({ loci: reschedule(state.loci, ids) }));
+          // Same path a recall rating takes; without a canvas there is no
+          // draft to write, so fall through and rewrite it on disk.
+          if (get().editorRef) {
+            scheduleDraftSave();
+            continue;
+          }
+        }
+        try {
+          const snap = await repo.loadPalace(palaceId);
+          if (!snap) continue;
+          await repo.savePalace({ ...snap, loci: reschedule(snap.loci, ids) });
+        } catch (error) {
+          reportError("Setting the review time failed", error);
+          continue;
+        }
+        const draft = loadPalaceDraft(palaceId);
+        if (draft) {
+          savePalaceDraft(
+            { ...draft.snapshot, loci: reschedule(draft.snapshot.loci, ids) },
+            draft.savedAt,
+          );
+        }
+      }
     },
 
     dismissWalkSummary() {

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 async function bootstrapPalace(page: import("@playwright/test").Page, name = "Node Test Palace") {
   await page.addInitScript(() => {
@@ -286,6 +287,7 @@ test("node title/content persist after save and reopen palace", async ({ page })
 test("aliases persist for palace, node, and edge inspectors", async ({ page }) => {
   await bootstrapPalace(page, "Alias Palace");
 
+  await openCurrentPalaceDetails(page);
   await page.getByRole("textbox", { name: "Current palace alias" }).fill("AP");
   await page.getByRole("button", { name: "Save details" }).click();
   await expect(page.getByText("Alias: AP")).toBeVisible();

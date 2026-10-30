@@ -4,6 +4,8 @@ import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
 export const DRAFT_SAVE_DELAY_MS = 900;
 export const DAILY_REVIEW_GOAL_STORAGE_KEY = "mp-daily-review-goal";
 export const ATLAS_LEVEL_LABELS_STORAGE_KEY = "mp-atlas-level-labels";
+export const ATLAS_GROUPS_STORAGE_KEY = "mp-atlas-groups";
+export const PAUSED_DECKS_STORAGE_KEY = "mp-paused-decks";
 export const SAVE_STOP_VIEWS_STORAGE_KEY = "mp-route-save-views";
 export const DEFAULT_DAILY_REVIEW_GOAL = 10;
 
@@ -72,6 +74,45 @@ export function saveAtlasLevelLabels(labels: readonly string[]) {
   } catch {
     // Storage unavailable; the in-memory value still applies for this session.
   }
+}
+
+function loadStringList(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStringList(key: string, list: readonly string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(list));
+  } catch {
+    // Storage unavailable; the in-memory value still applies for this session.
+  }
+}
+
+/** Read the atlas groups the user created by hand; they stay listed even with no palace in them. */
+export function loadAtlasGroups(): string[] {
+  return loadStringList(ATLAS_GROUPS_STORAGE_KEY);
+}
+
+export function saveAtlasGroups(groups: readonly string[]) {
+  saveStringList(ATLAS_GROUPS_STORAGE_KEY, groups);
+}
+
+/** Read the review decks the user paused ("" is the Ungrouped deck). */
+export function loadPausedDecks(): string[] {
+  return loadStringList(PAUSED_DECKS_STORAGE_KEY);
+}
+
+export function savePausedDecks(decks: readonly string[]) {
+  saveStringList(PAUSED_DECKS_STORAGE_KEY, decks);
 }
 
 /** Whether Route mode saves the current view with each stop. On unless the user turned it off. */

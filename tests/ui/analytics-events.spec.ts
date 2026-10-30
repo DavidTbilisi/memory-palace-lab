@@ -12,6 +12,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ test.describe("palace analytics events", () => {
     await expect(page.getByRole("heading", { name: "Delete Me Palace" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await waitForEvent(page, "palace_deleted");
@@ -164,6 +166,7 @@ test.describe("palace analytics events", () => {
     await expect(page.getByRole("heading", { name: "Restore Event Palace" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(page.getByText("Trash")).toBeVisible({ timeout: 8000 });
     await page.getByRole("button", { name: "Restore" }).click();
