@@ -5,6 +5,11 @@
 # Wiki source: theSystem/wiki/cast-overview.md, theSystem/wiki/skill-progression-stages.md
 # Note: palaceStore.ts already records timeToRevealMs and timeFromRevealToRatingMs on recall.
 #   Nothing times the encode. "Am I encoding faster than last month?" is currently unanswerable.
+# Status: delivered 2026-09. node_encoded / edge_encoded count active time only (gaps over 60s
+#   count as 60s, hidden time as none) from creation or selection until the learner leaves the
+#   node; re-edits carry first: false. Speed bands are the learner's thirds of 90 days of first
+#   encodes (none under 12). Difficulty shows encode time beside the auto-derived fields without
+#   scoring it. Insights charts weekly medians once encodes span four weeks.
 
 Feature: Encode-speed telemetry
   In order to know whether my encoding is getting faster, not just more accurate

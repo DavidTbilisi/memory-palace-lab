@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { buildProgressChecks, type ProgressCheck } from "../../content/lessons";
 import { usePalaceStore } from "../../store/palaceStore";
+import { isMemoryNodeShape } from "../../canvas/memoryNodeShape";
 
 export type LearningProgress = {
   checks: ProgressCheck[];
@@ -44,7 +45,7 @@ export function useLearningProgress(): LearningProgress {
       const shape = editorRef.getShape(id as TLShapeId);
       if (!shape) continue;
       const meta = shape.meta as { mpNodeId?: string; mpEdgeId?: string };
-      if (shape.type === "geo" && meta.mpNodeId) nodeCount += 1;
+      if (isMemoryNodeShape(shape)) nodeCount += 1;
       if (shape.type === "arrow" && meta.mpEdgeId) edgeCount += 1;
     }
     return { nodeCount, edgeCount };

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { createMemoryArrow } from "../canvas/createMemoryShapes";
+import { activeEncodeTracker } from "../canvas/encodeTracker";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { plainTextFromRichText } from "../canvas/readShapeText";
 import { APP_VERSION } from "../appVersion";
 import { AppErrorBanner } from "../components/AppErrorBanner";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { WebModeBanner } from "../components/WebModeBanner";
-import { CastEdgeDialog } from "../components/CastEdgeDialog";
+import { CastEdgeDialog, type ConfusionPayload, type EdgeCastPayload } from "../components/CastEdgeDialog";
+import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
+import { hasConfusionLink } from "../domain/services/confusion";
 import {
   CommandPalette,
   type PaletteCommand,
@@ -37,6 +40,7 @@ import {
 import { applyMotifScaffold } from "../canvas/applyMotifScaffold";
 import type { MotifScaffold } from "../domain/services/cast/motifTemplates";
 import { SessionSummaryModal } from "../components/SessionSummaryModal";
+import { StormSummaryModal } from "../components/StormSummaryModal";
 import { OnboardingPanel } from "../components/OnboardingPanel";
 import { buildPrimaryContextHint } from "../domain/services/contextualTips";
 import { usePalaceStore } from "../store/palaceStore";
@@ -57,6 +61,7 @@ import {
 import { useExternalMcpSync } from "./useExternalMcpSync";
 import { createTutorialPalace } from "../system/examplePalaces";
 import { loadWikiIndex } from "../content/wikiLibrary";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -156,7 +161,7 @@ export function MemoryPalaceApp() {
           for (const shapeId of state.editorRef.getCurrentPageShapeIds()) {
             const shape = state.editorRef.getShape(shapeId as TLShapeId);
             const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-            if (shape?.type === "geo" && meta.mpNodeId === nodeId) {
+            if (isMemoryNodeShape(shape) && meta.mpNodeId === nodeId) {
               return { editor: state.editorRef, shapeId: shapeId as TLShapeId };
             }
           }
@@ -216,7 +221,7 @@ export function MemoryPalaceApp() {
       const shape = editorRef.getShape(id as TLShapeId);
       if (!shape) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
-      if (shape.type === "geo" && meta.mpNodeId) nodeCount += 1;
+      if (isMemoryNodeShape(shape)) nodeCount += 1;
       if (
         shape.type === "arrow" &&
         (meta.mpEdgeId || meta.mpSourceNodeId || meta.mpTargetNodeId)
@@ -230,7 +235,7 @@ export function MemoryPalaceApp() {
       const selectedMeta = (selectedShape?.meta ?? {}) as MemoryPalaceMeta;
       if (selectedShape?.type === "arrow") {
         selectedKind = "edge";
-      } else if (selectedShape?.type === "geo" && selectedMeta.mpNodeId) {
+      } else if (isMemoryNodeShape(selectedShape)) {
         selectedKind = selectedMeta.mpNodeKind === "portal" ? "portal" : "node";
       }
     }
@@ -273,18 +278,19 @@ export function MemoryPalaceApp() {
     [contextualTipContext, currentPage],
   );
 
-  const onCastConfirm = (cast: {
-    ab: string;
-    cd: string;
-    ef: string;
-    gh: string;
-    label?: string;
-  }) => {
+  const onCastConfirm = (payload: EdgeCastPayload | ConfusionPayload) => {
     const pending = usePalaceStore.getState().pendingCast;
     const editor = usePalaceStore.getState().editorRef;
     const palace = usePalaceStore.getState().currentPalace;
     if (!pending || !editor || !palace) return;
-    createMemoryArrow(
+    if ("kind" in payload) {
+      // Refused (and so a no-op) when the pair is already linked; the dialog disables it too.
+      linkConfusion(editor, palace.id, pending.sourceNodeId, pending.targetNodeId);
+      setPendingCast(null);
+      return;
+    }
+    const cast = payload;
+    const created = createMemoryArrow(
       editor,
       palace.id,
       pending.fromShapeId,
@@ -293,6 +299,16 @@ export function MemoryPalaceApp() {
       pending.targetNodeId,
       cast,
     );
+    if (created) {
+      activeEncodeTracker()?.edgeCommitted({
+        edgeId: created.edgeId,
+        sourceNodeId: pending.sourceNodeId,
+        targetNodeId: pending.targetNodeId,
+        label: cast.label ?? "",
+        castTier: cast.castTier,
+        changedSlots: cast.changedSlots,
+      });
+    }
     setPendingCast(null);
   };
 
@@ -377,7 +393,7 @@ export function MemoryPalaceApp() {
     if (!editorRef || !selectedShapeId) return;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return;
+    if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return;
     trackNodeVisit(meta.mpNodeId);
   }, [editorRef, selectedShapeId, trackNodeVisit]);
 
@@ -581,6 +597,7 @@ export function MemoryPalaceApp() {
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (meta.mpSourceNodeId !== pendingCast.sourceNodeId) continue;
       if (meta.mpTargetNodeId === pendingCast.targetNodeId) continue;
+      if (meta.mpEdgeKind === "confusion") continue; // no verb to collide with
       const text = plainTextFromRichText(
         (shape.props as { richText?: unknown } | undefined)?.richText,
       );
@@ -589,10 +606,19 @@ export function MemoryPalaceApp() {
     return labels;
   }, [pendingCast]);
 
+  const castConfusionLinked = useMemo(() => {
+    if (!pendingCast) return false;
+    const editor = usePalaceStore.getState().editorRef;
+    if (!editor) return false;
+    return hasConfusionLink(canvasConfusionEdges(editor), pendingCast.sourceNodeId, pendingCast.targetNodeId);
+  }, [pendingCast]);
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
-      <header className="grid shrink-0 grid-cols-3 items-center border-b border-zinc-800 px-3 py-2">
-        <div className="group flex min-w-0 items-center gap-3">
+      {/* Below xl the toolbar wraps to its own row. At xl and up the nav is centred when there is room, and
+          the toolbar's column never gets narrower than the toolbar, so it can't spill over the nav's tabs. */}
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-800 px-3 py-2 xl:grid xl:grid-cols-[minmax(0,1fr)_auto_1fr]">
+        <div className="group flex min-w-[12rem] flex-1 items-center gap-3 overflow-hidden xl:min-w-0">
           <h1 className="shrink-0 text-sm font-semibold tracking-tight text-violet-200">
             {title}
           </h1>
@@ -694,6 +720,7 @@ export function MemoryPalaceApp() {
         }}
         onConfirm={onCastConfirm}
         siblingEdgeLabels={castSiblingEdgeLabels}
+        confusionLinked={castConfusionLinked}
       />
 
       <RepresentMotifDialog
@@ -724,6 +751,7 @@ export function MemoryPalaceApp() {
         onReviewAnother={() => setCurrentPage("review")}
         onBackToPalace={() => setCurrentPage("graph")}
       />
+      <StormSummaryModal />
     </div>
   );
 }

@@ -3,11 +3,15 @@ import { ExternalLink, Link2Off } from "lucide-react";
 import { Tldraw, type TLComponents } from "tldraw";
 import type {
   Editor,
-  TLGeoShape,
   TLEditorSnapshot,
   TLEventInfo,
 } from "@tldraw/editor";
-import type { TLShapeId, TLStoreSnapshot } from "@tldraw/tlschema";
+import type {
+  TLImageShape,
+  TLShapeId,
+  TLShapePartial,
+  TLStoreSnapshot,
+} from "@tldraw/tlschema";
 import "tldraw/tldraw.css";
 import { usePalaceStore } from "../store/palaceStore";
 import {
@@ -16,11 +20,16 @@ import {
 } from "./analyticsSceneSnapshot";
 import { isBackgroundShape } from "./backgroundImage";
 import { RouteBuildBanner } from "../components/RouteBuildBanner";
-import { createGeoMemoryNode } from "./createMemoryShapes";
+import { createGeoMemoryNode, imageNodeMeta } from "./createMemoryShapes";
+import { installEncodeTracker } from "./installEncodeTracker";
 import { registerMemoryIdGuard } from "./memoryIds";
 import type { MemoryPalaceMeta } from "./memoryMeta";
+import { isMemoryNodeShape } from "./memoryNodeShape";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { RouteOverlay } from "./RouteOverlay";
+import { WalkAnswerCover } from "./WalkAnswerCover";
+import { useWalkHiddenNodeIds } from "../components/hooks/useWalkHiddenNodeIds";
+import { ConceptGlyphOverlay } from "./ConceptGlyphOverlay";
 import {
   captureStopView,
   liveMemoryNodeIds,
@@ -93,6 +102,15 @@ type ImageBackground = {
   url: string;
 };
 
+type ImageCaption = {
+  shapeId: TLShapeId;
+  nodeId: string | null;
+  x: number;
+  y: number;
+  maxWidth: number;
+  title: string;
+};
+
 type MotifRoleVisualTone = (typeof MOTIF_ROLE_VISUALS)[MotifRole]["tone"];
 
 const MOTIF_BADGE_CLASS: Record<MotifRoleVisualTone, string> = {
@@ -115,15 +133,6 @@ function parseEditorSnapshot(
   }
 }
 
-function isGeoMemory(shape: unknown): shape is TLGeoShape {
-  return (
-    typeof shape === "object" &&
-    shape !== null &&
-    (shape as { type?: string }).type === "geo" &&
-    !!(shape as { meta?: MemoryPalaceMeta }).meta?.mpNodeId
-  );
-}
-
 export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const setEditor = usePalaceStore((s) => s.setEditor);
   const setSelectedShapeId = usePalaceStore((s) => s.setSelectedShapeId);
@@ -131,7 +140,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const walkOpen = usePalaceStore((s) => s.walkOpen);
   const walkRecallMode = usePalaceStore((s) => s.walkRecallMode);
   const walkAnswerRevealed = usePalaceStore((s) => s.walkAnswerRevealed);
+  const walkHidden = useWalkHiddenNodeIds();
   const walkIndex = usePalaceStore((s) => s.walkIndex);
+  const walkDirection = usePalaceStore((s) => s.walkDirection);
   const walkRouteId = usePalaceStore((s) => s.walkRouteId);
   const loci = usePalaceStore((s) => s.loci);
   const toolMode = usePalaceStore((s) => s.toolMode);
@@ -155,6 +166,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const badgeFrameRef = useRef<number | null>(null);
   const [portalBadges, setPortalBadges] = useState<PortalBadge[]>([]);
   const [motifBadges, setMotifBadges] = useState<MotifBadge[]>([]);
+  const [nodeGlyphs, setNodeGlyphs] = useState<ReadonlyMap<string, string>>(new Map());
   const [difficultyBadges, setDifficultyBadges] = useState<DifficultyBadge[]>(
     [],
   );
@@ -165,6 +177,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     () => new Map(),
   );
 
+  const [imageCaptions, setImageCaptions] = useState<ImageCaption[]>([]);
+
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const motifRoleByNodeId = useMemo(() => {
@@ -173,6 +187,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       edges: (palaceEdges ?? []).map((e) => ({
         sourceNodeId: e.sourceNodeId,
         targetNodeId: e.targetNodeId,
+        kind: e.kind,
       })),
     });
     const map = motifRolesByNode(motifs);
@@ -206,7 +221,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: PortalBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       if (nodeKindFromMeta(meta) !== "portal") continue;
       const bounds = editor.getShapePageBounds(shape.id);
@@ -238,7 +253,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: MotifBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       const nodeId = meta.mpNodeId;
       if (!nodeId) continue;
@@ -270,7 +285,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const badges: DifficultyBadge[] = [];
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
       const nodeId = meta.mpNodeId;
       if (!nodeId) continue;
@@ -328,6 +343,52 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   const recomputeNodeBoxes = useCallback(() => {
     const editor = editorRef.current;
     setNodeBoxes(editor ? viewportBoxesByNode(editor) : new Map());
+    // Concept glyphs are read live from the canvas, so one set a moment ago shows at once.
+    const glyphs = new Map<string, string>();
+    for (const shape of editor?.getCurrentPageShapes() ?? []) {
+      if (!isMemoryNodeShape(shape)) continue;
+      const meta = shape.meta as MemoryPalaceMeta;
+      if (meta.mpNodeId && meta.mpGlyph) glyphs.set(meta.mpNodeId, meta.mpGlyph);
+    }
+    setNodeGlyphs((prev) =>
+      prev.size === glyphs.size && [...glyphs].every(([id, glyph]) => prev.get(id) === glyph) ? prev : glyphs,
+    );
+  }, []);
+
+  // An image node has no label of its own, so its title is drawn under it.
+  const recomputeImageCaptions = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setImageCaptions([]);
+      return;
+    }
+    const captions: ImageCaption[] = [];
+    for (const shapeId of editor.getCurrentPageShapeIds()) {
+      const shape = editor.getShape(shapeId);
+      if (!isMemoryNodeShape(shape) || shape.type !== "image") continue;
+      const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+      const title = meta.mpTitle?.trim();
+      if (!title) continue;
+      const bounds = editor.getShapePageBounds(shape.id);
+      if (!bounds) continue;
+      const bl = editor.pageToViewport({
+        x: bounds.x,
+        y: bounds.y + bounds.h,
+      });
+      const br = editor.pageToViewport({
+        x: bounds.x + bounds.w,
+        y: bounds.y + bounds.h,
+      });
+      captions.push({
+        shapeId: shape.id,
+        nodeId: meta.mpNodeId ?? null,
+        x: (bl.x + br.x) / 2,
+        y: bl.y + 4,
+        maxWidth: Math.max(80, br.x - bl.x),
+        title,
+      });
+    }
+    setImageCaptions(captions);
   }, []);
 
   const queueBadgeRefresh = useCallback(() => {
@@ -339,6 +400,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       recomputeDifficultyBadges();
       recomputeImageBackgrounds();
       recomputeNodeBoxes();
+      recomputeImageCaptions();
     });
   }, [
     recomputeNodeBoxes,
@@ -346,6 +408,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     recomputeMotifBadges,
     recomputeDifficultyBadges,
     recomputeImageBackgrounds,
+    recomputeImageCaptions,
   ]);
 
   // refresh badges when difficulty changes (graph or spaced-repetition state),
@@ -364,7 +427,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const seen = new Set<string>();
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const tags = (s.meta as MemoryPalaceMeta).mpTags;
       if (tags) for (const t of tags) seen.add(t);
     }
@@ -375,14 +438,24 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [setAvailableTags]);
 
-  // A double click arrives as two pointer_ups on the same node; add that stop once, quietly.
-  // Returns false for that quiet repeat. The stop keeps the current view unless that is off.
-  const lastCanvasStopRef = useRef<{ nodeId: string; at: number } | null>(null);
-  const addStopFromCanvas = useCallback((nodeId: string) => {
-    const now = Date.now();
-    const last = lastCanvasStopRef.current;
-    if (last && last.nodeId === nodeId && now - last.at < 600) return false;
-    lastCanvasStopRef.current = { nodeId, at: now };
+  // tldraw can deliver a double click's trailing pointer_up after the double_click event it
+  // derives from, so the node that double_click just created can reach the pointer_up handler
+  // below too. Track only that: a node this hook created, not yet claimed by its pointer_up.
+  // Consumed on first match, not just time-limited, so a deliberate later click on the same
+  // node (e.g. re-clicking an existing stop to see "already a stop") is never swallowed — only
+  // that one paired pointer_up is. The window is generous because under CPU load the pointer_up
+  // can lag well behind double_click.
+  const justCreatedStopRef = useRef<{ nodeId: string; at: number } | null>(null);
+  const addStopFromCanvas = useCallback((nodeId: string, source: "double_click" | "pointer_up") => {
+    if (source === "pointer_up") {
+      const pending = justCreatedStopRef.current;
+      if (pending && pending.nodeId === nodeId && Date.now() - pending.at < 2000) {
+        justCreatedStopRef.current = null;
+        return false;
+      }
+    } else {
+      justCreatedStopRef.current = { nodeId, at: Date.now() };
+    }
     const state = usePalaceStore.getState();
     const editor = editorRef.current;
     state.addStopsToActiveRoute([nodeId], {
@@ -410,6 +483,20 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       lastSceneSnapshotRef.current = captureSceneAnalyticsSnapshot(editor);
       // Duplicating or pasting a node copies its ids; a copy needs its own.
       const stopIdGuard = registerMemoryIdGuard(editor, () => palaceId);
+      const encodes = installEncodeTracker(editor, (event) => {
+        const store = usePalaceStore.getState();
+        void store.recordAnalyticsEvent({
+          eventType: event.eventType,
+          eventGroup: "graph",
+          palaceId,
+          nodeId: event.nodeId,
+          payload: event.payload,
+        });
+        // A node's first encode is what a Storm counts; recorded first, so the event is marked as Storm.
+        if (event.eventType === "node_encoded" && event.payload.first === true && event.nodeId) {
+          store.countStormEncode(event.nodeId);
+        }
+      });
       setEditor(editor);
       queueBadgeRefresh();
       recomputeAvailableTags();
@@ -425,7 +512,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           if (!hit) {
             const created = createGeoMemoryNode(editor, palaceId, point);
             // In Route mode a node made on the fly is the next stop.
-            if (building) addStopFromCanvas(created.nodeId);
+            if (building) addStopFromCanvas(created.nodeId, "double_click");
             return;
           }
           const hitShape = editor.getShape(hit.id);
@@ -435,9 +522,9 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             // instead of dropping a node on top of it.
             return;
           }
-          if (!isGeoMemory(hitShape)) {
+          if (!isMemoryNodeShape(hitShape)) {
             const created = createGeoMemoryNode(editor, palaceId, point);
-            if (building) addStopFromCanvas(created.nodeId);
+            if (building) addStopFromCanvas(created.nodeId, "double_click");
             return;
           }
 
@@ -472,7 +559,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             // tldraw has already handled this click and may have opened the node's label for
             // editing (it keeps editing when you click from label to label); a stop click
             // should only pick the stop. The quiet repeat of a double click keeps editing.
-            if (addStopFromCanvas(nodeId) && editor.getEditingShapeId()) {
+            if (addStopFromCanvas(nodeId, "pointer_up") && editor.getEditingShapeId()) {
               editor.complete();
             }
             return;
@@ -484,12 +571,13 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
           })?.id;
           if (!hitId) return;
           const sh = editor.getShape(hitId);
-          if (!sh || sh.type !== "geo") return;
+          if (!isMemoryNodeShape(sh)) return;
           const meta = sh.meta as MemoryPalaceMeta;
           if (!meta.mpNodeId) return;
           if (!st.connect.fromShapeId) {
             editor.select(hitId);
             st.setConnectFrom(hitId);
+            encodes.tracker.connectStarted();
             return;
           }
           if (st.connect.fromShapeId === hitId) {
@@ -512,6 +600,17 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       };
 
       editor.on("event", onEvent);
+
+      // An image the user inserts (paste, drop, media tool) becomes a node.
+      // The palace background carries `mpBackground`, so it is left alone.
+      const unsubImageNodes = editor.sideEffects.registerBeforeCreateHandler(
+        "shape",
+        (shape, source) => {
+          if (source !== "user" || shape.type !== "image") return shape;
+          const meta = imageNodeMeta(editor, palaceId, shape as TLImageShape);
+          return meta ? { ...shape, meta } : shape;
+        },
+      );
 
       const unsubSel = editor.store.listen(
         () => {
@@ -548,6 +647,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             nextSnapshot,
           );
           lastSceneSnapshotRef.current = nextSnapshot;
+          encodes.tracker.sceneChanged(analyticsDiff);
           queueDraftSave();
           for (const event of analyticsDiff) {
             void usePalaceStore.getState().recordAnalyticsEvent({
@@ -574,6 +674,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       return () => {
         editor.off("event", onEvent);
         stopIdGuard();
+        encodes.dispose();
+        unsubImageNodes();
         unsubSel();
         unsubDraft();
         unsubViewport();
@@ -606,8 +708,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.setHintingShapes([]);
       for (const id of editor.getCurrentPageShapeIds()) {
         const s = editor.getShape(id);
-        if (s && s.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-          editor.updateShape({ id, type: "geo", opacity: 1 });
+        if (isMemoryNodeShape(s)) {
+          editor.updateShape({ id, type: s.type, opacity: 1 });
         }
       }
       return;
@@ -616,12 +718,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     let activeShapeId: TLShapeId | null = null;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const hi = m.mpNodeId === nodeId;
       if (hi) activeShapeId = id;
-      editor.updateShape({ id, type: "geo", opacity: hi ? 1 : 0.38 });
+      editor.updateShape({ id, type: s.type, opacity: hi ? 1 : 0.38 });
     }
 
     if (activeShapeId) {
@@ -645,6 +747,7 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     walkOpen,
     walkRecallMode,
     walkIndex,
+    walkDirection,
     walkRouteId,
     loci,
     clearActiveTags,
@@ -663,8 +766,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         editor.setHintingShapes([]);
         for (const id of editor.getCurrentPageShapeIds()) {
           const s = editor.getShape(id);
-          if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-            editor.updateShape({ id, type: "geo", opacity: 1 });
+          if (isMemoryNodeShape(s)) {
+            editor.updateShape({ id, type: s.type, opacity: 1 });
           }
         }
       }
@@ -674,11 +777,11 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     const memoryIds: TLShapeId[] = [];
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       memoryIds.push(id);
-      editor.updateShape({ id, type: "geo", opacity: 1 });
+      editor.updateShape({ id, type: s.type, opacity: 1 });
     }
 
     if (!connectFromShapeId) {
@@ -691,18 +794,39 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     }
   }, [toolMode, connectFromShapeId, walkOpen]);
 
+  // A recall walk hides the edges of every node it hides: an edge label, or the neighbour at its
+  // other end, would name the answer. Restored as each node is revealed and when the walk ends.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const updates: TLShapePartial[] = [];
+    for (const id of editor.getCurrentPageShapeIds()) {
+      const s = editor.getShape(id);
+      if (s?.type !== "arrow") continue;
+      const m = s.meta as MemoryPalaceMeta;
+      if (!m.mpEdgeId) continue;
+      const hide =
+        (!!m.mpSourceNodeId && walkHidden.has(m.mpSourceNodeId)) ||
+        (!!m.mpTargetNodeId && walkHidden.has(m.mpTargetNodeId));
+      const opacity = hide ? 0 : 1;
+      if (s.opacity !== opacity) updates.push({ id, type: s.type, opacity });
+    }
+    // Not an edit: keep it out of undo.
+    if (updates.length > 0) editor.run(() => editor.updateShapes(updates), { history: "ignore" });
+  }, [walkHidden]);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || walkOpen) return;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const match =
         activeTags.length === 0 ||
         (m.mpTags ?? []).some((t) => activeTags.includes(t));
-      editor.updateShape({ id, type: "geo", opacity: match ? 1 : 0.2 });
+      editor.updateShape({ id, type: s.type, opacity: match ? 1 : 0.2 });
     }
   }, [activeTags, walkOpen]);
 
@@ -717,8 +841,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
       editor.setHintingShapes([]);
       for (const id of editor.getCurrentPageShapeIds()) {
         const s = editor.getShape(id);
-        if (s?.type === "geo" && (s.meta as MemoryPalaceMeta).mpNodeId) {
-          editor.updateShape({ id, type: "geo", opacity: 1 });
+        if (isMemoryNodeShape(s)) {
+          editor.updateShape({ id, type: s.type, opacity: 1 });
         }
       }
       return;
@@ -727,12 +851,12 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
     let cruxShapeId: TLShapeId | null = null;
     for (const id of editor.getCurrentPageShapeIds()) {
       const s = editor.getShape(id);
-      if (!s || s.type !== "geo") continue;
+      if (!isMemoryNodeShape(s)) continue;
       const m = s.meta as MemoryPalaceMeta;
       if (!m.mpNodeId) continue;
       const isCrux = m.mpNodeId === comprehendCruxNodeId;
       if (isCrux) cruxShapeId = id;
-      editor.updateShape({ id, type: "geo", opacity: isCrux ? 1 : 0.35 });
+      editor.updateShape({ id, type: s.type, opacity: isCrux ? 1 : 0.35 });
     }
 
     if (cruxShapeId) {
@@ -778,7 +902,10 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
   }, [recomputeMotifBadges, recomputeImageBackgrounds]);
 
   return (
-    <div className="relative h-full min-h-0 w-full flex-1">
+    // `isolate` gives the canvas its own stacking context. tldraw sets none, so its UI
+    // layers (panels 300, toasts 650, header 999) otherwise outrank the app's dialogs
+    // (z-50 to z-140) and stay clickable on top of them.
+    <div className="relative isolate h-full min-h-0 w-full flex-1">
       <Tldraw
         snapshot={initialSnapshot}
         onMount={onMount}
@@ -805,6 +932,8 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
         ))}
       </div>
       <RouteOverlay boxes={nodeBoxes} />
+      <WalkAnswerCover boxes={nodeBoxes} hidden={walkHidden} />
+      <ConceptGlyphOverlay boxes={nodeBoxes} glyphs={nodeGlyphs} hidden={walkHidden} />
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {portalBadges.map((badge) => (
           <button
@@ -857,6 +986,19 @@ export function MemoryPalaceCanvas({ palaceId, editorSnapshot }: Props) {
             </div>
           );
         })}
+        {imageCaptions.filter((caption) => !caption.nodeId || !walkHidden.has(caption.nodeId)).map((caption) => (
+          <div
+            key={`caption-${caption.shapeId}`}
+            className="pointer-events-none absolute -translate-x-1/2 select-none truncate rounded bg-zinc-950/75 px-1.5 py-0.5 text-center text-[11px] font-medium leading-tight text-zinc-100"
+            style={{
+              left: caption.x,
+              top: caption.y,
+              maxWidth: caption.maxWidth,
+            }}
+          >
+            {caption.title}
+          </div>
+        ))}
         {difficultyBadges.map((badge) => (
           <div
             key={`difficulty-${badge.shapeId}`}

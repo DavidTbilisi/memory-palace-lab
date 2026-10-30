@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestNavigation } from "../app/navigationEvents";
 import { toRichText } from "@tldraw/tlschema";
-import type { TLShapeId } from "@tldraw/tlschema";
+import type { TLImageShape, TLShapeId } from "@tldraw/tlschema";
 import { applyPortalRefToMeta, nodeKindProps, portalDescriptor, portalRefFromMeta } from "../canvas/palacePortal";
 import { plainTextFromRichText, resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
+import { promoteImageShapeToNode } from "../canvas/createMemoryShapes";
+import { isMemoryNodeShape, isNodeCapableShape } from "../canvas/memoryNodeShape";
 import type { MemoryEdge, MemoryNode, MemoryNodeKind, MemoryRoute, PalacePortalRef } from "../domain/entities/types";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
+import { useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { NodeRouteMemberships } from "./NodeRouteMemberships";
-import { normalizeLocusSchedule } from "../domain/services/spacedRepetition";
+import { AttributesEditor } from "./AttributesEditor";
+import { ConceptGlyphField } from "./ConceptGlyphField";
+import { NedfSlotsEditor } from "./NedfSlotsEditor";
+import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
+import { CountShapeControls } from "./CountShapeControls";
+import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
+import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
 
@@ -69,7 +78,7 @@ function resolveNodeSummary(
   if (editorRef) {
     for (const shapeId of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(shapeId as TLShapeId);
-      if (!shape || shape.type !== "geo") continue;
+      if (!isMemoryNodeShape(shape)) continue;
       const meta = shape.meta as MemoryPalaceMeta;
       if (meta.mpNodeId !== nodeId) continue;
       return {
@@ -151,6 +160,14 @@ function resolvePortalDraft(meta: MemoryPalaceMeta, snapshotNodes: MemoryNode[])
   };
 }
 
+const STORE_ROLE_HINTS: Record<NonNullable<MemoryPalaceMeta["mpStoreRole"]>, string> = {
+  cell: "A cell: rename it and fill it freely, it keeps this address.",
+  sticker: "A sticker: rename it to your own image. Its five parts are the cells below it.",
+  theme: "The block's theme image.",
+  number: "Your image for this number. Edit the number from the store panel to change its cells.",
+  image: "An image the number brings to mind. Its three parts are the cells below it.",
+};
+
 function ReadOnlyMetaField({ id, label, value, subvalue }: { id: string; label: string; value: string; subvalue?: string }) {
   return (
     <div>
@@ -170,8 +187,11 @@ export function NodeInspector() {
   const loci = usePalaceStore((s) => s.loci);
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
+  const walkHidden = useWalkHiddenNodeIds();
   const snapshotNodes = usePalaceStore((s) => s.nodes);
   const snapshotEdges = usePalaceStore((s) => s.edges);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const encodeSpeeds = useMemo(() => nodeEncodeSpeeds(analyticsEvents, new Date().toISOString()), [analyticsEvents]);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const openPalace = usePalaceStore((s) => s.openPalace);
   const [title, setTitle] = useState("");
@@ -230,7 +250,7 @@ export function NodeInspector() {
     }
 
     const meta = sh.meta as MemoryPalaceMeta;
-    if (sh.type === "geo" && meta.mpNodeId) {
+    if (isMemoryNodeShape(sh)) {
       const resolvedTitle = resolveMemoryNodeTitle(sh);
       const resolvedPortal = resolvePortalDraft(meta, snapshotNodes);
       const storedNode = snapshotNodes.find((node) => node.id === meta.mpNodeId);
@@ -359,14 +379,14 @@ export function NodeInspector() {
     if (!selectedShapeId || !editorRef) return null;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-    if (!shape || shape.type !== "geo" || !meta.mpNodeId) return null;
+    if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return null;
     const nowIso = new Date().toISOString();
-    const nodeLoci = loci.filter((locus) => locus.nodeId === meta.mpNodeId).map((locus) => normalizeLocusSchedule(locus, nowIso));
+    const nedf = normalizeNedf(meta.mpNedf);
+    const nodeLoci = loci
+      .filter((locus) => locus.nodeId === meta.mpNodeId)
+      .map((locus) => ({ routeId: locus.routeId, nextReviewAt: stopNextReviewAt(locus, nedf, nowIso) }));
     if (nodeLoci.length === 0) return null;
-    const next = nodeLoci
-      .map((locus) => locus.nextReviewAt)
-      .filter((value): value is string => typeof value === "string" && value.length > 0)
-      .sort()[0];
+    const next = nodeLoci.map((locus) => locus.nextReviewAt).sort()[0];
     if (!next) return null;
     const routeId = nodeLoci.find((locus) => locus.nextReviewAt === next)?.routeId;
     return {
@@ -403,19 +423,29 @@ export function NodeInspector() {
   const applyNodeChanges = useCallback(() => {
     if (!editorRef || !selectedShapeId) return;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
-    if (!shape || shape.type !== "geo") return;
+    if (!isMemoryNodeShape(shape)) return;
     const prev = shape.meta as MemoryPalaceMeta;
     const nextMeta = applyPortalRefToMeta(
       { ...prev, mpTitle: title, mpAlias: alias, mpContent: content },
       nodeKind,
       portalDraft,
     );
-    editorRef.updateShape({
-      id: selectedShapeId as TLShapeId,
-      type: "geo",
-      meta: nextMeta,
-      props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
-    });
+    if (shape.type === "image") {
+      // An image node has no label, colour, or fill props; its title and
+      // kind live in meta alone.
+      editorRef.updateShape({
+        id: selectedShapeId as TLShapeId,
+        type: "image",
+        meta: nextMeta,
+      });
+    } else {
+      editorRef.updateShape({
+        id: selectedShapeId as TLShapeId,
+        type: "geo",
+        meta: nextMeta,
+        props: { ...shape.props, ...nodeKindProps(nodeKind), richText: toRichText(title || " ") },
+      });
+    }
     flashSavedIndicator();
   }, [alias, content, editorRef, flashSavedIndicator, nodeKind, portalDraft, selectedShapeId, title]);
 
@@ -521,7 +551,20 @@ export function NodeInspector() {
 
   const meta = sh.meta as MemoryPalaceMeta;
 
-  if (sh.type === "geo" && meta.mpNodeId) {
+  // A recall walk hides this node, or the node at an end of this edge, until it is revealed.
+  if (
+    (isMemoryNodeShape(sh) && meta.mpNodeId && walkHidden.has(meta.mpNodeId)) ||
+    (meta.mpSourceNodeId && walkHidden.has(meta.mpSourceNodeId)) ||
+    (meta.mpTargetNodeId && walkHidden.has(meta.mpTargetNodeId))
+  ) {
+    return (
+      <div className="p-3 text-sm text-zinc-500" data-testid="inspector-walk-hidden">
+        Hidden until you reveal it in the walk.
+      </div>
+    );
+  }
+
+  if (isMemoryNodeShape(sh)) {
     const openLinkedPalace = async () => {
       if (!portalPalaceId) return;
       setOpeningPortal(true);
@@ -540,7 +583,10 @@ export function NodeInspector() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Node</div>
-          {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+          <div className="flex items-center gap-2">
+            {showSavedIndicator ? <div className="text-[11px] text-emerald-300">Saved</div> : null}
+            {encodeSpeeds.has(sh.meta.mpNodeId) ? <EncodeSpeedBadge speed={encodeSpeeds.get(sh.meta.mpNodeId)!} /> : null}
+          </div>
         </div>
         <div>
           <Label htmlFor="mp-title">Title</Label>
@@ -552,6 +598,7 @@ export function NodeInspector() {
             onBlur={applyNodeChanges}
           />
         </div>
+        <ConceptGlyphField nodeId={meta.mpNodeId!} />
         <div>
           <Label htmlFor="mp-alias">Alias</Label>
           <Input
@@ -662,7 +709,20 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
-        <NodeRouteMemberships nodeId={meta.mpNodeId} />
+        {meta.mpStoreRole ? (
+          <ReadOnlyMetaField
+            id="mp-store-address"
+            label="Store address"
+            value={meta.mpAddress ?? "Theme (not addressed)"}
+            subvalue={STORE_ROLE_HINTS[meta.mpStoreRole]}
+          />
+        ) : null}
+
+        <NedfSlotsEditor nodeId={sh.meta.mpNodeId} />
+
+        <AttributesEditor nodeId={sh.meta.mpNodeId} />
+
+        <NodeRouteMemberships nodeId={sh.meta.mpNodeId} />
 
         {nextReviewInfo ? (
           <ReadOnlyMetaField
@@ -672,6 +732,8 @@ export function NodeInspector() {
             subvalue={nextReviewInfo.routeName ? `Route: ${nextReviewInfo.routeName}` : undefined}
           />
         ) : null}
+
+        <CountShapeControls nodeId={sh.meta.mpNodeId} />
 
         {title.trim() || stripHtmlToText(content).trim() ? (
           <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
@@ -763,6 +825,20 @@ export function NodeInspector() {
     const source = resolveNodeSummary(editorRef, resolvedEdge.sourceNodeId, snapshotNodes);
     const target = resolveNodeSummary(editorRef, resolvedEdge.targetNodeId, snapshotNodes);
 
+    if (meta.mpEdgeKind === "confusion") {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-orange-300">Confusion link</div>
+          <p className="text-xs leading-5 text-zinc-400">
+            {source.title} and {target.title} are easy to mix up. The link has no direction and no CAST meaning; a
+            node's Distinguisher card asks which of the two it is. Delete the arrow to unlink them.
+          </p>
+          <ReadOnlyMetaField id="mp-edge-source" label="Between" value={source.title} subvalue={source.id} />
+          <ReadOnlyMetaField id="mp-edge-target" label="And" value={target.title} subvalue={target.id} />
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <div className="flex items-center justify-between">
@@ -810,6 +886,27 @@ export function NodeInspector() {
         <ReadOnlyMetaField id="mp-edge-a" label="A - Action" value={resolvedEdge.castCd || "None"} />
         <ReadOnlyMetaField id="mp-edge-s" label="S - Stream" value={resolvedEdge.castEf || "None"} />
         <ReadOnlyMetaField id="mp-edge-t" label="T - Time" value={resolvedEdge.castGh || "None"} />
+      </div>
+    );
+  }
+
+  // Images inserted before image nodes existed carry no node identity yet.
+  if (sh.type === "image" && isNodeCapableShape(sh) && currentPalace) {
+    return (
+      <div className="flex w-72 shrink-0 flex-col gap-3 border-l border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-500">
+        <div>This image is not a memory node yet.</div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            if (promoteImageShapeToNode(editorRef, currentPalace.id, sh as TLImageShape)) {
+              // Setting the form state also re-renders into the node view.
+              syncFromSelectedShape();
+            }
+          }}
+        >
+          Make it a node
+        </Button>
       </div>
     );
   }

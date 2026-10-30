@@ -623,7 +623,7 @@ The main missing pieces are not another framework, but stronger layers for:
 - [framework-comparison-matrix](./framework-comparison-matrix.md)
 - [Memory Palace](./memory-palace-architecture-for-neural-os.md)
 - [missing-encoding-layers](./missing-encoding-layers.md)
-- Soroban Learning Method
+- [soroban-learning-method](./soroban-learning-method.md)
 - [trigonometry-compass-palace](./trigonometry-compass-palace.md)
 - [unit-circle-as-compass](./unit-circle-as-compass.md)
 - [quadrant-sign-patterns](./quadrant-sign-patterns.md)

@@ -28,8 +28,9 @@ wiki_source: wiki/learning-systems/neighborhood-palace.md
 - wiki/learning-systems/eye-movement-and-compass-mnemonics.md
 - wiki/learning-systems/bdnf-and-neurogenesis.md (biological substrate)
 - wiki/learning-systems/sleep-dependent-memory-consolidation.md
+- CAST Atlas artifact, Ureki room (David's proposal in conversation, 2026-09-07; 12 corners drawn with clock dials) — https://claude.ai/code/artifact/380f2ce1-de72-4490-bb6c-e0f880672593
 
-**Last updated**: 2026-05-30
+**Last updated**: 2026-09-18 (§Worked example rebuilt on OpenStreetMap — hub coordinates were off by up to ~1.6 km, Nutsubidze runs E–W not N–S, Bakhtrioni is not a spine; the district is a rails × rungs lattice with a generator, so week 1 now opens with the **rule card** and the **hub** and closes the lattice on Friday; 13-corner first frame in `tools/cast-graphs/saburtalo-skeleton.json`, dials computed, two corners flagged for field verification); 2026-09-07 (§Clock dials added — every junction is a clock with 12 at north, one hand per street leaving; the E primitive now speaks hours; [METER](./meter-overview.md) `nbh.corner_dial_pass`. Later the same day: *Walk dial, car dial* — one dial per travel mode, the car dial a subset with in-degree recounted; Ureki driven, and its frame splits by car); 2026-05-30
 
 ---
 
@@ -52,7 +53,7 @@ This rules in three things and rules out three things.
 | **P** | **Physical walking** | You walk every street you encode. No exceptions. This is what builds the hippocampal substrate (Maguire). Reading street names off a map ≠ knowing them. |
 | **A** | **Anchor hubs** | Pick 5–8 vivid landmarks (square, metro, church, park, school, hospital). Each becomes a palace locus with a [REMAPS](./remaps.md) scene. All other streets hang off these anchors. |
 | **C** | **CAST graph** | Junctions are [CAST](./cast-overview.md) nodes; streets are CAST edges. Encoding the graph (not just the loci) is what makes routing possible. |
-| **E** | **Eye-compass** | At every junction, name N/S/E/W out loud. This is the orientation discipline that turns spatial recall into navigation, per [eye-movement-and-compass-mnemonics](./eye-movement-and-compass-mnemonics.md). |
+| **E** | **Eye-compass** | At every junction, say out loud the hour each street leaves at, 12 = north — see §Clock dials below. The four compass letters stay for hub-to-hub bearings (rung 0). This is the orientation discipline that turns spatial recall into navigation, per [eye-movement-and-compass-mnemonics](./eye-movement-and-compass-mnemonics.md). |
 
 Drop any one of PACE and the method degrades into a different (weaker) method:
 
@@ -120,6 +121,63 @@ This phase is what separates the Neural OS protocol from the Maguire bus-driver 
 
 Rung 7 is the cabbie-grade. Cabbies can do it because the encoded graph has enough density that new edges slot into known regions by interpolation.
 
+## Clock dials — a corner's bundle read as hours
+
+Proposed by David on 2026-09-07 while the Ureki room of the CAST Atlas was being drawn; this section is the wiki's record of the convention, and the E primitive above now points here. 🟡 Candidate until the gate at the end opens.
+
+**The rule.** Every junction — a [CAST](./cast-overview.md) node — is drawn as a small clock: a twelve-tick dial around the node, **12 fixed at north**, and one **hand** for each street that leaves it, set at the hour the street actually leaves at. The hour is the first segment of the road as you step off the corner, not the straight line to the next junction, because it is the turn your body makes. The hour is written beside the hand. The compass rose stays on the map once, as the legend for every dial, and its points are landmarks rather than letters: in Ureki, 12 is Poti, 6 is Kobuleti, 9 is the sea, 3 is the railway.
+
+```
+          12 · Poti
+      11           1
+   10                 2
+  9 · sea     ●     3 · railway
+   8                  4
+      7            5
+           6 · Kobuleti
+
+  Football corner   3 · 6 · 9    a T
+  Villa            12 · 6 · 9    a T, turned
+  Guest House       5 · 9        a bend
+```
+
+**Why an hour and not a letter.** Three reasons, all about speed at the corner:
+
+1. *Resolution.* Twelve positions at 30° instead of four at 90°. Ureki's east road leaves the Guest House corner at 5; no compass word says that in one breath.
+2. *One token.* "Three" is one word said while the hand points. "East-south-east" is three words and a decode.
+3. *Order for free.* A bundle read clockwise from 12 has one canonical order, so the bundle table and the dial agree, and a missing hand is a visible gap. That is [representation-rules](./representation-rules.md) Rule 10's count-shape with the vertices fixed by geography instead of spaced evenly: a T-junction is three hands, a crossroads four, and an empty position is seen before any name is read.
+
+**What the hour is not.** It is a bearing, never a time of day. [clocks24](./clocks24.md) owns the hours of the day, and the two dials must not share an image: 12 means north here and midnight there. Keeping the two meanings apart is the [orthogonality lock](./software-design-principles-for-neural-os.md) applied to a shape. A two-way street shows as two hours six apart, one hand at each end — the same "pay double for symmetry" that [cast-example-city-streets](./cast-example-city-streets.md) counts in edges, now visible on the dials.
+
+**Where the hour lives.** CAST's one motion is *point at the source animal, watch it perform the verb on the target*; the hour is that pointing gesture, written down. It sits in the bundle, before the verb, and touches neither the animal nor the scene:
+
+| Corner | Bundle, clockwise from 12 |
+|---|---|
+| Football · 🦅 | **3** headers to Dumbadze · **6** plunges to Laimi · **9** punts to Lika |
+| Villa · 🦉 | **12** climbs to lane top · **6** glides to Rio · **9** sidles to spur |
+| Guest House · 🐷 | **5** wanders to road end · **9** trots to Dumbadze |
+
+**Walk dial, car dial — one dial per travel mode.** A corner's dial is drawn once per mode of travel, and the car dial is a **subset** of the walk dial: a two-way street keeps both hands, a one-way street keeps only the hand at the end you may leave from, a footpath keeps none. The animals never move between modes, a letter once given is never reassigned, but in-degree is **recounted per mode**, so the hub can move and a bridge can vanish. This is the [cast-example-city-streets](./cast-example-city-streets.md) lesson, a two-way street is two edges and a one-way street is one, run once per mode instead of once. Under Rule 10 the difference is visible as empty positions: a car dial with fewer hands than its walk dial shows exactly which streets you lose.
+
+Ureki, driven 2026-09-07: every encoded street is two-way by car except the spur and the bridge (Rio ⇄ Laimi), which are footpaths. By car the frame therefore splits in two. The town keeps the Eagle at Football; the home cluster (Villa · Rio · lane top) is reached by no encoded street at all, and the car route home is one of the two roads that leave the frame on the home lane, both still unknown. The walk's open question, *does the home lane reach the coast leg*, is by car the only door.
+
+| Corner | Walk in-degree | Car in-degree |
+|---|---|---|
+| Football · 🦅 | 3 | 3 |
+| Villa · 🦉 | 3 (tied Football, lost on reading order) | 2 (the tie is gone) |
+| Laimi · 🐅 | 2 | 1 |
+| Rio · 🦓 | 2 | 1 |
+
+**Drill and measurement.** The corner-level twin of rung 0, which stays hub-to-hub and in compass letters; run it once per travel mode and log the mode on the event:
+
+| Cue | Response | Pass-floor | METER event |
+|---|---|---|---|
+| Corner name | The hour of every street leaving it, clockwise from 12, then the animal at the far end of each | 100% in 10s per corner | `nbh.corner_dial_pass` (`mode` = walk · car) |
+
+**Promotion gate.** The convention leaves 🟡 when `nbh.corner_dial_pass` holds for every corner of one walked district frame (Ureki's 12, or Saburtalo's first 12) on two drills a week apart, and one full frame is redrawn from memory with every hand at its hour. If a redraw keeps placing hands at the straight-line bearing instead of the street's first segment, the rule is wrong about which one the body remembers, and this section changes to say so.
+
+Worked instance: the Ureki room of the CAST Atlas — 12 corners, 22 directed edges, every one dialed, with the bundle table in dial order, and a Walk / Car switch whose per-street rules are the ones David drove (source: David's artifact, 2026-09-07).
+
 ## Time-to-fluency — what the encoder stack buys you
 
 The Neural OS stack ([CAST](./cast-overview.md) + [NEDF](./nedf-overview.md) + [REMAPS](./remaps.md) + glyph grammar for junctions + recognition gym for names + [motoric](./hand-to-letter-system.md) for walked-mutter + [BDNF](./bdnf-and-neurogenesis.md) substrate) compresses **active encoding hours** by roughly **2.5–3.5×** vs naive walk-only learning. It does **not** compress the **calendar floor** — that's set by hippocampal consolidation, which is biological and non-negotiable.
@@ -181,55 +239,66 @@ Locked 2026-05-30. Saburtalo is the primary worked example for the first distric
 
 ```leaflet
 id: nbh-saburtalo
-lat: 41.7270
-long: 44.7480
-zoom: 14
+lat: 41.7245
+long: 44.7540
+zoom: 15
 height: 500px
 width: 100%
 unit: meters
-marker: default, 41.7311, 44.7457, [[place-saburtalo-medical-university|Medical University metro]]
-marker: default, 41.7261, 44.7558, [[place-saburtalo-bochorishvili|Vakhtang Bochorishvili Clinic]]
-marker: default, 41.7223, 44.7510, [[place-saburtalo-central-park|Central Park]]
-marker: default, 41.7286, 44.7521, [[place-saburtalo-aversi|Aversi Clinic]]
-marker: default, 41.7203, 44.7377, [[place-saburtalo-cemetery|Saburtalo Cemetery]]
-marker: default, 41.7370, 44.7405, [[place-saburtalo-mardaleishvili|Mardaleishvili Medical Centre]]
+marker: default, 41.7235, 44.7572, [[place-saburtalo-bochorishvili|Bochorishvili Clinic — home-locus]]
+marker: default, 41.7289, 44.7584, [[place-saburtalo-aversi|Aversi Clinic]]
+marker: default, 41.7273, 44.7638, [[place-saburtalo-medical-university|Medical University metro]]
+marker: default, 41.7255, 44.7453, [[place-saburtalo-delisi|Delisi metro]]
+marker: default, 41.7198, 44.7533, [[place-saburtalo-central-park|Central Park]]
+marker: default, 41.7151, 44.7365, [[place-saburtalo-cemetery|Saburtalo Cemetery]]
+marker: default, 41.7363, 44.7380, [[place-saburtalo-mardaleishvili|Mardaleishvili Medical Centre]]
 ```
 
-*(Coordinates approximate from screenshot triangulation — verify in OSM/Maps before locking; Phase 0 of district build-out is to walk to each hub and replace lat/lng with the GPS-anchored value.)*
+*(Coordinates from OpenStreetMap, 2026-09-18 — © OpenStreetMap contributors. The seven `place-saburtalo-*` hub pages were rebuilt on the same data the same day; [place-saburtalo-delisi](./place-saburtalo-delisi.md) is new.)*
 
-**Hubs (Phase 1)** — 6 anchors:
+**The first frame** — 1 km around the home-locus, built from OSM by `tools/cast_graph_from_osm.py` into `tools/cast-graphs/saburtalo-skeleton.json`: **13 corners, 30 walk edges** (21 drivable). Six of the corners are one rule; seven are exceptions. `python3 tools/cast_encode_log.py step0 saburtalo-skeleton` prints the whole Step 0, dials included.
 
-1. **Medical University metro** (NE) — transport hub; daily commuter wave. REMAPS scene: a wall of white-coated medical students pouring out of the turnstiles like a foam wave.
-2. **Vakhtang Bochorishvili Clinic** (centre, near the avatar pin) — medical/landmark anchor. REMAPS: bearded medieval Georgian king (the historical Vakhtang Gorgasali) holding a glowing beaker.
-3. **Central Park / ცენტრალური პარკი** (centre-south) — green space anchor. REMAPS: a giant fountain spraying upward with children-shaped water droplets.
-4. **Aversi Clinic** (N of Bakhtrioni) — second medical anchor on the north spine. REMAPS: giant pill bottles stacked like Jenga blocks toppling onto the street.
-5. **Saburtalo Cemetery** (SW corner) — south/west boundary anchor. REMAPS: stone angels turning their heads in unison toward the metro.
-6. **Mardaleishvili Medical Centre** (NW corner, top-left) — north boundary anchor. REMAPS: a doctor in a red cross hat catapulting bandages over the rooftops.
+**The rule card (encode this before the first walk — it is the generator, not an edge):**
 
-**Arterials (Phase 1)** — 4 spines:
+> *Three rails run east–west — Nutsubidze (north), Vazha-Pshavela (middle), Kazbegi (south). Two rungs run north–south — Asatiani (west), Vakeli (east). Every rail meets every rung.*
 
-| Arterial | Direction | Notes |
-|---|---|---|
-| **University Street** | E ↔ W | Southern boundary spine; runs along Central Park's north side; named for the Tech University at its W end |
-| **Bakhtrioni Street** | E ↔ W | Central spine; runs east into the Bochorishvili Clinic area; the avatar pin sits on this street |
-| **Shalva Nutsubidze Street** | N ↔ S | Western boundary spine; runs from Mardaleishvili down past Saburtalo Cemetery |
-| **Elguja Amashukeli Street** | E ↔ W | Northern spine; runs across the top below the M-Tsereteli/Mardaleishvili area |
+That one sentence is six corners. It goes on a [NEDF](./nedf-overview.md) card per [when-not-to-cast-a-graph](./when-not-to-cast-a-graph.md) §The escape hatch; the CAST work is the *rest*.
 
-(Also crossing: Mukhran Machavariani St in the extreme N; Viktor Dolidze St as a southern cross-link; Kazbegi Ave further W as the major outbound to Vazha-Pshavela.)
+**Corners (letters locked at first encode, in-degree order — [step-zero-analysis](./step-zero-analysis.md))**:
 
-**Week-1 walk plan** (30 min/day track):
+| # | Animal | Corner | Role | Hub |
+|---|---|---|---|---|
+| ა | Eagle | Asatiani × Kartozia × Kazbegi | **the hub** (in 5) — rule corner, SW of the lattice | |
+| ბ | Owl | Vakeli × Nutsubidze (+ Budapest, Kandelaki) | rule corner, NE | Aversi Clinic 148 m |
+| გ | Pig | Asatiani × Vazha-Pshavela | rule corner, W-middle | |
+| დ | Dinosaur | Kartozia × Tsintsadze | exception — Kartozia **bends** here | Central Park 197 m |
+| ე | Raccoon | Vakeli × Kazbegi (+ Tandzia) | rule corner, SE — **the home corner**, 134 m from the clinic | |
+| ვ | Whale | Vakeli × Vazha-Pshavela | rule corner, E-middle | |
+| ზ | Zebra | Asatiani × Nutsubidze | rule corner, NW | |
+| თ | Tiger | Kartozia × Choloqashvili Hwy | exception — an **interchange**; verify on the ground which arm is the through road | |
+| ი | Ibis | Kazbegi × Tamarashvili | exception — west exit of the frame | Delisi metro 147 m |
+| კ | Kangaroo | Mitskevich × Tandzia | exception — the clinic's own corner | Bochorishvili Clinic 221 m |
+| ლ | Lion | Budapest × Panjikidze | exception — east exit toward the metro | Medical University metro 250 m |
+| მ | Mammoth | Tsintsadze × Choloqashvili Hwy | exception — south exit | |
+| ნ | Narwhal | Budapest × Beritashvili | exception — north exit | |
 
-| Day | Walk | Encode | Drill |
+Two corners are flagged for field verification because OSM cannot settle them: at **Tiger** the tool finds both *Eagle → Tiger → Dinosaur* (316 + 277 m) and a direct *Eagle → Dinosaur* (470 m) on Kartozia — one is the through road and one is a ramp; and **Dinosaur**'s dial reads Kartozia at 9, meaning the street turns west there. Both are exactly what Step 0 is for.
+
+**Week-1 walk plan** (30 min/day; every street walked in both directions across two days; hub first, per Step 0):
+
+| Day | Walk (from the clinic) | Encode | Drill at the desk afterwards |
 |---|---|---|---|
-| Mon | Bakhtrioni E → W end-to-end | REMAPS hubs Bochorishvili + Aversi; name every cross-street out loud | Rung 0: point hub→hub |
-| Tue | Bakhtrioni W → E (REVERSE) | Same hubs from the other direction; lock bidirectional | Rung 0 + Rung 1 (Bakhtrioni cross-street list) |
-| Wed | Rest — sleep consolidation. **Drill only**, no new encoding. | — | Rungs 0 + 1 from memory |
-| Thu | University Street W → E | REMAPS Central Park + Medical University metro | Rung 0 |
-| Fri | University E → W (REVERSE) + brief side-trip to Saburtalo Cemetery | REMAPS hub 5 | Rung 1 (both arterials) |
-| Sat | Long walk: Shalva Nutsubidze N → S then E across Bakhtrioni | REMAPS Mardaleishvili (hub 6); first N–S arterial encoded | Rungs 0–2 |
-| Sun | Rest + integrative drill — walk to one hub from another by memory, eyes-mostly-down | — | Rungs 0–2 mixed |
+| **Mon** | Kangaroo → **Raccoon** → *Kazbegi west* → **Eagle** → *Asatiani north* → **Pig**, and back the same way (≈ 1.0 km out) | The rule card first, at home. Then the home corner (Raccoon), **the hub** (Eagle), Pig. Say each dial aloud on the corner, 12 = north | `walk saburtalo-skeleton --only raccoon,eagle,pig` — dials + bundles. Rung 0: point clinic → Delisi, → Aversi |
+| **Tue** | Same route **reversed** — out drilling Monday's dials, back encoding the reverse hours; extend *Kazbegi west* past Eagle to **Ibis** and Delisi metro (391 + 147 m). Metro or walk home | Ibis; the west exit hands (Tamarashvili 12 / 6, Kazbegi 9>) | `--only raccoon,eagle,pig,ibis`. Rung 1: Kazbegi's cross-streets east → west |
+| **Wed** | **Rest — sleep consolidation. No new encoding** ([sleep-dependent-memory-consolidation](./sleep-dependent-memory-consolidation.md)) | — | Full `walk --only raccoon,eagle,pig,ibis` from memory; rungs 0–1. Anything under 100 % on a dial → re-walk that corner Thursday, do not re-study it |
+| **Thu** | Raccoon → *Vakeli north* → **Whale** → **Owl** → Aversi (148 m) → *Budapest east* → **Lion** → Medical University metro (250 m). Metro or walk home (≈ 1.3 km out) | The east rung: Whale, Owl (Owl has **five hands**, the densest dial — take it slowly), Lion | `--only …,whale,owl,lion`. Rung 0: all four hubs so far from the clinic |
+| **Fri** | **Close the lattice**: Raccoon → Whale → Owl → *Nutsubidze west* → **Zebra** → *Asatiani south* → Pig → Eagle → *Kazbegi east* → Raccoon (≈ 2.5 km; the long day) | Zebra, and the rule *walked*: at each of the six rule corners say the rail and the rung. Kazbegi eastbound and Vakeli/Asatiani southbound are the reverse hours from Mon/Thu | `--only` all rule corners + ibis, lion. Rung 1: Nutsubidze, Vazha-Pshavela, Kazbegi cross-streets both directions |
+| **Sat** | The south spur: Raccoon → Eagle → *Kartozia south* → **Tiger** (the interchange — walk both arms) → **Dinosaur** → Central Park (197 m) → *Tsintsadze east* → **Mammoth**; return Dinosaur → Eagle by whichever arm is the through road (≈ 2 km) | Tiger, Dinosaur, Mammoth; **settle the two field questions** and correct the graph file if OSM was wrong | `--only tiger,dinosaur,mammoth`. Narwhal (Budapest north, 544 m from Owl) is the one corner not walked — leave it for week 2 or take it Sunday |
+| **Sun** | **Rest + integrative**: to Aversi and back by a route you have not walked as a whole (e.g. via Zebra), eyes mostly down | — | Full `walk saburtalo-skeleton` — all 13 dials and bundles, one pass. Rungs 0–2 mixed. Then `report` |
 
-**Week-1 end-state**: 6 hubs encoded, 3 arterials walked bidirectionally with all cross-streets named, ~40–60 streets in the graph. Rungs 0–2 passing. Phase 2 (full edge-list) begins week 2.
+**Week-1 end-state**: the rule card fluent; 12 of 13 corners walked in both directions with dials said aloud (Narwhal pending); 5 hubs anchored; `nbh.corner_dial_pass` logged for every walked corner, which starts the clock on §Clock dials' promotion gate (every corner of one frame, two drills a week apart). Rungs 0–2 passing. Phase 2 (the full edge list — cross-streets between the rule corners) begins week 2, and the 30 walk edges are the density hypothesis's first real reading.
+
+**What changed from the screenshot plan, and why it matters**: the old week 1 walked Bakhtrioni "end-to-end" on day one as the central spine. Bakhtrioni is a 0.9 km side street that meets no arterial in this frame; the walk would have encoded a corridor with nothing hanging off it. The new plan puts the **hub** (Eagle) and the **rule** on day one, which is what Step 0 says to do, and reaches every hub from the home corner within the 30-minute budget except the two that lie outside the frame (Cemetery, Mardaleishvili — Phase 2 frames).
 
 ### Vake — queued adjacent district (Phase 2)
 
@@ -364,7 +433,7 @@ The arterial graph that binds them: **Chavchavadze ↔ Heroes' Sq ↔ Pekini ↔
 - **P** — Physical walking IS the substrate. No walk, no Knowledge.
 - **A** — Anchor hubs are the load-bearing loci. 5–8 vivid REMAPS scenes per district.
 - **C** — CAST graph: junctions = nodes, streets = edges. The graph is what enables routing.
-- **E** — Eye-compass at every junction. Name N/S/E/W out loud. Turns recall into navigation.
+- **E** — Eye-compass at every junction. Say the hours out loud, 12 at north, one per street leaving. Turns recall into navigation.
 
 ## Memory Checksum
 
@@ -430,7 +499,7 @@ For dense districts, each hub becomes its own `places/place-<district>-<hub-slug
 - **Map study without walking** — builds fragile visual recall, not the hippocampal substrate Maguire measured. Bus drivers do this; they don't grow hippocampi. *Walk the streets.*
 - **Skipping Phase 4 (reverse walks)** — produces one-way fluency. You'll be a bus driver, not a cabbie.
 - **Drilling capitals before walls** at the analogous level — drilling street names from a list before the hub-and-spoke skeleton is in place. The names encode fine in isolation; you can't *find* them under time pressure because the topology isn't fluent.
-- **No compass discipline** at junctions — recall without orientation. You'll know where streets are but not which way to turn.
+- **No compass discipline** at junctions — no hour said, no letter said; recall without orientation. You'll know where streets are but not which way to turn.
 - **Trying to encode the whole district in one push** — sleep consolidation can't be rushed. 3–7 nights per district minimum, regardless of how many hours you spend encoding.
 - **Grid encoding instead of walk-palace** (per the user-raised idea, validated against architecture and rejected as primary): grids fragment streets across cell boundaries, destroy topology, and use arbitrary cell names. Use named neighborhoods as the index layer; use walked routes as the encoding layer.
 - **Pure mnemonic without physical practice** — encoder stack 2.5–3.5× speedup is on *active hours*; the calendar floor is biology. Mnemonics without walking buy you nothing.
@@ -441,6 +510,9 @@ For dense districts, each hub becomes its own `places/place-<district>-<hub-slug
 - [memory-palace](./memory-palace.md) · [memory-palace-architecture-for-neural-os](./memory-palace-architecture-for-neural-os.md)
 - [cast-overview](./cast-overview.md) — the graph encoder this method relies on
 - [eye-movement-and-compass-mnemonics](./eye-movement-and-compass-mnemonics.md) — the E in PACE
+- [cast-example-city-streets](./cast-example-city-streets.md) — the Level 4 sibling; the Ureki room of the CAST Atlas applies §Clock dials to a real corner set
+- [clocks24](./clocks24.md) — owns the *other* clock, the hours of the day; a dial hour here is a bearing, never a time
+- [representation-rules](./representation-rules.md) — Rule 10: a corner's hands are its bundle's count-shape
 - [remaps](./remaps.md) · [scene-grammar](./scene-grammar.md) — junction scene construction
 - [person-action-object-system](./person-action-object-system.md) — alternative encoder at major junctions
 - [substitute-word-system](./substitute-word-system.md) — for hard street-name phonologies
@@ -456,7 +528,7 @@ For dense districts, each hub becomes its own `places/place-<district>-<hub-slug
 ## U — See (CAST)
 1. District as graph: junctions = nodes, streets = edges
 2. 5–8 hubs as anchor loci with REMAPS scenes
-3. Compass rose burned into every junction
+3. A clock dial at every junction: 12 at north, one hand per street leaving; the rose is the legend
 
 ## D — Name (NEDF)
 1. Neighborhood Palace = PACE protocol (Physical-walk · Anchor-hubs · CAST-graph · Eye-compass)
@@ -475,15 +547,17 @@ For dense districts, each hub becomes its own `places/place-<district>-<hub-slug
 2. Reverse walks skipped → one-way fluency
 3. Compass discipline drift → orientation collapse under stress
 4. Maintenance treadmill catching up → past ~500 streets at hobby pace, decay outpaces encoding
+5. Mode drift → a car dial read with the walk's hands; recount in-degree per mode before trusting the hub
 
 ## L — Predict (ORACLE)
 1. Hub → predict next hub by compass
 2. Address → predict arterial + neighborhood + nearest hub
 3. Two-point cue → predict 2–3 alternative routes
 4. New street name → predict location by name pattern + neighbor context (rung 7)
+5. A footpath where the walk had its bridge → predict the cluster behind it has no car door inside the frame
 
 ## R — Act (GRACE)
-1. New street encountered on walk → mutter name, note compass, attach to nearest hub
+1. New street encountered on walk → mutter name, say its hour, attach to nearest hub
 2. Recall failure mid-route → restage to nearest hub, re-derive
 3. Detour required → fire rung-5 drill in real time
 4. District extended (e.g. new building changes a junction) → edit the locus, not the whole palace

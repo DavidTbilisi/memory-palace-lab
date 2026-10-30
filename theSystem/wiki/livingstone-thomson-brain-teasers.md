@@ -15,7 +15,7 @@ wiki_source: wiki/problem-solving/livingstone-thomson-brain-teasers.md
 - Decrypted copy at `C:\Users\David\Documents\Brain Teasers - 211 Logic Puzzles - no-password.pdf`
 - Extracted text in `.tmp/brain-teasers/pages-01.txt` … `pages-10.txt` (50-page chunks, pdfplumber 2026-05-24)
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-09-23
 
 ---
 
@@ -89,7 +89,7 @@ I extracted from the 211 puzzles. See [puzzle-archetype-taxonomy](./puzzle-arche
 
 See [composability-index](./composability-index.md) §Confirmed unlocks for the registered row.
 
-## What the framework gets right (5 of 17 archetypes are direct hits)
+## What the framework gets right (5 of 18 corpus archetypes are direct hits)
 
 1. **Penultimate step** carries archetype F (work-backward arithmetic) — ~30 puzzles.
 2. **Get hands dirty** carries archetypes M + N (spatial + grid puzzles) — ~50 puzzles.
@@ -188,7 +188,7 @@ If you can recite 211-17-12-5-6-6-1-1 from "Livingstone-Thomson Brain Teasers" w
 ## D — Name (NEDF)
 
 1. Livingstone-Thomson 2009 = 211 timed puzzles, choose-your-own-adventure
-2. 17 archetypes; 12 wiki tools (5 hit, 6 added, 1 gap)
+2. 18 archetypes from this corpus (the taxonomy now holds 19 — S was added 2026-09-23 from outside it); 12 wiki tools (5 hit, 6 added, 1 gap)
 3. Distinguisher: NOT a math drill — a crux-recognition gym disguised as one
 4. Failure mode: absorbing the brain-size verdict frame instead of rejecting it
 

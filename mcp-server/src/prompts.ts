@@ -1,6 +1,7 @@
 import { NINE_DIVE } from "../../src/domain/services/cast/nineDive";
 import { selectCrux } from "../../src/domain/services/cast/crux";
 import { analyzeGraph } from "../../src/domain/services/cast/graphAnalysis";
+import { meaningEdges } from "../../src/domain/services/confusion";
 import { serializeDsl } from "../../src/domain/services/palaceDsl/serializer";
 import { loadPalace, resolvePalace } from "./palaceDb";
 import { readTheSystemDoc } from "./resources";
@@ -35,11 +36,12 @@ export function nineDiveDrillPrompt(ctx: ServerContext, args: { palace: string; 
   }
 
   const titleOf = (id: string) => snapshot.nodes.find((n) => n.id === id)?.title ?? id;
+  const castEdges = meaningEdges(snapshot.edges);
   const edges = [
-    ...snapshot.edges
+    ...castEdges
       .filter((e) => e.sourceNodeId === node.id)
       .map((e) => `→ ${titleOf(e.targetNodeId)} [${e.castAb}|${e.castCd}|${e.castEf}|${e.castGh}]`),
-    ...snapshot.edges
+    ...castEdges
       .filter((e) => e.targetNodeId === node.id)
       .map((e) => `← ${titleOf(e.sourceNodeId)} [${e.castAb}|${e.castCd}|${e.castEf}|${e.castGh}]`),
   ];

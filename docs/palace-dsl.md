@@ -18,8 +18,13 @@ The Palace DSL is a minimal line-oriented text format for describing a memory pa
    - [Edges and CAST](#edges-and-cast)
    - [Edge Semantic Aliases](#edge-semantic-aliases)
    - [Portals](#portals)
+   - [NEDF Slots](#nedf-slots)
+   - [Confusion Links](#confusion-links)
+   - [Attribute Channels](#attribute-channels)
+   - [Concept Glyphs](#concept-glyphs)
 6. [Routes](#routes)
    - [Route Metadata](#route-metadata)
+   - [Route Settings and Notes](#route-settings-and-notes)
 7. [Import System](#import-system)
 8. [Query Language](#query-language)
 9. [Comments](#comments)
@@ -70,6 +75,7 @@ The lexer is deterministic: the first character of each trimmed line defines its
 | --- | --- | --- |
 | `@atlas` | Atlas path | `@atlas /science/physics` |
 | `@portal` | Portal target | `@portal /palaces/inner` |
+| `@N` `@E` `@D` `@F` (under a node) | NEDF slot | `@E Lets one thread in at a time` |
 | `@` | Palace header | `@Mechanics` |
 | `~` | Edge semantic alias | `~dep:0001 depends on` |
 | `!import` | Import declaration | `!import security.dsl as sec` |
@@ -78,6 +84,7 @@ The lexer is deterministic: the first character of each trimmed line defines its
 | `:` | Body content | `: fundamental laws of motion` |
 | `#` | Tags (plain + structured) | `#security #domain:auth` |
 | `>` | Edge | `>Gravity 1110` |
+| `<>` | Confusion link | `<>Semaphore` |
 | `/` | Route header | `/First Walk` |
 | `N ` (digit+space) | Route locus step | `1 Newton's Laws` |
 | `--` | Comment (ignored) | `-- a comment` |
@@ -227,6 +234,7 @@ Tag rules:
 - Valid characters: letters, digits, `_`, `-`.
 - Duplicates are silently deduplicated.
 - Invalid tokens emit **W008 `tag-syntax`**.
+- A `prereq` value may contain spaces: it runs to the next `#` tag or the end of the line (`#prereq:Gate of SOLID #difficulty:advanced`). Other values end at the first space.
 
 Tags may appear on multiple `#` lines; all are merged into the node's tag list.
 
@@ -337,6 +345,109 @@ A node with a valid `@portal` line gets `kind: "portal"` in the snapshot; all ot
 
 ---
 
+### NEDF Slots
+
+A concept node can carry the four NEDF slots, one line each, under the node:
+
+```text
+Mutex
+: Mutual exclusion lock.
+@N Mute-X: a gagged guard at the door
+@E Lets one thread in at a time
+@D One key, or a bowl of keys? => A mutex has one owner; a semaphore counts
+@F Threads hang after an exception => Release the lock in finally
+```
+
+| Line | Slot | Reviewed as |
+|---|---|---|
+| `@N <text>` | Name-hook: a sound-alike, pun, or image | Recognition: the hook is shown, the concept is recalled |
+| `@E <text>` | Essence: what the concept does | Recall: the essence is shown, the name is recalled |
+| `@D <question> => <reason>` | Distinguisher: a question it shares with its nearest neighbour, and why it is this one | Discrimination |
+| `@F <scenario> => <correction>` | Failure: where it breaks, and the fix | Diagnosis |
+
+- Repeat `@N` or `@E` for a slot that runs over several lines; the lines are joined in order.
+- `@D` and `@F` need both halves around `=>`. A half-written pair is kept but does not count as filled, and it emits **W009 `nedf-pair-incomplete`**.
+- Each filled slot is reviewed on its own schedule once the node is a stop on a route. A node without slots keeps one schedule.
+- An NEDF line is only a slot under a node. Before the first node, a line such as `@N Queens` is still the palace header. After a route header, it is **E006 `misplaced-line`**.
+- The DSL is the whole intent for slots, as it is for `@image`: applying a node without NEDF lines clears its slots. Exporting a palace writes them, so an export → edit → apply round trip keeps them.
+
+### Confusion Links
+
+Two concepts that are easy to mix up are linked as a confusion with a `<>` line under either one:
+
+```text
+@Locks
+
+Mutex
+: Mutual exclusion lock.
+@D One key, or a bowl of keys? => a mutex has one owner; a semaphore counts
+<>Semaphore
+
+Semaphore
+: A counter of free slots.
+```
+
+- A confusion link is not an edge. It has no direction and no CAST, and graph analysis, motifs, the crux, and difficulty ignore it. On the canvas it is a dashed amber line with no arrowheads.
+- A pair is linked once. Write the line under either node; a second `<>` line for the same pair, from either side, emits **W162 `confusion-duplicate`** and is ignored.
+- A `<>` line with no title, or naming its own node, is **E161 `confusion-malformed`**. A title that matches no node is **W163 `confusion-unknown-target`**. A `<>` line before any node is **E006 `misplaced-line`**.
+- The link names the neighbour on the Distinguisher card. When a node has `@D` filled and a confusion neighbour, its walk card asks "Which is it: Mutex or Semaphore?" (the two names in alphabetical order), with the `@D` question as the cue, and reveals "Mutex, because …". Without a neighbour the card is unchanged.
+- The DSL is the whole intent for confusion links, as it is for edges: applying a document without a pair's `<>` line removes the link. Exporting writes each pair once, under the node it was drawn from.
+
+### Attribute Channels
+
+A node can carry attributes, each on one of UMTF's seven channels. Write one `@A` line per attribute under the node:
+
+```text
+Mutex
+@A spatial where: north tower
+@A temporal days [enumerate 3]: Mon | Wed | Fri
+@A state phase [address]: locked | free
+```
+
+The form is `@A <channel> <name> [<route> <count>]: <value> | <value>`. The name and the bracket are optional.
+
+| Channel | Answers |
+|---|---|
+| `spatial` | Where is it? |
+| `sensory` | How does it feel? |
+| `state` | What condition is it in? |
+| `relation` | What does it connect to? |
+| `pattern` | What larger structure does this resemble? |
+| `temporal` | When does it happen? |
+| `priority` | How important is it? |
+
+An attribute with several values needs a route, chosen by what recall will ask for:
+
+| Route | Use it when | Count |
+|---|---|---|
+| `[dissolve]` | Context always supplies the key, and nothing asks for the whole set. Split it into separate nodes. | — |
+| `[address]` | A small, ordered key picks the value, like a table row. | — |
+| `[enumerate N]` | You will be asked for the whole set. `N` is the checksum that shows a missing member. | required |
+
+- Two attributes on one channel is **W123 `attribute-channel-collision`**. It is reported on the first attribute's line, with the others as related lines. Several values of one attribute are not a collision.
+- Several values with no route is **W124**. `[enumerate]` with no count is **W125**, and a count that differs from the number of values is **W126**. A count on `[address]` or `[dissolve]` is **W127**.
+- More than four channels on one node is **I128**, an info note: a scene stays retrievable at three or four.
+- A channel that is not one of the seven is **E122**, and a line that does not fit the form is **E121**. The line is skipped and the node's other attributes are kept.
+- As with `@N`, a line such as `@A Tale of Two Cities` before the first node is the palace header. Under a route it is **E006 `misplaced-line`**.
+- The DSL is the whole intent for attributes: applying a node without `@A` lines clears them. Exporting a palace writes them. Since `|` separates values, a value never contains one, and a name drops `:`, `[` and `]`. This holds wherever attributes are written (the inspector and MCP too), so an export always parses back the same.
+
+---
+
+### Concept Glyphs
+
+A node can carry a concept glyph: one symbol that stands for the concept and for no other node in the palace.
+
+```text
+Attention
+@glyph 🔦
+```
+
+- The glyph is one visible symbol. An emoji written with its variation selector, such as `👁️`, is still one symbol, and `👁` and `👁️` count as the same glyph. Anything else is **E151 `glyph-invalid`**.
+- Two nodes cannot share a glyph. The first node in the document keeps it; a later one is **W152 `glyph-duplicate`** and gets none.
+- Renaming a node does not change its glyph, since a changed identity mark reads as a different concept.
+- "Glyph" here always means the concept glyph: not a glyph size (a level of detail) and not an alphabet glyph (one piece of a drawing grammar).
+- The DSL is the whole intent, as for `@image`: applying a node without `@glyph` clears its glyph. Exporting writes it.
+
 ## Routes
 
 A route declares an ordered sequence of nodes (loci) for a walk session:
@@ -368,7 +479,35 @@ Structured tags may appear immediately after a route header, before the first lo
 2 Open Closed Library
 ```
 
-Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot. The `prereq` key is validated against known node titles; unresolved values emit **W701 `route-prereq-unresolved`**.
+Route metadata tags use the same `#key:value` syntax as node tags. They appear in the route's `metadata` array on the snapshot, are saved with the route when the DSL is applied, and are written back on one line under the route header when the palace is exported to DSL. `route_list` in the MCP server returns them too. The `prereq` key names a node by its title (spaces included, up to the next `#` tag), its `[id]`, or the id derived from its title (`gate-of-solid`); a route name is also accepted. Values that match none of these emit **W701 `route-prereq-unresolved`**.
+
+---
+
+### Route Settings and Notes
+
+A few keys on a route's tag line are settings rather than metadata. They set how the route looks and walks, and they are not added to `metadata`:
+
+```text
+/Night Walk
+#color:sky #hidden #direction:alternate #review:off #difficulty:advanced
+: Enter by the east gate.
+: Slow down in the library.
+1 Gate of SOLID
+2 Open Closed Library
+```
+
+| Tag | Values | Default | Effect |
+|---|---|---|---|
+| `#color:` | `violet`, `sky`, `emerald`, `amber`, `rose`, `cyan`, `orange`, `fuchsia` | a palette color from the route's position | Path and stop badge color |
+| `#hidden` | (no value) | shown | The route is not drawn on the canvas |
+| `#direction:` | `forward`, `reverse`, `alternate` | `forward` | Walk order; `alternate` flips it on every walk |
+| `#review:` | `on`, `off` | `on` | `off` makes the route a draft: its stops keep their schedules but are never due |
+
+A reserved key with any other value emits **W702 `route-setting-invalid`** and is ignored.
+
+Content lines (`: text`) between the route header and its first locus are the route's **notes**. The same lines after a locus are still **E006 `misplaced-line`**.
+
+The DSL is the whole intent for these settings, like metadata: applying a route without `#hidden` shows it, without `#review:off` reviews it, and without notes clears them. Exporting a palace writes every setting that is not a default, so an export → edit → apply round trip keeps them. Two things the DSL does not carry are kept from the existing route or stop when the DSL is applied: which direction an `alternate` route walked last, and the named sections that stops start (set in the Routes tab).
 
 ---
 
@@ -476,6 +615,20 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | E006 | `misplaced-line` | error | Line appears outside valid context |
 | W007 | `unknown-target` | warning | Edge or route step targets an undeclared node |
 | W008 | `tag-syntax` | warning | Tag token contains invalid characters |
+| W009 | `nedf-pair-incomplete` | warning | `@D` or `@F` is missing the half before or after `=>` |
+| E121 | `attribute-malformed` | error | `@A` line does not fit `channel name [route N]: values` |
+| E122 | `attribute-channel-unknown` | error | `@A` names a channel outside UMTF's seven |
+| W123 | `attribute-channel-collision` | warning | Two attributes of one node are on the same channel |
+| W124 | `attribute-route-missing` | warning | An attribute has several values and no route |
+| W125 | `attribute-count-missing` | warning | `[enumerate]` has no count |
+| W126 | `attribute-count-mismatch` | warning | The enumerate count differs from the number of values |
+| W127 | `attribute-count-unexpected` | warning | A count on a route other than enumerate |
+| I128 | `attribute-channel-budget` | info | More than four channels on one node |
+| E151 | `glyph-invalid` | error | `@glyph` is not exactly one symbol |
+| W152 | `glyph-duplicate` | warning | Another node earlier in the document already holds this glyph |
+| E161 | `confusion-malformed` | error | `<>` line names no node, or its own node |
+| W162 | `confusion-duplicate` | warning | A confusion pair is declared a second time, from either side |
+| W163 | `confusion-unknown-target` | warning | `<>` names a node that is not declared |
 | E101 | `malformed-node-id` | error | `[id]` contains invalid characters |
 | E102 | `duplicate-node-id` | error | Same explicit id declared on two nodes |
 | E103 | `reserved-node-id` | error | `[palace]` is a reserved identifier |
@@ -491,7 +644,8 @@ The parser emits structured diagnostics with numeric codes. Every diagnostic car
 | W305 | `alias-unresolved` | warning | Alias used in edge but not declared |
 | E401 | `import-malformed` | error | `!import` line doesn't parse |
 | E402 | `import-namespace-collision` | error | Two imports use the same namespace |
-| W701 | `route-prereq-unresolved` | warning | `#prereq` value is not a known node |
+| W701 | `route-prereq-unresolved` | warning | `#prereq` value is not a known node (title or id) or route |
+| W702 | `route-setting-invalid` | warning | `#color:`, `#direction:`, or `#review:` on a route has a value it does not accept |
 | E801 | `query-verb-unknown` | error | Query verb is not in the recognised set |
 | E802 | `query-path-missing-arg` | error | `?path` requires two node references |
 | W803 | `query-unresolved-node` | warning | Query references an unknown node |

@@ -1,5 +1,6 @@
 import type { AnalyticsEvent, MemoryNode, MemoryRoute, RecallRating } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
+import { isRouteInReview } from "./dueQueue";
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -176,8 +177,11 @@ export function buildReviewQueue(input: {
     });
   }
 
+  const draftRouteIds = new Set(input.routes.filter((route) => !isRouteInReview(route)).map((route) => route.id));
   const nodeItems: ReviewQueueItem[] = [...knownNodes.values()]
     .filter((node) => node.kind !== "portal")
+    // A node last rated on a draft route belongs to that draft until it is rated elsewhere.
+    .filter((node) => !draftRouteIds.has(latestNodeRatingById.get(node.id)?.routeId ?? ""))
     .map((node) => {
       const latest = latestNodeRatingById.get(node.id);
       if (!latest) {
@@ -220,7 +224,7 @@ export function buildReviewQueue(input: {
       };
     });
 
-  const routeItems: ReviewQueueItem[] = input.routes.map((route) => {
+  const routeItems: ReviewQueueItem[] = input.routes.filter(isRouteInReview).map((route) => {
     const latest = latestRouteReviewById.get(route.id);
     if (!latest) {
       return {

@@ -1,6 +1,13 @@
 import type { AnalyticsEvent } from "../../domain/entities/types";
 import { parseAnalyticsPayload } from "../../domain/services/analyticsService";
 
+/** A duration as "38s" or "2m 05s". */
+export function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
 /** Human-readable one-line detail for an analytics event row. */
 export function formatEventDetail(event: AnalyticsEvent): string {
   const payload = parseAnalyticsPayload(event);
@@ -8,6 +15,11 @@ export function formatEventDetail(event: AnalyticsEvent): string {
     const rating = typeof payload.rating === "string" ? payload.rating : "unrated";
     const latency = typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms` : "no timer";
     return `${rating} - ${latency}`;
+  }
+  if (event.eventType === "recall_miss_explained") {
+    if (payload.cause === "blank") return "couldn't produce it";
+    const other = typeof payload.confusedWithTitle === "string" ? payload.confusedWithTitle.trim() : "";
+    return `mixed up with ${other || "another node"}`;
   }
   if (event.eventType === "walk_answer_revealed") {
     return typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms to reveal` : "answer revealed";
@@ -17,6 +29,11 @@ export function formatEventDetail(event: AnalyticsEvent): string {
   }
   if (event.eventType === "edge_created" || event.eventType === "edge_updated") {
     return typeof payload.label === "string" && payload.label.trim() ? payload.label : "CAST edge";
+  }
+  if (event.eventType === "node_encoded" || event.eventType === "edge_encoded") {
+    const what = event.eventType === "node_encoded" ? "node" : "edge";
+    const kind = payload.first === true ? `new ${what}` : `${what} re-edit`;
+    return typeof payload.activeMs === "number" ? `${kind} - ${formatDuration(payload.activeMs)}` : `${kind} - unmeasured`;
   }
   if (event.eventType === "route_created") {
     return typeof payload.name === "string" && payload.name.trim() ? payload.name : "route";

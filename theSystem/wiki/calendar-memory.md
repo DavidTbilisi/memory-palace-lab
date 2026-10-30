@@ -17,7 +17,7 @@ wiki_source: wiki/learning-systems/calendar-memory.md
 - [sem3](./sem3.md) — owner page for the year slot's encoder; `raw/Neural OS Book/SEM3.md` is the format spec behind it
 - raw/03 Tactical_Memory/Jungian 12 Archetypes as Month Mnemonics.md
 
-**Last updated**: 2026-09-03 ([SEM3](./sem3.md) now has an owner page, so the year slot links to a method rather than to a raw source; the deck inventory's two SEM3 `TODO` rows were false and are flipped to the decks that actually exist, plus the new production deck); 2026-09-02 (the multi-attribute pattern named here now has an owner page — [multi-attribute-encoding](./multi-attribute-encoding.md)); 2026-05-09
+**Last updated**: 2026-09-07 (the page-author no-inline rule's **scope** stated explicitly — it binds calendar pages, not a dedicated SEM3 install page, so [sem3-linking-chains](./sem3-linking-chains.md) is outside it); 2026-09-03 ([SEM3](./sem3.md) now has an owner page, so the year slot links to a method rather than to a raw source; the deck inventory's two SEM3 `TODO` rows were false and are flipped to the decks that actually exist, plus the new production deck); 2026-09-02 (the multi-attribute pattern named here now has an owner page — [multi-attribute-encoding](./multi-attribute-encoding.md)); 2026-05-09
 
 ---
 
@@ -50,7 +50,7 @@ This page does not redefine SEM3 or the Major system. Drill them via dedicated A
 - **SEM3 production deck** — `tools/reflex-anki/examples/sem3_reflexes.yaml`, 31 cards drilling 4-digit → scene and scene → 4-digit under time pressure, plus the rule and its two ordinal exceptions
 - **Major suffix deck** — 100 cards covering all `XX` 00-99 pegs (build with `tools/reflex-anki`)
 
-The page-author rule: never inline SEM3 prefix tables or Major peg tables on calendar pages — always link to the deck.
+The page-author rule: never inline SEM3 prefix tables or Major peg tables on calendar pages — always link to the deck. The scope is **calendar pages**: [sem3-linking-chains](./sem3-linking-chains.md) is a dedicated install page and carries the cells as story-chains rather than tables, which this rule does not reach.
 
 ## Month — Jungian 12 Archetypes
 

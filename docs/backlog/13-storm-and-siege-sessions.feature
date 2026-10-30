@@ -4,6 +4,12 @@
 # Tech leverage: Medium; a session mode over the existing review queue.
 # Wiki source: theSystem/wiki/storm-and-siege-protocol.md,
 #   theSystem/wiki/sleep-dependent-memory-consolidation.md
+# Status: delivered 2026-09. A Storm is an encoding push, per the wiki: its count is new nodes
+#   encoded (first node_encoded), each the next stop on a route of its own, first due at the
+#   learner's wake time after the next night. storm_completed records count, active time, rate,
+#   and personal best. Events during a Storm carry phase: "storm"; the daily goal and streak count
+#   Siege reviews only, the speed bands leave Storm encodes out, and Insights filters retention by
+#   phase and lists Storm records.
 
 Feature: Storm and Siege sessions
   In order to accumulate volume as well as preserve it

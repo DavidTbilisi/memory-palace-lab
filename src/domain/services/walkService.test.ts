@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clampWalkIndex,
   locusAtOrderedIndex,
+  nextWalkDirection,
   orderedLoci,
+  routeIndexOfWalkStep,
   walkNext,
+  walkOrderedLoci,
   walkPrevious,
 } from "./walkService";
 import { encodeCastEdge as encEdge, decodeCastEdge as decEdge } from "../entities/types";
@@ -246,5 +249,34 @@ describe("timing arithmetic edge cases (guard against Date.parse NaN)", () => {
     const emptyStr = "";
     // Falsy check used in store: enteredAt ? Date.parse(...) : null
     expect(emptyStr ? "truthy" : "falsy").toBe("falsy");
+  });
+
+  describe("walk direction", () => {
+    const stops = [
+      { id: "b", orderIndex: 1 },
+      { id: "c", orderIndex: 2 },
+      { id: "a", orderIndex: 0 },
+    ];
+
+    it("visits stops first to last going forward and last to first in reverse", () => {
+      expect(walkOrderedLoci(stops, "forward").map((s) => s.id)).toEqual(["a", "b", "c"]);
+      expect(walkOrderedLoci(stops, "reverse").map((s) => s.id)).toEqual(["c", "b", "a"]);
+      expect(stops.map((s) => s.id)).toEqual(["b", "c", "a"]);
+    });
+
+    it("maps a walk step to the stop's route position", () => {
+      expect(routeIndexOfWalkStep(0, 3, "forward")).toBe(0);
+      expect(routeIndexOfWalkStep(0, 3, "reverse")).toBe(2);
+      expect(routeIndexOfWalkStep(2, 3, "reverse")).toBe(0);
+    });
+
+    it("picks the next walk's direction from the route", () => {
+      expect(nextWalkDirection(undefined)).toBe("forward");
+      expect(nextWalkDirection({ direction: "forward", lastWalkDirection: "forward" })).toBe("forward");
+      expect(nextWalkDirection({ direction: "reverse" })).toBe("reverse");
+      expect(nextWalkDirection({ direction: "alternate" })).toBe("forward");
+      expect(nextWalkDirection({ direction: "alternate", lastWalkDirection: "forward" })).toBe("reverse");
+      expect(nextWalkDirection({ direction: "alternate", lastWalkDirection: "reverse" })).toBe("forward");
+    });
   });
 });

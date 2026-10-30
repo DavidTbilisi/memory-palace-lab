@@ -6,6 +6,12 @@
 # Wiki source: theSystem/wiki/multi-attribute-encoding.md, theSystem/wiki/multi-valued-attributes.md,
 #   theSystem/wiki/encoding-dimensionality.md, theSystem/wiki/representation-rules.md (Rules 10-11),
 #   theSystem/wiki/universal-mental-tagging-framework.md
+# Status: delivered 2026-09. Attributes sit on UMTF's seven channels (shape meta mpAttributes,
+#   node_meta_json); a collision is two attributes on one channel, per the wiki, not two values.
+#   Several values take dissolve (splits into linked nodes), address, or enumerate with a count
+#   checksum; DSL `@A channel name [route N]: values`, W123-W127. Count-shape lays a node's
+#   outgoing targets on the polygon of their count after asking whether the set is ordered;
+#   above seven only the ladder is offered, with the reason.
 
 Feature: Attribute channels and count-shape layout
   In order to hold several attributes of one item without collapsing them into a list

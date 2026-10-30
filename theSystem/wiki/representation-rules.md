@@ -14,7 +14,7 @@ wiki_source: wiki/logic/representation-rules.md
 
 **Sources**: Internal critique (2026-05-07) of current wiki density. Informed by [framework-comparison-matrix](./framework-comparison-matrix.md), [missing-encoding-layers](./missing-encoding-layers.md), [universal-mental-tagging-framework](./universal-mental-tagging-framework.md), mpl-syntax, [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md).
 
-**Last updated**: 2026-09-05 (automaticity ladder count corrected — 10 levels, 0–9); 2026-09-02 (Rule 10 §Downstream use — the count-shape's reading property reused as a *recall* completeness checksum by [multi-valued-attributes](./multi-valued-attributes.md); both boundaries carry over unchanged, and one declared instance added at n=3); 2026-08-27 (§Diagram-type routing — small-multiples + plot rows, two decision-tree questions and the *normalize before comparing* clause, from the [PRISM](./prism-pattern-discovery.md) `/validate-idea`); 2026-08-20 (register grown to 11 instances across 9 pages while authoring the §Visual sections — including the first **cube**, mbti-overview's four independent axes, which the shape table specified but nothing had demonstrated); 2026-08-20 (Rule 10's dead-letter clause satisfied — seven declared count-shapes spanning n=3..7, three of them drawn on this page; Rule 4's five color reservations drawn as their pentagon); 2026-08-20 (Rule 11's dead-letter clause satisfied same day — all 71 concept pages carry a `glyph:`, `glyph-missing` baseline ratcheted to 0; a truncated-frontmatter bug that hid oversized pages from collision detection found and fixed in both detectors); 2026-08-20 (Rules 10 + 11 — count-shape and one-concept-one-glyph — plus the concept-card render at n=4; `/validate-idea` keep-with-modification: relations move from a corner to the edges, so NEDF's F keeps the fourth corner; `glyph:` frontmatter, derived registry at `wiki/_meta/glyph-registry.md`, both dead-letter clauses due 2026-09-17); 2026-08-13 (Rule 9 — scaffold fading condition — plus the Type A / Type B visual split under Rule 1; `/validate-idea` keep-with-modification; dead-letter clause satisfied same day by algorithm-pattern-nedf-deck × 12, and a scope boundary added against the sibling substrate/solution fading axes); 2026-05-17
+**Last updated**: 2026-09-06 (**Rule 10's register gained a machine half** — `check_register_count`, which re-counts the table under any bolded "N instances" lead-in and warns when the sentence disagrees; §Audit hook updated. The check was written *because* of the drift found the same day, and it reproduces it: rolled back to the stale header it fires, on the current one it is silent, and it finds nothing anywhere else in the corpus); 2026-09-06 (**§Diagram-type routing — the table routes the *act*, not only the artifact**, and its terminal *plain text is fine here* branch named as the declared exit of the draw-to-think default; Rule 10's register gains its thirteenth instance (n=3, [visual-thinking-evidence](./visual-thinking-evidence.md) §Draw-to-think) and its header count corrected from 11-across-9 to 13-across-11 — the table had already outgrown the sentence. From the `/validate-idea` on *"the best thinking method is drawing"*, verdict keep-with-modification; owner of the claim is [visual-thinking-evidence](./visual-thinking-evidence.md), not this page); 2026-09-06 (**§Rendering path added** — the routing table named the *tool* for each diagram type but never the *path* that produces the file, so the interactive canvas server read as the default for ~10 diagram types while three server-free paths had existed since 2026-07. Surfaced by [ARC](./arc-framework.md) loop `slv-20260906-1` over the 2026-06-08 canvas-server anomaly); 2026-09-05 (**§The six-face block — completeness contract** written, and the 14 partial pages resolved: five truncations completed, nine declared via new `faces:` frontmatter. The contract is derived from the corpus — membership opt-in · address required · six-or-zero-unless-declared — with a lint check as its machine half. Same pass: Rule 10's note on the block updated from *unapplied instance* to the resolved one); 2026-09-05 (automaticity ladder count corrected — 10 levels, 0–9); 2026-09-02 (Rule 10 §Downstream use — the count-shape's reading property reused as a *recall* completeness checksum by [multi-valued-attributes](./multi-valued-attributes.md); both boundaries carry over unchanged, and one declared instance added at n=3); 2026-08-27 (§Diagram-type routing — small-multiples + plot rows, two decision-tree questions and the *normalize before comparing* clause, from the [PRISM](./prism-pattern-discovery.md) `/validate-idea`); 2026-08-20 (register grown to 11 instances across 9 pages while authoring the §Visual sections — including the first **cube**, mbti-overview's four independent axes, which the shape table specified but nothing had demonstrated); 2026-08-20 (Rule 10's dead-letter clause satisfied — seven declared count-shapes spanning n=3..7, three of them drawn on this page; Rule 4's five color reservations drawn as their pentagon); 2026-08-20 (Rule 11's dead-letter clause satisfied same day — all 71 concept pages carry a `glyph:`, `glyph-missing` baseline ratcheted to 0; a truncated-frontmatter bug that hid oversized pages from collision detection found and fixed in both detectors); 2026-08-20 (Rules 10 + 11 — count-shape and one-concept-one-glyph — plus the concept-card render at n=4; `/validate-idea` keep-with-modification: relations move from a corner to the edges, so NEDF's F keeps the fourth corner; `glyph:` frontmatter, derived registry at `wiki/_meta/glyph-registry.md`, both dead-letter clauses due 2026-09-17); 2026-08-13 (Rule 9 — scaffold fading condition — plus the Type A / Type B visual split under Rule 1; `/validate-idea` keep-with-modification; dead-letter clause satisfied same day by algorithm-pattern-nedf-deck × 12, and a scope boundary added against the sibling substrate/solution fading axes); 2026-05-17
 
 **Diagrams**:
 - `wiki/assets/diagram-type-routing.excalidraw` — decision flowchart: content type → diagram type → Obsidian tool
@@ -231,6 +231,8 @@ Any set of **2–7 members** is laid out so that the arrangement's outline **is 
 
 **The load-bearing payoff — the shape is a completeness checksum.** A bulleted list of three cannot show you that a fourth bullet is missing; a square with one empty corner shows it before a single label is read. That property is what prose structurally cannot have, and it is the reason this is a rule rather than a styling preference. It is the visual twin of a [NEDF](./nedf-overview.md) card's empty slot.
 
+**The rule's largest instance — the six-encoder face block.** ~472 pages end with six sections, one per encoder: `U — See (CAST)` · `D — Name (NEDF)` · `F — Do (SPEAR)` · `B — Watch (HEART)` · `L — Predict (ORACLE)` · `R — Act (GRACE)`. Six members, and [framework-comparison-matrix](./framework-comparison-matrix.md) §The six encoders — count-shape already declares that set a **hexagon instance** (2026-08-20). The footer renders it as an ordered list of headings — the one form the paragraph above says cannot show a missing member — and on 2026-09-05 that cost was measured: 14 pages carried a partial block with no way for a reader to tell an omission from a truncation. The completeness contract those 14 exposed is below; the block stays a heading list, because a per-page footer is a writing surface and §Diagram-type routing does not demand a diagram wherever a set appears. **What Rule 10 supplies here is not the drawing — it is the requirement that a missing member be visible at all**, which is now carried by the declaration rather than by the shape.
+
 **Scope: 2 ≤ n ≤ 7.** A set of one has no shape and needs none. Above seven the polygon stops being pre-attentively distinguishable — the same 7±2 ceiling Rule 4 puts on arbitrary color categories — and the correct form is an **ordered ladder or timeline** (§Diagram-type routing), not a nonagon. Reaching for a nonagon is the signal that the "set" is really two nested sets or a sequence.
 
 **Not Rule 3, and not Rule 4** — the three are orthogonal and routinely compose:
@@ -298,7 +300,7 @@ The four-part reading of a concept — *name · rules · relations · distinguis
 
 **Dead-letter clause — satisfied 2026-08-20, same day; deadline was 2026-09-17.** The clause read: if fewer than five pages carry a declared count-shape within 4 weeks, drop Rule 10 rather than keep it as decoration (per [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §The Main Constraint). Closed at **7 declared instances across exactly 5 pages** — see the register below. Kept here as the record of the gate, not re-armed.
 
-**Declared instances** (the live register — a rule with an empty register is decoration), all declared 2026-08-20 — **11 instances across 9 distinct pages, against the five pages the dead-letter clause required by 2026-09-17 — clause satisfied**:
+**Declared instances** (the live register — a rule with an empty register is decoration), declared 2026-08-20 unless dated otherwise — **13 instances across 11 distinct pages, against the five pages the dead-letter clause required by 2026-09-17 — clause satisfied**. *(The header previously read 11-across-9 while the table already listed 12 across 10; corrected 2026-09-06 when the thirteenth row was added — the register is the authority, the count was the drift.)* **Machine half** (added the same day): `check_register_count` in `.claude/wiki-precommit-lint.py` re-counts the table on every run and warns when this sentence disagrees with it. Unlike the governed ladders it consults no registry — the table below the claim *is* the authority — so the check is purely local and applies to any self-counting register in the wiki, not just this one.
 
 | n | Shape | Instance |
 |---|---|---|
@@ -314,6 +316,7 @@ The four-part reading of a concept — *name · rules · relations · distinguis
 | 4 | square | asking-for-help-protocol §Visual — What · Why · From-Whom · By-When, each failure mode an empty corner |
 | 4 | **cube** | mbti-overview §Visual — four *independent axes*, so the solid form rather than the flat one |
 | 5 | pentagon | [spark-overview](./spark-overview.md) §Visual — Surprise · Progress · Autonomy · Reward · Knowing, each vertex naming the layer it reads from |
+| 3 | triangle | [visual-thinking-evidence](./visual-thinking-evidence.md) §Draw-to-think — recruits perception · holds novel state · makes errors visible; an empty corner means the drawing is transcription (declared 2026-09-06) |
 
 The register spans n = 3, 4, 5, 6, 7 **and both n=4 forms** — the flat square for four *members* ([nedf-overview](./nedf-overview.md), asking-for-help-protocol) and the cube for four *independent axes* (mbti-overview), which is the distinction the shape table draws and which had gone undemonstrated until now. Four of the newer instances arrived as a by-product: they were pages needing a §Visual, and the visual a page of 2–7 unordered members *wants* is its count-shape — so the rule and the visual obligation turn out to be the same work. **Deliberately absent** — the ordered sets that were checked and rejected: Rule 2's four sizes, SE Pyramid's five phases, and people-os-overview's six layers are all *ordered*, so each takes a ladder. Cardinality alone does not earn a polygon.
 
@@ -353,6 +356,31 @@ Every concept page declares a **concept glyph** in its frontmatter — `glyph: �
 
 **Apply to**: concept pages (the lint's definition — `*-overview`, `*-framework`, `*-protocol`, `*-primer`, `*-pattern`, encoder pages, or explicit `type: concept`). **Do not apply to**: index, log, ledger, and `_meta` pages — they are registries, not concepts, and giving them glyphs is exactly the "everything glows" failure.
 ---
+
+## The six-face block — completeness contract
+
+*Written 2026-09-05. The block had run on ~472 pages for months with **no stated contract**, which is how 14 pages came to carry a partial one indistinguishably from a truncated one. This section is the contract, and it is **derived from what the corpus already does** rather than invented — every clause below was true of ≥98% of pages before it was written down. Owner: this page, because the defect is a Rule 10 completeness failure and because the block is a page-format convention rather than an encoder claim; if it belongs with [framework-comparison-matrix](./framework-comparison-matrix.md) instead, move it whole.*
+
+**The measured state, 1230 pages, 2026-09-05:**
+
+| Faces carried | Pages | |
+|---|---|---|
+| 6 of 6 | 458 | all have both `palace:` and `room:` — no exceptions |
+| 0 of 6 | 758 | correct, and the majority: no page is required to carry a block |
+| partial | **14** | the entire problem |
+
+**Three clauses.**
+
+1. **Membership is opt-in, never derived.** A page carries the block or does not; nothing about a page's topic, palace or level obliges one. The 758 without are conforming, not a backlog. This is the clause most likely to be got wrong by a future pass, because "extend the block to the rest of the wiki" reads like tidying and is not.
+2. **Carrying the block requires the full address.** All 458 complete blocks sit on pages with both `palace:` and `room:`; the face block is the cube's cells, so a page without a cube position has nowhere to put them. The implication runs one way only — 670 addressed pages carry no block and that is fine.
+3. **Six or zero, unless declared.** A page with a block carries all six faces. A family that deliberately carries fewer declares it in frontmatter: `faces: [U, D]`. **This is the mechanism that was missing** — with it, an omission is a statement and a truncation is a defect; without it the two look identical, which is exactly what Rule 10 exists to prevent.
+
+**The 14, resolved.** Two populations, and they needed opposite treatments — which is itself the argument for the declaration, since nothing on the pages distinguished them:
+
+- **Five truncations, completed.** [encoding-quantities-in-cast](./encoding-quantities-in-cast.md) · [delay-encoding-in-cast](./delay-encoding-in-cast.md) · [dynamic-edge-encoding](./dynamic-edge-encoding.md) · [when-not-to-cast-a-graph](./when-not-to-cast-a-graph.md) · archetype-encoding-in-cast each carried 5 of 6, missing only the last (`R — Act`), with `room:` set and every sibling in their folder at six. That is the truncation signature. The missing face was written on each.
+- **Nine declared, not defects.** The whole of `wiki/spirituality/bible/` — 8 of 8 pages — carries `U — See` + `D — Name` (one adds `F — Do`), has no `room:`, and uses its own `tags:` / `theme:` / `date:` frontmatter dialect. **Eight of eight is a convention, not decay**, and a bible-timeline node has no social-move face to fill. Plus david-google-prep-protocol, a `palace: buffer` working document at `U` + `F`. All nine now declare `faces:`.
+
+**Machine half.** `check_face_block_complete` in `.claude/wiki-precommit-lint.py` — a page with any face heading carries all six, or declares `faces:` matching exactly what it carries. A declaration that disagrees with the page body is itself a finding, so the escape hatch cannot rot into a way of ignoring the rule.
 
 ## Diagram-type routing — which diagram for which content
 
@@ -422,12 +450,27 @@ graph TD
 
 **Normalize before comparing** (added 2026-08-27 from [PRISM](./prism-pattern-discovery.md) step R). Whenever the diagram type is chosen *to compare cases* — small multiples above all, but also a 2×2 or a plot with several series — every panel uses the same scale, orientation, symbol set, colours and ordering. A difference in the drawing is noise; only a difference in the case is signal. Rule 4 already fixes colour and shape as global type-signals *within* one system; this clause extends the same discipline *across* the cases being compared.
 
+**The table routes the *act*, not only the artifact** (added 2026-09-06). Everything above reads as advice for *authoring a page*, but the same decision tree runs while the thinking is still happening — choosing what to draw in front of a problem you have not solved yet. [visual-thinking-evidence](./visual-thinking-evidence.md) §Draw-to-think owns that reading and states its scope (external + structural, novel structure, default-not-best). What matters here is the tree's **last branch**: `Q8 → No → plain text is fine here` is that default's **declared exit**, and it has to stay reachable. A representation rule with no case that returns "don't draw" is a quota, and a quota manufactures the decoration [feedback-visual-per-concept](./feedback-visual-per-concept.md) bans — the same failure Rule 10 guards against by refusing to seat an *ordered* set on a polygon.
+
 **Obsidian plugin integration:**
 - **Mermaid** (native): flowcharts, trees, sequence diagrams, timelines — use inside fenced ` ```mermaid ` blocks
 - **Excalidraw**: everything freeform — causal loops, palaces, matrices, flywheels, cheat sheets
 - **Canvas** (native): spatial note arrangements — best for palace maps and 2D concept positioning
 
 ---
+
+## Rendering path — how the file gets produced
+
+The routing table's **Obsidian tool** column names where a diagram is *drawn and read*. It does not name how the file is *produced*, and conflating the two is what sent every diagram through an interactive canvas server for months. Four paths produce the same artifact; pick by context, not by habit:
+
+| Path | Use when | Needs a server |
+|---|---|---|
+| **Hand-authored SVG** | ≤10 shapes, labels only, no animation; the diagram is small enough to write directly and wants to live in version control as text | no |
+| **Generator script** (`tools/excalidraw_libs/build_*.py`, `tools/illustrate/`) | The diagram is one of a family — a wallchart, a curriculum, a peg library — where the layout is computed and re-run | no |
+| **`mcp-draw`** | Network / architecture / hypergraph diagrams, or when graph metrics (centrality, communities, single points of failure) are wanted alongside the picture; renders `.excalidraw`, `.svg` and `.png` headlessly | no |
+| **Interactive canvas MCP** (`npm run canvas`, port 3000) | Genuinely interactive drawing — free placement, iterating on a layout by eye | **yes**, and it disrupts the desktop and fails silently in headless contexts |
+
+The first three run unattended. The fourth is the fallback, not the default — the reverse of how it was documented before 2026-09-06. Which of the three is the **default** for a hand-authored concept diagram, and the evidence that settled it, is [diagram-rendering-defaults](./diagram-rendering-defaults.md).
 
 ## Application order (when authoring or refactoring a page)
 
@@ -474,8 +517,9 @@ When linting the wiki (per CLAUDE.md), check:
 - [ ] Is there one embodied motion that captures the concept?
 - [ ] Is every set of 2–7 seated on its count-shape, with the count readable before the labels?
 - [ ] Does the page declare a `glyph:`, and is it unique in `wiki/_meta/glyph-registry.md`?
+- [ ] If a sentence states how many entries the table beneath it holds, does it still agree with the table?
 
-Flag any "no" as a representation gap. The last two are machine-checked by `.claude/wiki-precommit-lint.py`; the rest are the semantic pass `/lint` covers.
+Flag any "no" as a representation gap. The last three are machine-checked by `.claude/wiki-precommit-lint.py` (`check_glyph_declared` · `check_glyph_collisions` · `check_register_count`); the rest are the semantic pass `/lint` covers.
 
 ---
 

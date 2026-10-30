@@ -14,7 +14,7 @@ wiki_source: wiki/problem-solving/problem-solving-framework-map.md
 - wiki/problem-solving-os.md
 - wiki/external-problem-solving-frameworks.md
 
-**Last updated**: 2026-05-18
+**Last updated**: 2026-09-21 (F1 Framing: Polya owner page registered); 2026-05-18
 
 **Diagrams**:
 - `wiki/assets/problem-solving-framework-map.excalidraw` — 251-element timeline atlas of all 12 function bands
@@ -69,6 +69,7 @@ The blue strip at the top of the diagram — [PULSE](./pulse-overview.md) · [ME
 - [problem-solving-pipeline-equivalence](./problem-solving-pipeline-equivalence.md) — shows that 14 named pipelines are variants of one 8-step skeleton; the empirical basis for F8 being the gap
 - [frame-forge](./frame-forge.md) — the primary Neural OS pipeline for search problems (F1+F3+F4+F5+F6)
 - [problem-type-classifier](./problem-type-classifier.md) — the F2 Classification tool
+- [polya-how-to-solve-it](./polya-how-to-solve-it.md) — the F1 Framing ancestor; its phase one is the sub-structure [problem-solving-os](./problem-solving-os.md) step 1 leaves implicit
 - [decision-kernel](./decision-kernel.md) — the primary F6 Decision tool
 - persuasive-writing-and-influence — the eventual F8 Delivery owner (stub)
 

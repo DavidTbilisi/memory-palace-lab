@@ -48,6 +48,50 @@ function tipFor(body: string): TipContent | null {
       example: "@atlas /science/physics",
     };
   }
+  const nedf = body.match(/^@([NEDF])(\s|$)/);
+  if (nedf) {
+    const tips: Record<string, TipContent> = {
+      N: {
+        syntax: "@N <name-hook>",
+        desc: "NEDF Name-hook: a sound-alike, pun, or image. Drilled as recognition. Repeat for more lines",
+        example: "@N Mute-X: a gagged guard at the door",
+      },
+      E: {
+        syntax: "@E <essence>",
+        desc: "NEDF Essence: what the concept does. Drilled as recall. Repeat for more lines",
+        example: "@E Lets one thread in at a time",
+      },
+      D: {
+        syntax: "@D <question> => <reason>",
+        desc: "NEDF Distinguisher: a question it shares with its nearest neighbour, and why it is this one. Drilled as discrimination",
+        example: "@D One key, or a bowl of keys? => A mutex has one owner",
+      },
+      F: {
+        syntax: "@F <scenario> => <correction>",
+        desc: "NEDF Failure: where it breaks, and the fix. Drilled as diagnosis",
+        example: "@F Threads hang after an exception => Release the lock in finally",
+      },
+    };
+    return tips[nedf[1]!]!;
+  }
+  if (/^@glyph(\s|$)/.test(body)) {
+    return {
+      syntax: "@glyph <symbol>",
+      desc:
+        "Concept glyph: one symbol that stands for this concept and no other node in the palace. " +
+        "It stays when the node is renamed. Not a glyph size and not an alphabet glyph",
+      example: "@glyph 🔦",
+    };
+  }
+  if (/^@A(\s|$)/.test(body)) {
+    return {
+      syntax: "@A <channel> <name> [dissolve | address | enumerate N]: <value> | <value>",
+      desc:
+        "Attribute on one UMTF channel: spatial, sensory, state, relation, pattern, temporal, or priority. " +
+        "One attribute per channel. Several values need a route; enumerate carries the count as a checksum",
+      example: "@A temporal days [enumerate 3]: Mon | Wed | Fri",
+    };
+  }
   if (body.startsWith("@portal")) {
     return {
       syntax: "@portal <path>",
@@ -82,6 +126,15 @@ function tipFor(body: string): TipContent | null {
       desc: "Outgoing edge. CAST is an optional 4-digit shorthand (who/how/what/when)",
       example: ">Newton's Laws 0010",
       extra: castTable(),
+    };
+  }
+  if (body.startsWith("<>")) {
+    return {
+      syntax: "<><neighbour>",
+      desc:
+        "Confusion link — this node is easily mixed up with the neighbour. Undirected, no CAST, one line per pair " +
+        "under either node. With @D filled, the walk asks which of the two it is",
+      example: "<>Semaphore",
     };
   }
   if (body.startsWith("/")) {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GlobalDueItem } from "./dueQueue";
 import {
-  dueItemTitle,
   firstDueInDeck,
   groupDueItemsByDeck,
   isDeckPaused,
@@ -18,6 +17,9 @@ const due = (locusId: string, palaceId: string, palaceName: string, nextReviewAt
   locusLabel: "",
   nodeTitle: `Node ${locusId}`,
   nextReviewAt,
+  slot: null,
+  dueCards: 1,
+  stopNumber: 1,
 });
 
 const palaces = [
@@ -82,9 +84,3 @@ describe("isDeckPaused", () => {
   });
 });
 
-describe("dueItemTitle", () => {
-  it("prefers the stop's own label and falls back to the node title", () => {
-    expect(dueItemTitle({ locusLabel: "Front door", nodeTitle: "Genesis" })).toBe("Front door");
-    expect(dueItemTitle({ locusLabel: "  ", nodeTitle: "Genesis" })).toBe("Genesis");
-  });
-});

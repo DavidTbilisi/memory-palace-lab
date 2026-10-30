@@ -5,6 +5,9 @@ import type { PalaceSnapshot } from "../domain/entities/types";
 import type { MemoryPalaceMeta } from "./memoryMeta";
 import { nodeKindFromMeta, portalRefFromMeta } from "./palacePortal";
 import { resolveMemoryNodeTitle } from "./readShapeText";
+import { isMemoryNodeShape } from "./memoryNodeShape";
+import { normalizeAttributes } from "../domain/services/attributes";
+import { normalizeNedf } from "../domain/services/nedf";
 
 function metaOf(shape: TLShape): MemoryPalaceMeta {
   return (shape.meta ?? {}) as MemoryPalaceMeta;
@@ -29,7 +32,7 @@ export function buildPalaceSnapshot(
     if (!shape) continue;
     const m = metaOf(shape);
 
-    if (shape.type === "geo") {
+    if (isMemoryNodeShape(shape)) {
       if (m.mpNodeId && m.mpObjectId) {
         const b = editor.getShapePageBounds(shape.id);
         if (!b) continue;
@@ -42,7 +45,7 @@ export function buildPalaceSnapshot(
           width: b.w,
           height: b.h,
           zIndex: 0,
-          payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: "geo" }),
+          payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: shape.type }),
         });
         nodes.push({
           id: m.mpNodeId,
@@ -55,6 +58,11 @@ export function buildPalaceSnapshot(
           imageUrl: m.mpImageUrl ?? null,
           tags: m.mpTags ?? [],
           difficulty: m.mpDifficulty ?? null,
+          nedf: normalizeNedf(m.mpNedf),
+          attributes: normalizeAttributes(m.mpAttributes),
+          address: m.mpAddress ?? null,
+          storeRole: m.mpStoreRole ?? null,
+          glyph: m.mpGlyph ?? null,
         });
       }
     }
@@ -84,6 +92,7 @@ export function buildPalaceSnapshot(
           castCd: m.castCd ?? "",
           castEf: m.castEf ?? "",
           castGh: m.castGh ?? "",
+          ...(m.mpEdgeKind === "confusion" ? { kind: "confusion" as const } : {}),
         });
       }
     }

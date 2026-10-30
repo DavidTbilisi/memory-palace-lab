@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 const BACKGROUND_SVG = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48"><rect width="64" height="48" fill="green"/></svg>',
@@ -21,7 +22,8 @@ test("background image button imports a browser image without page errors", asyn
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Background Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Background Palace" })).toBeVisible();
-  await expect(page.locator('button[title="Background image"]')).toBeEnabled();
+  await openCurrentPalaceDetails(page);
+  await expect(page.getByRole("button", { name: "Set background" })).toBeEnabled();
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -33,7 +35,7 @@ test("background image button imports a browser image without page errors", asyn
 
   const [fileChooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.locator('button[title="Background image"]').click(),
+    page.getByRole("button", { name: "Set background" }).click(),
   ]);
   await fileChooser.setFiles({
     name: "background.svg",
@@ -53,14 +55,16 @@ test("background image button imports a browser image without page errors", asyn
           } | null;
         };
         const editor = state.editorRef;
-        if (!editor) return { hasBackground: false, shapeTypes: [] as string[] };
+        if (!editor) return { hasBackground: false, backgroundIsNode: false, shapeTypes: [] as string[] };
         const shapes = Array.from(editor.getCurrentPageShapeIds()).map((id) => editor.getShape(id));
         return {
           hasBackground: shapes.some((shape) => shape?.type === "image" && shape.meta?.mpBackground === true),
+          // Inserted images become nodes; the background must not.
+          backgroundIsNode: shapes.some((shape) => shape?.meta?.mpBackground === true && !!shape.meta?.mpNodeId),
           shapeTypes: shapes.map((shape) => shape?.type ?? "missing"),
         };
       });
       return { ...state, dialogs, pageErrors, consoleErrors };
     })
-    .toMatchObject({ hasBackground: true, dialogs: [], pageErrors: [], consoleErrors: [] });
+    .toMatchObject({ hasBackground: true, backgroundIsNode: false, dialogs: [], pageErrors: [], consoleErrors: [] });
 });

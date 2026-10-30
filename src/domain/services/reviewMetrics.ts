@@ -1,4 +1,4 @@
-import type { AnalyticsEvent, RecallRating } from "../entities/types";
+import { NEDF_SLOTS, type AnalyticsEvent, type NedfSlot, type RecallRating } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -6,7 +6,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type ReviewFilter = {
   palaceId?: string | null;
   routeId?: string | null;
+  /** Siege is the daily drip; Storm is a big encoding push. Unset counts both. */
+  phase?: ReviewPhase;
 };
+
+export type ReviewPhase = "siege" | "storm";
+
+/** Events recorded during a Storm carry `phase: "storm"`; everything else is Siege. */
+export function eventPhase(event: AnalyticsEvent): ReviewPhase {
+  return parseAnalyticsPayload(event).phase === "storm" ? "storm" : "siege";
+}
 
 export type DailyReviewPoint = {
   dayKey: string;
@@ -49,6 +58,7 @@ function filteredRatingEvents(events: AnalyticsEvent[], filter?: ReviewFilter) {
     if (event.eventType !== "walk_recall_rated") return false;
     if (filter?.palaceId && event.palaceId !== filter.palaceId) return false;
     if (filter?.routeId && event.routeId !== filter.routeId) return false;
+    if (filter?.phase && eventPhase(event) !== filter.phase) return false;
     return true;
   });
 }
@@ -86,8 +96,9 @@ export function buildDailyReviewPoints(events: AnalyticsEvent[], filter?: Review
     }));
 }
 
+/** Consecutive days with a Siege review, ending today. A day of Storm reviews alone does not keep it. */
 export function computeDailyStreak(events: AnalyticsEvent[], todayIso = new Date().toISOString()) {
-  const daySet = new Set(buildDailyReviewPoints(events).map((point) => point.dayKey));
+  const daySet = new Set(buildDailyReviewPoints(events, { phase: "siege" }).map((point) => point.dayKey));
   if (daySet.size === 0) return 0;
   const today = new Date(todayIso);
   let streak = 0;
@@ -101,9 +112,16 @@ export function computeDailyStreak(events: AnalyticsEvent[], todayIso = new Date
   return streak;
 }
 
+/** Reviews toward the daily goal: Siege only, so a Storm burst cannot meet the goal by itself. */
 export function countReviewedToday(events: AnalyticsEvent[], todayIso = new Date().toISOString(), filter?: ReviewFilter) {
   const todayKey = toDayKey(todayIso);
-  return filteredRatingEvents(events, filter).filter((event) => toDayKey(event.createdAt) === todayKey).length;
+  return filteredRatingEvents(events, { ...filter, phase: "siege" }).filter((event) => toDayKey(event.createdAt) === todayKey).length;
+}
+
+/** Reviews made during a Storm today, which the goal leaves out. */
+export function countStormReviewedToday(events: AnalyticsEvent[], todayIso = new Date().toISOString()) {
+  const todayKey = toDayKey(todayIso);
+  return filteredRatingEvents(events, { phase: "storm" }).filter((event) => toDayKey(event.createdAt) === todayKey).length;
 }
 
 export function buildRetentionSeries(events: AnalyticsEvent[], days = 30, filter?: ReviewFilter, nowIso = new Date().toISOString()) {
@@ -153,3 +171,34 @@ export function retentionTrendDown(points: DailyReviewPoint[]) {
   const last = points.slice(-3);
   return last[0].averageScorePct > last[1].averageScorePct && last[1].averageScorePct > last[2].averageScorePct;
 }
+
+export type SlotRetention = {
+  slot: NedfSlot;
+  reviews: number;
+  /** Reviews rated Hard, Good, or Easy: the slot was recalled. */
+  recalled: number;
+  /** Share of reviews recalled, 0-100; null before the first review. */
+  retentionPct: number | null;
+  ratings: Record<RecallRating, number>;
+};
+
+/** Retention for each NEDF slot, from the slot recorded on each walk rating. */
+export function buildSlotRetention(events: AnalyticsEvent[], filter?: ReviewFilter): SlotRetention[] {
+  const bySlot = new Map<NedfSlot, Record<RecallRating, number>>(
+    NEDF_SLOTS.map((slot) => [slot, { again: 0, hard: 0, good: 0, easy: 0 }]),
+  );
+  for (const event of filteredRatingEvents(events, filter)) {
+    const payload = parseAnalyticsPayload(event);
+    const counts = typeof payload.slot === "string" ? bySlot.get(payload.slot as NedfSlot) : undefined;
+    const rating = payload.rating;
+    if (!counts || (rating !== "again" && rating !== "hard" && rating !== "good" && rating !== "easy")) continue;
+    counts[rating] += 1;
+  }
+  return NEDF_SLOTS.map((slot) => {
+    const ratings = bySlot.get(slot)!;
+    const reviews = ratings.again + ratings.hard + ratings.good + ratings.easy;
+    const recalled = reviews - ratings.again;
+    return { slot, reviews, recalled, retentionPct: reviews > 0 ? Math.round((recalled / reviews) * 100) : null, ratings };
+  });
+}
+

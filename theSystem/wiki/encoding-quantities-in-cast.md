@@ -198,3 +198,8 @@ Otherwise park it, as the codebook layer was parked on 2026-07-06 — the same s
 1. Thick stream into a thin one → predict a bottleneck and accumulation upstream
 2. Flow-balance mismatch → predict a missing edge before looking for one
 3. Q1 dominating the tier distribution → predict the modifier is drifting into ceremony
+
+## R — Act (GRACE)
+1. Comparative question about an edge → scale the Stream (Q0) and stop; do not pay for Q1 to answer a Q0 question
+2. Exact figure needed under pressure → weld the peg (Q1); a one-shot total rather than a rate → the vessel (Q2)
+3. Two of the three quantities around a node already encoded → derive the third, do not store it

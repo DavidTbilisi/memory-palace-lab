@@ -6,6 +6,7 @@ import type {
   Palace,
   PalaceSnapshot,
 } from "../../entities/types";
+import { dslRouteSettings } from "./routeSync";
 import type { DslSnapshot } from "./types";
 
 /**
@@ -34,6 +35,9 @@ export function dslToPalaceSnapshot(dsl: DslSnapshot): PalaceSnapshot {
     kind: n.kind,
     portal: n.portal,
     imageUrl: n.imageUrl,
+    nedf: n.nedf,
+    attributes: n.attributes,
+    glyph: n.glyph,
     tags: n.tags,
   }));
 
@@ -53,12 +57,29 @@ export function dslToPalaceSnapshot(dsl: DslSnapshot): PalaceSnapshot {
         castGh: e.cast.gh,
       });
     });
+    (n.confusions ?? []).forEach((c, j) => {
+      const targetId = titleToId.get(c.targetTitle);
+      if (!targetId) return;
+      edges.push({
+        id: `c-${i}-${j}`,
+        objectId: `co-${i}-${j}`,
+        sourceNodeId: titleToId.get(n.title)!,
+        targetNodeId: targetId,
+        castAb: "",
+        castCd: "",
+        castEf: "",
+        castGh: "",
+        kind: "confusion",
+      });
+    });
   });
 
   const routes: MemoryRoute[] = dsl.routes.map((r, i) => ({
     id: `r-${i}`,
     palaceId: "palace-1",
     name: r.name,
+    ...dslRouteSettings(r),
+    ...(r.metadata.length > 0 ? { metadata: r.metadata.map(({ key, value }) => ({ key, value })) } : {}),
   }));
 
   const loci: Locus[] = [];

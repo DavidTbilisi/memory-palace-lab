@@ -12,7 +12,7 @@ wiki_source: wiki/learning-systems/understand-deeply-habit.md
 
 **Sources**: [burger-5-elements-effective-thinking](./burger-5-elements-effective-thinking.md) Ch 1 (pp. 13–46); enacted throughout [burger-heart-of-mathematics](./burger-heart-of-mathematics.md) Ch 1–9.
 
-**Last updated**: 2026-05-27 — created during the Burger ingest.
+**Last updated**: 2026-09-20 (the Polya quote's attribution now links [polya-how-to-solve-it](./polya-how-to-solve-it.md) — the owner page it had been citing into a void); 2026-05-27 — created during the Burger ingest.
 
 ---
 
@@ -26,7 +26,7 @@ The Tony Plog story (pp. 15–17): an internationally-acclaimed trumpet virtuoso
 
 Operational form: when preparing for an exam, ensure you can earn 100% on every previous exam first. When learning calculus, master basic algebra. When debugging, understand the system's invariants before tracing a specific failure. The basics are a *moving target* — as you learn more, the fundamentals become at once simpler and subtler, deeper, more nuanced.
 
-> *"If you can't solve a problem, then there is an easier problem you can't solve: find it."* — George Polya (cited Burger & Starbird p. 24)
+> *"If you can't solve a problem, then there is an easier problem you can't solve: find it."* — George Polya, [How to Solve It](./polya-how-to-solve-it.md) (cited Burger & Starbird p. 24)
 
 ### 2. Clear the clutter — seek the essential
 

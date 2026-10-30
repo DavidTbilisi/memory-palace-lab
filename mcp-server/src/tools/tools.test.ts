@@ -109,7 +109,58 @@ describe("MCP tools (end to end on a temp DB)", () => {
     expect(snap.loci).toHaveLength(1); // Alpha's locus dropped, Beta's stays
   });
 
-  it("rejects invalid CAST values", async () => {
+  it("node_count_shape puts a node's targets on a polygon, and takes a ladder above seven", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Hub", position: { x: 0, y: 0 } });
+    const members = Array.from({ length: 9 }, (_, i) => `M${i}`);
+    for (const [i, title] of members.entries()) {
+      await nodes.nodeCreate(ctx, { palace: palace.id, title, position: { x: 600 + i * 40, y: -400 + i * 100 } });
+    }
+    for (const title of members.slice(0, 5)) await edges.edgeCreate(ctx, { palace: palace.id, source: "Hub", target: title });
+
+    expect(await nodes.nodeCountShape(ctx, { palace: palace.id, node: "Hub" })).toEqual({
+      shape: "polygon",
+      count: 5,
+      polygon: "pentagon",
+    });
+    const centre = (title: string) => {
+      const p = nodes.nodeGet(ctx, { palace: palace.id, node: title }).position!;
+      return { x: p.x + p.width / 2, y: p.y + p.height / 2 };
+    };
+    const hub = centre("Hub");
+    const radii = members.slice(0, 5).map((title) => Math.round(Math.hypot(centre(title).x - hub.x, centre(title).y - hub.y)));
+    expect(new Set(radii).size).toBe(1);
+
+    for (const title of members.slice(5)) await edges.edgeCreate(ctx, { palace: palace.id, source: "Hub", target: title });
+    const nine = await nodes.nodeCountShape(ctx, { palace: palace.id, node: "Hub", shape: "polygon" });
+    expect(nine).toMatchObject({ shape: "ladder", count: 9, note: expect.stringContaining("Above seven") });
+
+    await expect(nodes.nodeCountShape(ctx, { palace: palace.id, node: "M0" })).rejects.toThrow(/at least two/);
+  });
+
+  it("node tools set, refuse a taken, and clear a concept glyph", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Attention", glyph: "👁️" });
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Vision" });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention" }).glyph).toBe("👁️");
+
+    await expect(nodes.nodeCreate(ctx, { palace: palace.id, title: "Sight", glyph: "👁" })).rejects.toThrow(
+      "👁 is already Attention's concept glyph.",
+    );
+    expect(nodes.nodeList(ctx, { palace: palace.id }).nodes.map((n: { title: string }) => n.title)).not.toContain("Sight");
+    await expect(nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "👁️" })).rejects.toThrow(/already Attention/);
+    await expect(nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "ab" })).rejects.toThrow(/single symbol/);
+
+    // A node keeps its own glyph when updated with it again, and null clears it.
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Attention", title: "Attention span", glyph: "👁️" });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention span" }).glyph).toBe("👁️");
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Attention span", glyph: null });
+    expect(nodes.nodeGet(ctx, { palace: palace.id, node: "Attention span" }).glyph).toBeUndefined();
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Vision", glyph: "👁️" });
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain("Vision\n@glyph 👁️\n");
+  });
+
+    it("rejects invalid CAST values", async () => {
     const palace = palaceCreateHelper();
     await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
     await nodes.nodeCreate(ctx, { palace: palace.id, title: "B" });
@@ -210,6 +261,193 @@ describe("MCP tools (end to end on a temp DB)", () => {
     await routes.locusRemove(ctx, { palace: palace.id, locus: cLocus });
     listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
     expect(listed.loci.map((l) => l.node)).toEqual(["A", "B"]);
+  });
+
+  it("route_update changes route settings, and route_list and the DSL export show them", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Walk", nodes: ["A"] });
+
+    let listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed).toMatchObject({ direction: "forward", inReview: true });
+    expect(listed.color).toBeUndefined();
+
+    await routes.routeUpdate(ctx, {
+      palace: palace.id,
+      route: "Walk",
+      color: "emerald",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Start at the gate.",
+    });
+    // A rename leaves the settings alone.
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Walk", name: "Night Walk" });
+    listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed).toMatchObject({
+      name: "Night Walk",
+      color: "emerald",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Start at the gate.",
+    });
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "/Night Walk\n#color:emerald #hidden #direction:alternate #review:off\n: Start at the gate.\n",
+    );
+
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Night Walk", color: null, inReview: true, notes: "" });
+    listed = routes.routeList(ctx, { palace: palace.id }).routes[0]!;
+    expect(listed.color).toBeUndefined();
+    expect(listed.inReview).toBe(true);
+    expect(listed.notes).toBeUndefined();
+
+    await expect(routes.routeUpdate(ctx, { palace: palace.id, route: "Night Walk" })).rejects.toThrow(/Nothing to update/);
+  });
+
+  it("review_queue leaves out a draft route", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "A" });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Kept", nodes: ["A"] });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Draft", nodes: ["A"] });
+    await routes.routeUpdate(ctx, { palace: palace.id, route: "Draft", inReview: false });
+
+    const routeTitles = analysis
+      .reviewQueue(ctx, { palace: palace.id })
+      .items.filter((item) => item.kind === "route")
+      .map((item) => item.title);
+    expect(routeTitles).toEqual(["Kept"]);
+  });
+
+  it("node tools set, patch, and clear NEDF slots, and report per-slot schedules on stops", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, {
+      palace: palace.id,
+      title: "Mutex",
+      nedf: { nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } },
+    });
+    await routes.routeCreate(ctx, { palace: palace.id, name: "Locks", nodes: ["Mutex"] });
+
+    let got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toEqual({ nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } });
+    expect(got.unencodedSlots).toEqual(["essence", "failure"]);
+    expect(got.routes[0]!.slots!.map((s) => s.slot)).toEqual(["nameHook", "distinguisher"]);
+
+    // A patch changes only the slots it names; null clears one slot.
+    await nodes.nodeUpdate(ctx, {
+      palace: palace.id,
+      node: "Mutex",
+      nedf: { failure: { scenario: "Threads hang", correction: "Release in finally" }, nameHook: null },
+    });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toEqual({
+      distinguisher: { prompt: "One key?", reason: "One owner" },
+      failure: { scenario: "Threads hang", correction: "Release in finally" },
+    });
+    const stop = routes.routeList(ctx, { palace: palace.id }).routes[0]!.loci[0]!;
+    expect(stop.slots!.map((s) => s.slot)).toEqual(["distinguisher", "failure"]);
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "@D One key? => One owner\n@F Threads hang => Release in finally\n",
+    );
+
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Mutex", nedf: null });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.nedf).toBeUndefined();
+    expect(got.routes[0]!.slots).toBeUndefined();
+  });
+
+  it("node tools set, replace, and clear attributes, and report problems without refusing them", async () => {
+    const palace = palaceCreateHelper();
+    const created = await nodes.nodeCreate(ctx, {
+      palace: palace.id,
+      title: "Mutex",
+      attributes: [
+        { name: "where", channel: "spatial", values: ["north tower"] },
+        { name: "room", channel: "spatial", values: ["kitchen"] },
+      ],
+    });
+    expect(created.attributeWarnings).toEqual([expect.stringContaining('"where" and "room" are both on Spatial')]);
+
+    let got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toHaveLength(2);
+    expect(got.attributeWarnings).toHaveLength(1);
+
+    const updated = await nodes.nodeUpdate(ctx, {
+      palace: palace.id,
+      node: "Mutex",
+      attributes: [
+        { name: "where", channel: "spatial", values: ["north tower"] },
+        { channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+      ],
+    });
+    expect(updated.attributeWarnings).toBeUndefined();
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toEqual([
+      { name: "where", channel: "spatial", values: ["north tower"] },
+      { name: "", channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+    ]);
+    expect(got.attributeWarnings).toEqual([]);
+    expect(palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl).toContain(
+      "@A spatial where: north tower\n@A temporal [enumerate 3]: Mon | Wed | Fri\n",
+    );
+
+    await nodes.nodeUpdate(ctx, { palace: palace.id, node: "Mutex", attributes: null });
+    got = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(got.attributes).toBeUndefined();
+  });
+
+  it("creates a confusion link once per pair, lists its kind, and keeps it out of CAST reasoning", async () => {
+    const palace = palaceCreateHelper();
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Mutex" });
+    await nodes.nodeCreate(ctx, { palace: palace.id, title: "Semaphore" });
+    await edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore" });
+
+    const link = await edges.edgeCreate(ctx, { palace: palace.id, source: "Semaphore", target: "Mutex", kind: "confusion" });
+    expect(link.kind).toBe("confusion");
+    // One link per pair, whichever way it is asked for; and no CAST on one.
+    await expect(
+      edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore", kind: "confusion" }),
+    ).rejects.toThrow(/already linked as a confusion/);
+    await expect(
+      edges.edgeCreate(ctx, { palace: palace.id, source: "Mutex", target: "Semaphore", kind: "confusion", label: "x" }),
+    ).rejects.toThrow(/no CAST/);
+
+    const listed = edges.edgeList(ctx, { palace: palace.id }).edges;
+    expect(listed.map((e) => e.kind).sort()).toEqual(["cast", "confusion"]);
+
+    const mutex = nodes.nodeGet(ctx, { palace: palace.id, node: "Mutex" });
+    expect(mutex.outgoing).toHaveLength(1);
+    expect(mutex.incoming).toHaveLength(0);
+    expect(mutex.confusedWith).toEqual([{ nodeId: expect.any(String), title: "Semaphore" }]);
+    expect(analysis.graphAnalyze(ctx, { palace: palace.id }).edgeCount).toBe(1);
+
+    const arrowProps = (edgeId: string) => {
+      const blob = JSON.parse(loadPalace(ctx.db, palace.id)!.palace.editorSnapshot!);
+      const store = (blob.document ?? blob).store as Record<string, { meta?: { mpEdgeId?: string }; props?: Record<string, unknown> }>;
+      return Object.values(store).find((r) => r.meta?.mpEdgeId === edgeId)!.props!;
+    };
+    expect(arrowProps(link.id)).toMatchObject({ dash: "dashed", color: "orange", arrowheadStart: "none", arrowheadEnd: "none" });
+
+    // A confusion link takes no CAST; an alias change keeps its look.
+    await expect(
+      edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, cast: { who: "Mermaid" } }),
+    ).rejects.toThrow(/no CAST/);
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, alias: "look-alikes" });
+    expect(arrowProps(link.id)).toMatchObject({ dash: "dashed", arrowheadEnd: "none" });
+
+    // Turning it back into a CAST edge restyles it; turning the CAST edge into a second link is refused.
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, kind: "cast" });
+    expect(arrowProps(link.id)).toMatchObject({ dash: "solid", color: "violet", arrowheadEnd: "arrow" });
+    expect(loadPalace(ctx.db, palace.id)!.edges.every((e) => e.kind !== "confusion")).toBe(true);
+    await edges.edgeUpdate(ctx, { palace: palace.id, edge: link.id, kind: "confusion" });
+    const castEdge = listed.find((e) => e.kind === "cast")!;
+    await expect(edges.edgeUpdate(ctx, { palace: palace.id, edge: castEdge.id, kind: "confusion" })).rejects.toThrow(
+      /already linked as a confusion/,
+    );
+
+    // The DSL export writes the pair once.
+    const exported = palaces.palaceExportDsl(ctx, { palace: palace.id }).dsl;
+    expect(exported.match(/^<>/gm)).toHaveLength(1);
   });
 
   function palaceCreateHelper() {

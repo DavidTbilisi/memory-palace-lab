@@ -124,6 +124,29 @@ describe("parseDsl — diagnostics", () => {
     ]);
   });
 
+  it("reads <> lines as confusion links, one per pair, whichever node declares it", () => {
+    const text = "@P\n\nMutex\n<>Semaphore\n\nSemaphore\n<>Mutex\n<>Ghost\n\nLock\n<>Mutex\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(snapshot.nodes.map((n) => n.confusions.map((c) => c.targetTitle))).toEqual([["Semaphore"], [], ["Mutex"]]);
+    const dup = diagnostics.filter((d) => d.code === "confusion-duplicate");
+    expect(dup).toHaveLength(1);
+    expect(dup[0]).toMatchObject({ numericCode: "W162", severity: "warning", line: 7, related: [{ line: 4 }] });
+    const unknown = diagnostics.filter((d) => d.code === "confusion-unknown-target");
+    expect(unknown).toMatchObject([{ numericCode: "W163", severity: "warning", line: 8 }]);
+    // A `<>` line is not an edge.
+    expect(snapshot.nodes.every((n) => n.edges.length === 0)).toBe(true);
+  });
+
+  it("refuses an empty or self confusion line and one outside a node", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n<>A\n\nA\n<>\n<>A\n");
+    expect(snapshot.nodes[0]!.confusions).toEqual([]);
+    expect(diagnostics.filter((d) => d.code === "confusion-malformed").map((d) => [d.numericCode, d.line])).toEqual([
+      ["E161", 5],
+      ["E161", 6],
+    ]);
+    expect(diagnostics.filter((d) => d.code === "misplaced-line").map((d) => d.line)).toEqual([2]);
+  });
+
   it("emits malformed-cast for invalid compact tokens", () => {
     const text = "@P\n\nA\n>B 5678\n\nB\n";
     const { diagnostics } = parseDsl(text);
@@ -379,6 +402,187 @@ describe("parseDsl — import system (Feature 4)", () => {
   });
 });
 
+describe("parseDsl — NEDF slots", () => {
+  it("reads @N @E @D @F under a node, with multi-line hooks and essences", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "Mutex",
+        ": Mutual exclusion.",
+        "@N Mute-X",
+        "@N a gagged guard at the door",
+        "@E Lets one thread in at a time",
+        "@D One key, or a bowl of keys? => A mutex has one owner; a semaphore counts",
+        "@F Threads hang after an exception => Release the lock in finally",
+        "",
+      ].join("\n"),
+    );
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes[0]!.nedf).toEqual({
+      nameHook: "Mute-X\na gagged guard at the door",
+      essence: "Lets one thread in at a time",
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "A mutex has one owner; a semaphore counts" },
+      failure: { scenario: "Threads hang after an exception", correction: "Release the lock in finally" },
+    });
+  });
+
+  it("warns about a pair missing a half and keeps what was written", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nMutex\n@D One key, or a bowl of keys?\n@F => Release in finally\n");
+    expect(diagnostics.map((d) => [d.code, d.numericCode, d.line])).toEqual([
+      ["nedf-pair-incomplete", "W009", 4],
+      ["nedf-pair-incomplete", "W009", 5],
+    ]);
+    expect(snapshot.nodes[0]!.nedf).toEqual({
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "" },
+      failure: { scenario: "", correction: "Release in finally" },
+    });
+  });
+
+  it("still reads a palace called N Queens from its header", () => {
+    const { snapshot, diagnostics } = parseDsl("@N Queens\n\nBoard\n@N Eight queens, no two in line\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.palaceName).toBe("N Queens");
+    expect(snapshot.nodes[0]!.nedf).toEqual({ nameHook: "Eight queens, no two in line" });
+  });
+
+  it("rejects an NEDF line under a route", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nA\n\n/Walk\n@E stray\n1 A\n");
+    expect(diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
+    expect(snapshot.palaceName).toBe("P");
+  });
+
+  it("leaves a node without NEDF lines unencoded", () => {
+    expect(parseDsl("@P\n\nA\n: body\n").snapshot.nodes[0]!.nedf).toBeNull();
+  });
+});
+
+describe("parseDsl — attribute channels", () => {
+  it("reads @A lines with a name, a route, a count, and several values", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "Mutex",
+        "@A spatial where: north tower",
+        "@A Temporal days [enumerate 3]: Mon | Wed | Fri",
+        "@A state [address]: locked | free",
+        "",
+      ].join("\n"),
+    );
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes[0]!.attributes).toEqual([
+      { name: "where", channel: "spatial", values: ["north tower"] },
+      { name: "days", channel: "temporal", values: ["Mon", "Wed", "Fri"], route: "enumerate", count: 3 },
+      { name: "", channel: "state", values: ["locked", "free"], route: "address" },
+    ]);
+  });
+
+  it("reports a channel collision on the first attribute's line, with the second as related", () => {
+    const { diagnostics } = parseDsl("@P\n\nMutex\n@A spatial where: north tower\n@A state phase: locked\n@A spatial room: kitchen\n");
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        code: "attribute-channel-collision",
+        numericCode: "W123",
+        line: 4,
+        related: [{ line: 6, column: 1, length: 1 }],
+        message: expect.stringContaining('"where" and "room" are both on Spatial'),
+      }),
+    ]);
+  });
+
+  it("warns about a missing route, a missing or wrong count, and a count off the enumerate route", () => {
+    const { diagnostics } = parseDsl(
+      [
+        "@P",
+        "",
+        "A",
+        "@A temporal days: Mon | Wed",
+        "@A spatial rooms [enumerate]: hall | kitchen",
+        "@A state phases [enumerate 3]: locked | free",
+        "@A relation uses [address 2]: locks | queues",
+      ].join("\n"),
+    );
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([
+      ["W124", 4],
+      ["W125", 5],
+      ["W126", 6],
+      ["W127", 7],
+    ]);
+  });
+
+  it("notes a fifth channel as info, not a warning", () => {
+    const channels = ["spatial", "sensory", "state", "temporal", "priority"];
+    const { diagnostics } = parseDsl(`@P\n\nA\n${channels.map((c) => `@A ${c} x: y`).join("\n")}\n`);
+    expect(diagnostics.map((d) => [d.code, d.severity, d.numericCode])).toEqual([["attribute-channel-budget", "info", "I128"]]);
+  });
+
+  it("rejects an unknown channel and a malformed line, and keeps the rest", () => {
+    const { snapshot, diagnostics } = parseDsl(
+      "@P\n\nA\n@A size big: huge\n@A spatial where north tower\n@A state [list]: a | b\n@A spatial where: hall\n",
+    );
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([
+      ["E122", 4],
+      ["E121", 5],
+      ["E121", 6],
+    ]);
+    expect(diagnostics[0]!.message).toContain("spatial, sensory, state, relation, pattern, temporal, priority");
+    expect(snapshot.nodes[0]!.attributes).toEqual([{ name: "where", channel: "spatial", values: ["hall"] }]);
+  });
+
+  it("still reads a palace called A Tale of Two Cities from its header", () => {
+    const { snapshot, diagnostics } = parseDsl("@A Tale of Two Cities\n\nParis\n@A spatial where: the Bastille\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.palaceName).toBe("A Tale of Two Cities");
+    expect(snapshot.nodes[0]!.attributes).toEqual([{ name: "where", channel: "spatial", values: ["the Bastille"] }]);
+  });
+
+  it("rejects an attribute line under a route, and leaves a plain node with none", () => {
+    expect(parseDsl("@P\n\nA\n\n/Walk\n@A spatial x: y\n1 A\n").diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
+    expect(parseDsl("@P\n\nA\n: body\n").snapshot.nodes[0]!.attributes).toBeNull();
+  });
+});
+
+describe("parseDsl — route settings and notes", () => {
+  const parseRoute = (lines: string) => parseDsl(`@palace P\n\nA\n\n/Walk\n${lines}\n1 A\n`);
+
+  it("lifts reserved tags off the route's tag line and keeps the rest as metadata", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:Rose #hidden #direction:reverse #review:off #mode:linear");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]).toMatchObject({ color: "rose", hidden: true, direction: "reverse", inReview: false });
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => [key, value])).toEqual([["mode", "linear"]]);
+  });
+
+  it("treats explicit defaults as unset", () => {
+    const { snapshot } = parseRoute("#direction:forward #review:on");
+    expect(snapshot.routes[0]).not.toHaveProperty("direction");
+    expect(snapshot.routes[0]).not.toHaveProperty("inReview");
+  });
+
+  it("warns about a reserved tag with a bad value and ignores it", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:plaid #direction:up #review:maybe");
+    expect(diagnostics.map((d) => [d.code, d.numericCode, d.severity])).toEqual([
+      ["route-setting-invalid", "W702", "warning"],
+      ["route-setting-invalid", "W702", "warning"],
+      ["route-setting-invalid", "W702", "warning"],
+    ]);
+    expect(diagnostics[1]!.column).toBe("#color:plaid ".length + 1);
+    expect(snapshot.routes[0]).not.toHaveProperty("color");
+    expect(snapshot.routes[0]!.metadata).toEqual([]);
+  });
+
+  it("reads content lines between the header and the first stop as notes", () => {
+    const { snapshot, diagnostics } = parseRoute("#color:sky\n: Enter by the east gate.\n: Slow down.");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]!.notes).toBe("Enter by the east gate.\nSlow down.");
+  });
+
+  it("still rejects content lines after a route's first stop", () => {
+    const { diagnostics } = parseDsl("@palace P\n\nA\n\n/Walk\n1 A\n: too late\n");
+    expect(diagnostics.map((d) => d.code)).toContain("misplaced-line");
+  });
+});
+
 describe("parseDsl — route metadata (Feature 7)", () => {
   it("routes have normalizedName derived from route name", () => {
     const { snapshot } = parseDsl("@P\n\nA\n\n/Beginner Security\n1 A\n");
@@ -426,10 +630,53 @@ describe("parseDsl — route metadata (Feature 7)", () => {
     expect(diagnostics.find((d) => d.code === "route-prereq-unresolved")!.severity).toBe("warning");
   });
 
-  it("does not emit route-prereq-unresolved for a valid prereq", () => {
+  it("does not emit route-prereq-unresolved for a prereq naming a route", () => {
     const text = "@P\n\nA\n\n/Intro\n1 A\n\n/Advanced\n#prereq:Intro\n1 A\n";
     const { diagnostics } = parseDsl(text);
     expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+  });
+
+  it("resolves a prereq naming a node by its multi-word title", () => {
+    // The docs' own example: the value runs on past the spaces in the title.
+    const text = "@P\n\nGate of SOLID\n\nForge\n\n/Advanced Walk\n#difficulty:advanced #prereq:Gate of SOLID\n1 Forge\n";
+    const { snapshot, diagnostics } = parseDsl(text);
+    expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+    expect(snapshot.routes[0]!.metadata).toEqual([
+      { key: "difficulty", value: "advanced", raw: "#difficulty:advanced" },
+      { key: "prereq", value: "Gate of SOLID", raw: "#prereq:Gate of SOLID" },
+    ]);
+  });
+
+  it("resolves a prereq naming a node by its declared or derived id", () => {
+    const declared = "@P\n\n[gate] Gate of SOLID\n\n/Walk\n#prereq:gate\n1 Gate of SOLID\n";
+    const derived = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:gate-of-solid\n1 Gate of SOLID\n";
+    for (const text of [declared, derived]) {
+      const { diagnostics } = parseDsl(text);
+      expect(diagnostics.filter((d) => d.code === "route-prereq-unresolved")).toHaveLength(0);
+    }
+  });
+
+  it("ends a multi-word prereq at the next #tag", () => {
+    const text = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:Gate of SOLID #mode:linear\n1 Gate of SOLID\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => ({ key, value }))).toEqual([
+      { key: "prereq", value: "Gate of SOLID" },
+      { key: "mode", value: "linear" },
+    ]);
+  });
+
+  it("warns on a multi-word prereq that matches no node, naming the whole value", () => {
+    const text = "@P\n\nGate of SOLID\n\n/Walk\n#prereq:Gate of Patterns\n1 Gate of SOLID\n";
+    const { diagnostics } = parseDsl(text);
+    const warning = diagnostics.find((d) => d.code === "route-prereq-unresolved");
+    expect(warning?.message).toContain('"Gate of Patterns"');
+  });
+
+  it("keeps words after other structured tags as plain tags", () => {
+    // Only prereq values run on; a bare word after #domain:auth is its own tag, as before.
+    const text = "@P\n\nA\n#domain:auth backend\n";
+    const { snapshot } = parseDsl(text);
+    expect(snapshot.nodes[0]!.tags).toEqual(["domain:auth", "backend"]);
   });
 
   it("plain tags in route metadata are ignored (only structured tags stored)", () => {
@@ -1024,5 +1271,26 @@ describe("parseDsl — @image directive", () => {
     const { snapshot } = parseDsl(text);
     expect(snapshot.nodes[0]!.imageUrl).toBe("https://a.example/1.jpg");
     expect(snapshot.nodes[1]!.imageUrl).toBe("https://b.example/2.jpg");
+  });
+});
+
+describe("parseDsl — concept glyphs", () => {
+  it("reads @glyph under a node", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAttention\n@glyph 🔦\n\nFocus\n: body\n");
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.nodes.map((n) => n.glyph)).toEqual(["🔦", null]);
+  });
+
+  it("warns when a later node claims a glyph already taken, and gives it none", () => {
+    const { snapshot, diagnostics } = parseDsl("@P\n\nAttention\n@glyph 👁️\n\nVision\n@glyph 👁\n");
+    expect(diagnostics.map((d) => [d.numericCode, d.line])).toEqual([["W152", 7]]);
+    expect(diagnostics[0]!.message).toContain("already Attention's concept glyph");
+    expect(snapshot.nodes.map((n) => n.glyph)).toEqual(["👁️", null]);
+  });
+
+  it("rejects a glyph that is not one symbol, and a @glyph line outside a node", () => {
+    expect(parseDsl("@P\n\nA\n@glyph ab\n").diagnostics.map((d) => d.numericCode)).toEqual(["E151"]);
+    expect(parseDsl("@P\n\nA\n@glyph\n").diagnostics.map((d) => d.numericCode)).toEqual(["E151"]);
+    expect(parseDsl("@P\n\nA\n\n/Walk\n@glyph 🔦\n1 A\n").diagnostics.map((d) => d.code)).toEqual(["misplaced-line"]);
   });
 });

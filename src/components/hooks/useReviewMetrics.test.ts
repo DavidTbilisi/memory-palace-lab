@@ -26,7 +26,7 @@ function locus(id: string, overrides: Partial<Locus> = {}): Locus {
 
 describe("useReviewMetrics", () => {
   it("returns null averages and empty series with no data", () => {
-    const { result } = renderHook(() => useReviewMetrics([], [], {}));
+    const { result } = renderHook(() => useReviewMetrics([], [], [], {}));
     expect(result.current.retentionSeries).toEqual([]);
     expect(result.current.dueCount).toBe(0);
     expect(result.current.averageInterval).toBeNull();
@@ -40,6 +40,7 @@ describe("useReviewMetrics", () => {
       useReviewMetrics(
         [],
         [locus("a", { nextReviewAt: past }), locus("b", { nextReviewAt: future })],
+        [],
         {},
       ),
     );
@@ -47,7 +48,7 @@ describe("useReviewMetrics", () => {
   });
 
   it("builds a heatmap covering 52 weeks of days", () => {
-    const { result } = renderHook(() => useReviewMetrics([ratingEvent("e1", new Date().toISOString(), "good")], [], {}));
+    const { result } = renderHook(() => useReviewMetrics([ratingEvent("e1", new Date().toISOString(), "good")], [], [], {}));
     expect(result.current.heatmapCells.length).toBeGreaterThan(300);
     expect(result.current.heatmapCells.some((c) => c.count > 0)).toBe(true);
   });
@@ -58,10 +59,26 @@ describe("useReviewMetrics", () => {
       useReviewMetrics(
         [],
         [locus("a", { routeId: "r1", nextReviewAt: past, interval: 2 }), locus("b", { routeId: "r2", nextReviewAt: past, interval: 8 })],
+        [],
         { routeId: "r2" },
       ),
     );
     expect(result.current.dueCount).toBe(1);
     expect(result.current.averageInterval).toBe(8);
+  });
+
+  it("leaves draft routes out of the due count and average interval", () => {
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    const loci = [
+      locus("a", { routeId: "r1", nextReviewAt: past, interval: 2 }),
+      locus("b", { routeId: "draft", nextReviewAt: past, interval: 8 }),
+    ];
+    const routes = [
+      { id: "r1", palaceId: "p", name: "Reviewed" },
+      { id: "draft", palaceId: "p", name: "Draft", inReview: false },
+    ];
+    const { result } = renderHook(() => useReviewMetrics([], loci, routes, {}));
+    expect(result.current.dueCount).toBe(1);
+    expect(result.current.averageInterval).toBe(2);
   });
 });

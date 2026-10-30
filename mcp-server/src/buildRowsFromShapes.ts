@@ -11,6 +11,9 @@ import type {
 } from "../../src/domain/entities/types";
 import type { MemoryPalaceMeta } from "../../src/canvas/memoryMeta";
 import type { SnapshotEditor } from "./snapshotEditor";
+import { isMemoryNodeShape } from "../../src/canvas/memoryNodeShape";
+import { normalizeAttributes } from "../../src/domain/services/attributes";
+import { normalizeNedf } from "../../src/domain/services/nedf";
 
 /**
  * Headless port of src/canvas/buildPalaceSnapshot.ts: derive the DB row
@@ -32,7 +35,7 @@ export function buildRowsFromShapes(
     if (!shape) continue;
     const m = (shape.meta ?? {}) as MemoryPalaceMeta;
 
-    if (shape.type === "geo" && m.mpNodeId && m.mpObjectId) {
+    if (isMemoryNodeShape(shape) && m.mpNodeId && m.mpObjectId) {
       const b = editor.getShapePageBounds(shapeId);
       if (!b) continue;
       canvasObjects.push({
@@ -44,7 +47,7 @@ export function buildRowsFromShapes(
         width: b.w,
         height: b.h,
         zIndex: 0,
-        payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: "geo" }),
+        payloadJson: JSON.stringify({ shapeId: shape.id, shapeType: shape.type }),
       });
       nodes.push({
         id: m.mpNodeId,
@@ -56,6 +59,11 @@ export function buildRowsFromShapes(
         portal: portalRefFromMeta(m),
         imageUrl: m.mpImageUrl ?? null,
         tags: m.mpTags ?? [],
+        nedf: normalizeNedf(m.mpNedf),
+        attributes: normalizeAttributes(m.mpAttributes),
+        address: m.mpAddress ?? null,
+        storeRole: m.mpStoreRole ?? null,
+        glyph: m.mpGlyph ?? null,
       });
     }
 
@@ -83,6 +91,7 @@ export function buildRowsFromShapes(
         castCd: m.castCd ?? "",
         castEf: m.castEf ?? "",
         castGh: m.castGh ?? "",
+        ...(m.mpEdgeKind === "confusion" ? { kind: "confusion" as const } : {}),
       });
     }
   }

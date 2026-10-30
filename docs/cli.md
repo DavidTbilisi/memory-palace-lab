@@ -40,7 +40,7 @@ Palace references accept an id, exact name, or alias, exactly like the MCP tools
 | `import <file\|-> [--atlas PATH]` | New palace from a DSL document (name from `@header`) | `palace_import_dsl` |
 | `apply <palace> <file\|-> [--force]` | Diff-apply DSL to an existing palace | `palace_apply_dsl` |
 | `nodes <palace> [--query TEXT]` / `node <palace> <ref>` | List or inspect nodes | `node_list`, `node_get` |
-| `edges <palace>` / `routes <palace>` | List CAST edges, routes with loci | `edge_list`, `route_list` |
+| `edges <palace>` / `routes <palace>` | List edges (CAST edges and confusion links), routes with loci | `edge_list`, `route_list` |
 | `analyze` / `crux` / `motifs` / `review <palace>` | Graph analysis, crux with nine-dive questions, motifs, review queue | `graph_*`, `review_queue` |
 | `events [--palace P] [--type T] [--limit N]` | Analytics events, newest first | `analytics_list` |
 
@@ -74,6 +74,7 @@ Mapping (everything else is skipped and counted, on purpose: METER wants signal,
 | `walk_recall_rated` | performance / review | `hit` (Hard, Good, Easy) or `miss` (Again), plus a separate `latency_ms` event when the reveal time is known | 1 / 0, ms | node | `palace::walk` |
 | `walk_started`, `walk_completed` | performance / review | `walk.started`, `walk.completed` | route length, reviewed count | route | `palace::walk` |
 | `palace_created`, `node_created`, `edge_created`, `route_created`, `system_run_materialized` | encoding / encode | `palace.<event>` | 1 | palace, node, node, route, palace | null |
+| `storm_completed` | encoding / encode | `palace.storm_completed` | nodes encoded in the Storm | route | null |
 
 Conventions mirror the Anki bridge so METER's reports need no changes: `hit`/`miss` feed the Daily Glance hit rate, `latency_ms` events feed its latency line, `mode` gives palace walks their own row in the per-mode breakdown, and `context.topic` is the palace name for the per-topic roll-up (for `palace.created` the name comes from the event's own payload, since the palace list does not know the new palace yet). `context` also carries `source`, the app event id and type, palace and route ids, and the app's full payload.
 

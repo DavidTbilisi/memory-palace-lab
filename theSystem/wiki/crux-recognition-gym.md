@@ -17,7 +17,7 @@ wiki_source: wiki/problem-solving/crux-recognition-gym.md
 - [red-queen-skill-gym](./red-queen-skill-gym.md) — the parent gym pattern
 - construct-recognition-gym — sister recognition-gym instance on the code axis
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-09-23
 
 ---
 
@@ -38,7 +38,7 @@ The 10× longer recognition window reflects that brain teasers carry **embedded 
 
 | Corpus | Source | Count | Calibration | Notes |
 |---|---|---|---|---|
-| Brain Teasers (canonical) | [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) | 211 puzzles | 17 archetypes A–R · timing labels · difficulty labels | The original Lamp/Scale/Sword training set; recognition-gym pattern's 2nd instance |
+| Brain Teasers (canonical) | [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) | 211 puzzles | 19 archetypes A–S · timing labels · difficulty labels | The original Lamp/Scale/Sword training set; recognition-gym pattern's 2nd instance |
 | Heart-of-Math Ch 1 "silly stories" | [burger-heart-of-mathematics](./burger-heart-of-mathematics.md) §1.1–1.3 (pp. 47–73) | 8 stories | 3-section staging (story · nudge · punch-line) — Lamp/Scale/Sword-equivalent | Added 2026-05-27 Burger ingest. Each story's narrative includes Burger's "find the right question to the wrong answer" reframe in the §1.3 commentary — useful for Fire-habit pairing (see [fail-to-succeed-habit](./fail-to-succeed-habit.md)) |
 
 The Heart-of-Math Ch 1 corpus is a *natural addition* because its 3-section structure (silly story → nudge → punch line) maps directly onto the gym's Lamp (recognition) → Scale (discrimination with hints) → Sword (full solution under pressure) phases. Burger and Starbird already built the staging the gym needs.
@@ -62,7 +62,7 @@ This is the *easiest* phase. Use [livingstone-thomson-brain-teasers](./livingsto
 ### Scale phase — mid-investigation recognition
 
 Given a puzzle text + 30-second attempt window, **before** solving:
-- Name the archetype (1 of 17)
+- Name the archetype (1 of 19)
 - Predict the tactic (1 of ~12)
 - Mark the crux candidate (1 sentence)
 
@@ -72,7 +72,7 @@ Then attempt to solve. Grade against actual crux on resolution.
 
 ### Sword phase — under time pressure
 
-Mixed batch of 10 puzzles spanning all 17 archetypes. 60 s per puzzle for recognition, then 4 min for solve (book's standard regular-puzzle window). Run as a *single session* with no breaks.
+Mixed batch of 10 puzzles spanning all 19 archetypes. 60 s per puzzle for recognition, then 4 min for solve (book's standard regular-puzzle window). Run as a *single session* with no breaks.
 
 **Pass floor**: ≥70% crux identification within the recognition window; ≥80% tactic accuracy when crux is correctly identified; ≤1 red-herring false-positive per 10.
 
@@ -92,8 +92,8 @@ Each gym event emits per puzzle:
 
 ```yaml
 puzzle_id: <source>:<number>          # e.g. "livingstone-thomson:119"
-archetype_predicted: <one of 17>      # A through R
-archetype_actual: <one of 17>
+archetype_predicted: <one of 19>      # A through S
+archetype_actual: <one of 19>
 tactic_predicted: <one of ~12>        # symmetry|extreme|pigeonhole|invariant|hands-dirty|penultimate|wishful|easier|recast|change-pov|venn|info-theoretic|cultural-string|linguistic
 tactic_actual: <one of ~12>
 crux_predicted_level: <strategy|tactic|tool|none>
@@ -157,7 +157,7 @@ This is also why **promoting recognition-gym to a named pattern** matters: every
 
 ## Mnemonic
 
-Velvet Aeon Mode-Identity register: a **scholar in a circular gym** with **211 weight-rack stations** arranged in 17 colored rings. Above each station hangs a **paper card** showing one of 17 archetype symbols. The scholar has 60 seconds at each station — a **single hanging lantern's burn time** marks the limit (the Velvet Aeon timekeeping device, no clocks). She must **point to one of 4 scroll-banners** on the wall (Symmetry · Extreme · Pigeonhole · Invariants) or one of 4 tactic-banners (Hands · Penultimate · Wishful · Easier) before the lantern dims. A **broken brain-size measuring stick** lies discarded at the entry. The scholar has **STRONG** face archetype (angular jaw, gym is for power not fragility); preserve = **sacred memory** (each recognized crux is stored forever in the gym's vaulted ceiling, the lit constellation of solved past puzzles). Single warm light from above.
+Velvet Aeon Mode-Identity register: a **scholar in a circular gym** with **211 weight-rack stations** arranged in 19 colored rings. Above each station hangs a **paper card** showing one of 19 archetype symbols. The scholar has 60 seconds at each station — a **single hanging lantern's burn time** marks the limit (the Velvet Aeon timekeeping device, no clocks). She must **point to one of 4 scroll-banners** on the wall (Symmetry · Extreme · Pigeonhole · Invariants) or one of 4 tactic-banners (Hands · Penultimate · Wishful · Easier) before the lantern dims. A **broken brain-size measuring stick** lies discarded at the entry. The scholar has **STRONG** face archetype (angular jaw, gym is for power not fragility); preserve = **sacred memory** (each recognized crux is stored forever in the gym's vaulted ceiling, the lit constellation of solved past puzzles). Single warm light from above.
 
 ## Memory checksum
 
@@ -177,7 +177,7 @@ If you can recite 2-3-60-17-12-7-6-3-211 from "crux recognition gym" within 90 s
 
 - [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) — the training queue
 - [crux-move](./crux-move.md) — what gets recognized
-- [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md) — the 17-class alphabet
+- [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md) — the 19-class alphabet
 - [universal-mathematical-tactics](./universal-mathematical-tactics.md) — the 4-tactic alphabet
 - [zeitz-startup-strategies](./zeitz-startup-strategies.md) — the 4-strategy alphabet
 - construct-recognition-gym — sister recognition gym (code axis)

@@ -20,7 +20,7 @@ wiki_source: wiki/learning-systems/famous-clocks-mnemonic-song.md
 - music-profile — the default world profile that sets the render register.
 - Authored artifact (2026-07-03 session); the lyrics are original, the pegs are not.
 
-**Last updated**: 2026-07-03
+**Last updated**: 2026-09-08 — **pre-lock render spec** banner added (the trip-hop pulse and brushed kit predate the 2026-09-07 catalogue lock). **T** voice sharpened from *breathy female* to a deep female alto in a low contralto register; `[Whispered]` tags converted to sung directions; 2026-07-03
 
 ---
 
@@ -43,7 +43,7 @@ Structure tags lay the route; bracketed delivery/dynamic tags are the [MASTER](.
 
 ```
 [Intro]
-[Whispered, intimate] [distant tolling bell, dusty piano, vinyl crackle]
+[Sung, hushed, intimate] [distant tolling bell, dusty piano, vinyl crackle]
 Midnight. Zero. Big Ben tolls the London dark —
 the loop begins again the moment that it stops.
 We could let the hands fall still, we could stay,
@@ -150,7 +150,7 @@ Again, again, I chase you round the dial,
 and lose you at the stroke — just to feel you a while.
 
 [Outro]
-[Fade out] [whispered, single distant bell, vinyl crackle]
+[Fade out] [Sung, hushed, single distant bell, vinyl crackle]
 Midnight comes… and Big Ben tolls again,
 zero on the dial, London in the rain.
 Far away you turn to light, and I begin to run —
@@ -159,6 +159,14 @@ and the clocks start over… and the story has begun… again.
 
 ## Render spec (MASTER)
 
+> **Pre-lock render spec.** The instrumentation and pulse below were chosen before the
+> catalogue sound was locked on 2026-09-07 (`CLAUDE.md` §Song workflow; the owner is
+> music-profile, and `/suno` §Standing constraints carries the operative list). The five
+> standing constraints — deep female alto in a low contralto register · named traditional folk
+> instruments · **beatless** · mystical-but-severe · **sung, never spoken** — bind at render
+> time and override any tempo or percussion named here. The voice and the sung/spoken directions on this
+> page have already been corrected; the trip-hop pulse and its kit are kept as the pre-lock draft.
+
 The full [MASTER](./music-generation-frameworks.md) slot fill, compiled to Suno's two inputs plus its meta-controls. This is the music-profile default world made concrete.
 
 | Slot | Value |
@@ -166,7 +174,7 @@ The full [MASTER](./music-generation-frameworks.md) slot fill, compiled to Suno'
 | **M** — Meter | slow, ~68–72 BPM, 4/4, trip-hop pulse |
 | **A** — Arrangement | dusty grand piano · warm sub-bass · brushed drums · distant tolling church bells · muted strings · vinyl crackle |
 | **S** — Space/mix | cavernous reverb, wide and deep, bells ringing in the distance |
-| **T** — Timbre | haunting breathy female vocal, close-mic'd, intimate and unperformed, dissolving into reverb; lo-fi analog warmth — **describe the voice, never name artists** (Suno rejects artist references; see [[#Render spec (MASTER)]] gotcha) |
+| **T** — Timbre | haunting deep female alto in a low contralto register, close-mic'd, intimate and unperformed, dissolving into reverb; lo-fi analog warmth — **describe the voice, never name artists** (Suno rejects artist references; see [[#Render spec (MASTER)]] gotcha) |
 | **E** — Energy arc | Mode B (sustain, no drop); one [Crescendo] at the bridge as the bells layer |
 | **R** — Restrict | *(see Exclude Styles)* |
 

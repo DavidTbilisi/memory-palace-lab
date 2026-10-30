@@ -159,6 +159,118 @@ describe("palaceDb", () => {
     expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
   });
 
+  it("keeps route metadata through save and load", () => {
+    const palace = createPalace(db, "Tagged");
+    const snap = makeSnapshot(palace.id, palace);
+    const metadata = [
+      { key: "difficulty", value: "advanced" },
+      { key: "prereq", value: "Gate of SOLID" },
+    ];
+    const routes = [{ id: "route-t", palaceId: palace.id, name: "Tagged", color: "sky" as const, metadata }];
+    saveSnapshot(db, { ...snap, routes, loci: [] });
+
+    expect(loadPalace(db, palace.id)!.routes).toEqual(routes);
+    expect(db.prepare("SELECT settings_json FROM routes").get()).toEqual({
+      settings_json: JSON.stringify({ color: "sky", metadata }),
+    });
+  });
+
+  it("keeps walk direction, review, notes, and sections through save and load", () => {
+    const palace = createPalace(db, "Walked");
+    const snap = makeSnapshot(palace.id, palace);
+    const routes = [
+      {
+        id: "route-w",
+        palaceId: palace.id,
+        name: "Walked",
+        direction: "alternate" as const,
+        lastWalkDirection: "reverse" as const,
+        inReview: false,
+        notes: "Start at the gate.",
+      },
+    ];
+    const loci = [{ ...snap.loci[0]!, routeId: "route-w", section: "Hall" }];
+    saveSnapshot(db, { ...snap, routes, loci });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.routes).toEqual(routes);
+    expect(loaded.loci).toEqual(loci);
+  });
+
+  it("keeps a node's NEDF slots and a stop's slot schedules through save and load", () => {
+    const palace = createPalace(db, "Encoded");
+    const snap = makeSnapshot(palace.id, palace);
+    const nedf = { nameHook: "Mute-X", failure: { scenario: "Forgot to unlock", correction: "Release in finally" } };
+    const slotSchedules = {
+      failure: { interval: 1, easeFactor: 2.3, repetitions: 0, nextReviewAt: "2026-09-26T00:00:00.000Z", lastReviewedAt: null },
+    };
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, nedf } : node));
+    const loci = [{ ...snap.loci[0]!, slotSchedules }];
+    saveSnapshot(db, { ...snap, nodes, loci });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)!.nedf).toEqual(nedf);
+    expect(loaded.nodes.find((node) => node.id !== nodes[0]!.id)).not.toHaveProperty("nedf");
+    expect(loaded.loci[0]!.slotSchedules).toEqual(slotSchedules);
+  });
+
+  it("keeps a generated store's marker and its cells' addresses through save and load", () => {
+    const palace = createPalace(db, "Chemistry · block");
+    const snap = makeSnapshot(palace.id, palace);
+    const storeJson = '{"kind":"four-level-block","theme":"Chemistry","generatedAt":"","routeId":null}';
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, address: "2.3.4", storeRole: "cell" as const } : node));
+    saveSnapshot(db, { ...snap, palace: { ...snap.palace, storeJson }, nodes });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.palace.storeJson).toBe(storeJson);
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)).toMatchObject({ address: "2.3.4", storeRole: "cell" });
+    expect(listPalaces(db).find((p) => p.id === palace.id)!.storeJson).toBe(storeJson);
+    // A plain save of what was loaded keeps it: an MCP edit must not drop the marker.
+    saveSnapshot(db, loaded);
+    expect(loadPalace(db, palace.id)!.palace.storeJson).toBe(storeJson);
+  });
+
+  it("keeps a confusion link's kind through save and load, and leaves an ordinary edge without one", () => {
+    const palace = createPalace(db, "P");
+    const snap = makeSnapshot(palace.id, palace);
+    const confusion = { ...snap.edges[0], id: "edge-2", objectId: "obj-4", kind: "confusion" as const };
+    const objects = [...snap.canvasObjects, { ...snap.canvasObjects[2], id: "obj-4" }];
+    saveSnapshot(db, { ...snap, canvasObjects: objects, edges: [...snap.edges, confusion] });
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.edges.find((e) => e.id === "edge-2")!.kind).toBe("confusion");
+    expect(loaded.edges.find((e) => e.id === "edge-1")!).not.toHaveProperty("kind");
+  });
+
+  it("upgrades a database created before confusion links with an empty edge kind", () => {
+    const legacyPath = join(dir, "legacy-edges.sqlite3");
+    const legacy = openDb(legacyPath);
+    legacy.exec(`
+      CREATE TABLE edges (id TEXT PRIMARY KEY NOT NULL, object_id TEXT NOT NULL,
+        source_node_id TEXT NOT NULL, target_node_id TEXT NOT NULL);
+      INSERT INTO edges (id, object_id, source_node_id, target_node_id) VALUES ('e', 'o', 'a', 'b');
+    `);
+    legacy.close();
+    const upgraded = openDb(legacyPath);
+    try {
+      initDb(upgraded);
+      expect(upgraded.prepare("SELECT kind FROM edges").all()).toEqual([{ kind: "" }]);
+    } finally {
+      upgraded.close();
+    }
+  });
+
+  it("keeps a node's attributes through save and load", () => {
+    const palace = createPalace(db, "Attributed");
+    const snap = makeSnapshot(palace.id, palace);
+    const attributes = [{ name: "days", channel: "temporal" as const, values: ["Mon", "Wed"], route: "enumerate" as const, count: 2 }];
+    const nodes = snap.nodes.map((node, i) => (i === 0 ? { ...node, attributes } : node));
+    saveSnapshot(db, { ...snap, nodes });
+
+    const loaded = loadPalace(db, palace.id)!;
+    expect(loaded.nodes.find((node) => node.id === nodes[0]!.id)!.attributes).toEqual(attributes);
+    expect(loaded.nodes.find((node) => node.id !== nodes[0]!.id)).not.toHaveProperty("attributes");
+  });
+
   it("keeps a stop's saved view through save and load", () => {
     const palace = createPalace(db, "Framed");
     const snap = makeSnapshot(palace.id, palace);
@@ -286,5 +398,129 @@ describe("palaceDb", () => {
     createPalace(db, "Twin");
     createPalace(db, "Twin");
     expect(() => resolvePalace(db, "Twin")).toThrow(/ambiguous/);
+  });
+
+  it("creates the palace when saving a snapshot it has never seen", () => {
+    // Restoring a backup, or pulling from the sync vault, saves a snapshot for a palace this
+    // database has no row for. A plain UPDATE matched nothing and — foreign keys being off —
+    // the child rows landed anyway, leaving canvas/node/edge rows owned by no palace and an
+    // empty library. Regression test for that.
+    const palaceId = "11111111-2222-3333-4444-555555555555";
+    const snap = makeSnapshot(palaceId, {
+      id: palaceId,
+      name: "Restored Palace",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      alias: null,
+      atlasPath: "/restored",
+      deletedAt: null,
+      purgeAt: null,
+    });
+
+    saveSnapshot(db, snap);
+
+    const loaded = loadPalace(db, palaceId);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.palace.name).toBe("Restored Palace");
+    expect(loaded!.palace.createdAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(loaded!.nodes).toHaveLength(2);
+    expect(listPalaces(db).map((p) => p.id)).toContain(palaceId);
+
+    const orphans = db
+      .prepare(
+        `SELECT count(*) AS n FROM canvas_objects
+         LEFT JOIN palaces ON palaces.id = canvas_objects.palace_id
+         WHERE palaces.id IS NULL`,
+      )
+      .get() as { n: number };
+    expect(orphans.n).toBe(0);
+  });
+
+  it("bumps the palace revision on every write, ignoring any revision the caller sends", () => {
+    const palace = createPalace(db, "Versioned");
+    expect(palace.rev).toBe(1);
+
+    const snap = makeSnapshot(palace.id, palace);
+    saveSnapshot(db, snap);
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(2);
+
+    // A snapshot arriving from another device carries that device's revision; it must not
+    // dictate ours, or a peer could stall our pushes by claiming a high number.
+    saveSnapshot(db, { ...snap, palace: { ...snap.palace, rev: 9999 } });
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(3);
+
+    // A delete is a change other devices have to learn about, so it bumps too.
+    softDeletePalace(db, palace.id);
+    expect(listTrashedPalaces(db).find((p) => p.id === palace.id)!.rev).toBe(4);
+    restorePalace(db, palace.id);
+    expect(loadPalace(db, palace.id)!.palace.rev).toBe(5);
+  });
+
+  it("records a tombstone when a trashed palace passes its purge date", () => {
+    const palace = createPalace(db, "Doomed");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const revBeforeDelete = loadPalace(db, palace.id)!.palace.rev!;
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+
+    listPalaces(db); // purgeExpiredPalaces runs on every list
+
+    expect(loadPalace(db, palace.id)).toBeNull();
+    const tombstone = db
+      .prepare("SELECT palace_id, rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { palace_id: string; rev: number } | undefined;
+    expect(tombstone).toBeDefined();
+    // The recorded revision is what lets a pull tell "this was deleted" from "this was
+    // edited somewhere else after the delete" — the latter is a conflict, not a purge.
+    expect(tombstone!.rev).toBeGreaterThan(revBeforeDelete);
+  });
+
+  it("records the tombstone at the revision the vault last agreed on", () => {
+    // `palaces.rev` counts this device's own saves, so a palace another device pushed at
+    // revision 40 might sit here at revision 2. Recording the local number made the sync
+    // plan compare two unrelated sequences: `remote.rev > tombstone.rev` was true for any
+    // palace ever pulled, so purging one raised a conflict claiming it had been edited
+    // elsewhere when nothing had touched it.
+    const palace = createPalace(db, "Pulled from elsewhere");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+    db.prepare(
+      `INSERT INTO sync_state (palace_id, base_rev, base_hash, remote_rev, remote_hash, synced_at)
+       VALUES (?, ?, '', ?, '', '')`,
+    ).run(palace.id, localRev, localRev + 40);
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    expect(tombstone.rev).toBe(localRev + 40);
+  });
+
+  it("falls back to the local revision for a palace that was never synced", () => {
+    const palace = createPalace(db, "Never synced");
+    saveSnapshot(db, makeSnapshot(palace.id, palace));
+    const localRev = loadPalace(db, palace.id)!.palace.rev!;
+
+    softDeletePalace(db, palace.id);
+    db.prepare("UPDATE palaces SET purge_at = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      palace.id,
+    );
+    listPalaces(db);
+
+    const tombstone = db
+      .prepare("SELECT rev FROM sync_tombstones WHERE palace_id = ?")
+      .get(palace.id) as { rev: number };
+    // No sync_state row means no remote revision to speak of; the local one is all there is.
+    expect(tombstone.rev).toBeGreaterThan(localRev);
   });
 });

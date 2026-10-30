@@ -21,6 +21,7 @@ import * as edges from "./tools/edges";
 import * as nodes from "./tools/nodes";
 import * as palaces from "./tools/palaces";
 import * as routes from "./tools/routes";
+import { ATTRIBUTE_ROUTES, ROUTE_COLORS, ROUTE_DIRECTIONS, UMTF_CHANNELS } from "../../src/domain/entities/types";
 import { CAST_AXIS_VALUES, type ServerContext } from "./tools/shared";
 
 const dbPath = resolveDbPath();
@@ -32,7 +33,7 @@ initDb(db); // no-op on the app's DB; creates schema for fresh override paths
 
 const ctx: ServerContext = { db, sentinelDir: sentinelDirFor(dbPath) };
 
-const server = new McpServer({ name: "memory-palace", version: "0.9.1" });
+const server = new McpServer({ name: "memory-palace", version: "0.23.1" });
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 
@@ -56,6 +57,11 @@ function tool<A>(fn: (ctx: ServerContext, args: A) => unknown | Promise<unknown>
 const palaceArg = z
   .string()
   .describe("Palace reference: id, exact name, or alias (case-insensitive)");
+
+const edgeKindArg = z
+  .enum(["cast", "confusion"])
+  .optional()
+  .describe('"cast" (default) for a CAST edge; "confusion" for a confusion link between two look-alike nodes');
 
 const castShape = {
   who: z
@@ -161,6 +167,58 @@ server.registerTool(
 
 // ── Node tools ───────────────────────────────────────────────────────
 
+const glyphArg = z
+  .string()
+  .describe(
+    "Concept glyph: one symbol (usually an emoji) that stands for this concept and no other node in the palace. " +
+      "Refused if another node already holds it. A wiki concept page declares its glyph as `glyph:` in its frontmatter",
+  );
+
+const attributesArg = z
+  .array(
+    z.object({
+      name: z.string().optional().describe("What the attribute is, e.g. where, days, phase"),
+      channel: z
+        .enum(UMTF_CHANNELS)
+        .describe(
+          "UMTF channel, one question each: spatial (where), sensory (how it feels), state (what condition), " +
+            "relation (what it connects to), pattern (what structure it resembles), temporal (when), priority (how important)",
+        ),
+      values: z.array(z.string()).describe("One value, or several for a multi-valued attribute"),
+      route: z
+        .enum(ATTRIBUTE_ROUTES)
+        .optional()
+        .describe(
+          "For several values, by what recall will ask for: dissolve (context supplies the key; split into separate items), " +
+            "address (a small ordered key picks the value), enumerate (the whole set is asked for)",
+        ),
+      count: z.number().int().positive().optional().describe("Enumerate only: the member count, kept as a completeness checksum"),
+    }),
+  )
+  .describe(
+    "Attributes on UMTF channels, one attribute per channel. Replaces the node's attributes; problems such as two attributes " +
+      "on one channel are returned as attributeWarnings, not refused",
+  );
+
+const nedfSlotsArg = z
+  .object({
+    nameHook: z.string().nullable().optional().describe("Name-hook: a sound-alike, pun, or image. Drilled as recognition"),
+    essence: z.string().nullable().optional().describe("Essence: what the concept does. Drilled as recall"),
+    distinguisher: z
+      .object({ prompt: z.string(), reason: z.string() })
+      .nullable()
+      .optional()
+      .describe("A question it shares with its nearest neighbour, and why it is this one. Drilled as discrimination"),
+    failure: z
+      .object({ scenario: z.string(), correction: z.string() })
+      .nullable()
+      .optional()
+      .describe("Where it breaks, and the fix. Drilled as diagnosis"),
+  })
+  .describe(
+    "NEDF slots. Each filled slot is reviewed on its own schedule once the node is a route stop. A slot left out is unchanged; null or \"\" clears it.",
+  );
+
 server.registerTool(
   "node_list",
   {
@@ -173,7 +231,8 @@ server.registerTool(
 server.registerTool(
   "node_get",
   {
-    description: "Get one node with its content, edges (in/out), and route memberships.",
+    description:
+      "Get one node with its content, NEDF slots, edges (in/out), and route memberships with each stop's next review (per NEDF slot when the node has slots).",
     inputSchema: { palace: palaceArg, node: z.string().describe("Node id, title, or alias") },
   },
   tool(nodes.nodeGet),
@@ -193,6 +252,9 @@ server.registerTool(
           "Body content — the vivid encoding imagery. HTML allowed; when encoding from notes, end with a sources paragraph like <p>📖 <a href=\"obsidian://open?vault=Neural%20OS&file=path/to/note\">note</a></p>",
         ),
       tags: z.array(z.string()).optional(),
+      nedf: nedfSlotsArg.optional(),
+      attributes: attributesArg.optional(),
+      glyph: glyphArg.optional(),
       position: z
         .object({ x: z.number(), y: z.number() })
         .optional()
@@ -205,7 +267,7 @@ server.registerTool(
 server.registerTool(
   "node_update",
   {
-    description: "Update a node's title, content, alias, or tags.",
+    description: "Update a node's title, content, alias, tags, NEDF slots, attributes, or concept glyph (null clears it).",
     inputSchema: {
       palace: palaceArg,
       node: z.string(),
@@ -213,6 +275,9 @@ server.registerTool(
       content: z.string().optional(),
       alias: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      nedf: nedfSlotsArg.nullable().optional().describe("NEDF slots to change; null clears all four"),
+      attributes: attributesArg.nullable().optional(),
+      glyph: glyphArg.nullable().optional(),
     },
   },
   tool(nodes.nodeUpdate),
@@ -227,12 +292,30 @@ server.registerTool(
   tool(nodes.nodeDelete),
 );
 
+server.registerTool(
+  "node_count_shape",
+  {
+    description:
+      "Lay a node's outgoing-edge targets out as a set around it. polygon: an unordered set of 2-7 sits on the corners of " +
+      "the polygon of its size (2 an axis, 3 a triangle, ... 7 a ring), so a missing member shows as an empty corner. " +
+      "ladder: an ordered set, stacked top to bottom in its current order. A polygon of more than 7 takes the ladder, and " +
+      "the result's note says why. Use polygon only for unordered sets.",
+    inputSchema: {
+      palace: palaceArg,
+      node: z.string().describe("The node whose outgoing targets are the set"),
+      shape: z.enum(["polygon", "ladder"]).optional().describe("Default polygon"),
+    },
+  },
+  tool(nodes.nodeCountShape),
+);
+
 // ── Edge tools ───────────────────────────────────────────────────────
 
 server.registerTool(
   "edge_list",
   {
-    description: "List all CAST edges in a palace.",
+    description:
+      "List all edges in a palace: CAST edges (kind \"cast\") and confusion links between look-alike nodes (kind \"confusion\").",
     inputSchema: { palace: palaceArg },
   },
   tool(edges.edgeList),
@@ -241,13 +324,17 @@ server.registerTool(
 server.registerTool(
   "edge_create",
   {
-    description: "Create a directed CAST edge between two nodes.",
+    description:
+      "Create a directed CAST edge between two nodes, or with kind \"confusion\" a confusion link: an undirected " +
+      "mark that the two are easily mixed up, which names the neighbour on the Distinguisher card. A pair has one " +
+      "confusion link; a second is refused.",
     inputSchema: {
       palace: palaceArg,
       source: z.string().describe("Source node id, title, or alias"),
       target: z.string().describe("Target node id, title, or alias"),
       cast: z.object(castShape).optional(),
       label: z.string().optional().describe("Optional arrow label text"),
+      kind: edgeKindArg,
     },
   },
   tool(edges.edgeCreate),
@@ -256,12 +343,15 @@ server.registerTool(
 server.registerTool(
   "edge_update",
   {
-    description: "Update an edge's CAST values or alias (find ids with edge_list).",
+    description:
+      "Update an edge's CAST values, alias, or kind (find ids with edge_list). Turning an edge into a confusion " +
+      "link clears its CAST and label; a confusion link takes no CAST.",
     inputSchema: {
       palace: palaceArg,
       edge: z.string().describe("Edge id"),
       cast: z.object(castShape).optional(),
       alias: z.string().optional(),
+      kind: edgeKindArg,
     },
   },
   tool(edges.edgeUpdate),
@@ -303,8 +393,18 @@ server.registerTool(
 server.registerTool(
   "route_update",
   {
-    description: "Rename a route.",
-    inputSchema: { palace: palaceArg, route: z.string(), name: z.string().min(1) },
+    description:
+      "Rename a route or change its settings: color, visibility on the canvas, walk direction, whether it is in review (false makes it a draft whose stops are never due), and notes. Pass only what changes.",
+    inputSchema: {
+      palace: palaceArg,
+      route: z.string(),
+      name: z.string().min(1).optional(),
+      color: z.enum(ROUTE_COLORS).nullable().optional().describe("Path color; null returns to the default palette color"),
+      hidden: z.boolean().optional().describe("true hides the route on the canvas"),
+      direction: z.enum(ROUTE_DIRECTIONS).optional().describe("Walk order; alternate flips it on every walk"),
+      inReview: z.boolean().optional().describe("false makes the route a draft: its stops keep their schedules but are never due"),
+      notes: z.string().optional().describe("Free-text notes; an empty string clears them"),
+    },
   },
   tool(routes.routeUpdate),
 );

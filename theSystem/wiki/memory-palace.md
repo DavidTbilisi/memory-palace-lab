@@ -20,7 +20,7 @@ wiki_source: wiki/learning-systems/memory-palace.md
 - raw/Index - Neural OS.md
 - raw/templates/FRAMEWORK_OVERVIEW.md
 
-**Last updated**: 2026-05-20
+**Last updated**: 2026-09-18 (§Related pages gained [adjacency-is-not-an-edge](./adjacency-is-not-an-edge.md) — the argument behind the *orthogonal to the encoders* claim); 2026-09-05 (§Two access modes added, and rule 3 made conditional — a fixed walk order is owed by *walked* palaces, not by all of them; the grid family's own table row already said "no narrative walk required" and the two shipped instances resolve it oppositely. Surfaced by adopting [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §GoF Iterator); 2026-05-20
 
 > **Note**: This page does not yet carry a `palace / level / domain / room` cube address. It was promoted from a ghost reference and needs slot assignment in the next NeuralOS-3D tagging pass; the `meta-knowledge × domain-10` triple is full from levels 3 through 8, so a slot at level 2 (room 6 is the first free one) or a new level is the likely destination.
 
@@ -40,10 +40,25 @@ The placement rules are the contract a palace must satisfy so that the encoded i
 
 1. **One item per locus**, by default. A locus that holds two distinct concepts blurs both on recall. If two items must share a locus, [remaps](./remaps.md) Modify-Merge-Move is the licensed way to fuse them into one image. Ordinary loci carry *order*, not classification; when a whole class of items needs marking, [МегаЛоция](./vocabulary-word-type-routing.md) is the sibling device that re-skins the environment itself to carry class membership, composing with (not replacing) the walk order below.
 2. **Loci are pre-learned**, not invented at encoding time. The palace skeleton — rooms, sequences, adjacencies — must already be over-learned before content is placed. Otherwise the search cost during recall exceeds the storage benefit.
-3. **A fixed walk order**. Loci are visited in a deterministic sequence. If the order is ambiguous, retrieval becomes unordered and the palace degrades into a tag cloud.
+3. **A fixed walk order — for palaces that are *walked*.** Loci are visited in a deterministic sequence. If the order is ambiguous where an order is owed, retrieval becomes unordered and the palace degrades into a tag cloud. **The condition is load-bearing**: this rule governs *iteration*, not palaces as such. A palace addressed by coordinate is subscripted rather than traversed and owes no walk order — see §Two access modes below.
 4. **Index the loci** with [category · importance · order](./mental-markers-category-importance-order.md) when the palace gets dense, so each locus carries its own retrieval handle rather than relying on the walk alone.
 5. **Encoding lives inside the encoder, not the palace**. Don't redefine NEDF/CAST/SPEAR inside a palace page; the palace stores the encoder's output, it does not replace the encoder.
 6. **Apply [REMAPS](./remaps.md) at placement**, not at recall. Rotate · Exaggerate · Modify-Merge-Move · Associate · Play-Palace-Path · Sensations are the transformation moves that make a locus-bound image robust; they are part of *placing*, not *retrieving*.
+
+## Two access modes — walk and address
+
+Rule 3 above used to read as a law of all palaces, and the table below has always blessed the **domain-grid** family as *"Geometry-first; no narrative walk required."* Read literally the two contradict, and the shipped instances resolve it in opposite directions: [rubiks-cube-palace](./rubiks-cube-palace.md) declares an explicit fixed walk (its rule 8 — corners clockwise from top-left, then edges), while [trigonometry-compass-palace](./trigonometry-compass-palace.md) declares none and does not need one. You do not walk to the third locus on the compass; you go to 90°.
+
+**So a palace has one of two access modes, and it must declare which.**
+
+| Mode | Retrieval | Owes a walk order? | Instances |
+|---|---|---|---|
+| **Walk** | sequential traversal — *"a walk rather than a search"* | **yes**, rule 3 applies in full | building-route · body · calendar · city-district · [rubiks-cube-palace](./rubiks-cube-palace.md) |
+| **Address** | direct subscript by coordinate or name | **no** — there is no traversal to order | [trigonometry-compass-palace](./trigonometry-compass-palace.md) (0°/90°/180°/270°) |
+
+The failure rule 3 was written against survives intact and gets sharper: the tag cloud is a palace that declares **neither** — no walk order and no addressing scheme — so retrieval has to search. That is the case to reject, and the old wording could not distinguish it from a legitimate grid.
+
+*Surfaced 2026-09-05 by [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §GoF Iterator, adopted for this page's walk: GoF's Iterator gives sequential access to an aggregate without exposing its representation, which is exactly what one walk over four palace representations buys — and it is the reason the rule belongs to the traversal rather than to the container.*
 
 ## Palace structure — the structural patterns in use
 
@@ -86,6 +101,7 @@ The same content can be stored in more than one palace — that is the point of 
 
 - [memory-palace-architecture-for-neural-os](./memory-palace-architecture-for-neural-os.md) — two-axis layer × encoder palace architecture
 - [memory-palace-for-aphantasia](./memory-palace-for-aphantasia.md) — constraint-aware operating layer
+- [adjacency-is-not-an-edge](./adjacency-is-not-an-edge.md) — the argument behind §What this page is' *orthogonal to the encoders* claim: what a bare palace's free channels (loci adjacency + [spatial-coding](./spatial-coding.md)) can and cannot carry, and the three walls that make a relational encoder necessary rather than merely available
 - [mental-markers-category-importance-order](./mental-markers-category-importance-order.md) — indexing sub-protocol applied inside palaces
 - [remaps](./remaps.md) — transformation moves at placement time
 - [representation-rules](./representation-rules.md) — encoding constraints that hold inside loci

@@ -7,9 +7,11 @@ import {
   KeyRound,
   Lightbulb,
   Map,
+  RefreshCw,
   Settings2,
   Target,
 } from "lucide-react";
+import { SettingsSyncSection } from "./SettingsSyncSection";
 import { APP_VERSION } from "../appVersion";
 import { SHORTCUTS, formatShortcut } from "../content/shortcuts";
 import {
@@ -45,6 +47,7 @@ import { AtlasLevelLabelsEditor } from "./AtlasLevelLabelsEditor";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { ReleaseNotes } from "./ReleaseNotes";
 
 export const AI_KEY_STORAGE_KEY = "mp-ai-anthropic-key";
 export const LEARN_PANEL_STORAGE_KEY = "mp-learn-panel-open";
@@ -79,15 +82,12 @@ function Section({
   blurb: string;
   children: React.ReactNode;
 }) {
+  // aria-labelledby is a space-separated list of ids, so a title with a space in it (such as
+  // "METER bridge") was being read as two ids and the section had no accessible name at all.
+  const headingId = `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <section
-      className="rounded-md border border-zinc-800 bg-zinc-900/40 p-4"
-      aria-labelledby={`settings-${title}`}
-    >
-      <h3
-        id={`settings-${title}`}
-        className="flex items-center gap-2 text-sm font-semibold text-zinc-100"
-      >
+    <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-4" aria-labelledby={headingId}>
+      <h3 id={headingId} className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
         <Icon className="h-4 w-4 text-violet-300" />
         {title}
       </h3>
@@ -114,7 +114,7 @@ type UpdateUi =
   | { phase: "idle" }
   | { phase: "checking" }
   | { phase: "up-to-date" }
-  | { phase: "available"; version: string }
+  | { phase: "available"; version: string; notes?: string }
   | { phase: "downloading"; percent: number | null }
   | { phase: "error"; message: string };
 
@@ -122,6 +122,8 @@ type UpdateUi =
 export function SettingsPage() {
   const dailyReviewGoal = usePalaceStore((s) => s.dailyReviewGoal);
   const setDailyReviewGoal = usePalaceStore((s) => s.setDailyReviewGoal);
+  const wakeTime = usePalaceStore((s) => s.wakeTime);
+  const setWakeTime = usePalaceStore((s) => s.setWakeTime);
   const loadPalaces = usePalaceStore((s) => s.loadPalaces);
   const loadAARRecords = usePalaceStore((s) => s.loadAARRecords);
   const palaces = usePalaceStore((s) => s.palaces);
@@ -232,7 +234,7 @@ export function SettingsPage() {
     try {
       const result = await checkForUpdate();
       if (result.status === "available")
-        setUpdate({ phase: "available", version: result.version });
+        setUpdate({ phase: "available", version: result.version, notes: result.notes });
       else if (result.status === "up-to-date")
         setUpdate({ phase: "up-to-date" });
       else
@@ -277,7 +279,7 @@ export function SettingsPage() {
         <Section
           icon={Target}
           title="Review"
-          blurb="How many loci you aim to review per day. The Review page tracks progress against it."
+          blurb="How many loci you aim to review per day, and when you wake. Material from a Storm is first reviewed at your wake time, after you have slept on it."
         >
           <div className="flex items-center gap-2">
             <Label
@@ -298,6 +300,18 @@ export function SettingsPage() {
                 if (event.key === "Enter") commitGoal();
               }}
               className="h-8 w-24 text-xs"
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Label htmlFor="settings-wake-time" className="text-xs text-zinc-400">
+              Wake time
+            </Label>
+            <Input
+              id="settings-wake-time"
+              type="time"
+              value={wakeTime}
+              onChange={(event) => setWakeTime(event.target.value)}
+              className="h-8 w-28 text-xs"
             />
           </div>
         </Section>
@@ -441,6 +455,14 @@ export function SettingsPage() {
         </Section>
 
         <Section
+          icon={RefreshCw}
+          title="Sync"
+          blurb="Optional. Keep palaces and review schedules in step across your devices through a folder they all see — Dropbox, iCloud, Syncthing, a network share. Everything is encrypted with your passphrase before it is written, so whoever hosts the folder cannot read it."
+        >
+          <SettingsSyncSection />
+        </Section>
+
+        <Section
           icon={Activity}
           title="METER bridge"
           blurb="Mirror walks and encoding into METER's events.jsonl as they happen, so palace work shows up in Daily Glance beside Anki reviews. Older events: palace meter backfill."
@@ -533,6 +555,15 @@ export function SettingsPage() {
               <span className="text-rose-300">{update.message}</span>
             ) : null}
           </div>
+          {update.phase === "available" && update.notes ? (
+            <section aria-label={`What's new in v${update.version}`} className="mt-3">
+              <h3 className="text-xs font-semibold text-zinc-300">What&apos;s new in v{update.version}</h3>
+              <ReleaseNotes
+                notes={update.notes}
+                className="mt-1 rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-1"
+              />
+            </section>
+          ) : null}
         </Section>
 
         <Section

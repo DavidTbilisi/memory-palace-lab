@@ -3,23 +3,23 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
-const FIXTURE = `# Palace: Demo
+const FIXTURE = `@Demo
 
-== Alpha
-  > first node
+Alpha
+: first node
 
-== Beta
-  > second node
-  -> Alpha  ::0010
-  -> Gamma  ::1110
+Beta
+: second node
+>Alpha 0010
+>Gamma 1110
 
-== Gamma
-  > third node
+Gamma
+: third node
 
-:: Route "Walk"
-  1. Alpha
-  2. Beta
-  3. Gamma
+/Walk
+1 Alpha
+2 Beta
+3 Gamma
 `;
 
 const THIS_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -120,7 +120,7 @@ test.describe("DSL split-pane editor", () => {
     await cmContent.click();
     await page.keyboard.press("Control+A");
     await page.keyboard.press("Delete");
-    await cmContent.pressSequentially(SOLID_FIXTURE, { delay: 2 });
+    await page.keyboard.insertText(SOLID_FIXTURE);
     await page.locator("body").click();
     await page.waitForTimeout(800);
 
@@ -147,27 +147,30 @@ test.describe("DSL split-pane editor", () => {
     await page.keyboard.press("Control+E");
     await expect(page.getByTestId("palace-dsl-editor")).toBeVisible();
 
+    // Attribute lines pasted before any node title: the v2 grammar ignores indentation,
+    // so the malformed shape is "content/tags/edges with no owning node".
     const malformed = [
-      "# Palace: SOLID Citadel",
-      "== Gate of SOLID",
-      "> Central fortress connecting five engineering districts.",
-      "#solid architecture",
-      "-> Single Responsibility Forge  ::0001",
+      "@SOLID Citadel",
+      ": Central fortress connecting five engineering districts.",
+      "#solid #architecture",
+      ">Single Responsibility Forge 0001",
       "",
-      ":: Route \"SOLID Main Route\"",
-      "1. Gate of SOLID",
+      "Gate of SOLID",
+      "",
+      "/SOLID Main Route",
+      "1 Gate of SOLID",
     ].join("\n");
 
     const cmContent = page.locator(".cm-content").first();
     await cmContent.click();
     await page.keyboard.press("Control+A");
     await page.keyboard.press("Delete");
-    await cmContent.pressSequentially(malformed, { delay: 2 });
+    await page.keyboard.insertText(malformed);
     await page.locator("body").click();
     await page.waitForTimeout(600);
 
     await expect(page.getByTestId("palace-dsl-status")).toContainText(/errors/i);
-    await expect(page.getByTestId("palace-dsl-status")).toContainText(/must be indented/i);
+    await expect(page.getByTestId("palace-dsl-status")).toContainText(/content lines must appear under a node/i);
 
     await expect
       .poll(() => readSceneCounts(page), { timeout: 8000 })

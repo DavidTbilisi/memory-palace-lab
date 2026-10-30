@@ -85,10 +85,11 @@ Ranked by the same ROI logic as `01`–`08`:
     Why last of the new set: smallest change, real payoff at zoom, but it depends on nothing
     and can be picked up whenever.
 
-`07-contrast-and-confusion-nodes` is unbuilt and now has wiki material behind it —
-`confusion-triage`, `word-knowledge-links`, `tip-of-the-tongue`, and a seeded confusion map at
-`wiki/assets/confusion-map-fr-seed.json` in the wiki repo. Treat it as ranked alongside `12`
-rather than after `08`.
+`07-contrast-and-confusion-nodes` drew on wiki material — `confusion-triage`,
+`word-knowledge-links`, `tip-of-the-tongue`, and a seeded confusion map at
+`wiki/assets/confusion-map-fr-seed.json` in the wiki repo — and was ranked alongside `12`
+rather than after `08`. Delivered 2026-09: confusion links, capture after Again, pulled-forward
+Distinguishers, and hotspots on the Strength tab.
 
 ## Workflow Items
 
@@ -97,6 +98,22 @@ rather than after `08`.
 
 17. [Route Builder](./17-route-builder.feature)
     Why: the route is the walk order every review depends on, yet building one took two
-    clicks per stop and routes were invisible on the canvas. Part 1 (builder) ships first;
-    part 2 adds walk direction, review settings, notes, sections, and DSL/MCP support.
+    clicks per stop and routes were invisible on the canvas. Part 1 (builder) shipped first;
+    part 2 added walk direction, review settings, notes, sections, and DSL/MCP support.
+    Delivered 2026-09.
 
+18. [Device Sync Vault](./18-device-sync-vault.feature)
+    Why here: it changes no palace concept and adds no psychology — it removes the reason a
+    palace stops being reviewed, which is that its schedule lives on a machine you are not
+    sitting at. Ranked after the route work because a route and its stops are what sync
+    carries, and the shape of both had to settle first. Optional and off by default: no
+    server and no account, just a folder the learner already syncs and a passphrase only
+    they hold.
+
+## Follow-ups
+
+19. [Adaptive Review Interventions](./19-adaptive-review-interventions.feature)
+    Why next: analytics should not stop at observation. The highest payoff now is converting
+    weak signals into direct actions like re-encode, split a route, add confusion contrast, or
+    shorten a cognitively expensive sequence. Written in April beside `04` and left on its
+    branch; it builds on the Strength tab's weak stops, route friction, and palace hotspots.

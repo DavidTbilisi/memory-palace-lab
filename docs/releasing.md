@@ -5,7 +5,10 @@
 1. Bump the version in **all** of: `package.json` (+lock via `npm version X.Y.Z --no-git-tag-version`), `src-tauri/Cargo.toml` (+`Cargo.lock`), `src-tauri/tauri.conf.json`, `mcp-server/src/index.ts`.
 2. Add a `CHANGELOG.md` entry.
 3. Commit `chore(release): vX.Y.Z`, tag `vX.Y.Z`, push the branch and the tag.
-4. The tag triggers `.github/workflows/release.yml` (tauri-action): builds Windows/macOS/Linux installers, signs the updater artifacts, generates `latest.json`, and creates a **draft** release.
+4. The tag triggers `.github/workflows/release.yml`:
+   - `create-release` makes one **draft** release and passes its id to the build jobs. (A draft cannot be found by its tag, so build jobs that each looked for the release used to create a draft apiece and split the assets between them.)
+   - `build` (tauri-action) builds the Windows/macOS/Linux installers, signs the updater artifacts, and uploads them and `latest.json` into that draft.
+   - `verify-release` fails the run if an installer is missing or `latest.json` lacks a platform. **Do not publish a release whose run is red**; re-running the failed jobs uploads into the same draft.
 5. Publish: `gh release edit vX.Y.Z --draft=false --latest`.
 
 ## Linux AppImage

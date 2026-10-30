@@ -5,7 +5,7 @@ import { extractMotifInstances } from "../../domain/services/cast/motifInstances
 import { palaceSignature, type PalaceSignature } from "../../domain/services/cast/palaceSimilarity";
 
 type GraphNode = { id: string; title?: string };
-type GraphEdge = { sourceNodeId: string; targetNodeId: string };
+type GraphEdge = { sourceNodeId: string; targetNodeId: string; kind?: string | null };
 type PalaceRef = { id: string; name: string } | null;
 
 /**
@@ -18,7 +18,7 @@ export function useGraphAnalysis(nodes: GraphNode[], edges: GraphEdge[], current
   const graphInput = useMemo(
     () => ({
       nodes: nodes.map((n) => ({ id: n.id })),
-      edges: edges.map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId })),
+      edges: edges.map((e) => ({ sourceNodeId: e.sourceNodeId, targetNodeId: e.targetNodeId, kind: e.kind })),
     }),
     [nodes, edges],
   );

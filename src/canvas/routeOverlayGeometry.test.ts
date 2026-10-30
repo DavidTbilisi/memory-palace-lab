@@ -107,4 +107,23 @@ describe("buildRouteOverlay", () => {
     expect(badges).toHaveLength(1);
     expect(badges[0]).toMatchObject({ nodeId: "n3", number: 1, current: true, active: true });
   });
+
+  it("points the arrows back along a reverse walk and keeps the stop numbers", () => {
+    const forward = buildRouteOverlay({ routes, loci, boxes, activeRouteId: "r2", walk: { routeId: "r2", index: 1 } });
+    const reverse = buildRouteOverlay({
+      routes,
+      loci,
+      boxes,
+      activeRouteId: "r2",
+      walk: { routeId: "r2", index: 1, reverse: true },
+    });
+
+    const [ahead] = forward.paths[0]!.segments;
+    const [back] = reverse.paths[0]!.segments;
+    expect(back).toEqual({ x1: ahead!.x2, y1: ahead!.y2, x2: ahead!.x1, y2: ahead!.y1 });
+    expect(reverse.badges.map((badge) => [badge.nodeId, badge.number, badge.current])).toEqual([
+      ["n2", 1, false],
+      ["n1", 2, true],
+    ]);
+  });
 });

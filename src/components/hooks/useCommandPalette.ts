@@ -97,8 +97,11 @@ export function useCommandPalette({ currentPalace, nodes, routes, loci, palaces,
             palaceName: snapshot.palace.name,
             nodeId: entry.node.id,
             title,
-            subtitle: `${snapshot.palace.name} | ${entry.routeSummary}`,
-            keywords: `${entry.node.alias ?? ""} ${toPlainText(entry.node.content ?? "")}`,
+            subtitle: entry.node.address
+              ? `${snapshot.palace.name} | address ${entry.node.address}`
+              : `${snapshot.palace.name} | ${entry.routeSummary}`,
+            // A store's cells are found by address as well as by what they hold.
+            keywords: `${entry.node.address ?? ""} ${entry.node.alias ?? ""} ${toPlainText(entry.node.content ?? "")}`,
             group: snapshot.palace.id === currentPalaceId ? "Current Palace Nodes" : "Other Palaces",
           });
         }

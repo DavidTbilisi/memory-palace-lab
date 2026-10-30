@@ -14,7 +14,7 @@ wiki_source: wiki/encoders/cast-example-city-streets.md
 
 **Sources**: Synthesized worked example built to the spec in [maturity-levels-overview](./maturity-levels-overview.md) ("Level 4 Example: City Streets — 5 intersections, 8 streets, one-way and two-way, real-world palace"); encoding conventions per [georgian-animals](./georgian-animals.md) and [nodes-and-edges](./nodes-and-edges.md).
 
-**Last updated**: 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
+**Last updated**: 2026-09-07 (pointer to [neighborhood-palace](./neighborhood-palace.md) §Clock dials); 2026-09-04 (2026-04-30 ingest-ghost pass: dead `links` from that ingest's navigation skeleton repointed to the pages that actually own the content, or named as gaps); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-12.
 
 ---
 
@@ -149,7 +149,7 @@ Tan = the geometric hub (in-degree 2). Green = the actual in-degree winner and m
 - [Step 0 Analysis](./step-zero-analysis.md) — in-degree calculation, generalized
 - *Example: Web Service (Level 3)* — the simpler sibling (no two-way edges) promised by the 2026-04-30 ingest and never written; the 4-service kitchen graph in [cast-overview](./cast-overview.md) is the nearest live stand-in
 - [Example: University Math Program (Level 8)](./cast-example-math-program.md) — next sibling up, adds hierarchy and Tier 2
-- [neighborhood-palace](./neighborhood-palace.md) — the production-scale version of this exact idea (real streets, cabbie-grade fluency)
+- [neighborhood-palace](./neighborhood-palace.md) — the production-scale version of this exact idea (real streets, cabbie-grade fluency); its §Clock dials reads each corner's bundle as hours, 12 at north
 
 ---
 

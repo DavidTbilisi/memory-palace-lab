@@ -30,7 +30,16 @@ jobs:
       - name: Unit tests
         run: npm test -- --run
 
-  ui-smoke:
+      - name: MCP server type check
+        run: npm run typecheck:mcp
+
+      - name: MCP server tests
+        run: npm run test:mcp
+
+      - name: Wiki index is up to date
+        run: npm run wiki:index:check
+
+  ui-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -47,8 +56,16 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Shell smoke tests
-        run: npx playwright test tests/ui/app-smoke.spec.ts
+      - name: UI test suite
+        run: npx playwright test tests/ui/
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 14
 
   rust-check:
     runs-on: ubuntu-latest
@@ -81,4 +98,8 @@ jobs:
 
       - name: Clippy
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Cargo tests
+        working-directory: src-tauri
+        run: cargo test

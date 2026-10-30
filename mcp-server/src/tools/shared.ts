@@ -7,6 +7,9 @@ import type {
   PalaceSnapshot,
 } from "../../../src/domain/entities/types";
 import type { SnapshotEditor } from "../snapshotEditor";
+import { isMemoryNodeShape } from "../../../src/canvas/memoryNodeShape";
+import { attributeWarnings } from "../../../src/domain/services/attributes";
+import { isNedfEncoded, unencodedNedfSlots } from "../../../src/domain/services/nedf";
 
 export type ServerContext = {
   db: DatabaseSync;
@@ -48,7 +51,7 @@ export function resolveRouteRef(routes: MemoryRoute[], ref: string): MemoryRoute
 export function shapeIdForNode(editor: SnapshotEditor, nodeId: string): string {
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (shape?.type === "geo" && shape.meta?.mpNodeId === nodeId) return shapeId;
+    if (isMemoryNodeShape(shape) && shape.meta?.mpNodeId === nodeId) return shapeId;
   }
   throw new Error(`No canvas shape found for node "${nodeId}".`);
 }
@@ -70,7 +73,7 @@ export function nextNodePosition(editor: SnapshotEditor): { x: number; y: number
   let topY = Infinity;
   for (const shapeId of editor.getCurrentPageShapeIds()) {
     const shape = editor.getShape(shapeId);
-    if (shape?.type !== "geo") continue;
+    if (!isMemoryNodeShape(shape)) continue;
     const b = editor.getShapePageBounds(shapeId);
     if (!b) continue;
     maxRight = Math.max(maxRight, b.x + b.w);
@@ -109,6 +112,12 @@ export function nodeView(node: MemoryNode, canvasObjects: CanvasObject[]) {
     portal: node.portal ?? undefined,
     imageUrl: node.imageUrl ?? undefined,
     tags: node.tags && node.tags.length > 0 ? node.tags : undefined,
+    nedf: node.nedf ?? undefined,
+    // Slots a partly encoded node still lacks, so a client can prompt for them.
+    unencodedSlots: isNedfEncoded(node.nedf) ? unencodedNedfSlots(node.nedf) : undefined,
+    glyph: node.glyph ?? undefined,
+    attributes: node.attributes ?? undefined,
+    attributeWarnings: node.attributes ? attributeWarnings(node.attributes).map((w) => w.message) : undefined,
     position: obj ? { x: obj.x, y: obj.y, width: obj.width, height: obj.height } : undefined,
   };
 }

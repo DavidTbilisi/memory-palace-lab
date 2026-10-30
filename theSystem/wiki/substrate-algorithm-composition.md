@@ -12,7 +12,7 @@ wiki_source: wiki/logic/substrate-algorithm-composition.md
 
 **Sources**:
 - Conversation synthesis with the user (2026-05-11) during Vedic-math skill-ceiling analysis
-- Composes downstream of Soroban Learning Method, [vedic-speed-math](./vedic-speed-math.md), [nedf-overview](./nedf-overview.md), code-memorization, [automaticity-and-reflex-training](./automaticity-and-reflex-training.md)
+- Composes downstream of [soroban-learning-method](./soroban-learning-method.md), [vedic-speed-math](./vedic-speed-math.md), [nedf-overview](./nedf-overview.md), code-memorization, [automaticity-and-reflex-training](./automaticity-and-reflex-training.md)
 
 **Last updated**: 2026-05-11
 
@@ -55,7 +55,7 @@ If any of these three fails, the composition collapses back to working-memory-bo
 
 | Algorithm | Substrate | Capability unlocked | Owner page |
 |---|---|---|---|
-| Place-value arithmetic (add, sub, mul, div) with friend-of-5/10 complements | Soroban beads — real or imagined-on-rods | Streaming mental arithmetic on long columns; full-precision place-value | Soroban Learning Method |
+| Place-value arithmetic (add, sub, mul, div) with friend-of-5/10 complements | Soroban beads — real or imagined-on-rods | Streaming mental arithmetic on long columns; full-precision place-value | [soroban-learning-method](./soroban-learning-method.md) |
 | Algebraic-identity arithmetic (Base Method, Criss-Cross, Flag) | Number-shape / number-rhyme / Major-system peg images | Multi-digit mental multiplication and division without losing intermediate digits | [vedic-speed-math](./vedic-speed-math.md), [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) |
 | Visual grammar (room=function, door=call, fork=if, loop=circle, palette of 29 sensations) | Memory palace of program-shaped rooms and props | Code recall by structure rather than syntax; cross-language stability | code-memorization |
 | NEDF encoding rule (Name-hook · Essence · Distinguisher · Failure) | 4-slot scene template per concept | Retrievable cards from any of 4 angles | [nedf-overview](./nedf-overview.md) |
@@ -134,7 +134,7 @@ The Neural OS architectural rule that falls out: **prefer composition over inven
 ## Related pages
 
 - [composability-index](./composability-index.md) — registry of every known and candidate substrate-algorithm composition in the wiki; scannable for "what can I unlock by combining X with Y?"
-- Soroban Learning Method — primary instance: bead substrate × place-value algorithm
+- [soroban-learning-method](./soroban-learning-method.md) — primary instance: bead substrate × place-value algorithm
 - [vedic-speed-math](./vedic-speed-math.md) — instance: peg substrate × algebraic-identity algorithm
 - [vedic-speed-math-skill-ceiling](./vedic-speed-math-skill-ceiling.md) — quantifies the unlock magnitude (working-memory duration roughly 2× longer, multi-digit calculations sustainable)
 - code-memorization — instance: palace substrate × visual-grammar algorithm

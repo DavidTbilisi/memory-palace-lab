@@ -90,6 +90,7 @@ export const MCP_TOOLS_WITHOUT_CLI_VERB = [
   "node_create",
   "node_update",
   "node_delete",
+  "node_count_shape",
   "edge_create",
   "edge_update",
   "edge_delete",
@@ -304,7 +305,7 @@ export const VERBS: Verb[] = [
   {
     name: "edges",
     group: "palace",
-    summary: "List CAST edges.",
+    summary: "List edges: CAST edges and confusion links.",
     usage: `edges ${palaceArg}`,
     arity: [1, 1],
     mcpTools: ["edge_list"],

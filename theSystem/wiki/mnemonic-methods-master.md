@@ -22,7 +22,7 @@ wiki_source: wiki/learning-systems/mnemonic-methods-master.md
 - [mnemonics](./mnemonics.md)
 - [symbolic-encoding-systems](./symbolic-encoding-systems.md)
 - [motoric-encoding-systems](./motoric-encoding-systems.md)
-- Soroban Learning Method
+- [soroban-learning-method](./soroban-learning-method.md)
 - [georgian-animals](./georgian-animals.md)
 - Design conversation, 2026-05-07
 
@@ -249,7 +249,7 @@ Hero — the four-floor craftsman's tower metaphor: top floor (most prominent) h
 - [peg-system](./peg-system.md) — the trunk method the five peg sets in this wiki instantiate; order in the index rather than in a route
 - [dozenal-edge-peg](./dozenal-edge-peg.md) — the cube's 12 edges as self-addressing base-12 pegs
 - [georgian-animals](./georgian-animals.md)
-- Soroban Learning Method
+- [soroban-learning-method](./soroban-learning-method.md)
 - [vedic-speed-math](./vedic-speed-math.md) — algebraic-identity arithmetic; mental-math sister of Soroban
 - [trachtenberg-system](./trachtenberg-system.md) — digit-walking arithmetic; mental-math sister of Soroban and Vedic; works with no substrate beyond working memory itself
 - [major-system-for-mathematical-notation](./major-system-for-mathematical-notation.md) — extension layer for the Tier 2 Major System; handles operators (decimal point, exponent, sign, repetition marker) for STEM users

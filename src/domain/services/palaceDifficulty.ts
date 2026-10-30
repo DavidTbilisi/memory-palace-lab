@@ -11,6 +11,7 @@
  * repetition state: a node whose locus has been reviewed enough counts as known.
  */
 import type { Locus, MemoryEdge, MemoryNode } from "../entities/types";
+import { meaningEdges } from "./confusion";
 import {
   DEFAULT_CAPACITY,
   DEFAULT_WALL,
@@ -21,6 +22,7 @@ import {
   type DifficultyResult,
   type DifficultyRow,
 } from "./difficulty";
+import type { NodeEncodeSpeed } from "./encodeSpeed";
 
 export interface NodeDifficulty {
   nodeId: string;
@@ -30,6 +32,8 @@ export interface NodeDifficulty {
   absorbed: boolean;
   overridden: boolean; // had at least one manual override field
   autoDerived: boolean; // no override at all
+  /** Timed first encode and its speed band: an input shown with the auto-derived fields, not scored. */
+  encode: NodeEncodeSpeed | null;
 }
 
 export interface PalaceDifficulty {
@@ -53,6 +57,8 @@ export interface PalaceDifficultyOptions {
   wall?: number;
   /** Min successful repetitions for a locus to count its node as "absorbed". */
   absorbedRepetitions?: number;
+  /** Encode time per node id, from node_encoded events. */
+  encodeSpeeds?: ReadonlyMap<string, NodeEncodeSpeed>;
 }
 
 const wordCount = (s: string): number =>
@@ -137,7 +143,8 @@ export function computePalaceDifficulty(
   // prerequisites: predecessors in the directed edge graph (edge A→B ⇒ B needs A)
   const needsByNode = new Map<string, string[]>(nodes.map((n) => [n.id, []]));
   const inDegree = new Map<string, number>(nodes.map((n) => [n.id, 0]));
-  for (const e of edges) {
+  for (const e of meaningEdges(edges)) {
+    // A confusion link is not a prerequisite: telling A from B does not mean B needs A.
     if (!nodeIds.has(e.sourceNodeId) || !nodeIds.has(e.targetNodeId)) continue;
     if (e.sourceNodeId === e.targetNodeId) continue;
     const list = needsByNode.get(e.targetNodeId)!;
@@ -193,6 +200,7 @@ export function computePalaceDifficulty(
       absorbed: known.has(result.topic),
       overridden: overriddenSet.has(rawId),
       autoDerived: !overriddenSet.has(rawId),
+      encode: options.encodeSpeeds?.get(rawId) ?? null,
     };
   });
   const byNodeId = new Map(nodeDifficulties.map((d) => [d.nodeId, d]));

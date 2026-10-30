@@ -13,7 +13,7 @@ wiki_source: wiki/learning-systems/vedic-speed-math-skill-ceiling.md
 **Sources**:
 - Conversation synthesis with the user (2026-05-11)
 - Calibrated against public mental-calculation community benchmarks (Mental Calculation World Cup amateur-tier times; standard Vedic curricula timing claims) and the user's existing arithmetic stack
-- Composes downstream of [vedic-speed-math](./vedic-speed-math.md), Soroban Learning Method, [automaticity-and-reflex-training](./automaticity-and-reflex-training.md)
+- Composes downstream of [vedic-speed-math](./vedic-speed-math.md), [soroban-learning-method](./soroban-learning-method.md), [automaticity-and-reflex-training](./automaticity-and-reflex-training.md)
 
 **Last updated**: 2026-05-11
 
@@ -77,7 +77,7 @@ Caveats: numbers are realistic for serious amateurs after dedicated drill, *not*
 - **Mnemonics alone** is bottlenecked by *algorithm*: you can recall facts and digit-sequences, but cannot synthesize them into new answers fast.
 - **Together** is qualitatively different: arithmetic becomes a small *visual procedure* — each intermediate digit gets encoded as a fixed peg or scene element, so an 8-digit calculation that would normally crash your working memory becomes a 4-step walk through stable mental anchors.
 
-This is structurally the same trick as Soroban Learning Method: soroban uses physical (or imagined) bead positions as the state substrate; Vedic+pegs uses encoded number-images. Both replace fragile phonological-loop digit-rehearsal with durable spatial / sensory anchors. Different substrate, same effect on capacity.
+This is structurally the same trick as [soroban-learning-method](./soroban-learning-method.md): soroban uses physical (or imagined) bead positions as the state substrate; Vedic+pegs uses encoded number-images. Both replace fragile phonological-loop digit-rehearsal with durable spatial / sensory anchors. Different substrate, same effect on capacity.
 
 ---
 
@@ -112,7 +112,7 @@ Within Neural OS terms, milestones 1–3 align with the standard automaticity pr
 
 Invest if:
 - Your work / interviews / tests have a measurable arithmetic-speed component (finance, consulting, quant interviews, standardized tests, competitive math).
-- You already have a working mnemonic stack (Soroban Learning Method, peg system, or memory palace fluency) and Vedic plugs in cheaply on top — the marginal cost is low and the visible result is high.
+- You already have a working mnemonic stack ([soroban-learning-method](./soroban-learning-method.md), peg system, or memory palace fluency) and Vedic plugs in cheaply on top — the marginal cost is low and the visible result is high.
 - You value the *demonstration value* in social or professional settings (the speed is visible to others in a way that most cognitive skills are not).
 - You enjoy procedural-fluency drilling as its own reward; ~100 hours is a real commitment.
 
@@ -138,7 +138,7 @@ The Neural OS-relevant point is *not* that Kaktovik is better than base-10. It i
 - [substrate-algorithm-composition](./substrate-algorithm-composition.md) — the architectural primitive named here (algorithm × state-substrate = capability) generalises beyond Vedic
 - [composability-index](./composability-index.md) — registry of every confirmed and candidate unlock in the wiki; Vedic+pegs is one row
 - [vedic-speed-math](./vedic-speed-math.md) — course-shaped notes for the Udemy Vedic speed-math course; the *how*
-- Soroban Learning Method — sister mental-arithmetic system (place-value bead substrate)
+- [soroban-learning-method](./soroban-learning-method.md) — sister mental-arithmetic system (place-value bead substrate)
 - [soroban-drill-ladder](./soroban-drill-ladder.md) — worked drill-generator for soroban
 - [math-learning-with-neural-os](./math-learning-with-neural-os.md) — meta-guide for using Neural OS to study mathematics
 - [automaticity-and-reflex-training](./automaticity-and-reflex-training.md) — the engine behind any reflexive skill

@@ -99,4 +99,14 @@ describe("METER mapping", () => {
     }
     expect(hasMeterMapping("walk_recall_rated")).toBe(true);
   });
+
+  it("maps a finished Storm to an encoding event counting the nodes it encoded", async () => {
+    const storm = appEvent({ eventType: "storm_completed", nodeId: null, payload: { count: 42, target: 100, phase: "storm" } });
+    expect(await mapAppEvent(storm, null)).toEqual([
+      expect.objectContaining({
+        layer: "encoding", operation: "encode", metric_type: "palace.storm_completed", metric_value: 42, artifact_id: "route-1", mode: null,
+      }),
+    ]);
+    expect(hasMeterMapping("storm_started")).toBe(false);
+  });
 });

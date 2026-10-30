@@ -3,6 +3,11 @@
 # Tech leverage: High, because the scheduling machinery already exists; only the key changes.
 # Wiki source: theSystem/wiki/encoded-spaced-repetition.md, theSystem/wiki/nedf-overview.md
 # Note: NEDF appears in ten theSystem docs and zero lines of src/. This closes that gap.
+# Status: delivered 2026-09. Slots live on the node (shape meta mpNedf, node_meta_json); each stop
+#   keeps one SM-2 schedule per filled slot in loci.settings_json, and a slot never rated starts
+#   from the stop's own schedule. Distinguisher and Failure are question/reason and
+#   scenario/correction pairs. Siblings are independent (no lapse cascade), and a walk asks one
+#   slot per stop, the most overdue. DSL: @N @E @D @F lines. MCP: nedf on node_create/update/get.
 
 Feature: NEDF slots on the node, four schedules per concept
   In order to drill a concept from four directions instead of one

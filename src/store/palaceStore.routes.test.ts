@@ -276,6 +276,29 @@ describe("route settings", () => {
     ]);
   });
 
+  it("sets walk direction, review, and notes", () => {
+    store().setRouteDirection("route-a", "alternate");
+    store().setRouteInReview("route-a", false);
+    store().setRouteNotes("route-a", "Enter by the east gate.");
+    expect(store().routes[0]).toMatchObject({
+      direction: "alternate",
+      inReview: false,
+      notes: "Enter by the east gate.",
+    });
+
+    store().setRouteInReview("route-a", true);
+    store().setRouteNotes("route-a", "   ");
+    expect(store().routes[0]!.inReview).toBeUndefined();
+    expect(store().routes[0]!.notes).toBeUndefined();
+  });
+
+  it("starts and ends a section at a stop", () => {
+    store().setStopSection("l2", "  Upstairs ");
+    expect(store().loci.find((locus) => locus.id === "l2")!.section).toBe("Upstairs");
+    store().setStopSection("l2", "");
+    expect(store().loci.find((locus) => locus.id === "l2")!.section).toBeNull();
+  });
+
   it("keeps route names unique on rename", () => {
     store().updateRouteName("route-b", "Route A");
     expect(store().routes[1]!.name).toBe("Route A (2)");

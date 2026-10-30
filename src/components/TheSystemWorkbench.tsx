@@ -20,6 +20,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 
 type Props = {
   /** Open the pipeline's guide in the Library. */
@@ -66,7 +67,7 @@ export function TheSystemWorkbench({ onOpenGuide }: Props = {}) {
     if (!editorRef || !selectedShapeId) return null;
     const shape = editorRef.getShape(selectedShapeId as TLShapeId);
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
-    if (shape?.type !== "geo" || !meta.mpNodeId) return null;
+    if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return null;
     return {
       shapeId: selectedShapeId,
       nodeId: meta.mpNodeId,

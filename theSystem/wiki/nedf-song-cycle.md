@@ -19,7 +19,7 @@ wiki_source: wiki/encoders/nedf-song-cycle.md
 - Render stack: [MASTER](./music-generation-frameworks.md) render slots and the Music Pipeline; taste gate music-profile; vocal slots vocal-range-profile
 - Delivery-format precedent: [famous-clocks-mnemonic-song](./famous-clocks-mnemonic-song.md), `wiki/learning-systems/English/Irregular Verbs/SONG STYLE.md`
 
-**Last updated**: 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-23
+**Last updated**: 2026-09-08 — swept forward onto the 2026-09-07 catalogue lock: the **A** slot's male baritone *per vocal-range-profile* replaced by a deep female alto in a low contralto register (the citation was the category error the lock names), the spoken opening layer removed, all three timbre families' voice descriptors corrected, and every `[Spoken]`/`[Whispered]` lyric tag converted to a sung direction. Instrumentation is flagged **pre-lock** and rewritten at render; 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-07-23
 
 ---
 
@@ -67,10 +67,18 @@ This is the sharper reading of [nedf-overview](./nedf-overview.md)'s own claim. 
 
 ## Render spec (MASTER) — one profile, all six tracks
 
+> **Pre-lock render spec.** The instrumentation and pulse below were chosen before the
+> catalogue sound was locked on 2026-09-07 (`CLAUDE.md` §Song workflow; the owner is
+> music-profile, and `/suno` §Standing constraints carries the operative list). The five
+> standing constraints — deep female alto in a low contralto register · named traditional folk
+> instruments · **beatless** · mystical-but-severe · **sung, never spoken** — bind at render
+> time and override any timbre family named here. The voice and the sung/spoken directions on this
+> page have already been corrected; the three timbre families are kept as the pre-lock draft.
+
 | Slot | Value |
 |---|---|
 | **M** Meter | beatless — no pulse; pacing carried by the vocal phrase and the pad swell, not by a grid |
-| **A** Arrangement | single lead voice, deep baritone low register per vocal-range-profile; a spoken layer opens every track; backing vocals only as a doubled whisper |
+| **A** Arrangement | single lead voice, **deep female alto in a low contralto register** (catalogue constraint — *not* vocal-range-profile, which measures what David can sing, a different question owned by music-profile); every track is **sung throughout**, no spoken layer; backing vocals only as a doubled whisper at the edge of audibility |
 | **S** Space/mix | voice close and very clear against a wide reverb field; the lock-click dead centre, the key-jingle distant |
 | **T** Timbre | warm analog pads, low drones, reverb washes, tape hiss; keys and lock-click as **texture, not rhythm**; no bass instrument carrying a pulse |
 | **E** Energy-arc | Mode B sustained plateau throughout; **track 5**'s escalation is by density and register, not by drums entering |
@@ -80,15 +88,15 @@ Two beatless timbre families are in play; both satisfy the **R** slot, and the a
 
 **A · dark-ambient** — pads and drones carry it; the corridor as a cold empty space:
 
-`ethereal dark ambient soundscape, completely beatless, deep baritone male vocal low register warm chest voice up front and very clear, warm analog synth pads, low drones and reverb washes, distant key-jingle and a single lock-click as texture not rhythm, tape hiss, minor key, slow floating and funereal, spacious and cinematic, no drums, no percussion, no beat, no rhythm section, no 808, fully sung`
+`ethereal dark ambient soundscape, completely beatless, deep female alto vocal in a low contralto register, warm and close up front and very clear, warm analog synth pads, low drones and reverb washes, distant key-jingle and a single lock-click as texture not rhythm, tape hiss, minor key, slow floating and funereal, spacious and cinematic, no drums, no percussion, no beat, no rhythm section, no 808, fully sung`
 
 **B · chamber-ballad** — fingerpicked nylon-string and fretless bass carry it; the corridor as a place with a person in it:
 
-`intimate literate art-pop ballad, fingerpicked nylon-string classical guitar, warm fretless bass, modal minor harmony with suspended chords, jazz-inflected phrasing, expressive warm male vocal close and very clear with a breathy edge, subtle world-music lilt, soft ambient pads, tape warmth, melancholic restrained and spacious, no drums, no percussion, no beat, no rhythm section, fully sung`
+`intimate literate art-pop ballad, fingerpicked nylon-string classical guitar, warm fretless bass, modal minor harmony with suspended chords, jazz-inflected phrasing, expressive warm female alto close and very clear with a breathy edge, subtle world-music lilt, soft ambient pads, tape warmth, melancholic restrained and spacious, no drums, no percussion, no beat, no rhythm section, fully sung`
 
 **C · solo piano ballad** — piano and voice alone, no pulse at all; the corridor as a confession:
 
-`solo grand piano and voice only, slow free rubato tempo with no fixed pulse, classically trained piano with baroque counterpoint and sparse sustained left-hand chords, deep resonant low male voice very close and exposed, unperforming and devastating, traditional folk ballad melody, minor modal, late-1950s jazz vocal session feel, warm analog tape, natural room ambience, utterly sparse and intimate, no drums, no percussion, no beat, no rhythm section, no strings, no synth, fully sung`
+`solo grand piano and voice only, slow free rubato tempo with no fixed pulse, classically trained piano with baroque counterpoint and sparse sustained left-hand chords, deep resonant female alto in a low contralto register, very close and exposed, unperforming and devastating, traditional folk ballad melody, minor modal, late-1950s jazz vocal session feel, warm analog tape, natural room ambience, utterly sparse and intimate, no drums, no percussion, no beat, no rhythm section, no strings, no synth, fully sung`
 
 Family C is the music-profile seed list's solo-piano-and-voice register — a classically trained pianist playing baroque counterpoint under a traditional folk melody, with a low exposed voice that states rather than performs. It is the **strictest** reading of beatless: rubato, so there is no grid to violate. Queued 2026-07-23, **not yet rendered** (the browser session wedged before Create). Its vocal is the closest of the three to vocal-range-profile's measured span, so it is the most singable family as well as the sparsest.
 
@@ -104,7 +112,7 @@ Payload: the four handles · the pinch · the four-flashcard-fields anti-pattern
 
 ```
 [Intro]
-[Spoken, low and dry] [keys jingle, distant; tape hiss]
+[Sung, low and dry] [keys jingle, distant; tape hiss]
 Four fingers on one concept.
 If they don't meet in the palm — you don't have it yet.
 
@@ -139,7 +147,7 @@ consequence is what the memory keeps.
 [Outro]
 [Pad returns, low]
 Four fingers. One palm. Close them.
-[Whispered] If they don't converge — go back. It isn't encoded yet.
+[Sung, hushed and close] If they don't converge — go back. It isn't encoded yet.
 ```
 
 ## Track 2 — *Mute-X* (**N** — Name-hook)
@@ -148,7 +156,7 @@ Payload: perceptual access fires before reasoning · abstract hooks kill it · t
 
 ```
 [Intro]
-[Spoken] [a single key drops on tile, long reverb tail]
+[Sung, low and sustained] [a single key drops on tile, long reverb tail]
 Mute-X. Tape across the mouth. One key in the hand.
 
 [Verse 1]
@@ -173,7 +181,7 @@ Rhyme it, pun it, spell it wrong if the wrong spelling sticks;
 if it can't fire in half a second, it's a label, not a hook.
 
 [Bridge]
-[Whispered, dry, bass out]
+[Sung, hushed, dry, bass out]
 And if I can't see him — if the picture never comes —
 give me the tap, the gesture, the shape under the thumb.
 The hook doesn't have to be a picture.
@@ -182,7 +190,7 @@ It has to be fast.
 [Outro]
 [Pad only]
 Mute-X at the door with his mouth taped shut.
-[Whispered] I never learned the word. I learned the man.
+[Sung, hushed and close] I never learned the word. I learned the man.
 ```
 
 ## Track 3 — *One Key* (**E** — Essence)
@@ -229,7 +237,7 @@ and he kept walking, and he never heard it land.
 The hallway did not move again.
 Not once. Not ever.
 
-[Whispered]
+[Sung, hushed and close]
 Give the key back.
 Give the key back.
 ```
@@ -240,7 +248,7 @@ Payload: nearest neighbour, not a distant one · one cut, not a comparison essay
 
 ```
 [Intro]
-[Spoken] [several keys jingling, wide]
+[Sung, low and sustained] [several keys jingling, wide]
 Listen. That's more than one key.
 
 [Verse 1]
@@ -272,7 +280,7 @@ not the colour of his door, not how long he's worked here.
 One key. Not the counter. That's the whole edge.
 
 [Outro]
-[Whispered, keys jingling then stopping]
+[Sung, hushed, keys jingling then stopping]
 Which door was mine again?
 The one with one key. Not the counter. Not the semaphore.
 ```
@@ -283,7 +291,7 @@ Payload: the generic-failure anti-pattern · deadlock as a place, not a word · 
 
 ```
 [Intro]
-[Spoken, very close, room tone only — no bass yet]
+[Sung, very close, room tone only — no bass yet]
 He came out. He was almost gone. And then he dropped it.
 
 [Verse 1]
@@ -311,12 +319,12 @@ that behind him nothing will ever run again.
 [Peak — then a hard cut to whisper, everything drops]
 Always give the key back.
 Always. Give. The key. Back.
-[Whispered] ...he didn't.
+[Sung, hushed and close] ...he didn't.
 
 [Outro]
 [Pad only, no bass, long decay]
 Highest-leverage slot on the card.
-[Whispered] And most of you leave it blank.
+[Sung, hushed and close] And most of you leave it blank.
 ```
 
 ## Track 6 — *Wrong Tool* (routing — the closer)
@@ -325,7 +333,7 @@ Payload: the quadrant rule from [nedf-overview](./nedf-overview.md) §Where NEDF
 
 ```
 [Intro]
-[Spoken] [pad, no drums]
+[Sung, low and sustained] [pad, no drums]
 Two questions before you pick the tool up.
 Does it change? Is it alone?
 
@@ -358,7 +366,7 @@ And I stop at the boundary of one concept — on purpose.
 Knowing where I end is the reason I work.
 
 [Outro]
-[Whispered, pad decaying, one last lock click]
+[Sung, hushed, pad decaying, one last lock click]
 Does it change? Is it alone?
 Answer both before you write a single slot.
 ```
@@ -429,6 +437,7 @@ The cycle claims the shared scene welds the slots. Test it cold, at least two we
 - music-profile — the taste gate every track must pass
 - vocal-range-profile — the vocal slots the arrangement is written into
 - [famous-clocks-mnemonic-song](./famous-clocks-mnemonic-song.md) — earlier carrier-song instance in the wiki
+- [remaps-song](./remaps-song.md) — sister carrier over the REMAPS checklist; inverts this cycle's beatless rule on purpose (its payload is motion, not a stopped hallway)
 - [bridge-load](./bridge-load.md) — what track 3's bridge sends you to when the Essence slot won't focus
 - [sub-formula-property](./sub-formula-property.md) — the formal-logic home of track 4's "everything I keep is load-bearing"
 - [CAST](./cast-overview.md) · [SPEAR](./spear-overview.md) — the twins named in track 6's bridge

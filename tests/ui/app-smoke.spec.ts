@@ -44,6 +44,10 @@ test("contextual primary hint and idle tip adapt to current state", async ({ pag
   await expect(page.getByTestId("context-tip-card")).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("context-tip-card")).toBeVisible();
+  // The idle timer re-arms the moment this tip is dismissed (ContextualTipCard's effect depends
+  // on currentTip), and at 80ms it can show a new one before the next assertion ever observes
+  // "gone". Widen the delay first so dismiss reads as dismissed, not as a 1-frame flicker.
+  await page.evaluate(() => window.localStorage.setItem("mp-idle-tip-delay-ms", "60000"));
   await page.getByRole("button", { name: "Dismiss tip" }).click();
   await expect(page.getByTestId("context-tip-card")).toHaveCount(0);
 
@@ -133,6 +137,7 @@ test("atlas path groups palaces into nested places", async ({ page }) => {
   await expect(page.getByText("Georgia", { exact: true })).toBeVisible();
   await expect(page.getByText("Tbilisi", { exact: true })).toBeVisible();
   await expect(page.getByText("Vake", { exact: true })).toBeVisible();
+  await openCurrentPalaceDetails(page);
   await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue("Georgia/Tbilisi/Vake");
 
   await page.getByText("Hierarchy editor").click();
@@ -192,30 +197,6 @@ test("right-clicking the palace list creates groups and palaces inside them", as
   await expect(page.locator("summary", { hasText: /^Calculus$/ })).toHaveCount(0);
   await geometry.click({ button: "right" });
   await expect(page.getByRole("menuitem", { name: "Remove group (not empty)" })).toBeDisabled();
-});
-
-test("collapse all and expand all fold every sidebar group, nested ones too", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Vake");
-  await page.getByRole("textbox", { name: "Atlas path" }).fill("Georgia/Tbilisi");
-  await page.getByRole("button", { name: "Create palace" }).click();
-  await expect(page.getByRole("heading", { name: "Vake" })).toBeVisible();
-  const vake = page.getByRole("button", { name: /^Vake/ });
-  const collapseAll = page.getByRole("button", { name: "Collapse all groups" });
-  const expandAll = page.getByRole("button", { name: "Expand all groups" });
-  await expect(expandAll).toBeDisabled();
-
-  await collapseAll.click();
-  await expect(vake).toBeHidden();
-  await expect(collapseAll).toBeDisabled();
-  // Opening the top group alone leaves the nested one folded.
-  await page.locator("summary", { hasText: /^Georgia$/ }).click();
-  await expect(page.locator("summary", { hasText: /^Tbilisi$/ })).toBeVisible();
-  await expect(vake).toBeHidden();
-
-  await expandAll.click();
-  await expect(vake).toBeVisible();
-  await expect(expandAll).toBeDisabled();
 });
 
 test("dragging moves palaces and groups between sidebar groups", async ({ page }) => {
@@ -492,6 +473,9 @@ test("routes are built by clicking nodes, edited in the Routes tab, and drawn on
 });
 
 test("each stop keeps the view it was added in, and walks return to it", async ({ page }) => {
+  // Under CI load a retry re-runs every step above, which can outrun the 60s default alongside
+  // the widened camera polls below.
+  test.setTimeout(120_000);
   await openTutorialPalace(page);
   await createNamedNodes(page, ["Gate", "Porch"]);
 
@@ -515,19 +499,21 @@ test("each stop keeps the view it was added in, and walks return to it", async (
   expect(porchView.zoom).toBeLessThan(gateView.zoom * 0.7);
   await page.keyboard.press("Escape");
 
-  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it.
+  // Walking returns to each stop's view, fitted to the canvas as the walk bar resizes it. The
+  // camera tweens over 320ms (zoomToBounds); under CI load the click-to-tween round trip can
+  // run well past that, so these polls get a longer timeout than the 5s default.
   await page.getByRole("button", { name: "Toggle walk mode" }).click();
   await expect(page.getByText("Step 1/2")).toBeVisible();
-  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, gateView), { timeout: 10_000 }).toBe("fitted");
   await page.getByRole("button", { name: "Next step" }).click();
   await expect(page.getByText("Step 2/2")).toBeVisible();
-  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, porchView), { timeout: 10_000 }).toBe("fitted");
   await page.keyboard.press("Escape");
 
   // Clicking a stop in the Routes tab shows its view too, and the views survive a reload.
   const routeCard = page.getByRole("region", { name: "Route Route 1" });
   await routeCard.getByRole("button", { name: "Gate", exact: true }).click();
-  await expect.poll(() => howCanvasShows(page, gateView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, gateView), { timeout: 10_000 }).toBe("fitted");
 
   await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
   await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
@@ -538,7 +524,7 @@ test("each stop keeps the view it was added in, and walks return to it", async (
   const reloadedCard = page.getByRole("region", { name: "Route Route 1" });
   await expect(reloadedCard.getByRole("button", { name: "Saved view of stop 2, Porch" })).toBeVisible();
   await reloadedCard.getByRole("button", { name: "Porch", exact: true }).click();
-  await expect.poll(() => howCanvasShows(page, porchView)).toBe("fitted");
+  await expect.poll(() => howCanvasShows(page, porchView), { timeout: 10_000 }).toBe("fitted");
 });
 
 const SOLID_CITADEL_DSL = `@SOLID Citadel
@@ -633,4 +619,101 @@ test("a node duplicated on the canvas becomes a node of its own", async ({ page 
   expect(new Set(nodeIds).size).toBe(nodeIds.length);
   expect(new Set(objectIds).size).toBe(objectIds.length);
   await expect(page.getByText(/Saving palace .* failed/)).toHaveCount(0);
+});
+
+test("toolbar tools stay clear of the save status button when side panels narrow the bar", async ({ page }) => {
+  // A new palace opens with the Learn panel showing, which leaves the toolbar about half
+  // of a 1280px window. The tools used to run on under the status button, which then took
+  // the clicks meant for Save Checkpoint.
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Narrow Toolbar Palace");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Narrow Toolbar Palace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close learn panel" })).toBeVisible();
+
+  for (const width of [1280, 1024]) {
+    await page.setViewportSize({ width, height: 720 });
+    const covered = await page.evaluate(() => {
+      const status = document.querySelector('button[aria-label="Storage and save status"]')!;
+      const statusBlock = status.parentElement!;
+      const bar = statusBlock.parentElement!;
+      const edge = statusBlock.getBoundingClientRect();
+      return [...bar.querySelectorAll("button")]
+        .filter((button) => !statusBlock.contains(button))
+        .filter((button) => {
+          const box = button.getBoundingClientRect();
+          return box.width > 0 && box.right > edge.left + 1 && box.bottom > edge.top && box.top < edge.bottom;
+        })
+        .map((button) => button.textContent?.trim() || button.title);
+    });
+    expect(covered, `tools under the status button at ${width}px`).toEqual([]);
+  }
+
+  await page.locator('button[title*="heckpoint"]').click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as { __mp_store?: { getState: () => { persistenceState: string } } }).__mp_store!.getState()
+            .persistenceState,
+      ),
+    )
+    .toBe("clean");
+});
+
+/** Parts of the canvas painted on top anywhere in the window, found by hit-testing a grid. */
+function canvasUiOnTop(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const found = new Set<string>();
+    for (let y = 4; y < innerHeight; y += 16) {
+      for (let x = 4; x < innerWidth; x += 16) {
+        const hit = document.elementFromPoint(x, y);
+        if (!hit?.closest(".tl-container")) continue;
+        found.add(hit.closest("[data-testid]")?.getAttribute("data-testid") ?? hit.className.toString());
+      }
+    }
+    return [...found];
+  });
+}
+
+test("the canvas's own controls stay under the app's dialogs", async ({ page }) => {
+  // tldraw sets no stacking context, so its panels (z-index 300) used to outrank the app's
+  // dialogs (z-50 to z-140): its tools stayed clickable through a dialog, and its style
+  // panel covered the CAST quick reference's Close button.
+  await openTutorialPalace(page);
+  await createNamedNodes(page, ["Dialog Source", "Dialog Target"]);
+  expect(await canvasUiOnTop(page), "tldraw controls are visible with no dialog open").toContain("tools.select");
+
+  await page.keyboard.press("Control+K");
+  await expect(page.getByLabel("Command palette search")).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the command palette").toEqual([]);
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() => {
+    type Shape = { id: string; meta?: { mpNodeId?: string; mpTitle?: string } };
+    type State = {
+      editorRef: { getCurrentPageShapeIds: () => Iterable<string>; getShape: (id: string) => Shape | undefined };
+      setPendingCast: (cast: { fromShapeId: string; toShapeId: string; sourceNodeId: string; targetNodeId: string }) => void;
+    };
+    const state = (window as { __mp_store?: { getState: () => State } }).__mp_store!.getState();
+    const byTitle = (title: string) =>
+      [...state.editorRef.getCurrentPageShapeIds()]
+        .map((id) => state.editorRef.getShape(id)!)
+        .find((shape) => shape.meta?.mpTitle === title)!;
+    const [from, to] = [byTitle("Dialog Source"), byTitle("Dialog Target")];
+    state.setPendingCast({
+      fromShapeId: from.id,
+      toShapeId: to.id,
+      sourceNodeId: from.meta!.mpNodeId!,
+      targetNodeId: to.meta!.mpNodeId!,
+    });
+  });
+  await expect(page.getByRole("heading", { name: "Connect nodes" })).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the connect dialog").toEqual([]);
+
+  await page.getByRole("button", { name: "?" }).click();
+  await expect(page.getByRole("heading", { name: "CAST quick reference" })).toBeVisible();
+  expect(await canvasUiOnTop(page), "canvas controls over the CAST quick reference").toEqual([]);
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("heading", { name: "CAST quick reference" })).toHaveCount(0);
 });

@@ -14,6 +14,7 @@
  * Pure: no React, no editor.
  */
 
+import { meaningEdges } from "../confusion";
 import { analyzeGraph, type GraphAnalysisInput } from "./graphAnalysis";
 
 export type Motif =
@@ -337,8 +338,10 @@ function detectBipartite(input: GraphAnalysisInput): Motif[] {
   return result;
 }
 
-export function detectMotifs(input: GraphAnalysisInput): Motif[] {
-  if (input.nodes.length === 0) return [];
+export function detectMotifs(graph: GraphAnalysisInput): Motif[] {
+  if (graph.nodes.length === 0) return [];
+  // Confusion links say two nodes look alike, not that one leads to the other.
+  const input = { nodes: graph.nodes, edges: meaningEdges(graph.edges) };
   const adj = buildAdjacency(input);
   return [
     ...detectCascades(adj),

@@ -15,8 +15,9 @@ export function plainTextFromRichText(value: unknown): string {
   return out.join("").trim();
 }
 
-export function resolveMemoryNodeTitle(shape: { meta?: unknown; props?: { richText?: unknown } }) {
-  const canvasTitle = plainTextFromRichText(shape.props?.richText);
+/** Geo nodes show their title as the shape label; image nodes have no label, so `mpTitle` is all there is. */
+export function resolveMemoryNodeTitle(shape: { meta?: unknown; props?: object }) {
+  const canvasTitle = plainTextFromRichText((shape.props as { richText?: unknown } | undefined)?.richText);
   if (canvasTitle) return canvasTitle;
   const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
   return meta.mpTitle?.trim() || "Untitled";

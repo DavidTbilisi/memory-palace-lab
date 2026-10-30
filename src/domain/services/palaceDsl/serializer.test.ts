@@ -183,7 +183,167 @@ describe("serializeDsl", () => {
     expect(out).toContain("/Walk\n1 A\n2 B\n");
   });
 
-  it("emits @image line when imageUrl is set", () => {
+  it("writes route metadata under the route header, and the parser reads it back", () => {
+    const metadata = [
+      { key: "prereq", value: "Gate of SOLID" },
+      { key: "difficulty", value: "advanced" },
+      { key: "mode", value: null },
+    ];
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [
+        { id: "n-0", objectId: "o-0", title: "Gate of SOLID", content: "", kind: "memory", portal: null },
+      ],
+      edges: [],
+      routes: [{ id: "r-0", palaceId: "p", name: "Advanced Walk", metadata }],
+      loci: [{ id: "l-0", routeId: "r-0", nodeId: "n-0", orderIndex: 0, label: "" }],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain("/Advanced Walk\n#prereq:Gate of SOLID #difficulty:advanced #mode:\n1 Gate of SOLID\n");
+
+    const { snapshot, diagnostics } = parseDsl(out);
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]!.metadata.map(({ key, value }) => ({ key, value }))).toEqual(metadata);
+    expect(snapshot.routes[0]!.loci).toEqual(["Gate of SOLID"]);
+  });
+
+  it("writes route settings and notes, and the parser reads them back", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Gate", content: "", kind: "memory", portal: null }],
+      edges: [],
+      routes: [
+        {
+          id: "r-0",
+          palaceId: "p",
+          name: "Night Walk",
+          color: "sky",
+          hidden: true,
+          direction: "alternate",
+          lastWalkDirection: "reverse",
+          inReview: false,
+          notes: "Enter by the east gate.\nSlow down in the library.",
+          metadata: [{ key: "difficulty", value: "advanced" }],
+        },
+        { id: "r-1", palaceId: "p", name: "Plain", direction: "forward", inReview: true },
+      ],
+      loci: [{ id: "l-0", routeId: "r-0", nodeId: "n-0", orderIndex: 0, label: "" }],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "/Night Walk\n#color:sky #hidden #direction:alternate #review:off #difficulty:advanced\n" +
+        ": Enter by the east gate.\n: Slow down in the library.\n1 Gate\n",
+    );
+    expect(out).toContain("/Plain\n");
+    expect(out).not.toContain("lastWalkDirection");
+
+    const { snapshot, diagnostics } = parseDsl(out);
+    expect(diagnostics).toEqual([]);
+    expect(snapshot.routes[0]).toMatchObject({
+      color: "sky",
+      hidden: true,
+      direction: "alternate",
+      inReview: false,
+      notes: "Enter by the east gate.\nSlow down in the library.",
+      loci: ["Gate"],
+    });
+    expect(snapshot.routes[0]!.metadata.map(({ key }) => key)).toEqual(["difficulty"]);
+    expect(snapshot.routes[1]).not.toHaveProperty("direction");
+    expect(snapshot.routes[1]).not.toHaveProperty("inReview");
+  });
+
+  it("writes a confusion pair once as a <> line, apart from CAST edges, and parses it back", () => {
+    const node = (id: string, title: string) => ({ id, objectId: `o-${id}`, title, content: "", kind: "memory" as const, portal: null });
+    const edge = (id: string, source: string, target: string, kind?: "confusion") => ({
+      id,
+      objectId: `eo-${id}`,
+      sourceNodeId: source,
+      targetNodeId: target,
+      castAb: "",
+      castCd: "",
+      castEf: "",
+      castGh: "",
+      ...(kind ? { kind } : {}),
+    });
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "Locks", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [node("a", "Mutex"), node("b", "Semaphore")],
+      // The same pair twice, drawn both ways: written once.
+      edges: [edge("e1", "a", "b"), edge("c1", "b", "a", "confusion"), edge("c2", "a", "b", "confusion")],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toBe("@Locks\n\nMutex\n>Semaphore\n\nSemaphore\n<>Mutex\n");
+    const back = parseDsl(out);
+    expect(back.diagnostics).toEqual([]);
+    expect(dslToPalaceSnapshot(back.snapshot).edges.map((e) => e.kind ?? "")).toEqual(["", "confusion"]);
+  });
+
+  it("writes NEDF slots as @N @E @D @F lines that parse back to the same slots", () => {
+    const nedf = {
+      nameHook: "Mute-X\na gagged guard",
+      essence: "Lets one thread in at a time",
+      distinguisher: { prompt: "One key, or a bowl of keys?", reason: "" },
+      failure: { scenario: "Threads hang", correction: "Release in finally" },
+    };
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Mutex", content: "Lock.", kind: "memory", portal: null, nedf }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "Mutex\n: Lock.\n@N Mute-X\n@N a gagged guard\n@E Lets one thread in at a time\n" +
+        "@D One key, or a bowl of keys? =>\n@F Threads hang => Release in finally\n",
+    );
+    expect(parseDsl(out).snapshot.nodes[0]!.nedf).toEqual(nedf);
+  });
+
+  it("writes attributes as @A lines that parse back to the same attributes", () => {
+    const attributes = [
+      { name: "where", channel: "spatial" as const, values: ["north tower"] },
+      { name: "days", channel: "temporal" as const, values: ["Mon", "Wed", "Fri"], route: "enumerate" as const, count: 3 },
+      { name: "", channel: "state" as const, values: ["locked", "free"], route: "address" as const },
+      { name: "rank", channel: "priority" as const, values: [] },
+    ];
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Mutex", content: "", kind: "memory", portal: null, attributes }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain(
+      "Mutex\n@A spatial where: north tower\n@A temporal days [enumerate 3]: Mon | Wed | Fri\n" +
+        "@A state [address]: locked | free\n@A priority rank:\n",
+    );
+    expect(parseDsl(out).snapshot.nodes[0]!.attributes).toEqual(attributes);
+  });
+
+  it("writes a concept glyph as @glyph, which parses back", () => {
+    const snap: PalaceSnapshot = {
+      palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
+      canvasObjects: [],
+      nodes: [{ id: "n-0", objectId: "o-0", title: "Attention", content: "", kind: "memory", portal: null, glyph: "👁️" }],
+      edges: [],
+      routes: [],
+      loci: [],
+    };
+    const out = serializeDsl(snap);
+    expect(out).toContain("Attention\n@glyph 👁️\n");
+    expect(parseDsl(out).snapshot.nodes[0]!.glyph).toBe("👁️");
+  });
+
+    it("emits @image line when imageUrl is set", () => {
     const snap: PalaceSnapshot = {
       palace: { id: "p", name: "P", createdAt: "2024-01-01T00:00:00Z", atlasPath: null },
       canvasObjects: [],

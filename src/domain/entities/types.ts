@@ -9,6 +9,16 @@ export interface Palace {
   editorSnapshot?: string | null;
   deletedAt?: string | null;
   purgeAt?: string | null;
+  /**
+   * Bumped by every save, in the app, the MCP server and the CLI alike. Sync compares it
+   * against the revision this device last agreed on to tell "moved ahead" from "untouched".
+   * Optional because rows written before revision tracking, and older backup files, have none.
+   */
+  rev?: number;
+  /** When `rev` last changed. Display only — no sync decision reads a peer's clock. */
+  updatedAt?: string | null;
+  /** Set on a generated loci store: its kind and parameters, as JSON. Read it with `parseStore`. */
+  storeJson?: string | null;
 }
 
 export interface CanvasObject {
@@ -50,6 +60,47 @@ export type NodeDifficultyOverride = {
   extra_needs?: string[];
 };
 
+/** The four NEDF slots, in the order the method names them. */
+export const NEDF_SLOTS = ["nameHook", "essence", "distinguisher", "failure"] as const;
+export type NedfSlot = (typeof NEDF_SLOTS)[number];
+
+/**
+ * A concept encoded as one scene reachable from four angles. Distinguisher and Failure are pairs
+ * so a walk can ask a real discrimination question and a real diagnosis scenario.
+ */
+// A type alias rather than an interface, so it fits tldraw's JSON meta type.
+export type NedfEncoding = {
+  /** Perceptual trigger: a sound-alike, pun, or image. Drilled as recognition. */
+  nameHook?: string;
+  /** What the concept does. Drilled as recall: essence in, name out. */
+  essence?: string;
+  /** Separation from the nearest confusable neighbour. Drilled as discrimination. */
+  distinguisher?: { prompt: string; reason: string };
+  /** Where it breaks, and the fix. Drilled as diagnosis. */
+  failure?: { scenario: string; correction: string };
+};
+
+/** UMTF's seven channels. The set is closed and unordered; each channel answers one question. */
+export const UMTF_CHANNELS = ["spatial", "sensory", "state", "relation", "pattern", "temporal", "priority"] as const;
+export type UmtfChannel = (typeof UMTF_CHANNELS)[number];
+
+/** How a multi-valued attribute is encoded, chosen by what retrieval will ask for. */
+export const ATTRIBUTE_ROUTES = ["dissolve", "address", "enumerate"] as const;
+export type AttributeRoute = (typeof ATTRIBUTE_ROUTES)[number];
+
+/**
+ * One attribute of a node, carried on one channel. Several values need a route; `count` is the
+ * completeness checksum an enumerated set carries.
+ */
+// A type alias rather than an interface, so it fits tldraw's JSON meta type.
+export type NodeAttribute = {
+  name: string;
+  channel: UmtfChannel;
+  values: string[];
+  route?: AttributeRoute;
+  count?: number;
+};
+
 export interface MemoryNode {
   id: string;
   objectId: string;
@@ -61,6 +112,15 @@ export interface MemoryNode {
   imageUrl?: string | null;
   tags?: string[];
   difficulty?: NodeDifficultyOverride | null;
+  /** NEDF slots; a node with any slot filled reviews on one schedule per filled slot. */
+  nedf?: NedfEncoding | null;
+  /** Attributes on UMTF channels, one attribute per channel. */
+  attributes?: NodeAttribute[] | null;
+  /** In a generated store: the node's address and its part in the store. */
+  address?: string | null;
+  storeRole?: "theme" | "sticker" | "number" | "image" | "cell" | null;
+  /** The node's concept glyph: one symbol, unique in the palace, kept through renames. */
+  glyph?: string | null;
 }
 
 export interface MemoryEdge {
@@ -73,11 +133,32 @@ export interface MemoryEdge {
   castCd: string;
   castEf: string;
   castGh: string;
+  /**
+   * Absent (or "") for an ordinary CAST edge. "confusion" marks a confusion link: two look-alike
+   * nodes the learner mixes up. It carries no meaning in the graph — it is undirected, has no
+   * CAST label, and only feeds the discrimination card (see domain/services/confusion.ts).
+   */
+  kind?: EdgeKind;
 }
+
+/** What an edge is: an ordinary CAST edge ("") or a confusion link. */
+export type EdgeKind = "" | "confusion";
 
 /** Palette for route paths and stop badges on the canvas. */
 export const ROUTE_COLORS = ["violet", "sky", "emerald", "amber", "rose", "cyan", "orange", "fuchsia"] as const;
 export type RouteColor = (typeof ROUTE_COLORS)[number];
+
+/** The order a walk visits a route's stops; `alternate` flips it on every walk. */
+export const ROUTE_DIRECTIONS = ["forward", "reverse", "alternate"] as const;
+export type RouteDirection = (typeof ROUTE_DIRECTIONS)[number];
+/** The direction one walk actually takes. */
+export type WalkDirection = Exclude<RouteDirection, "alternate">;
+
+/** A `#key:value` tag written under a route's header in the DSL, e.g. `#prereq:Gate of SOLID`. */
+export interface RouteMetadataTag {
+  key: string;
+  value: string | null;
+}
 
 export interface MemoryRoute {
   id: string;
@@ -87,6 +168,16 @@ export interface MemoryRoute {
   color?: RouteColor | null;
   /** Hidden routes are not drawn on the canvas. */
   hidden?: boolean;
+  /** Route metadata from the DSL (`#difficulty:advanced #prereq:…`), in the order written. */
+  metadata?: RouteMetadataTag[];
+  /** Unset means forward. */
+  direction?: RouteDirection;
+  /** The direction of the last walk, which an `alternate` route reverses next time. */
+  lastWalkDirection?: WalkDirection;
+  /** `false` marks a draft: its stops are never due. Unset means the route is reviewed. */
+  inReview?: boolean;
+  /** Free-text notes shown with the route. */
+  notes?: string;
 }
 
 export interface Locus {
@@ -102,6 +193,22 @@ export interface Locus {
   lastReviewedAt?: string | null;
   /** What a walk shows at this stop; without one it zooms to the node. */
   view?: StopView | null;
+  /** Starts a named section of the route at this stop. */
+  section?: string | null;
+  /**
+   * One schedule per NEDF slot of the stop's node. A filled slot with no entry yet starts from
+   * the stop's own schedule above, which a node without NEDF slots keeps using on its own.
+   */
+  slotSchedules?: Partial<Record<NedfSlot, SlotSchedule>>;
+}
+
+/** One card's spaced-repetition state. */
+export interface SlotSchedule {
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
 }
 
 /**
@@ -126,8 +233,10 @@ export type AnalyticsEventType =
   | "draft_saved"
   | "node_created"
   | "node_updated"
+  | "node_encoded"
   | "edge_created"
   | "edge_updated"
+  | "edge_encoded"
   | "route_created"
   | "locus_added"
   | "locus_updated"
@@ -137,6 +246,10 @@ export type AnalyticsEventType =
   | "walk_recall_rated"
   | "walk_closed"
   | "walk_completed"
+  /** Why a recall rated Again missed: a confusion with another node, or a blank. */
+  | "recall_miss_explained"
+  | "storm_started"
+  | "storm_completed"
   | "system_run_materialized";
 
 export type RecallRating = "again" | "hard" | "good" | "easy";

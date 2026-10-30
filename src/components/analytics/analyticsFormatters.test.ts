@@ -28,9 +28,22 @@ describe("formatEventDetail", () => {
     expect(formatEventDetail(event("walk_answer_revealed", {}, "review"))).toBe("answer revealed");
   });
 
+  it("says what a missed recall was mixed up with, or that it was a blank", () => {
+    const miss = (payload: Record<string, unknown>) => formatEventDetail(event("recall_miss_explained", payload, "review"));
+    expect(miss({ cause: "confusion", confusedWithTitle: "Semaphore" })).toBe("mixed up with Semaphore");
+    expect(miss({ cause: "confusion" })).toBe("mixed up with another node");
+    expect(miss({ cause: "blank" })).toBe("couldn't produce it");
+  });
+
   it("uses node title or a sensible default", () => {
     expect(formatEventDetail(event("node_created", { title: "Front Door" }))).toBe("Front Door");
     expect(formatEventDetail(event("node_updated", { title: "   " }))).toBe("memory node");
+  });
+
+  it("says whether an encode was new or a re-edit, and how long it took", () => {
+    expect(formatEventDetail(event("node_encoded", { first: true, activeMs: 38_400 }))).toBe("new node - 38s");
+    expect(formatEventDetail(event("edge_encoded", { first: false, activeMs: 125_000 }))).toBe("edge re-edit - 2m 05s");
+    expect(formatEventDetail(event("node_encoded", { first: true, activeMs: null }))).toBe("new node - unmeasured");
   });
 
   it("uses edge label, route name, and pipeline title", () => {

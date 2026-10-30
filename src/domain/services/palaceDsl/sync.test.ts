@@ -123,6 +123,45 @@ describe("applyDslToCanvas", () => {
     expect(arrows[0]!.meta.castAb).toBe("Mermaid");
   });
 
+  it("creates, keeps, and removes confusion links as the whole intent, apart from CAST edges", () => {
+    const editor = new MockEditor();
+    const confusion = (targetTitle: string) => ({ targetTitle, sourceLine: 0 });
+    const withLink = intent([
+      memoryNode("A", { edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }] }),
+      memoryNode("B", { confusions: [confusion("A")] }),
+    ]);
+    const first = applyDslToCanvas(asEditor(editor), PALACE_ID, withLink);
+    expect(first.added.edges).toBe(2);
+    const arrows = () => shapesOf(editor).filter((s) => s.type === "arrow");
+    expect(arrows().map((s) => s.meta.mpEdgeKind ?? "")).toEqual(["", "confusion"]);
+
+    // Declared under the other node now: same pair, nothing changes. The CAST edge is kept too,
+    // even though an empty CAST and a confusion link have the same slots.
+    const again = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("A", {
+          edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }],
+          confusions: [confusion("B")],
+        }),
+        memoryNode("B"),
+      ]),
+    );
+    expect(again.added.edges + again.deleted.edges).toBe(0);
+
+    const removed = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("A", { edges: [{ targetTitle: "B", cast: { ab: "", cd: "", ef: "", gh: "" }, sourceLine: 0 }] }),
+        memoryNode("B"),
+      ]),
+    );
+    expect(removed.deleted.edges).toBe(1);
+    expect(arrows().map((s) => s.meta.mpEdgeKind ?? "")).toEqual([""]);
+  });
+
   it("propagates portal and tag updates onto existing nodes", () => {
     const editor = new MockEditor();
     const shapeId = editor.seedNode(PALACE_ID, "A", "");
@@ -177,7 +216,51 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(unchanged.updated.nodes).toBe(0);
   });
 
-  it("applies the SOLID Citadel document that used to crash", () => {
+  it("sets, replaces, and clears NEDF slots, and leaves unchanged slots alone", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Mutex");
+    const nedf = { nameHook: "Mute-X", distinguisher: { prompt: "One key?", reason: "One owner" } };
+
+    const set = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { nedf })]));
+    expect(set.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpNedf).toEqual(nedf);
+
+    const same = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { nedf: { ...nedf } })]));
+    expect(same.updated.nodes).toBe(0);
+
+    const cleared = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex")]));
+    expect(cleared.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpNedf).toBeNull();
+  });
+
+  it("sets, replaces, and clears attributes, and leaves unchanged attributes alone", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Mutex");
+    const attributes = [{ name: "where", channel: "spatial" as const, values: ["north tower"] }];
+
+    const set = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { attributes })]));
+    expect(set.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpAttributes).toEqual(attributes);
+
+    const same = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex", { attributes: [...attributes] })]));
+    expect(same.updated.nodes).toBe(0);
+
+    const cleared = applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Mutex")]));
+    expect(cleared.updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpAttributes).toBeNull();
+  });
+
+  it("sets and clears a concept glyph from the text", () => {
+    const editor = new MockEditor();
+    const shapeId = editor.seedNode(PALACE_ID, "Attention");
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention", { glyph: "🔦" })])).updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpGlyph).toBe("🔦");
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention", { glyph: "🔦" })])).updated.nodes).toBe(0);
+    expect(applyDslToCanvas(asEditor(editor), PALACE_ID, intent([memoryNode("Attention")])).updated.nodes).toBe(1);
+    expect(editor.getShape(shapeId)!.meta.mpGlyph).toBeNull();
+  });
+
+    it("applies the SOLID Citadel document that used to crash", () => {
     const { snapshot, diagnostics } = parseDsl(SOLID_CITADEL_DSL);
     expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
 
@@ -193,5 +276,75 @@ describe("applyDslToCanvas meta hygiene", () => {
     expect(titles).toEqual(["Gate of SOLID", "Single Responsibility Forge"]);
     // Gate -> Forge exists; edges to undeclared nodes are skipped.
     expect(shapesOf(editor).filter((s) => s.type === "arrow")).toHaveLength(1);
+  });
+});
+
+describe("applyDslToCanvas with image nodes", () => {
+  function seedImageNode(editor: MockEditor, title: string) {
+    const id = `shape:image-${title}`;
+    editor.createShape({
+      id,
+      type: "image",
+      x: 0,
+      y: 0,
+      meta: {
+        mpPalaceId: PALACE_ID,
+        mpObjectId: `object-${title}`,
+        mpNodeId: `node-${title}`,
+        mpNodeKind: "memory",
+        mpTitle: title,
+        mpContent: "",
+      },
+      props: { w: 320, h: 200, assetId: "asset:1" },
+    });
+    return id;
+  }
+
+  it("updates an image node in place without adding a richText prop", () => {
+    const editor = new MockEditor();
+    const shapeId = seedImageNode(editor, "Kitchen");
+
+    const result = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([memoryNode("Kitchen", { content: "where the recipe lives" })]),
+    );
+
+    expect(result.added.nodes).toBe(0);
+    expect(result.updated.nodes).toBe(1);
+    const shape = editor.getShape(shapeId)!;
+    expect(shape.type).toBe("image");
+    expect(shape.meta.mpNodeId).toBe("node-Kitchen");
+    expect(shape.meta.mpContent).toBe("where the recipe lives");
+    expect(shape.props).not.toHaveProperty("richText");
+  });
+
+  it("connects an image node to a geo node", () => {
+    const editor = new MockEditor();
+    seedImageNode(editor, "Kitchen");
+    editor.seedNode(PALACE_ID, "Recipe", "");
+
+    const result = applyDslToCanvas(
+      asEditor(editor),
+      PALACE_ID,
+      intent([
+        memoryNode("Kitchen", {
+          edges: [
+            {
+              targetTitle: "Recipe",
+              cast: { ab: "", cd: "", ef: "", gh: "" },
+              semantic: { cast: null, alias: null, form: "cast", resolvedCast: null },
+              sourceLine: 0,
+            },
+          ],
+        }),
+        memoryNode("Recipe"),
+      ]),
+    );
+
+    expect(result.added.nodes).toBe(0);
+    expect(result.added.edges).toBe(1);
+    const arrow = shapesOf(editor).find((s) => s.type === "arrow")!;
+    expect(arrow.meta.mpSourceNodeId).toBe("node-Kitchen");
   });
 });

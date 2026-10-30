@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { CAST_HOW } from "../domain/entities/types";
 import { CastEdgeDialog } from "./CastEdgeDialog";
 
 describe("CastEdgeDialog", () => {
@@ -13,6 +14,25 @@ describe("CastEdgeDialog", () => {
     expect(screen.getAllByText(/Giant means hub\/controller/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("option", { name: /Mermaid - peer\/mutual \(01\)/i })).toBeInTheDocument();
     expect(screen.getByText(/what is moving across the edge/i)).toBeInTheDocument();
+  });
+
+  it("creates a confusion link instead of an edge when marked as confusion", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={onConfirm} />);
+
+    await user.click(screen.getByRole("button", { name: "Mark as confusion" }));
+    expect(screen.queryByLabelText(/Tier 1 edge verb/i)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Create confusion link" }));
+    expect(onConfirm).toHaveBeenCalledWith({ kind: "confusion" });
+  });
+
+  it("refuses a second confusion link on a pair that has one", async () => {
+    const user = userEvent.setup();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={vi.fn()} confusionLinked />);
+    await user.click(screen.getByRole("button", { name: "Mark as confusion" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("already linked as a confusion");
+    expect(screen.getByRole("button", { name: "Create confusion link" })).toBeDisabled();
   });
 
   it("warns when a Tier 1 verb collides with a sibling edge", async () => {
@@ -70,5 +90,21 @@ describe("CastEdgeDialog", () => {
     await user.type(input, "supplies");
 
     expect(screen.queryByRole("alert", { name: /tier 1 verb collision/i })).toBeNull();
+  });
+
+  it("reports the tier and the slots moved off their defaults, for encode timing", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<CastEdgeDialog open onOpenChange={vi.fn()} onConfirm={onConfirm} />);
+
+    await user.click(screen.getByRole("button", { name: /create edge/i }));
+    expect(onConfirm).toHaveBeenLastCalledWith(expect.objectContaining({ castTier: "tier1", changedSlots: [] }));
+
+    await user.click(screen.getByRole("button", { name: /tier 2 \(decoded cast\)/i }));
+    await user.selectOptions(screen.getByRole("combobox", { name: /CAST action/i }), CAST_HOW[2]);
+    await user.click(screen.getByRole("button", { name: /create edge/i }));
+    expect(onConfirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ castTier: "tier2", cd: CAST_HOW[2], changedSlots: ["cd"] }),
+    );
   });
 });

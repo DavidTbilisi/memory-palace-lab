@@ -1,4 +1,5 @@
-import type { NodeDifficultyOverride } from "../domain/entities/types";
+import type { NedfEncoding, NodeAttribute, NodeDifficultyOverride } from "../domain/entities/types";
+import type { StoreRole } from "../domain/services/generatedStore";
 
 export type MemoryPalaceMeta = {
   mpPalaceId?: string;
@@ -16,6 +17,17 @@ export type MemoryPalaceMeta = {
   mpTags?: string[];
   /** `null` clears an override, for the same reason as `mpImageUrl`. */
   mpDifficulty?: NodeDifficultyOverride | null;
+  /** NEDF slots; `null` clears them, for the same reason as `mpImageUrl`. */
+  mpNedf?: NedfEncoding | null;
+  /** Attributes on UMTF channels; `null` clears them, for the same reason as `mpImageUrl`. */
+  mpAttributes?: NodeAttribute[] | null;
+  /** In a generated store: where the node is found ("2.3.4"), and what part it plays. */
+  mpAddress?: string;
+  mpStoreRole?: StoreRole;
+  /** The title a store node was generated with; a node still titled this holds nothing of the learner's yet. */
+  mpPlaceholder?: string;
+  /** Concept glyph; `null` clears it, for the same reason as `mpImageUrl`. */
+  mpGlyph?: string | null;
   mpPortalPalaceId?: string;
   mpPortalPalaceName?: string;
   mpPortalAtlasPath?: string | null;
@@ -24,6 +36,8 @@ export type MemoryPalaceMeta = {
   mpPortalNodeId?: string;
   mpSourceNodeId?: string;
   mpTargetNodeId?: string;
+  /** On an arrow: "confusion" marks a confusion link; absent or `null` is an ordinary CAST edge. */
+  mpEdgeKind?: "confusion" | null;
   castAb?: string;
   castCd?: string;
   castEf?: string;

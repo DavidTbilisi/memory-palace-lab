@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
+import { GenerateStoreForm, StoreBadge, StorePanel } from "./GeneratedStore";
 import {
   type PalaceTreeDragItem,
   usePalaceTreeDrag,
@@ -28,7 +29,9 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
 import type { Palace } from "../domain/entities/types";
 import {
@@ -126,6 +129,50 @@ export function buildAtlasTree(
     });
   }
   return groups;
+}
+
+// Each palace keeps its full atlasPath regardless of tree depth, so matching
+// against it (not just the branch label) is enough to find palaces nested
+// under a folder even when the folder name itself doesn't match.
+function matchesQuery(palace: Palace, query: string): boolean {
+  return (
+    palace.name.toLowerCase().includes(query) ||
+    (palace.alias?.toLowerCase().includes(query) ?? false) ||
+    (palace.atlasPath?.toLowerCase().includes(query) ?? false)
+  );
+}
+
+function filterAtlasTree(
+  nodes: AtlasTreeNode[],
+  query: string,
+): AtlasTreeNode[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return nodes;
+  const filterNode = (node: AtlasTreeNode): AtlasTreeNode | null => {
+    const children = node.children
+      .map(filterNode)
+      .filter((child): child is AtlasTreeNode => child !== null);
+    const palaces = node.palaces.filter((palace) =>
+      matchesQuery(palace, trimmed),
+    );
+    if (children.length === 0 && palaces.length === 0) return null;
+    return { ...node, children, palaces };
+  };
+  return nodes
+    .map(filterNode)
+    .filter((node): node is AtlasTreeNode => node !== null);
+}
+
+function collectBranchKeys(nodes: AtlasTreeNode[]): string[] {
+  const keys: string[] = [];
+  const walk = (list: AtlasTreeNode[]) => {
+    for (const node of list) {
+      keys.push(node.key);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return keys;
 }
 
 function countPalaces(node: AtlasTreeNode): number {
@@ -269,8 +316,6 @@ type AtlasTreeControls = {
 };
 
 const dropTargetClass = "bg-violet-500/10 ring-1 ring-violet-500/50";
-const treeToolButtonClass =
-  "inline-flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-30";
 
 function PalaceListItem({
   palace,
@@ -300,13 +345,16 @@ function PalaceListItem({
             label: palace.name,
           })
         }
-        className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
+        className={`w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
           active
             ? "bg-violet-900/40 text-violet-100"
             : "text-zinc-300 hover:bg-zinc-900"
         } ${beingDragged ? "opacity-40" : ""}`}
       >
-        <div>{palace.name}</div>
+        <div>
+          {palace.name}
+          <StoreBadge storeJson={palace.storeJson} />
+        </div>
         {palace.alias?.trim() ? (
           <div className="text-[11px] text-violet-300">
             Alias: {palace.alias}
@@ -337,12 +385,20 @@ function AtlasBranch({
     tree.draft && node.path !== "" && tree.draft.parentPath === node.path
       ? tree.draft
       : null;
+  const isOpen = !tree.collapsed.has(node.key);
   const beingDragged =
     tree.dragging?.kind === "group" && tree.dragging.path === node.path;
   return (
     <details
-      open={!tree.collapsed.has(node.key)}
-      onToggle={(e) => tree.onToggle(node.key, e.currentTarget.open)}
+      open={isOpen}
+      onToggle={(event) => {
+        // Native <details> fires this for both a summary click and our
+        // programmatic `open` changes; only react when it actually flipped,
+        // so "Collapse/expand all" (which re-renders with a new `open`) does not
+        // bounce straight back via a stale toggle.
+        if (event.currentTarget.open === isOpen) return;
+        tree.onToggle(node.key, event.currentTarget.open);
+      }}
       data-drop-path={node.path}
       className={`rounded-md ${tree.dropPath === node.path ? dropTargetClass : ""} ${
         beingDragged ? "opacity-40" : ""
@@ -375,7 +431,7 @@ function AtlasBranch({
           {node.label}
         </summary>
       </CreateContextMenu>
-      <div className="ml-2 mt-1 space-y-1 border-l border-zinc-800 pl-2">
+      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-zinc-800 pl-2">
         {draftHere ? (
           <DraftNameInput
             key={`${draftHere.kind}:${draftHere.parentPath}`}
@@ -427,10 +483,11 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
   const movePalaceToGroup = usePalaceStore((s) => s.movePalaceToGroup);
   const moveAtlasGroup = usePalaceStore((s) => s.moveAtlasGroup);
   const [hierarchySegments, setHierarchySegments] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [collapsedAtlasKeys, setCollapsedAtlasKeys] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [draft, setDraft] = useState<SidebarDraft | null>(null);
-  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
 
   useEffect(() => {
     void loadPalaces();
@@ -447,9 +504,25 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
     () => buildAtlasTree(palaces, atlasGroups),
     [palaces, atlasGroups],
   );
-
+  const visiblePalaces = useMemo(
+    () => filterAtlasTree(groupedPalaces, search),
+    [groupedPalaces, search],
+  );
+  const isSearching = search.trim().length > 0;
+  // A search result is pointless if its own branch is collapsed, so while
+  // searching we show every matching branch open and leave the user's manual
+  // collapse state untouched underneath (it reapplies as soon as they clear
+  // the search box).
+  const effectiveCollapsedKeys = useMemo(
+    () => (isSearching ? new Set<string>() : collapsedAtlasKeys),
+    [isSearching, collapsedAtlasKeys],
+  );
+  const allBranchKeys = useMemo(
+    () => collectBranchKeys(groupedPalaces),
+    [groupedPalaces],
+  );
   const setGroupOpen = useCallback((key: string, open: boolean) => {
-    setCollapsedGroups((current) => {
+    setCollapsedAtlasKeys((current) => {
       if (current.has(key) !== open) return current;
       const next = new Set(current);
       if (open) next.delete(key);
@@ -457,22 +530,22 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
       return next;
     });
   }, []);
+  const collapseAllBranches = () =>
+    setCollapsedAtlasKeys(new Set(allBranchKeys));
+  const expandAllBranches = () => setCollapsedAtlasKeys(new Set());
+  const hierarchyRowCount = Math.max(
+    levelLabels.length,
+    hierarchySegments.length + 1,
+    DEFAULT_ATLAS_LEVEL_LABELS.length,
+  );
 
-  const allGroupKeys = useMemo(() => {
-    const keys: string[] = [];
-    const collect = (nodes: AtlasTreeNode[]) => {
-      for (const node of nodes) {
-        keys.push(node.key);
-        collect(node.children);
-      }
-    };
-    collect(groupedPalaces);
-    return keys;
-  }, [groupedPalaces]);
-  const anyCollapsed = allGroupKeys.some((key) => collapsedGroups.has(key));
-  const allCollapsed =
-    allGroupKeys.length === 0 ||
-    allGroupKeys.every((key) => collapsedGroups.has(key));
+  const updateHierarchySegment = (index: number, value: string) => {
+    setHierarchySegments((current) => {
+      const next = [...current];
+      next[index] = value;
+      return next;
+    });
+  };
 
   const handleTreeDrop = useCallback(
     (item: PalaceTreeDragItem, targetPath: string) => {
@@ -492,12 +565,13 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
     startDrag,
     currentPalaceId: currentPalace?.id ?? null,
     onOpen: (palaceId) => void openPalace(palaceId),
-    collapsed: collapsedGroups,
+    collapsed: effectiveCollapsedKeys,
     onToggle: setGroupOpen,
     draft,
     onStartDraft: (next) => {
-      // Unfold the target group so the name field is visible.
+      // Unfold the target group, and clear a search that could hide it.
       if (next.parentPath) setGroupOpen(next.parentPath, true);
+      setSearch("");
       setDraft(next);
     },
     onCommitDraft: (draftName) => {
@@ -517,19 +591,6 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
     onCancelDraft: () => setDraft(null),
     onRemoveGroup: removeAtlasGroup,
   };
-  const hierarchyRowCount = Math.max(
-    levelLabels.length,
-    hierarchySegments.length + 1,
-    DEFAULT_ATLAS_LEVEL_LABELS.length,
-  );
-
-  const updateHierarchySegment = (index: number, value: string) => {
-    setHierarchySegments((current) => {
-      const next = [...current];
-      next[index] = value;
-      return next;
-    });
-  };
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
@@ -538,37 +599,15 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
           <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Palaces
           </h2>
-          <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              aria-label="Expand all groups"
-              title="Expand all groups"
-              disabled={!anyCollapsed}
-              onClick={() => setCollapsedGroups(new Set())}
-              className={treeToolButtonClass}
-            >
-              <ChevronsUpDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Collapse all groups"
-              title="Collapse all groups"
-              disabled={allCollapsed}
-              onClick={() => setCollapsedGroups(new Set(allGroupKeys))}
-              className={treeToolButtonClass}
-            >
-              <ChevronsDownUp className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              title="Open the atlas map of all palaces"
-              onClick={() => requestNavigation("atlas")}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200"
-            >
-              <Globe className="h-3.5 w-3.5" />
-              Atlas map
-            </button>
-          </div>
+          <button
+            type="button"
+            title="Open the atlas map of all palaces"
+            onClick={() => requestNavigation("atlas")}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            Atlas map
+          </button>
         </div>
         <div className="mt-2 space-y-2">
           <Input
@@ -610,11 +649,14 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
           >
             Import notes
           </Button>
+          <GenerateStoreForm />
         </div>
       </div>
 
       {currentPalace ? (
         <div className="space-y-2 border-b border-zinc-800/50 p-2">
+          {/* A store's panel is a working tool (go to address, fill), so it stays out of the fold. */}
+          <StorePanel />
           <details className="rounded-md border border-zinc-800 bg-zinc-900/40 p-2">
             <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wide text-zinc-500">
               Current palace
@@ -817,6 +859,49 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
         </div>
       ) : null}
 
+      <div className="flex items-center gap-1 border-b border-zinc-800/50 p-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Input
+            aria-label="Search palaces"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search palaces"
+            className="h-8 pl-7 pr-7 text-xs"
+          />
+          {search ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:text-zinc-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          title="Collapse all folders"
+          aria-label="Collapse all folders"
+          disabled={isSearching || allBranchKeys.length === 0}
+          onClick={collapseAllBranches}
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronsDownUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Expand all folders"
+          aria-label="Expand all folders"
+          disabled={isSearching || allBranchKeys.length === 0}
+          onClick={expandAllBranches}
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronsUpDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       <CreateContextMenu
         label="Palace list actions"
         onCreate={(kind) => tree.onStartDraft({ kind, parentPath: "" })}
@@ -835,7 +920,12 @@ export function PalaceSidebar({ onOpenImport }: { onOpenImport?: () => void }) {
               onCancel={tree.onCancelDraft}
             />
           ) : null}
-          {groupedPalaces.map((group) => (
+          {isSearching && visiblePalaces.length === 0 ? (
+            <p className="px-2 py-4 text-center text-xs text-zinc-500">
+              No palaces match &ldquo;{search.trim()}&rdquo;.
+            </p>
+          ) : null}
+          {visiblePalaces.map((group) => (
             <AtlasBranch key={group.key} node={group} tree={tree} />
           ))}
           {trashedPalaces.length > 0 ? (

@@ -232,7 +232,7 @@ User completes a construct-recognition-gym session and crosses the 85% accuracy 
 
 ### Example 3: T3 Knowing — cross-domain unlock
 
-User notices that their Soroban Learning Method complement work and their [vedic-speed-math](./vedic-speed-math.md) base method use the same complement-of-10 substrate. New row drafted in [composability-index](./composability-index.md) under "Candidate Unlocks": *Vedic Base × Soroban friend-of-10 = bilingual mental arithmetic*.
+User notices that their [soroban-learning-method](./soroban-learning-method.md) complement work and their [vedic-speed-math](./vedic-speed-math.md) base method use the same complement-of-10 substrate. New row drafted in [composability-index](./composability-index.md) under "Candidate Unlocks": *Vedic Base × Soroban friend-of-10 = bilingual mental arithmetic*.
 
 - SPARK fires Knowing-tier ceremony:
   - Excalidraw diagram drafted showing the two complement systems converging

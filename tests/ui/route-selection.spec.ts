@@ -71,9 +71,12 @@ test("double-clicking empty canvas in Route mode adds a new node as the next sto
 
   const [spot] = await freeCanvasPoints(page, 1);
   await page.mouse.dblclick(spot!.x, spot!.y);
+  // The banner shows "Added ... as stop N" for only 4s before reverting to the standing hint
+  // (RouteBuildBanner's auto-dismiss). Check it first: the snapshot polls below wait on a
+  // debounced draft save and can eat that whole window under load, racing the banner closed.
+  await expect(page.getByTestId("route-build-banner")).toContainText("Added New node as stop 2");
   await expect.poll(() => countSnapshotNodes(page)).toBe(2);
   await expect.poll(async () => (await routeSummary(page))[0]?.stops).toEqual(["Gate", "New node"]);
-  await expect(page.getByTestId("route-build-banner")).toContainText("Added New node as stop 2");
 
   // The new node's label is open for typing; Escape closes it, a second Escape ends Route mode.
   await page.keyboard.press("Control+A");

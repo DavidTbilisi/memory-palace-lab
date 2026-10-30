@@ -11,23 +11,25 @@ tags:
 city: Tbilisi
 district: Saburtalo
 hub_role: boundary
-hub_position: 5
-lat: 41.7203
-lng: 44.7377
-phase: 1
+hub_position: 6
+lat: 41.7151
+lng: 44.7365
+nearest_corner: kazbegi-ave-x-tamarashvili-ave
+phase: 2
 date: 2026-05-30
 wiki_source: wiki/learning-systems/places/place-saburtalo-cemetery.md
 ---
 
-# Saburtalo Cemetery (საბურთალოს სასაფლაო) — Saburtalo Hub 5
+# Saburtalo Cemetery (საბურთალოს სასაფლაო) — Saburtalo Hub 6
 
-**Summary**: SW boundary anchor for the Saburtalo district palace per [neighborhood-palace](./neighborhood-palace.md). Marks the south end of Shalva Nutsubidze St and the western edge of the district. Boundary hubs are load-bearing because they're how you know you've left the district. Coordinates approximate — replace with GPS-walked values at Phase 0.
+**Summary**: SW boundary anchor for the Saburtalo district palace per [neighborhood-palace](./neighborhood-palace.md). 1958 m SW of the home-locus; nearest CAST corner is the **Ibis** (Kazbegi Ave x Tamarashvili Ave), 1265 m away — **outside the first frame** — Phase 2. Coordinates from OpenStreetMap (2026-09-18), replacing the 2026-05-30 screenshot estimate; GPS-walk to confirm.
 
 **Sources**:
-- wiki/learning-systems/neighborhood-palace.md (encoding home)
-- Tbilisi map screenshot 2026-05-30
+- [neighborhood-palace](./neighborhood-palace.md) §Worked example (encoding home; OSM check + redrafted week 1, 2026-09-18)
+- `tools/cast-graphs/saburtalo-skeleton.json` — © OpenStreetMap contributors, ODbL
+- Tbilisi map screenshot 2026-05-30 (superseded for coordinates and roles)
 
-**Last updated**: 2026-05-30
+**Last updated**: 2026-09-18 (rebuilt on OSM — coordinates, nearest corner, bearings, distances, walk day; hub numbering now follows the redrafted week-1 walk order; REMAPS scene kept); 2026-05-30
 
 ---
 
@@ -35,13 +37,13 @@ wiki_source: wiki/learning-systems/places/place-saburtalo-cemetery.md
 
 ```leaflet
 id: place-saburtalo-cemetery
-lat: 41.7203
-long: 44.7377
-zoom: 17
+lat: 41.7151
+long: 44.7365
+zoom: 16
 height: 350px
 width: 100%
 unit: meters
-marker: default, 41.7203, 44.7377, Saburtalo Cemetery
+marker: default, 41.7151, 44.7365, Saburtalo Cemetery
 ```
 
 ## District Palace Encoding
@@ -49,17 +51,17 @@ marker: default, 41.7203, 44.7377, Saburtalo Cemetery
 | Slot | Value |
 |---|---|
 | **District** | Saburtalo |
-| **Role** | Boundary anchor (SW corner) |
-| **Walk-palace position** | Hub #5 of 6 |
-| **Compass role** | SW boundary; marks "you have left central Saburtalo, the next district S is Vake" |
+| **Role** | SW boundary anchor |
+| **Walk-palace position** | Hub #6 of 7 — SW of home, 1958 m |
+| **CAST corner** | Ibis — Kazbegi Ave x Tamarashvili Ave (1265 m); the hub hangs off this corner, it is not a node itself |
+| **Compass role** | SW of the home-locus; **outside the first frame** — Phase 2 |
 | **REMAPS scene** | Stone angels along the cemetery wall turn their heads slowly in unison toward the metro to the NE; their eyes glow faint blue; the rotation is silent but you "hear" it as a low hum |
 | **PAO (optional)** | Person: stone angels (collective) · Action: turning heads · Object: their own granite wings folded behind |
 
-## Walk Plan — Phase 1
+## Walk Plan — Week 1 (redrafted 2026-09-18)
 
-- **Day encoded**: Saturday (Shalva Nutsubidze N→S walk reaches here as the southern terminus)
-- **Reverse walk**: same Saturday (the long-walk day)
-- **Drill cadence**: rung 0 from week 1; the boundary check ("am I still in Saburtalo?") fires this hub
+- **Day encoded**: **Phase 2.** Outside the first frame — 1.9 km SW of home, 1.3 km beyond the Ibis. Its own frame's Step 0 first.
+- **Drill**: rung 0 (compass to every other hub) daily from week 1; `python3 tools/cast_encode_log.py walk saburtalo-skeleton --only ibis` for the corner's dial after the walk
 
 ## Corners (capillary capture for Phase 3)
 
@@ -70,54 +72,52 @@ marker: default, 41.7203, 44.7377, Saburtalo Cemetery
 | SW | (district boundary) | |
 | SE | | |
 
+(Fill in as you walk each corner. Each corner should get a distinguishing object — bakery, kiosk, statue, distinctive tree, weird signage. Concrete-first per [representation-rules](./representation-rules.md).)
+
 ## Bordering Hubs
 
-| Direction | Hub | Approx distance |
+Straight-line distance and compass bearing from this hub, computed from the OSM coordinates:
+
+| Direction | Hub | Distance |
 |---|---|---|
-| N (up Shalva Nutsubidze) | [place-saburtalo-mardaleishvili](./place-saburtalo-mardaleishvili.md) | ~1.9km |
-| NE (across district) | [place-saburtalo-central-park](./place-saburtalo-central-park.md) | ~700m |
-| S (across boundary) | (Vake / Vake Park area) | district boundary |
-
-## Why boundary hubs matter
-
-The district palace is bounded — knowing where it ENDS is as important as knowing where things ARE inside it. Without boundary anchors:
-
-- You can't reliably answer "is this address inside Saburtalo?" — rung 2 fails for edge cases.
-- Inter-district routing (Saburtalo → Vake) has no clean transition locus.
-- The palace silently bleeds into adjacent districts during recall, corrupting the encoding.
-
-Boundary hubs get **slightly subdued REMAPS scenes** (quieter, more contemplative — the angels' silent rotation here) to mark them tonally as "edge" rather than "centre." Contrast with the central home-locus scene (active king + glowing beaker + steam) at Bochorishvili.
+| NE | [place-saburtalo-delisi](./place-saburtalo-delisi.md) | 1369 m |
+| E | [place-saburtalo-central-park](./place-saburtalo-central-park.md) | 1491 m |
+| NE | [place-saburtalo-bochorishvili](./place-saburtalo-bochorishvili.md) | 1958 m |
+| N | [place-saburtalo-mardaleishvili](./place-saburtalo-mardaleishvili.md) | 2363 m |
+| NE | [place-saburtalo-aversi](./place-saburtalo-aversi.md) | 2381 m |
+| NE | [place-saburtalo-medical-university](./place-saburtalo-medical-university.md) | 2644 m |
 
 ## Related Pages
 
 - [neighborhood-palace](./neighborhood-palace.md) (encoding home)
-- [geography-mnemonic-route](./geography-mnemonic-route.md)
-- [memory-palace](./memory-palace.md) · [remaps](./remaps.md)
+- [geography-mnemonic-route](./geography-mnemonic-route.md) (parent at world scale)
+- [memory-palace](./memory-palace.md) · [remaps](./remaps.md) · [person-action-object-system](./person-action-object-system.md)
+- [eye-movement-and-compass-mnemonics](./eye-movement-and-compass-mnemonics.md)
 
 ---
 
 ## U — See (CAST)
-1. Stone angels rotating heads NE
-2. Faint blue eye-glow, low-hum audio
+1. Stone angels along the cemetery wall turn their heads slowly
+2. The Ibis corner 1265 m away — the hub is a landmark hanging off a node, not the node
 
 ## D — Name (NEDF)
-1. Saburtalo Cemetery = SW boundary anchor
-2. Distinguisher: silent-rotating-angels (vs Mardaleishvili's NW catapulting-doctor — both boundary hubs but tonally inverted: contemplative S vs frenetic N)
-3. Failure mode: boundary leak — if scene weakens, palace bleeds south into Vake
+1. Saburtalo Cemetery = Saburtalo hub 6, SW of home, boundary (outside the first frame)
+2. Distinguisher: SW boundary — the first hub **outside** the first frame (1.9 km from home); marks where the district ends
+3. Failure mode: scene-bleed with the other medical / transport hubs — keep this hub's imagery exclusive to it
 
 ## F — Do (SPEAR)
-1. Walk Shalva Nutsubidze S → terminus
-2. Fire angel-rotation scene
-3. Decode: SW boundary, district edge
+1. Walk to the Ibis corner, say its dial, then the 1265 m to the hub
+2. Fire the scene
+3. Decode: sw boundary anchor, SW of home
 
 ## B — Watch (HEART)
-1. Boundary leak (recall confuses Saburtalo↔Vake)
-2. Tonal drift (scene becoming "exciting" — should stay contemplative)
+1. Scene-bleed with neighbouring hubs
+2. Compass drift — the 2026-05-30 pages had this hub placed from a screenshot; trust the OSM bearing
 
 ## L — Predict (ORACLE)
-1. SW corner cue → predict Cemetery + angels
-2. Angel-rotation → predict S boundary (not N)
+1. SW of home on the frame → predict Saburtalo Cemetery
+2. The Ibis corner → predict this hub 1265 m off it
 
 ## R — Act (GRACE)
-1. Walking S past cemetery → mutter "boundary · SW · angels"
-2. Inter-district routing → fire this hub as the Saburtalo-side transition anchor
+1. Walking past → mutter "Saburtalo Cemetery · SW · hub 6"
+2. Recall failure → re-walk from the Ibis corner, not from a map

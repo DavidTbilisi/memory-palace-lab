@@ -210,6 +210,14 @@ describe("palace CLI", () => {
       expect(await run("fmt", "--write", path)).toEqual({ code: 0, stdout: "", stderr: "" });
     });
 
+    it("keeps route settings, metadata, and notes", async () => {
+      const text = "@P\n\nAlpha\n\n/Walk\n#color:sky #hidden #direction:reverse #review:off #mode:linear\n: Start here.\n1 Alpha\n";
+      const path = file("route.dsl", text);
+      const out = await run("fmt", path);
+      expect(out.code).toBe(0);
+      expect(out.stdout).toBe(text);
+    });
+
     it("refuses documents whose constructs the serializer would drop", async () => {
       const path = file("alias.dsl", "@P\n~dep:1000 depends on\n\nAlpha\n>Beta dep\n\nBeta\n-- note\n");
       const out = await run("fmt", path);

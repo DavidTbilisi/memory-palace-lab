@@ -3,6 +3,7 @@ import {
   BarChart2,
   BookOpen,
   Cpu,
+  Gauge,
   Globe,
   LayoutDashboard,
   Layers,
@@ -21,6 +22,7 @@ export type AppPage =
   | "insights"
   | "system"
   | "difficulty"
+  | "strength"
   | "atlas"
   | "library"
   | "settings";
@@ -125,6 +127,20 @@ export const PAGES: readonly PageDefinition[] = [
     },
   },
   {
+    id: "strength",
+    group: "insights",
+    label: "Strength",
+    groupLabel: "Insights",
+    icon: Gauge,
+    hint: "Strength ranks weak and overdue stops, palace health, recall trend, and route friction — click any row to review it.",
+    placement: "primary",
+    librarySlug: "measurement-framework",
+    palette: {
+      subtitle: "Memory strength: weak stops, palace health, trend, route friction",
+      keywords: "memory strength weak overdue decay trend friction health dashboard",
+    },
+  },
+  {
     id: "system",
     group: "system",
     label: "System",
@@ -158,12 +174,13 @@ export const PAGES: readonly PageDefinition[] = [
     label: "Settings",
     groupLabel: "Settings",
     icon: Settings2,
-    hint: "Settings holds the review goal, AI key, idle tips, atlas terminology, backups, and updates.",
+    hint: "Settings holds the review goal, AI key, idle tips, atlas terminology, backups, sync, and updates.",
     placement: "utility",
     librarySlug: "app-manual",
     palette: {
-      subtitle: "Goal, API key, tips, backup, updates",
-      keywords: "settings preferences options api key backup restore update",
+      subtitle: "Goal, API key, tips, backup, sync, updates",
+      keywords:
+        "settings preferences options api key backup restore update sync vault passphrase devices",
     },
   },
 ];

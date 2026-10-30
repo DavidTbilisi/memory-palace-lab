@@ -15,7 +15,7 @@ wiki_source: wiki/problem-solving/crux-move.md
 - [zeitz-art-and-craft](./zeitz-art-and-craft.md) — source-summary page.
 - [problem-solving-three-levels](./problem-solving-three-levels.md) — the framework the crux move sits inside.
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-09-23
 
 ---
 
@@ -185,7 +185,7 @@ If you can recite 1-3-3-1-3-4 from "crux move" within 60 seconds, the page is en
 - [crux-recognition-gym](./crux-recognition-gym.md) — the operational gym for per-puzzle crux recognition (2026-05-24, from [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) ingest); 2nd recognition-gym pattern instance
 - [linguistic-crux](./linguistic-crux.md) — Tool-level sub-class (lexical-assumption crux)
 - [livingstone-thomson-brain-teasers](./livingstone-thomson-brain-teasers.md) — 211-puzzle corpus; each puzzle is one crux compressed
-- [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md) — 17 archetypes; each archetype has a typical crux level
+- [puzzle-archetype-taxonomy](./puzzle-archetype-taxonomy.md) — 19 archetypes; each archetype has a typical crux level
 
 ---
 

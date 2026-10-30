@@ -11,7 +11,7 @@ wiki_source: wiki/problem-solving/problem-solving-pipeline-equivalence.md
 **Summary**: Comparison page showing that **at least twelve named multi-step problem-solving pipelines from independent traditions are cosmetic variants of the same underlying skeleton** — frame → decompose → probe → generate → evaluate → formalize → deliver → distill. The variants differ in step count (4 to 8), in cosmetic naming, and in which steps are emphasized vs which are collapsed or implicit, but the underlying flow is invariant. This page exists to defang every future "shouldn't we adopt the McKinsey 7-step instead of FRAME FORGE?" question (or DMAIC / Polya / 8D / CRISP-DM / etc.) with a single side-by-side table.
 
 **Sources**:
-- Pólya, G. (1945). *How to Solve It* — 4-stage canonical mathematical-problem method
+- Pólya, G. (1945). *How to Solve It* — 4-stage canonical mathematical-problem method; owner page [polya-how-to-solve-it](./polya-how-to-solve-it.md)
 - *McKinsey Mind*; Conn & McLean (2018) *Bulletproof Problem Solving* — McKinsey 7-step
 - ASQ DMAIC documentation — Six Sigma's 5-step DMAIC (define / measure / analyze / improve / control)
 - ASQ 8D documentation — Ford's 8-discipline corrective-action protocol (D0–D8)
@@ -26,7 +26,7 @@ wiki_source: wiki/problem-solving/problem-solving-pipeline-equivalence.md
 - AAR (US Army) — 4-question post-event reflection
 - Per-source URLs preserved in [external-problem-solving-frameworks](./external-problem-solving-frameworks.md) Round 1–3 agent transcripts.
 
-**Last updated**: 2026-05-17
+**Last updated**: 2026-09-21 (Pólya column and source line linked to the owner page); 2026-09-05 (a fifteenth column — the Bible-Research hermeneutic worksheet, read against the skeleton via bible-study-arc-loop: Deliver explicit, Distill the one gap, now supplied by ARC's Close; §6 + Related pages); 2026-05-17
 
 ---
 
@@ -65,16 +65,16 @@ Every pipeline below maps onto this skeleton. The numbers in each cell are the *
 
 ## The comparison table
 
-| Skeleton step | [FRAME FORGE](./frame-forge.md) (8) | Pólya (4) | McKinsey 7-step | DMAIC (5) | 8D (Ford) | Toyota PPS (7) | CRISP-DM (6) | KDD (5) | SEMMA (5) | TDSP | ADPIE (5) | SOAP (4) | Dewey 5-phase | AAR (4 Q's) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **1. Frame** | 1 Frame | 1 Understand | 1 Define | 1 Define | D0+D1+D2 (containment + team + problem desc) | 1 Clarify + 2 Breakdown | 1 Business Understanding | 1 Selection | (implicit) | Business Understanding | 1 Assess | S+O (Subjective+Objective) | 1 Felt difficulty | Q1 What was intended? |
-| **2. Decompose** | 2 Inventory + 3 Represent | 1 (collapsed) | 2 Disaggregate | 2 Measure | D3 Containment | 2 (collapsed) | 2+3 Data Understanding + Data Preparation | 2+3 Preprocessing + Transformation | 1+2 Sample + Explore | Data Acquisition | 2 Diagnose | A (Assessment) | 2 Location + Definition | (implicit) |
-| **3. Probe** | 4 Probe | (implicit in Plan) | 5 Conduct analyses | 3 Analyze | D4 Root cause | 3 Target + 4 Root cause | 4 Modeling (early) | 4 Data Mining | 3 Modify | Modeling (early) | (implicit) | (implicit) | (implicit) | (implicit) |
-| **4. Generate moves** | 5 Generate Moves | 2 Devise a plan | 3 Prioritize + 4 Workplan | (collapsed into Improve) | D5 Permanent corrective action | 5 Countermeasures | 4 Modeling (continued) | 4 (continued) | 4 Model | Modeling | 3 Plan | (collapsed into Plan) | 3 Suggested solutions | (implicit) |
-| **5. Evaluate** | 6 Evaluate | (collapsed into Plan) | 5 Conduct analyses | 4 Improve | D6 Implement + verify | 6 Evaluate | 5 Evaluation | (collapsed) | 5 Assess | Evaluation | (collapsed into Plan) | (collapsed into Plan) | 4 Reasoning | Q2 What actually happened? + Q3 Why? |
-| **6. Formalize** | 7 Formalize | 3 Carry out | 6 Synthesize | (in Improve) | D6 (continued) | 7 Standardize (early) | 6 Deployment (early) | 5 Interpretation | (collapsed) | Deployment (early) | 4 Implement | P (Plan) | 5 Testing | (implicit) |
-| **7. Deliver** | (gap — N1 candidate) | (implicit in Carry out) | 7 Recommend + Communicate | 5 Control (early) | D7 Prevent recurrence (org-wide) | 7 Standardize (continued) | 6 Deployment (continued) | (collapsed) | (collapsed) | Customer Acceptance + Deployment | (implicit) | (implicit) | (implicit) | Q4 What will we do differently? |
-| **8. Distill** | 8 Distill | 4 Look back | (implicit in Communicate) | 5 Control (continued — process capability + monitoring) | D8 Congratulate + lessons learned | 7 (continued) | (cyclic — restart at 1) | (implicit) | (implicit) | (cyclic) | 5 Evaluate | (implicit) | (implicit) | Q4 (continued) |
+| Skeleton step | [FRAME FORGE](./frame-forge.md) (8) | [Pólya](./polya-how-to-solve-it.md) (4) | McKinsey 7-step | DMAIC (5) | 8D (Ford) | Toyota PPS (7) | CRISP-DM (6) | KDD (5) | SEMMA (5) | TDSP | ADPIE (5) | SOAP (4) | Dewey 5-phase | AAR (4 Q's) | Hermeneutic worksheet (Bible-Research `/study`) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **1. Frame** | 1 Frame | 1 Understand | 1 Define | 1 Define | D0+D1+D2 (containment + team + problem desc) | 1 Clarify + 2 Breakdown | 1 Business Understanding | 1 Selection | (implicit) | Business Understanding | 1 Assess | S+O (Subjective+Objective) | 1 Felt difficulty | Q1 What was intended? | Part 1 §1.1–1.5 (authorship · date · place · addressee · purpose) |
+| **2. Decompose** | 2 Inventory + 3 Represent | 1 (collapsed) | 2 Disaggregate | 2 Measure | D3 Containment | 2 (collapsed) | 2+3 Data Understanding + Data Preparation | 2+3 Preprocessing + Transformation | 1+2 Sample + Explore | Data Acquisition | 2 Diagnose | A (Assessment) | 2 Location + Definition | (implicit) | §1.6 literary context + §2.1–2.2 (genre, text division) |
+| **3. Probe** | 4 Probe | (implicit in Plan) | 5 Conduct analyses | 3 Analyze | D4 Root cause | 3 Target + 4 Root cause | 4 Modeling (early) | 4 Data Mining | 3 Modify | Modeling (early) | (implicit) | (implicit) | (implicit) | (implicit) | §2.3 key words (morphology, frequency, rare words) |
+| **4. Generate moves** | 5 Generate Moves | 2 Devise a plan | 3 Prioritize + 4 Workplan | (collapsed into Improve) | D5 Permanent corrective action | 5 Countermeasures | 4 Modeling (continued) | 4 (continued) | 4 Model | Modeling | 3 Plan | (collapsed into Plan) | 3 Suggested solutions | (implicit) | §2.4 nuances of meaning (senses, semantic field, figurative) |
+| **5. Evaluate** | 6 Evaluate | (collapsed into Plan) | 5 Conduct analyses | 4 Improve | D6 Implement + verify | 6 Evaluate | 5 Evaluation | (collapsed) | 5 Assess | Evaluation | (collapsed into Plan) | (collapsed into Plan) | 4 Reasoning | Q2 What actually happened? + Q3 Why? | §2.5 research difficulties (variants, translation divergence) |
+| **6. Formalize** | 7 Formalize | 3 Carry out | 6 Synthesize | (in Improve) | D6 (continued) | 7 Standardize (early) | 6 Deployment (early) | 5 Interpretation | (collapsed) | Deployment (early) | 4 Implement | P (Plan) | 5 Testing | (implicit) | "The Adventist reading" (synthesis) |
+| **7. Deliver** | (gap — N1 candidate) | (implicit in Carry out) | 7 Recommend + Communicate | 5 Control (early) | D7 Prevent recurrence (org-wide) | 7 Standardize (continued) | 6 Deployment (continued) | (collapsed) | (collapsed) | Customer Acceptance + Deployment | (implicit) | (implicit) | (implicit) | Q4 What will we do differently? | "In plain English" (explicit) |
+| **8. Distill** | 8 Distill | 4 Look back | (implicit in Communicate) | 5 Control (continued — process capability + monitoring) | D8 Congratulate + lessons learned | 7 (continued) | (cyclic — restart at 1) | (implicit) | (implicit) | (cyclic) | 5 Evaluate | (implicit) | (implicit) | Q4 (continued) | (gap until 2026-09-05) → Close: ledger event + backlog seeds |
 
 **Reading the table**: each column is a different tradition's named pipeline. Each row is one skeleton step. Cells say which source-pipeline step performs that skeleton step (or "(implicit)" / "(collapsed)" / "(gap)" if the step isn't named in that variant).
 
@@ -109,6 +109,10 @@ CRISP-DM looks novel relative to McKinsey if you forget that "data understanding
 
 CRISP-DM, ADPIE, AAR, and Pólya all explicitly cycle (loop back from step 8 to step 1). DMAIC's "Control" step is the loop-closure. McKinsey, FRAME FORGE, 8D present linearly but assume the practitioner will re-run when needed. **The cycle is implicit in all of them.** Whether to draw the arrow back to step 1 is a presentation decision; the iterative shape is universal. (See [external-problem-solving-frameworks](./external-problem-solving-frameworks.md) N4 — top-down ↔ bottom-up oscillation Modes — for the corresponding meta-finding that real practice is iterative within each step too, not just across the pipeline.)
 
+### 6. A fifteenth column, from outside the wiki
+
+The Bible-Research vault's hermeneutic worksheet (two parts, eleven subsections — see bible-study-arc-loop) was read against the skeleton on 2026-09-05 and turned out to be one more variant. Skeleton rows 1 to 7 are all present and — unusually — **Deliver is named explicitly** ("In plain English", a lay-reader digest), which puts it with McKinsey, 8D and TDSP in the row-7 diagnostic. **Distill was the one absent row**, the same shape §3 describes: the run ended at "clear the queue". Wrapping the worksheet in [ARC](./arc-framework.md) supplied Distill as a Close phase (a ledger event plus backlog seeds) without touching the seven rows already there — this page's own claim, that the skeleton is universal and the fix is to run the missing row rather than switch pipelines, applied to a pipeline nobody in this wiki designed.
+
 ---
 
 ## Which pipeline to pick
@@ -120,7 +124,7 @@ The honest answer: **it doesn't matter** as long as you actually run all eight s
 - **Manufacturing / process / quality** → DMAIC or 8D. DMAIC for ongoing improvement; 8D for incident response.
 - **Data science / ML** → CRISP-DM is the industry standard. KDD/SEMMA are leaner variants for one-off analyses.
 - **Clinical / nursing** → ADPIE for nursing process; SOAP for progress notes; OPQRST for pain-history capture.
-- **After-action / military / incident response** → AAR (4 questions); pairs well with Google SRE blameless postmortem (queued as N13 in [external-problem-solving-frameworks](./external-problem-solving-frameworks.md)).
+- **After-action / military / incident response** → AAR (5 questions); pairs well with Google SRE blameless postmortem (queued as N13 in [external-problem-solving-frameworks](./external-problem-solving-frameworks.md)).
 - **Teaching / education** → Dewey 5-phase or BSCS 5E (engage/explore/explain/elaborate/evaluate; see [external-problem-solving-frameworks](./external-problem-solving-frameworks.md) for the curriculum-design family).
 - **Personal use across domains** → [problem-solving-os](./problem-solving-os.md) sequences [S·E·C·T](./problem-type-classifier.md) → routed tool ([FRAME FORGE](./frame-forge.md) / [attention-framework](./attention-framework.md) / [decision-kernel](./decision-kernel.md)) → [METER](./meter-overview.md). This is the Neural OS-flavored composition.
 
@@ -139,6 +143,7 @@ The honest answer: **it doesn't matter** as long as you actually run all eight s
 
 ## Related pages
 
+- bible-study-arc-loop — the hermeneutic worksheet's column in the table above, and the ARC wrapper that supplied its missing Distill
 - [problem-solving-os](./problem-solving-os.md) — sequences FRAME FORGE + other tools into a runnable stack
 - [frame-forge](./frame-forge.md) — the Neural OS variant; explicit FRAME/FORGE phase split
 - [problem-type-classifier](./problem-type-classifier.md) — upstream classification; the choice of pipeline is downstream of type

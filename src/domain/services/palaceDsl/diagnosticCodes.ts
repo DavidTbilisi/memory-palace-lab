@@ -20,6 +20,26 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
   "misplaced-line":             "E006",
   "unknown-target":             "W007",
   "tag-syntax":                 "W008",
+  "nedf-pair-incomplete":       "W009",
+
+  // E12x/W12x — Attribute channels (backlog 12)
+  "attribute-malformed":        "E121",
+  "attribute-channel-unknown":  "E122",
+  "attribute-channel-collision":"W123",
+  "attribute-route-missing":    "W124",
+  "attribute-count-missing":    "W125",
+  "attribute-count-mismatch":   "W126",
+  "attribute-count-unexpected": "W127",
+  "attribute-channel-budget":   "I128",
+
+  // E15x/W15x — Concept glyphs (backlog 15)
+  "glyph-invalid":              "E151",
+  "glyph-duplicate":            "W152",
+
+  // E16x/W16x — Confusion links (backlog 07)
+  "confusion-malformed":        "E161",
+  "confusion-duplicate":        "W162",
+  "confusion-unknown-target":   "W163",
 
   // E1xx — Stable node identifiers (Feature 1)
   "malformed-node-id":          "E101",
@@ -46,6 +66,7 @@ export const DIAGNOSTIC_CODES: Record<DslDiagnosticCode, string> = {
 
   // W7xx — Route metadata (Feature 7)
   "route-prereq-unresolved":    "W701",
+  "route-setting-invalid":      "W702",
 
   // E8xx — Query/traversal language (Feature 8)
   "query-verb-unknown":         "E801",

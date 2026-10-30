@@ -17,8 +17,10 @@ wiki_source: wiki/cross-cutting/visual-thinking-evidence.md
 - [feedback-visual-per-concept](./feedback-visual-per-concept.md) — the rule this page grounds (the empirical sibling of its philosophical home).
 - [show-vs-say](./show-vs-say.md) (TLP 4.121–4.1212) — the philosophical home; this page is its empirical correlate.
 - [learning-sciences-validation](./learning-sciences-validation.md) — the broader "is this pseudoscience?" validation (Dunlosky six strategies + CLT); this page is the deep dive on the *visual* axis specifically.
+- Conversation 2026-09-06 with David — `/validate-idea` on the proposal *"the best thinking method is drawing"*; verdict **keep with modification**, which is §Draw-to-think below.
+- [and-polarity-thinking](./and-polarity-thinking.md) §Metaphor + Drawing + AND polarity trio · rough-work-technique · [buzan-mind-map-mastery](./buzan-mind-map-mastery.md) · tools-over-intelligence §Instrument — the four already-held instances §Draw-to-think connects.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-09-06 (**§Draw-to-think — the act, not the artifact**: the 2×2's top-left cell promoted from a finding to a runnable default with a declared exit. `/validate-idea` on *"the best thinking method is drawing"* — **keep with modification**, three scoping clauses applied: *default* not *best* (the superlative makes [representation-rules](./representation-rules.md) §Diagram-type routing's terminal *plain text is fine here* branch unreachable, which is the §D Dependency-Inversion failure the CAST-universalism rejection already names), external-and-structural not internal-and-pictorial, novel not mastered structure. Ships the three-advantage triangle as a Rule 10 declared instance, four already-held instances, and a dead-letter clause on `think.drawing_changed_the_answer` due 2026-10-04. No new glossary term — *"Draw a picture (secondary)"* is one row away); 2026-06-29
 
 ---
 
@@ -66,6 +68,84 @@ Partly — and the boundary is precise. Automaticity changes the **cost** of usi
   3. **It makes errors visible.** Your head will confabulate its own consistency; the page can be wrong in a way you can *see* ([show-vs-say](./show-vs-say.md): "prose can lie about its own structure; the diagram can't").
 
 So: **internal automaticity replaces paper for retrieving and executing mastered structure; paper remains irreducible for reasoning over novel structure** — because that work belongs to the external-structural cell, and no amount of memory training moves it into perception. (The honest edge case: heavily-drilled experts — blindfold chess, mental calculators — *do* manipulate over-learned internal representations with real fluency, but only within a narrow, regular domain, and the externalization advantage reappears the moment the structure is novel or large. The exception proves the rule.)
+
+## Draw-to-think — the act, not the artifact
+
+The 2×2 above names the top-left cell but leaves it as a finding. This section makes it a **default you can run**, and states the exit that keeps it honest. It governs the **act** — drawing while the thinking is still happening. Its sibling [feedback-visual-per-concept](./feedback-visual-per-concept.md) governs the **artifact** a finished page ships. Same evidence, different objects; collapsing them is how a thinking move turns into a publication quota.
+
+**The claim, scoped so it survives this page's own boundary:**
+
+> **Externalizing structure is the default move for reasoning over novel structure — and the routing table names when it isn't.**
+
+Three clauses, each load-bearing. Drop any one and the claim reaches into a cell the evidence forbids:
+
+1. **Default, not best.** *Best* is a ranking claim, and this wiki routes by content type instead — [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §D: *"high-level workflow should depend on abstract problem types, not on one concrete framework."* [representation-rules](./representation-rules.md) §Diagram-type routing already runs that selection, and its terminal branch — *plain text is fine here* — **is this default's declared exit**. A default whose exit is unreachable is a quota, and a quota manufactures exactly the decoration §The quota → quality refinement bans.
+2. **External and structural — not internal and pictorial.** The top-left cell only. Reasoning *inside* a vivid mental picture is the bottom-right cell, and it is the one move the evidence forbids: visual imagery can *impede* deduction, and the impedance vanishes in congenitally blind reasoners, isolating pictorial imagery as the culprit (Knauff & Johnson-Laird 2002; Knauff & May 2006).
+3. **Novel structure — not mastered structure.** §Does automaticity replace paper? already settles this half: automaticity replaces paper for retrieving and executing *mastered* structure; paper is irreducible for structure that does not yet exist.
+
+The word to keep watching is the one §Where the metaphor overreaches already flags: **"thinking"**. This section survives only because it is a claim about the *medium the work happens in* — never about a faculty, and never about a learner type.
+
+### The three advantages, as a triangle
+
+The offload advantages named in §Does automaticity replace paper? are an unordered set of three, so the count-shape is a **triangle** ([representation-rules](./representation-rules.md) Rule 10, declared instance 2026-09-06):
+
+```
+                RECRUITS PERCEPTION
+              the only way to put structure
+              in front of the ~10⁷ bits/s
+              channel — the mind's eye cannot
+              show your perception a picture
+                          ▲
+                         ╱ ╲
+                        ╱   ╲
+                       ╱     ╲
+                      ╱       ╲
+                     ╱  draw-  ╲
+                    ╱    to-    ╲
+                   ╱   think     ╲
+                  ╱               ╲
+                 ╱                 ╲
+  HOLDS NOVEL STATE ─────────────── MAKES ERRORS VISIBLE
+  perfectly, at zero                your head confabulates
+  maintenance cost, while           its own consistency;
+  you manipulate it                 the page can be wrong
+                                    in a way you can see
+```
+
+**Test** (Rule 10): cover the labels. Three corners are visible, so *"what does paper buy me that my head doesn't?"* is answered by looking rather than by recalling. The corners are also diagnostic: a drawing that engages **none** of them is **transcription** — a picture of a conclusion already reached — which is drawing as artifact, not as thinking.
+
+### The form-sharing gate applies to the act, not only the output
+
+[feedback-visual-per-concept](./feedback-visual-per-concept.md)'s anti-decoration test transfers unchanged. Sloan's field study states it for the act: the drawing is *"not doodling, deliberate symbolic representation"* — a *"dialogue between the hand and the mind"* — and the measured payoff was strategy recall at **three years**, against near-zero retention of the same directors' prior strategies ([and-polarity-thinking](./and-polarity-thinking.md) §Metaphor + Drawing + AND polarity trio). A doodle beside the problem is the act-level twin of the stock photo of a brain: it satisfies the letter and shows nothing.
+
+### Four instances the wiki already held, unconnected
+
+Each of these is a domain-local instance of the same move, and none of them linked to the cell that explains why it works:
+
+| Instance | Domain | What gets drawn | Type ([representation-rules](./representation-rules.md) Rule 1) |
+|---|---|---|---|
+| rough-work-technique | mathematical proof | the backward chain from the goal down to a known truth | **B** — discarded once the forward proof exists |
+| [and-polarity-thinking](./and-polarity-thinking.md) §trio | strategy | the metaphor carrying an AND polarity | A/B — the sketch outlives the session |
+| [buzan-mind-map-mastery](./buzan-mind-map-mastery.md) | capture / note-taking | radiant branches from a central image | B |
+| tools-over-intelligence §Instrument | novel problems (NIPSF layer 2) | whatever exposes the problem's structure | B |
+
+Rough work is the sharpest of the four, because Fuchs makes the discarding explicit — *"we are not writing an actual proof yet, but only doing preliminary experimentation to try and discover a proof."* That is the distinction between drawing-to-think and drawing-to-show, stated inside a mathematics textbook.
+
+### METER
+
+Every hook on this page and its sibling measures the **artifact**. The act needs its own, and needs one that can kill it. These ride as fields on the [problem-solving-os](./problem-solving-os.md) `problem-solving / solve` event rather than opening a parallel measurement surface; the schema owner stays [METER](./meter-overview.md).
+
+| Event | Fires when | Polarity |
+|---|---|---|
+| `think.externalized` | the episode drew structure *before or during* the reasoning, not after | Higher = better |
+| `think.drawing_changed_the_answer` | the drawing surfaced an error, a missing case, or an option the prose pass had missed | **Primary gate** |
+| `think.drawing_skipped_justified` | §Diagram-type routing returned *plain text is fine here* and the exit was taken | Neutral — the anti-quota signal |
+
+**Dead-letter clause (due 2026-10-04).** Across ~4 weeks of logged `/solve` episodes, at least **1 in 3** externalized episodes must fire `think.drawing_changed_the_answer`. If drawing never changes the answer, it is transcription rather than thinking, and this section demotes from a default to an option — per [software-design-principles-for-neural-os](./software-design-principles-for-neural-os.md) §The Main Constraint, a principle that adds ceremony without improving cognition is rejected.
+
+### What this section does *not* add to §The boundary statement
+
+No claim that drawing is *the best* thinking method — the routing table's terminal branch is the counterexample the wiki itself ships. No claim that it helps every content type. And **no new registered term**: [glossary](./glossary.md) already carries *"Draw a picture (secondary)"* (owner [zeitz-startup-strategies](./zeitz-startup-strategies.md) — a mid-investigation *math tactic*), and a second near-identical entry one row away is the naming collision [universal-mental-tagging-framework](./universal-mental-tagging-framework.md) §Orthogonality Rules exists to prevent. *Draw-to-think* is a section handle, not a protocol name.
 
 ## The myth that must stay quarantined
 
@@ -186,3 +266,6 @@ All figures below were verified against primary sources by an adversarial fact-c
 - [observer-inside-method](./observer-inside-method.md) — the observer-inside (egocentric) spatial method; the spatial-mnemonic frame applied to 3D reasoning
 - red-queen-academy — the public-facing brand the boundary statement guards against importing the myth
 - [composability-index](./composability-index.md) — where this page's unlocks are registered (quota→quality refinement; ocean/drop × automaticity; aphantasia-first-class candidate)
+- rough-work-technique · [and-polarity-thinking](./and-polarity-thinking.md) · [buzan-mind-map-mastery](./buzan-mind-map-mastery.md) · tools-over-intelligence — the four domain-local instances of §Draw-to-think
+- [problem-solving-os](./problem-solving-os.md) — where §Draw-to-think's METER fields ride, on the `problem-solving / solve` event
+- [zeitz-startup-strategies](./zeitz-startup-strategies.md) — owner of the registered *"Draw a picture (secondary)"* tactic; the near-collision §Draw-to-think deliberately does not mint a term beside

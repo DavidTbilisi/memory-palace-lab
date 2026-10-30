@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { PageContentRouter } from "./PageContentRouter";
 
 vi.mock("./AnalyticsPanel", () => ({ AnalyticsPanel: () => <div data-testid="insights" /> }));
+vi.mock("./MemoryStrengthPanel", () => ({ MemoryStrengthPanel: () => <div data-testid="strength" /> }));
 vi.mock("./TheSystemWorkbench", () => ({ TheSystemWorkbench: () => <div data-testid="system" /> }));
 vi.mock("./AtlasEditorPage", () => ({
   AtlasEditorPage: ({ onOpenPalace }: { onOpenPalace: (id: string) => void }) => (
@@ -59,6 +60,8 @@ describe("PageContentRouter", () => {
   it("renders the matching page body for each non-graph page", () => {
     setup("insights");
     expect(screen.getByTestId("insights")).toBeInTheDocument();
+    setup("strength");
+    expect(screen.getByTestId("strength")).toBeInTheDocument();
   });
 
   it("forwards the atlas open-palace callback", async () => {

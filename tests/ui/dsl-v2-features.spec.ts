@@ -61,7 +61,56 @@ async function readSceneCounts(page: import("@playwright/test").Page): Promise<S
   });
 }
 
+/**
+ * The store's `nodes` and `edges` are the last saved snapshot, refreshed by a debounced draft
+ * save a moment after the canvas changes. Wait until they describe the same graph as the
+ * canvas, so a read right after a DSL apply does not see the graph from before it.
+ */
+async function waitForSavedSnapshot(page: import("@playwright/test").Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          type Meta = Record<string, string | undefined>;
+          const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
+          if (!store) throw new Error("missing store hook");
+          const state = store.getState() as {
+            nodes: Array<{ id: string; title: string }>;
+            edges: Array<{ id: string; castAb: string; castCd: string; castEf: string; castGh: string }>;
+            editorRef: {
+              getCurrentPageShapeIds: () => Iterable<string>;
+              getShape: (id: string) => { type?: string; meta?: Meta } | undefined;
+            } | null;
+          };
+          const editor = state.editorRef;
+          if (!editor) return false;
+          const onCanvas = { nodes: [] as string[], edges: [] as string[] };
+          for (const id of editor.getCurrentPageShapeIds()) {
+            const shape = editor.getShape(id);
+            const meta = shape?.meta ?? {};
+            if ((shape?.type === "geo" || shape?.type === "image") && meta.mpNodeId) {
+              onCanvas.nodes.push(`${meta.mpNodeId}|${meta.mpTitle ?? ""}`);
+            }
+            if (shape?.type === "arrow" && meta.mpEdgeId) {
+              onCanvas.edges.push(
+                `${meta.mpEdgeId}|${meta.castAb ?? ""}${meta.castCd ?? ""}${meta.castEf ?? ""}${meta.castGh ?? ""}`,
+              );
+            }
+          }
+          const saved = {
+            nodes: state.nodes.map((n) => `${n.id}|${n.title}`),
+            edges: state.edges.map((e) => `${e.id}|${e.castAb}${e.castCd}${e.castEf}${e.castGh}`),
+          };
+          const same = (a: string[], b: string[]) => [...a].sort().join("\n") === [...b].sort().join("\n");
+          return same(onCanvas.nodes, saved.nodes) && same(onCanvas.edges, saved.edges);
+        }),
+      { message: "saved snapshot caught up with the canvas", timeout: 10000 },
+    )
+    .toBe(true);
+}
+
 async function readStoreNodes(page: import("@playwright/test").Page) {
+  await waitForSavedSnapshot(page);
   return page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing store hook");
@@ -85,6 +134,7 @@ async function readStoreNodes(page: import("@playwright/test").Page) {
 }
 
 async function readStoreEdges(page: import("@playwright/test").Page) {
+  await waitForSavedSnapshot(page);
   return page.evaluate(() => {
     const store = (window as { __mp_store?: { getState: () => unknown } }).__mp_store;
     if (!store) throw new Error("missing store hook");
@@ -133,7 +183,9 @@ async function typeDsl(page: import("@playwright/test").Page, dsl: string) {
   await cm.click();
   await page.keyboard.press("Control+A");
   await page.keyboard.press("Delete");
-  await cm.pressSequentially(dsl, { delay: 2 });
+  // Insert in one go (what a paste does). Keystroke-by-keystroke entry is covered by
+  // dsl-editor.spec.ts; here it only lets half-typed documents get applied mid-way.
+  await page.keyboard.insertText(dsl);
   await page.locator("body").click();
   await page.waitForTimeout(700);
 }
@@ -275,8 +327,16 @@ test.describe("DSL v2 — max-complexity palace syncs to canvas", () => {
       .filter((l) => l.routeId === mainRouteId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
     expect(mainLoci).toHaveLength(5);
-    expect(mainLoci[0]!.label).toBe("Gate of Patterns");
-    expect(mainLoci[4]!.label).toBe("Plugin System");
+    // DSL-built loci carry an empty label (it is an optional user caption), so the
+    // stop order is checked through the node each locus points at.
+    const titleById = new Map((await readStoreNodes(page)).map((n) => [n.id, n.title]));
+    expect(mainLoci.map((l) => titleById.get(l.nodeId))).toEqual([
+      "Gate of Patterns",
+      "Single Responsibility",
+      "Open Closed",
+      "Change Hydra",
+      "Plugin System",
+    ]);
   });
 });
 
@@ -495,6 +555,48 @@ Beta
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 warnings/i);
   });
+
+  test("route metadata is saved with the route and written back into the DSL", async ({ page }) => {
+    const metadata = [
+      { key: "difficulty", value: "advanced" },
+      { key: "prereq", value: "Gate of SOLID" },
+    ];
+    const routeMetadata = () =>
+      page.evaluate(() => {
+        const state = (window as { __mp_store?: { getState: () => unknown } }).__mp_store!.getState() as {
+          routes: Array<{ name: string; metadata?: unknown }>;
+        };
+        return state.routes.find((route) => route.name === "Advanced Walk")?.metadata ?? null;
+      });
+    // The editor rewrites its text from the saved palace once it loses focus; it joins the
+    // two tag lines into one, so seeing the joined line shows the rewrite kept the metadata.
+    const rewrittenLine = "/Advanced Walk\n#difficulty:advanced #prereq:Gate of SOLID\n1 Gate of SOLID";
+    const editorText = () => page.locator(".cm-content").first().innerText();
+
+    await bootstrapPalace(page);
+    await openDslEditor(page);
+    await typeDsl(
+      page,
+      "@Tutorial Palace\n\nGate of SOLID\n\nForge\n\n/Advanced Walk\n#difficulty:advanced\n#prereq:Gate of SOLID\n1 Gate of SOLID\n2 Forge\n",
+    );
+
+    await expect.poll(routeMetadata).toEqual(metadata);
+    await expect.poll(editorText).toContain(rewrittenLine);
+
+    await page.getByRole("button", { name: /save checkpoint|checkpoint now/i }).click();
+    await expect(page.getByRole("button", { name: /save checkpoint/i })).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: "Tutorial Palace", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Tutorial Palace" })).toBeVisible();
+
+    await expect.poll(routeMetadata).toEqual(metadata);
+    await page.getByRole("tab", { name: /^Routes/ }).click();
+    await expect(
+      page.getByRole("list", { name: "Metadata for Advanced Walk" }).getByRole("listitem"),
+    ).toHaveText(["difficulty:advanced", "prereq:Gate of SOLID"]);
+    if (!(await page.getByTestId("palace-dsl-editor").isVisible())) await openDslEditor(page);
+    await expect.poll(editorText).toContain(rewrittenLine);
+  });
 });
 
 // ── PORTAL NODES ──────────────────────────────────────────────────────────────
@@ -654,7 +756,7 @@ test.describe("DSL v2 — import declarations !import", () => {
   test("malformed import emits E401 error", async ({ page }) => {
     await bootstrapPalace(page);
     await openDslEditor(page);
-    await typeDsl(page, "@P\n!import missing-as-clause\n\nNode\n");
+    await typeDsl(page, "@P\n!import some path with spaces\n\nNode\n");
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 errors/i);
   });
@@ -690,7 +792,7 @@ test.describe("DSL v2 — core diagnostic codes", () => {
   test("malformed CAST token emits E003 error", async ({ page }) => {
     await bootstrapPalace(page);
     await openDslEditor(page);
-    await typeDsl(page, "@P\n\nAlpha\n>Beta XXXX\n\nBeta\n");
+    await typeDsl(page, "@P\n\nAlpha\n>Beta 5678\n\nBeta\n");
 
     await expect(page.getByTestId("palace-dsl-status")).not.toContainText(/0 errors/i);
   });

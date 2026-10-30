@@ -24,6 +24,7 @@ function mockStore(currentPalaceId: string | null) {
     setWalkRecallMode: vi.fn(),
     setWalkCueOnly: vi.fn(),
     setWalkOpen: vi.fn(),
+    selectWalkSlot: vi.fn(),
   };
   vi.mocked(usePalaceStore.getState).mockImplementation(() => state as never);
   return state;
@@ -34,13 +35,15 @@ describe("startReviewAt", () => {
 
   it("opens the other palace, arms walk mode, jumps to the locus, and lands on the graph", async () => {
     const state = mockStore("other");
-    await startReviewAt({ palaceId: "target", routeId: "r1", locusId: "l2" });
+    await startReviewAt({ palaceId: "target", routeId: "r1", locusId: "l2", slot: "failure" });
     expect(state.openPalace).toHaveBeenCalledWith("target");
     expect(state.setWalkRoute).toHaveBeenCalledWith("r1");
     expect(state.setWalkRecallMode).toHaveBeenCalledWith(true);
     expect(state.setWalkCueOnly).toHaveBeenCalledWith(true);
     expect(state.setWalkOpen).toHaveBeenCalledWith(true);
     expect(usePalaceStore.setState).toHaveBeenCalledWith({ walkIndex: 1 });
+    // The jump lands on the stop the queue chose, asking the slot the queue chose.
+    expect(state.selectWalkSlot).toHaveBeenCalledWith("failure");
     expect(requestNavigation).toHaveBeenCalledWith("graph");
   });
 

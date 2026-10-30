@@ -1,4 +1,4 @@
-import type { MemoryNodeKind, PalacePortalRef } from "../../entities/types";
+import type { MemoryNodeKind, NedfEncoding, NodeAttribute, PalacePortalRef, RouteColor, RouteDirection } from "../../entities/types";
 
 export type DslDiagnosticCode =
   | "duplicate-title"
@@ -9,6 +9,19 @@ export type DslDiagnosticCode =
   | "invalid-portal-target"
   | "misplaced-line"
   | "tag-syntax"
+  | "nedf-pair-incomplete"
+  // Backlog 12 — attribute channels
+  | "attribute-malformed"
+  | "attribute-channel-unknown"
+  | "attribute-channel-collision"
+  | "attribute-route-missing"
+  | "attribute-count-missing"
+  | "attribute-count-mismatch"
+  | "attribute-count-unexpected"
+  | "attribute-channel-budget"
+  // Backlog 15 — concept glyphs
+  | "glyph-invalid"
+  | "glyph-duplicate"
   // Feature 1 — stable node identifiers
   | "duplicate-node-id"
   | "malformed-node-id"
@@ -27,6 +40,7 @@ export type DslDiagnosticCode =
   | "inline-ref-self"
   // Feature 7 — route metadata
   | "route-prereq-unresolved"
+  | "route-setting-invalid"
   // Feature 4 — imports
   | "import-malformed"
   | "import-namespace-collision"
@@ -35,7 +49,11 @@ export type DslDiagnosticCode =
   | "query-path-missing-arg"
   | "query-unresolved-node"
   | "query-unresolved-route"
-  | "query-path-ambiguous";
+  | "query-path-ambiguous"
+  // Backlog 07 — confusion links
+  | "confusion-malformed"
+  | "confusion-duplicate"
+  | "confusion-unknown-target";
 
 export interface SuggestedFix {
   description: string;
@@ -112,6 +130,12 @@ export interface DslEdgeIntent {
   sourceLine: number;
 }
 
+/** A `<>Neighbour` line: this node is easily confused with the named one. Undirected. */
+export interface DslConfusionIntent {
+  targetTitle: string;
+  sourceLine: number;
+}
+
 export interface DslNode {
   title: string;
   /** Explicit stable identifier declared as `[id] Title`. Null if not declared. */
@@ -125,10 +149,18 @@ export interface DslNode {
   portal: PalacePortalRef | null;
   /** URL declared via `@image <url>` directive. Null if not set. */
   imageUrl: string | null;
+  /** NEDF slots from `@N`, `@E`, `@D question => reason`, and `@F scenario => correction` lines. */
+  nedf: NedfEncoding | null;
+  /** Attributes from `@A channel name [route N]: value | value` lines. */
+  attributes: NodeAttribute[] | null;
+  /** Concept glyph from a `@glyph <symbol>` line. */
+  glyph: string | null;
   tags: string[];
   /** Structured #key:value tags parsed from tag lines. */
   structuredTags: DslStructuredTag[];
   edges: DslEdgeIntent[];
+  /** Confusion links from `<>Neighbour` lines, one per pair across the document. */
+  confusions: DslConfusionIntent[];
   sourceLine: number;
 }
 
@@ -138,6 +170,13 @@ export interface DslRoute {
   normalizedName: string;
   /** Structured tags appearing after the route header but before the first locus. */
   metadata: DslStructuredTag[];
+  /** Route settings lifted out of the tag line: `#color:sky #hidden #direction:reverse #review:off`. */
+  color?: RouteColor;
+  hidden?: boolean;
+  direction?: RouteDirection;
+  inReview?: false;
+  /** `:` lines between the route header and its first locus. */
+  notes?: string;
   loci: string[];
   sourceLine: number;
 }

@@ -71,7 +71,9 @@ function buildState(overrides: Record<string, unknown> = {}) {
     walkRouteId: "route-1",
     loci: [BASE_LOCUS, { ...BASE_LOCUS, id: "locus-2", objectId: "obj-2", nodeId: "node-2", label: "Kitchen", orderIndex: 1 }],
     walkIndex: 0,
+    walkDirection: "forward",
     editorRef: null,
+    edges: [],
     nodes: [BASE_NODE, { ...BASE_NODE, id: "node-2", objectId: "obj-node-2", title: "Nucleus", content: "Control center" }],
     ...overrides,
   };
@@ -273,8 +275,16 @@ describe("WalkModeBar — recall mode", () => {
 });
 
 describe("WalkModeBar — cue only mode", () => {
-  it("shows node title as cue and content as answer when walkCueOnly is true", () => {
-    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true });
+  it("hides the node title until the answer is revealed, cueing with the place instead", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true, walkAnswerRevealed: false });
+    usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
+    render(<WalkModeBar />);
+    expect(screen.queryByText("Mitochondria")).not.toBeInTheDocument();
+    expect(screen.getByText("Living Room")).toBeInTheDocument();
+  });
+
+  it("shows node title as cue and content as answer once revealed when walkCueOnly is true", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkCueOnly: true, walkAnswerRevealed: true });
     usePalaceStoreMock.mockImplementation((selector: (s: Record<string, unknown>) => unknown) => selector(mockState));
     render(<WalkModeBar />);
     expect(screen.getByText("Mitochondria")).toBeInTheDocument();
@@ -483,3 +493,73 @@ describe("WalkModeBar — empty route", () => {
     expect(screen.getByRole("button", { name: /next step/i })).toBeDisabled();
   });
 });
+
+describe("WalkModeBar — direction and sections", () => {
+  const loci = [
+    BASE_LOCUS,
+    { ...BASE_LOCUS, id: "locus-2", nodeId: "node-2", label: "Kitchen", orderIndex: 1, section: "Ground floor" },
+  ];
+
+  it("starts a reverse walk at the last stop and says so", () => {
+    mockState = buildState({ walkOpen: true, walkDirection: "reverse", loci });
+    render(<WalkModeBar />);
+    expect(screen.getByText("Kitchen")).toBeInTheDocument();
+    expect(screen.getByTestId("walk-direction-reverse")).toBeInTheDocument();
+    expect(screen.getByTestId("walk-section")).toHaveTextContent("Ground floor");
+  });
+
+  it("shows no section before the first one starts, and no reverse badge going forward", () => {
+    mockState = buildState({ walkOpen: true, loci });
+    render(<WalkModeBar />);
+    expect(screen.getByText("Living Room")).toBeInTheDocument();
+    expect(screen.queryByTestId("walk-section")).toBeNull();
+    expect(screen.queryByTestId("walk-direction-reverse")).toBeNull();
+  });
+});
+
+describe("WalkModeBar — NEDF cards", () => {
+  const nedf = {
+    nameHook: "Power plant",
+    essence: "Turns food into ATP",
+    distinguisher: { prompt: "Makes energy, or stores the genome?", reason: "the nucleus stores the genome" },
+  };
+  const nodes = [{ ...BASE_NODE, nedf }, { ...BASE_NODE, id: "node-2", objectId: "obj-node-2", title: "Nucleus" }];
+
+  it("asks the step's slot question before the answer is revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkSlot: "distinguisher", nodes });
+    render(<WalkModeBar />);
+    expect(screen.getByTestId("walk-slot")).toHaveTextContent("Discrimination");
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Makes energy, or stores the genome?");
+    expect(document.getElementById("walk-answer")).toHaveTextContent(/^Discrimination: which concept is this/);
+  });
+
+  it("names the concept once the answer is revealed", () => {
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: true, walkSlot: "essence", nodes });
+    render(<WalkModeBar />);
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Turns food into ATP");
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Mitochondria · Power plant");
+  });
+
+  it("names the confusion neighbour on the distinguisher card and reveals why", () => {
+    const edges = [
+      { id: "e1", objectId: "eo1", sourceNodeId: "node-2", targetNodeId: "node-1", castAb: "", castCd: "", castEf: "", castGh: "", kind: "confusion" },
+    ];
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkSlot: "distinguisher", nodes, edges });
+    const { unmount } = render(<WalkModeBar />);
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Makes energy, or stores the genome?");
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Which is it: Mitochondria or Nucleus?");
+    unmount();
+
+    mockState = buildState({ walkOpen: true, walkRecallMode: true, walkAnswerRevealed: true, walkSlot: "distinguisher", nodes, edges });
+    render(<WalkModeBar />);
+    expect(document.getElementById("walk-answer")).toHaveTextContent("Mitochondria, because the nucleus stores the genome");
+  });
+
+  it("falls back to the classic cue when the step's slot is not filled", () => {
+    mockState = buildState({ walkOpen: true, walkSlot: "failure", nodes });
+    render(<WalkModeBar />);
+    expect(screen.queryByTestId("walk-slot")).toBeNull();
+    expect(document.getElementById("walk-cue")).toHaveTextContent("Living Room");
+  });
+});
+

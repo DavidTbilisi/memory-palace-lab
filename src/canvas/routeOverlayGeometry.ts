@@ -65,8 +65,11 @@ export type RouteOverlayInput = {
   loci: readonly Locus[];
   boxes: ReadonlyMap<string, NodeBox>;
   activeRouteId: string | null;
-  /** During a walk only the walked route is drawn, and its current stop is marked. */
-  walk: { routeId: string; index: number } | null;
+  /**
+   * During a walk only the walked route is drawn, and its current stop is marked. `index` is the
+   * stop's position in the route's own order; a reverse walk points the arrows back along it.
+   */
+  walk: { routeId: string; index: number; reverse?: boolean } | null;
 };
 
 /**
@@ -96,7 +99,8 @@ export function buildRouteOverlay(input: RouteOverlayInput): { paths: RoutePath[
       const nextStop = stops[stopIndex + 1];
       const nextBox = nextStop ? boxes.get(nextStop.nodeId) : undefined;
       if (nextBox) {
-        const segment = edgeToEdgeSegment(box, nextBox);
+        const reverse = walk?.routeId === route.id && walk.reverse === true;
+        const segment = reverse ? edgeToEdgeSegment(nextBox, box) : edgeToEdgeSegment(box, nextBox);
         if (segment) segments.push(segment);
       }
       const slot = badgesPerNode.get(stop.nodeId) ?? 0;

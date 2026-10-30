@@ -5,6 +5,9 @@ import type {
   PalaceSnapshot,
 } from "../../entities/types";
 import { formatCastCompact } from "./cast";
+import { normalizeAttributes } from "../attributes";
+import { normalizeNedf } from "../nedf";
+import { isConfusionEdge } from "../confusion";
 
 function formatPortalTarget(p: PalacePortalRef): string | null {
   if (!p.targetPalaceName) return null;
@@ -25,7 +28,17 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
   for (const n of snapshot.nodes) idToTitle.set(n.id, n.title);
 
   const edgesBySource = new Map<string, MemoryEdge[]>();
+  // A confusion pair is written once, under the node it was drawn from.
+  const confusionsBySource = new Map<string, string[]>();
+  const confusionPairs = new Set<string>();
   for (const e of snapshot.edges) {
+    if (isConfusionEdge(e)) {
+      const key = [e.sourceNodeId, e.targetNodeId].sort().join("|");
+      if (confusionPairs.has(key) || e.sourceNodeId === e.targetNodeId) continue;
+      confusionPairs.add(key);
+      confusionsBySource.set(e.sourceNodeId, [...(confusionsBySource.get(e.sourceNodeId) ?? []), e.targetNodeId]);
+      continue;
+    }
     const list = edgesBySource.get(e.sourceNodeId) ?? [];
     list.push(e);
     edgesBySource.set(e.sourceNodeId, list);
@@ -50,6 +63,26 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
       lines.push(`@image ${node.imageUrl}`);
     }
 
+    if (node.glyph) {
+      lines.push(`@glyph ${node.glyph}`);
+    }
+
+    const nedf = normalizeNedf(node.nedf);
+    if (nedf) {
+      // A multi-line slot takes one line per line, as `:` content does.
+      for (const piece of nedf.nameHook?.split("\n") ?? []) lines.push(`@N ${piece}`);
+      for (const piece of nedf.essence?.split("\n") ?? []) lines.push(`@E ${piece}`);
+      if (nedf.distinguisher) lines.push(`@D ${nedf.distinguisher.prompt} => ${nedf.distinguisher.reason}`.trimEnd());
+      if (nedf.failure) lines.push(`@F ${nedf.failure.scenario} => ${nedf.failure.correction}`.trimEnd());
+    }
+
+    for (const attribute of normalizeAttributes(node.attributes) ?? []) {
+      // A count only has a place in the route bracket, so a count with no route is not written.
+      const route = attribute.route ? ` [${attribute.route}${attribute.count !== undefined ? ` ${attribute.count}` : ""}]` : "";
+      const name = attribute.name ? ` ${attribute.name}` : "";
+      lines.push(`@A ${attribute.channel}${name}${route}: ${attribute.values.join(" | ")}`.trimEnd());
+    }
+
     if (node.tags && node.tags.length > 0) {
       const sorted = [...new Set(node.tags)].sort();
       lines.push(sorted.map((t) => `#${t}`).join(" "));
@@ -66,6 +99,9 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
       });
       lines.push(cast === "0000" ? `>${target}` : `>${target} ${cast}`);
     }
+    for (const targetId of confusionsBySource.get(node.id) ?? []) {
+      lines.push(`<>${idToTitle.get(targetId) ?? "<unknown>"}`);
+    }
   }
 
   const lociByRoute = new Map<string, Locus[]>();
@@ -78,6 +114,19 @@ export function serializeDsl(snapshot: PalaceSnapshot): string {
   for (const route of snapshot.routes) {
     lines.push("");
     lines.push(`/${route.name}`);
+    // Settings first, defaults left out; every tag starts with "#", which is also where a
+    // multi-word #prereq value ends.
+    const tags = [
+      route.color ? `#color:${route.color}` : null,
+      route.hidden ? "#hidden" : null,
+      route.direction && route.direction !== "forward" ? `#direction:${route.direction}` : null,
+      route.inReview === false ? "#review:off" : null,
+      ...(route.metadata ?? []).map(({ key, value }) => `#${key}:${value ?? ""}`),
+    ].filter((tag): tag is string => tag !== null);
+    if (tags.length > 0) lines.push(tags.join(" "));
+    if (route.notes?.trim()) {
+      for (const piece of route.notes.split("\n")) lines.push(`: ${piece}`);
+    }
     const ordered = (lociByRoute.get(route.id) ?? [])
       .slice()
       .sort((a, b) => a.orderIndex - b.orderIndex);

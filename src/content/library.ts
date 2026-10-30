@@ -40,6 +40,8 @@ export type LibraryEntry = {
   searchText?: string;
   /** Markdown body loader; absent for component entries. */
   load?: () => Promise<string>;
+  /** A wiki concept page's glyph, which a node added from the page adopts. */
+  glyph?: string;
 };
 
 export function libraryEntryId(section: LibrarySection, slug: string): string {
@@ -127,6 +129,7 @@ export function loadLibraryIndex(): Promise<LibraryEntry[]> {
         title: entry.title,
         summary: entry.summary,
         category: entry.palace,
+        ...(entry.glyph ? { glyph: entry.glyph } : {}),
         origin: "wiki",
         kind: "markdown",
         keywords: [entry.palace, entry.domain != null ? `domain ${entry.domain}` : "", entry.source]

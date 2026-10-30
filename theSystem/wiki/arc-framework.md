@@ -19,7 +19,7 @@ wiki_source: wiki/encoders/arc-framework.md
 - wiki/decision-kernel.md
 - wiki/attention-framework.md
 
-**Last updated**: 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 🌈 → 🧰 — wraps all five core tools into one callable — a toolbox is one thing you pick up with many inside; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-19
+**Last updated**: 2026-09-05 (**§C — Close corrected: four questions → five.** The page had listed a 4-question AAR since 2026-05-19 while its owner [after-action-review](./after-action-review.md) and the [glossary](./glossary.md) registry row both define the US Army protocol as **5**. The missing one was Q5 *"What do we do now?"* — the forward commitment, which is the question that makes the close feed the next assess. Surfaced by `tools/solve/protocols.json`, which had to pick a number to enforce and took the owner's); 2026-09-05 (§Related Pages — bible-study-arc-loop added, the first ARC instance outside this wiki: the Bible-Research `/study` batch, validated via `/validate-idea` as *keep with modification*); 2026-08-20 (§Visual authored — diagram replaces the TODO stub); 2026-08-20 (§Checksum authored — 3 falsifiable retrieval questions replace the TODO stub); 2026-08-20 (§Mnemonic authored — TODO stub replaced with a real device); 2026-08-20 (`glyph:` re-picked 🌈 → 🧰 — wraps all five core tools into one callable — a toolbox is one thing you pick up with many inside; [representation-rules](./representation-rules.md) Rule 11); 2026-08-20 (`glyph:` assigned — [representation-rules](./representation-rules.md) Rule 11); 2026-05-19
 
 ---
 
@@ -43,7 +43,7 @@ Run [S·E·C·T](./problem-type-classifier.md). Output: one letter. Time: <60 se
 
 | Output | Meaning | Route to |
 |---|---|---|
-| **S** | Search — the answer exists, you need to find/construct it | FRAME FORGE |
+| **S** | Search — the answer exists, you need to find/construct it | [FRAME FORGE](./frame-forge.md) |
 | **E** | Execution — the path is known, staying on it is the challenge | Attention Framework |
 | **C** | Constraint — hard limits narrow the solution space | Decision Kernel |
 | **T** | Tradeoff — no solution is free; you are choosing which cost to pay | Decision Kernel |
@@ -69,12 +69,15 @@ Run ends when the pipeline's output criterion is met:
 
 ### C — Close
 
-Run the [AAR](./after-action-review.md) on every completed loop, regardless of type. Four questions, 10 minutes:
+Run the [AAR](./after-action-review.md) on every completed loop, regardless of type. Five questions, 10 minutes — the wording and the count are the owner page's:
 
-1. **What did I intend?** — the goal you set at the start of Run
-2. **What happened?** — the actual output
-3. **Why the gap?** — root cause of any difference
-4. **What changes?** — one concrete adjustment to carry into the next loop
+1. **What was the intent?** — the goal you set at the start of Run
+2. **What actually happened?** — the actual output, factual and blame-free
+3. **Why did it happen?** — root cause of any gap between the two
+4. **How can we do better?** — one concrete adjustment to carry into the next loop
+5. **What do we do now?** — the forward commitment; the action the next loop opens on
+
+Q5 is what makes Close feed the next Assess rather than merely ending the run. Drop it and ARC degrades into a checklist with a retrospective bolted on — which is precisely what this page claimed for three months, listing four questions while [after-action-review](./after-action-review.md) and [the registry](./glossary.md) both said five.
 
 Close is not optional on completed problems. Skipping it means the session produced output but no learning. Over 30+ sessions, the compound cost is a flat [METER](./meter-overview.md) curve instead of a rising one.
 
@@ -113,7 +116,7 @@ ARC is not useful as a fact to memorize. It is a **reflex loop** to internalize 
 **Minimum viable drill:**
 - Take any real problem (work, study, personal)
 - Say the phase name aloud before entering it: "Assessing... it's an S-type. Running FRAME FORGE. Step 1: Frame."
-- At close, answer all 4 AAR questions in writing, even briefly
+- At close, answer all 5 AAR questions in writing, even briefly
 
 **Pass criterion**: Assess produces a type classification in <60s without prompting from the list. Run starts the correct pipeline immediately. Close runs without skipping even when the output feels obvious.
 
@@ -124,6 +127,7 @@ ARC is not useful as a fact to memorize. It is a **reflex loop** to internalize 
 ## Related Pages
 
 - [problem-solving-os](./problem-solving-os.md) — the full OS that ARC is the entry point for; contains routing table, maturity ladder, and daily/weekly rhythm
+- bible-study-arc-loop — first instance outside this wiki: the Bible-Research vault's unattended `/study` batch runs ARC as its calling convention (type-tagged queue line = Assess, hermeneutic worksheet = Run, METER-style ledger + backlog seeds = Close)
 - [problem-type-classifier](./problem-type-classifier.md) — the S·E·C·T tool used in Assess
 - [frame-forge](./frame-forge.md) — the S-type pipeline used in Run
 - [attention-framework](./attention-framework.md) — the E-type pipeline used in Run

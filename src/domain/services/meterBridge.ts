@@ -158,6 +158,21 @@ export const APP_EVENT_MAPPERS: Partial<Record<AnalyticsEvent["eventType"], Mapp
       ctx,
     ),
   ],
+  // A Storm is an encoding push: its count is new nodes encoded, its route holds them.
+  storm_completed: async (event, payload, ctx) => [
+    build(
+      event,
+      {
+        layer: "encoding",
+        operation: "encode",
+        metric_type: "palace.storm_completed",
+        metric_value: num(payload.count) ?? 0,
+        artifact_id: event.routeId ?? null,
+        mode: null,
+      },
+      ctx,
+    ),
+  ],
   palace_created: encodeEvent("palace.created", (e) => e.palaceId ?? null),
   node_created: encodeEvent("palace.node_created", (e) => e.nodeId ?? null),
   edge_created: encodeEvent("palace.edge_created", (e) => e.nodeId ?? null),

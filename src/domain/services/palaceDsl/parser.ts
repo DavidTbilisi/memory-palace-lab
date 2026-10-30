@@ -1,4 +1,17 @@
-import type { PalacePortalRef } from "../../entities/types";
+import {
+  ATTRIBUTE_ROUTES,
+  ROUTE_COLORS,
+  ROUTE_DIRECTIONS,
+  UMTF_CHANNELS,
+  type AttributeRoute,
+  type NedfEncoding,
+  type NodeAttribute,
+  type PalacePortalRef,
+  type UmtfChannel,
+} from "../../entities/types";
+import { attributeWarnings, type AttributeWarningKind } from "../attributes";
+import { checkGlyph, glyphHolder, glyphTakenMessage } from "../conceptGlyph";
+import { normalizeNedf } from "../nedf";
 import { parseCast } from "./cast";
 import { DIAGNOSTIC_CODES } from "./diagnosticCodes";
 import type {
@@ -47,6 +60,7 @@ function preprocess(text: string): Line[] {
 //   :        → body content
 //   #        → tag line
 //   >        → edge
+//   <>       → confusion link
 //   /        → route header
 //   \d+ ' '  → route step
 //   (other)  → node title
@@ -57,9 +71,13 @@ type ClassifiedLine =
   | { type: "atlas"; path: string }
   | { type: "portal"; target: string }
   | { type: "image"; url: string }
+  | { type: "glyph"; glyph: string }
+  | { type: "nedf"; letter: "N" | "E" | "D" | "F"; text: string }
+  | { type: "attribute"; text: string }
   | { type: "body"; text: string }
   | { type: "tags" }
   | { type: "edge"; rest: string }
+  | { type: "confusion"; target: string }
   | { type: "route-hdr"; name: string }
   | { type: "route-step"; title: string }
   | { type: "node"; title: string; id: string | null }
@@ -90,6 +108,20 @@ function classify(body: string): ClassifiedLine {
   if (body.startsWith("@image")) {
     return { type: "image", url: body.slice("@image".length).trim() };
   }
+  if (/^@glyph(\s|$)/.test(body)) {
+    return { type: "glyph", glyph: body.slice("@glyph".length).trim() };
+  }
+  // NEDF slots. Only under a node: the parse loop reads one before any node as a palace
+  // header, so a palace called "N Queens" keeps its `@N Queens` header.
+  const nedfMatch = body.match(/^@([NEDF])(?:\s+(.*))?$/);
+  if (nedfMatch) {
+    return { type: "nedf", letter: nedfMatch[1] as "N" | "E" | "D" | "F", text: (nedfMatch[2] ?? "").trim() };
+  }
+  // Attributes, with the same palace-header exception as NEDF lines.
+  const attributeMatch = body.match(/^@A(?:\s+(.*))?$/);
+  if (attributeMatch) {
+    return { type: "attribute", text: (attributeMatch[1] ?? "").trim() };
+  }
   if (body.startsWith("@")) {
     return { type: "palace", name: body.slice(1).trim() };
   }
@@ -101,6 +133,9 @@ function classify(body: string): ClassifiedLine {
   }
   if (body.startsWith(">")) {
     return { type: "edge", rest: body.slice(1).trim() };
+  }
+  if (body.startsWith("<>")) {
+    return { type: "confusion", target: body.slice(2).trim() };
   }
   if (body.startsWith("/")) {
     return { type: "route-hdr", name: body.slice(1).trim() };
@@ -166,6 +201,44 @@ const RESERVED_NODE_IDS = new Set(["palace", "import", "route"]);
 const NODE_ID_RE = /^[a-z_][a-z0-9_-]*$/;
 
 /** Validates a raw (already-lowercased) node id token. Returns error string or null. */
+/** `channel name [route N]: value | value`. The name and the bracket are optional. */
+const ATTRIBUTE_LINE = /^([^\s:[]+)\s*([^[:]*?)\s*(?:\[([^\]]*)\])?\s*:\s*(.*)$/;
+
+function parseAttributeLine(text: string): { attribute: NodeAttribute } | { error: "malformed" | "channel"; message: string } {
+  const match = text.match(ATTRIBUTE_LINE);
+  if (!match) {
+    return { error: "malformed", message: '@A needs "channel name: value", e.g. "@A spatial where: north tower"' };
+  }
+  const [, rawChannel, name, bracket, rawValues] = match;
+  const channel = rawChannel.toLowerCase();
+  if (!(UMTF_CHANNELS as readonly string[]).includes(channel)) {
+    return { error: "channel", message: `"${rawChannel}" is not a UMTF channel. Use one of: ${UMTF_CHANNELS.join(", ")}` };
+  }
+  const attribute: NodeAttribute = {
+    name: name.trim(),
+    channel: channel as UmtfChannel,
+    values: rawValues.split("|").map((v) => v.trim()).filter((v) => v !== ""),
+  };
+  if (bracket !== undefined) {
+    const route = bracket.trim().match(/^(\w+)(?:\s+(\d+))?$/);
+    if (!route || !(ATTRIBUTE_ROUTES as readonly string[]).includes(route[1].toLowerCase())) {
+      return { error: "malformed", message: `[${bracket}] should be [dissolve], [address], or [enumerate N]` };
+    }
+    attribute.route = route[1].toLowerCase() as AttributeRoute;
+    if (route[2] !== undefined) attribute.count = Number(route[2]);
+  }
+  return { attribute };
+}
+
+const ATTRIBUTE_WARNING_CODES: Record<AttributeWarningKind, DslDiagnosticCode> = {
+  "channel-collision": "attribute-channel-collision",
+  "route-missing": "attribute-route-missing",
+  "count-missing": "attribute-count-missing",
+  "count-mismatch": "attribute-count-mismatch",
+  "count-unexpected": "attribute-count-unexpected",
+  "channel-budget": "attribute-channel-budget",
+};
+
 function validateNodeId(id: string): string | null {
   if (id.length === 0) return "Node identifier must not be empty";
   if (id.length > 64) return `Node identifier "${id}" exceeds 64-character limit`;
@@ -210,16 +283,26 @@ function parseTagsLine(body: string): {
   const tags: string[] = [];
   const structuredTags: DslStructuredTag[] = [];
   const invalid: { token: string; offset: number }[] = [];
-  const tokenRe = /\S+/g;
-  let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(body)) !== null) {
-    const token = m[0]!;
+  const tokens = [...body.matchAll(/\S+/g)];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const m = tokens[i]!;
+    let token = m[0];
     const stripped = token.replace(/^#/, "");
     const colonIdx = stripped.indexOf(":");
     if (colonIdx > 0) {
       // Structured tag: #key:value
       const key = stripped.slice(0, colonIdx).toLowerCase();
-      const value = stripped.slice(colonIdx + 1);
+      let value = stripped.slice(colonIdx + 1);
+      if (key === "prereq") {
+        // A prereq names a node, and titles have spaces: its value runs on to the next
+        // #tag or the end of the line (`#prereq:Gate of SOLID #difficulty:advanced`).
+        let last = i;
+        while (last + 1 < tokens.length && !tokens[last + 1]![0].startsWith("#")) last += 1;
+        const end = tokens[last]!.index + tokens[last]![0].length;
+        token = body.slice(m.index, end);
+        value = token.slice(token.indexOf(":") + 1).trim();
+        i = last;
+      }
       if (/^[a-z][a-z0-9_-]*$/.test(key)) {
         structuredTags.push({ key, value: value || null, raw: token });
         // Also keep in flat tags as "key:value" for backward-compat consumers
@@ -237,6 +320,36 @@ function parseTagsLine(body: string): {
     }
   }
   return { tags, structuredTags, invalid };
+}
+
+/**
+ * Lift a reserved route setting (`#color:`, `#direction:`, `#review:`) off a route's tag line.
+ * Returns an error message for a reserved key with a bad value, or `false` for ordinary metadata.
+ */
+function applyRouteSetting(route: DslRoute, tag: DslStructuredTag): string | true | false {
+  const value = tag.value?.toLowerCase() ?? "";
+  switch (tag.key) {
+    case "color":
+      if (!(ROUTE_COLORS as readonly string[]).includes(value)) {
+        return `Route color "${tag.value ?? ""}" is not one of ${ROUTE_COLORS.join(", ")}`;
+      }
+      route.color = value as DslRoute["color"];
+      return true;
+    case "direction":
+      if (!(ROUTE_DIRECTIONS as readonly string[]).includes(value)) {
+        return `Walk direction "${tag.value ?? ""}" must be forward, reverse, or alternate`;
+      }
+      if (value === "forward") delete route.direction;
+      else route.direction = value as DslRoute["direction"];
+      return true;
+    case "review":
+      if (value !== "on" && value !== "off") return `Route review "${tag.value ?? ""}" must be on or off`;
+      if (value === "off") route.inReview = false;
+      else delete route.inReview;
+      return true;
+    default:
+      return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -512,6 +625,8 @@ export function parseDsl(text: string): DslParseResult {
   const seenIdLines = new Map<string, number>();
   let sawHeader = false;
   let currentNode: DslNode | null = null;
+  /** Source line of each `@A` attribute, so a warning can point at the attribute it names. */
+  const attributeLines = new Map<DslNode, number[]>();
   let currentRoute: DslRoute | null = null;
   let routeHasMembers = false;
   const seenNamespaces = new Set<string>();
@@ -612,9 +727,13 @@ export function parseDsl(text: string): DslParseResult {
           kind: "memory",
           portal: null,
           imageUrl: null,
+          nedf: null,
+          attributes: null,
+          glyph: null,
           tags: [],
           structuredTags: [],
           edges: [],
+          confusions: [],
           sourceLine: num,
         };
         break;
@@ -626,6 +745,11 @@ export function parseDsl(text: string): DslParseResult {
         break;
 
       case "body":
+        if (!currentNode && currentRoute && !routeHasMembers) {
+          // Route notes: content lines between the route header and its first locus
+          currentRoute.notes = currentRoute.notes === undefined ? cl.text : `${currentRoute.notes}\n${cl.text}`;
+          break;
+        }
         if (!currentNode) {
           diag(
             diagnostics,
@@ -676,8 +800,16 @@ export function parseDsl(text: string): DslParseResult {
           }
         } else if (currentRoute && !routeHasMembers) {
           // Feature 7 — route metadata: tags before first locus belong to the route
-          const { structuredTags, invalid } = parseTagsLine(body);
-          for (const st of structuredTags) currentRoute.metadata.push(st);
+          const { tags, structuredTags, invalid } = parseTagsLine(body);
+          if (tags.includes("hidden")) currentRoute.hidden = true;
+          for (const st of structuredTags) {
+            const applied = applyRouteSetting(currentRoute, st);
+            if (applied === false) currentRoute.metadata.push(st);
+            else if (applied !== true) {
+              const offset = body.indexOf(st.raw);
+              diag(diagnostics, "warning", "route-setting-invalid", num, offset + 1, st.raw.length, applied);
+            }
+          }
           for (const inv of invalid) {
             diag(
               diagnostics,
@@ -789,6 +921,22 @@ export function parseDsl(text: string): DslParseResult {
         }
         break;
 
+      case "confusion":
+        if (!currentNode) {
+          diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "<> confusion lines must appear under a node");
+          break;
+        }
+        if (!cl.target) {
+          diag(diagnostics, "error", "confusion-malformed", num, 1, body.length,
+            "A confusion line names the node this one is confused with: <>Neighbour");
+        } else if (cl.target === currentNode.title) {
+          diag(diagnostics, "error", "confusion-malformed", num, 1, body.length,
+            `"${cl.target}" cannot be confused with itself`);
+        } else {
+          currentNode.confusions.push({ targetTitle: cl.target, sourceLine: num });
+        }
+        break;
+
       case "portal":
         if (!currentNode) {
           diag(
@@ -821,6 +969,63 @@ export function parseDsl(text: string): DslParseResult {
         }
         break;
 
+      case "nedf": {
+        if (!currentNode) {
+          if (snapshot.nodes.length === 0 && snapshot.routes.length === 0 && !currentRoute) {
+            // Before any node: a palace header that happens to start with N, E, D, or F.
+            flush();
+            sawHeader = true;
+            snapshot.palaceName = body.slice(1).trim();
+          } else {
+            diag(diagnostics, "error", "misplaced-line", num, 1, body.length,
+              `@${cl.letter} NEDF lines must appear under a node`);
+          }
+          break;
+        }
+        const nedf: NedfEncoding = { ...currentNode.nedf };
+        const append = (prev: string | undefined) => (prev ? `${prev}\n${cl.text}` : cl.text);
+        if (cl.letter === "N") nedf.nameHook = append(nedf.nameHook);
+        else if (cl.letter === "E") nedf.essence = append(nedf.essence);
+        else {
+          // `question => reason` for D, `scenario => correction` for F.
+          const sep = cl.text.search(/\s*=>\s*/);
+          const first = sep === -1 ? cl.text : cl.text.slice(0, sep).trim();
+          const second = sep === -1 ? "" : cl.text.slice(sep).replace(/^\s*=>\s*/, "").trim();
+          if (!first || !second) {
+            const [a, b] = cl.letter === "D" ? ["question", "reason"] : ["scenario", "correction"];
+            diag(diagnostics, "warning", "nedf-pair-incomplete", num, 1, body.length,
+              `@${cl.letter} needs both halves, "${a} => ${b}"; it does not count until it has them`);
+          }
+          if (cl.letter === "D") nedf.distinguisher = { prompt: first, reason: second };
+          else nedf.failure = { scenario: first, correction: second };
+        }
+        currentNode.nedf = normalizeNedf(nedf);
+        break;
+      }
+
+      case "attribute": {
+        if (!currentNode) {
+          if (snapshot.nodes.length === 0 && snapshot.routes.length === 0 && !currentRoute) {
+            // Before any node: a palace header that happens to start with A.
+            flush();
+            sawHeader = true;
+            snapshot.palaceName = body.slice(1).trim();
+          } else {
+            diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "@A attribute lines must appear under a node");
+          }
+          break;
+        }
+        const parsed = parseAttributeLine(cl.text);
+        if ("error" in parsed) {
+          diag(diagnostics, "error", parsed.error === "channel" ? "attribute-channel-unknown" : "attribute-malformed",
+            num, 1, body.length, parsed.message);
+          break;
+        }
+        currentNode.attributes = [...(currentNode.attributes ?? []), parsed.attribute];
+        attributeLines.set(currentNode, [...(attributeLines.get(currentNode) ?? []), num]);
+        break;
+      }
+
       case "image":
         if (!currentNode) {
           diag(
@@ -836,6 +1041,31 @@ export function parseDsl(text: string): DslParseResult {
         }
         currentNode.imageUrl = cl.url || null;
         break;
+
+      case "glyph": {
+        if (!currentNode) {
+          diag(diagnostics, "error", "misplaced-line", num, 1, body.length, "@glyph must appear under a node");
+          break;
+        }
+        const check = checkGlyph(cl.glyph);
+        if ("error" in check) {
+          diag(diagnostics, "error", "glyph-invalid", num, 1, body.length, check.error);
+          break;
+        }
+        // The first node to claim a glyph keeps it; a later one is warned and goes without.
+        const holder = glyphHolder(
+          snapshot.nodes.map((n) => ({ id: n.implicitId, title: n.title, glyph: n.glyph })),
+          check.glyph,
+          currentNode.implicitId,
+        );
+        if (holder) {
+          diag(diagnostics, "warning", "glyph-duplicate", num, 1, body.length,
+            `${glyphTakenMessage(check.glyph, holder)} ${currentNode.title} keeps no glyph.`);
+          break;
+        }
+        currentNode.glyph = check.glyph;
+        break;
+      }
 
       case "query-decl": {
         const { verb, args } = cl;
@@ -909,6 +1139,28 @@ export function parseDsl(text: string): DslParseResult {
       }
     }
   }
+  // Backlog 07 — a confusion pair is undirected and declared once, under either node.
+  const confusionPairs = new Map<string, number>();
+  for (const node of snapshot.nodes) {
+    node.confusions = node.confusions.filter((c) => {
+      if (!titleSet.has(c.targetTitle)) {
+        diag(diagnostics, "warning", "confusion-unknown-target", c.sourceLine, 1, 1,
+          `Confusion target "${c.targetTitle}" does not match any node`);
+        return false;
+      }
+      const key = [node.title, c.targetTitle].sort().join("\u0000");
+      const first = confusionPairs.get(key);
+      if (first !== undefined) {
+        diag(diagnostics, "warning", "confusion-duplicate", c.sourceLine, 1, 1,
+          `"${node.title}" and "${c.targetTitle}" are already linked as a confusion on line ${first}; a pair needs one line`,
+          [{ line: first, column: 1, length: 1 }]);
+        return false;
+      }
+      confusionPairs.set(key, c.sourceLine);
+      return true;
+    });
+  }
+
   for (const route of snapshot.routes) {
     for (const locusTitle of route.loci) {
       if (!titleSet.has(locusTitle)) {
@@ -925,16 +1177,33 @@ export function parseDsl(text: string): DslParseResult {
     }
   }
 
-  // Feature 7 — validate route prereq metadata tags
+  // Backlog 12 — attribute checks, reported on the line of the first attribute they name.
+  for (const node of snapshot.nodes) {
+    const lines = attributeLines.get(node);
+    if (!node.attributes || !lines) continue;
+    for (const warning of attributeWarnings(node.attributes)) {
+      const line = lines[warning.attributes[0]] ?? node.sourceLine;
+      const related = warning.attributes.slice(1).map((i) => ({ line: lines[i], column: 1, length: 1 }));
+      const severity = warning.kind === "channel-budget" ? "info" : "warning";
+      diag(diagnostics, severity, ATTRIBUTE_WARNING_CODES[warning.kind], line, 1, 1, warning.message, related);
+    }
+    // Entries with neither a name nor a value say nothing; drop them once they have been checked.
+    node.attributes = node.attributes.filter((a) => a.name || a.values.length > 0);
+    if (node.attributes.length === 0) node.attributes = null;
+  }
+
+  // Feature 7 — validate route prereq metadata tags. A prereq names a node by title or id
+  // (implicitId is the declared [id], else the title slug); route names, which is how
+  // prereqs first resolved, still count so older files keep validating.
   const routeNames = new Set(snapshot.routes.map((r) => r.name));
   const routeNormNames = new Set(snapshot.routes.map((r) => r.normalizedName));
+  const nodeRefs = new Set(snapshot.nodes.flatMap((n) => [n.title, n.implicitId]));
+  const prereqResolves = (ref: string) => nodeRefs.has(ref) || routeNames.has(ref) || routeNormNames.has(ref);
   for (const route of snapshot.routes) {
     for (const tag of route.metadata) {
-      if (tag.key === "prereq" && tag.value !== null) {
-        if (!routeNames.has(tag.value) && !routeNormNames.has(tag.value)) {
-          diag(diagnostics, "warning", "route-prereq-unresolved", route.sourceLine, 1, 1,
-            `Unresolved route prereq "${tag.value}"`);
-        }
+      if (tag.key === "prereq" && tag.value !== null && !prereqResolves(tag.value)) {
+        diag(diagnostics, "warning", "route-prereq-unresolved", route.sourceLine, 1, 1,
+          `Route prereq "${tag.value}" does not match any node`);
       }
     }
   }

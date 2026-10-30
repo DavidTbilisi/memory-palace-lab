@@ -56,6 +56,13 @@ describe("computePalaceDifficulty", () => {
     expect(d.byNodeId.get("c")!.result.needs).toEqual(["b"]);
   });
 
+  it("does not count a confusion link as a prerequisite", () => {
+    const confusion: MemoryEdge = { ...edge("e3", "c", "a"), kind: "confusion" };
+    const d = computePalaceDifficulty(nodes, [...edges, confusion], []);
+    expect(d.byNodeId.get("a")!.result.needs).toEqual([]);
+    expect(d.byNodeId.get("a")!.result).toEqual(computePalaceDifficulty(nodes, edges, []).byNodeId.get("a")!.result);
+  });
+
   it("scores every node and rolls up the palace", () => {
     const d = computePalaceDifficulty(nodes, edges, []);
     expect(d.nodes).toHaveLength(3);
@@ -95,6 +102,28 @@ describe("computePalaceDifficulty", () => {
     expect(d.byNodeId.get("c")!.result.step).toBeGreaterThan(
       auto.byNodeId.get("c")!.result.step,
     );
+  });
+
+  it("carries encode time as an input without changing the score, and an override still wins", () => {
+    const encodeSpeeds = new Map([
+      ["b", { activeMs: 240_000, band: "slow" as const }],
+      ["c", { activeMs: 5_000, band: "fast" as const }],
+    ]);
+    const plain = computePalaceDifficulty(nodes, edges, []);
+    const timed = computePalaceDifficulty(nodes, edges, [], { encodeSpeeds });
+    expect(timed.byNodeId.get("b")!.encode).toEqual({ activeMs: 240_000, band: "slow" });
+    expect(timed.byNodeId.get("a")!.encode).toBeNull();
+    for (const id of ["a", "b", "c"]) {
+      expect(timed.byNodeId.get(id)!.result).toEqual(plain.byNodeId.get(id)!.result);
+    }
+    const overridden = computePalaceDifficulty(
+      [node("a", "Arrays"), node("b", "Linked lists"), node("c", "Trees", "", { juggle: 8 })],
+      edges,
+      [],
+      { encodeSpeeds },
+    );
+    expect(overridden.byNodeId.get("c")!.row.juggle).toBe(8);
+    expect(overridden.byNodeId.get("c")!.encode?.band).toBe("fast");
   });
 
   it("keys byNodeId / order by the RAW node id (nanoid ids have uppercase)", () => {

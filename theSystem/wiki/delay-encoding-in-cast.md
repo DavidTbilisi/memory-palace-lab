@@ -208,3 +208,8 @@ Otherwise park it, the same standard applied to the codebook layer on 2026-07-06
 1. Long gap on a leash loop → predict overshoot and oscillation
 2. Torrent across a long gap → predict a large hidden buffer of stale work
 3. D2 dominating the move distribution → predict decomposition is being skipped
+
+## R — Act (GRACE)
+1. Stages nameable → decompose into edges through intermediate nodes (D0); a modifier is the fallback, never the default
+2. Lag stays atomic → give the Stream air time (D1); an exact duration → weld the peg **and its unit** (D2)
+3. An edge carrying both a rate and a gap → walk the in-flight check before trusting the node's flow balance

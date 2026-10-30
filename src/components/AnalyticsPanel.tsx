@@ -38,6 +38,12 @@ import { usePalaceStore } from "../store/palaceStore";
 import { Button } from "./ui/button";
 import { StatCard } from "./analytics/StatCard";
 import { RetentionChart } from "./analytics/RetentionChart";
+import { NedfCoverage } from "./analytics/NedfCoverage";
+import { EncodeSpeedTrend } from "./analytics/EncodeSpeedTrend";
+import { StormRecords } from "./analytics/StormRecords";
+import { stormRecords } from "../domain/services/storm";
+import { buildEncodeTrend, encodeSamples, speedBandThresholds } from "../domain/services/encodeSpeed";
+import { buildSlotRetention, type ReviewPhase } from "../domain/services/reviewMetrics";
 import { ReviewHeatmap } from "./analytics/ReviewHeatmap";
 import { RecentEventsList } from "./analytics/RecentEventsList";
 
@@ -47,6 +53,7 @@ export function AnalyticsPanel() {
   const analyticsLoaded = usePalaceStore((s) => s.analyticsLoaded);
   const loadAnalyticsEvents = usePalaceStore((s) => s.loadAnalyticsEvents);
   const loci = usePalaceStore((s) => s.loci);
+  const routes = usePalaceStore((s) => s.routes);
   const palaceNodes = usePalaceStore((s) => s.nodes);
   const palaceEdges = usePalaceStore((s) => s.edges);
   const palaces = usePalaceStore((s) => s.palaces);
@@ -55,6 +62,7 @@ export function AnalyticsPanel() {
   const [selectedPalaceFilter, setSelectedPalaceFilter] =
     useState<string>("all");
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>("all");
+  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<"all" | ReviewPhase>("all");
 
   useEffect(() => {
     if (!analyticsLoaded) {
@@ -75,8 +83,9 @@ export function AnalyticsPanel() {
       palaceId:
         selectedPalaceFilter === "all" ? undefined : selectedPalaceFilter,
       routeId: selectedRouteFilter === "all" ? undefined : selectedRouteFilter,
+      phase: selectedPhaseFilter === "all" ? undefined : selectedPhaseFilter,
     }),
-    [selectedPalaceFilter, selectedRouteFilter],
+    [selectedPalaceFilter, selectedRouteFilter, selectedPhaseFilter],
   );
 
   const {
@@ -85,7 +94,18 @@ export function AnalyticsPanel() {
     heatmapCells,
     dueCount,
     averageInterval,
-  } = useReviewMetrics(analyticsEvents, loci, filter);
+  } = useReviewMetrics(analyticsEvents, loci, routes, filter, palaceNodes);
+  const slotRetention = useMemo(() => buildSlotRetention(analyticsEvents, filter), [analyticsEvents, filter]);
+  const encodeTrend = useMemo(
+    () => buildEncodeTrend(analyticsEvents, new Date().toISOString(), { palaceId: filter?.palaceId }),
+    [analyticsEvents, filter],
+  );
+  const storms = useMemo(() => stormRecords(analyticsEvents), [analyticsEvents]);
+  // Bands follow the learner across palaces, so they ignore the palace filter.
+  const encodeBands = useMemo(
+    () => speedBandThresholds(encodeSamples(analyticsEvents), new Date().toISOString()),
+    [analyticsEvents],
+  );
 
   const routeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -295,6 +315,7 @@ export function AnalyticsPanel() {
             edges: snap.edges.map((e) => ({
               sourceNodeId: e.sourceNodeId,
               targetNodeId: e.targetNodeId,
+              kind: e.kind,
             })),
           };
           const analysis = analyzeGraph(input);
@@ -863,6 +884,17 @@ export function AnalyticsPanel() {
                   </option>
                 ))}
               </select>
+              <select
+                className="h-8 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
+                value={selectedPhaseFilter}
+                onChange={(event) => setSelectedPhaseFilter(event.target.value as "all" | ReviewPhase)}
+                aria-label="Filter retention by phase"
+                title="Siege is the daily review drip; Storm is a big encoding push"
+              >
+                <option value="all">Siege and Storm</option>
+                <option value="siege">Siege only</option>
+                <option value="storm">Storm only</option>
+              </select>
             </div>
           </div>
           <RetentionChart series={retentionSeries} trendDown={trendDown} />
@@ -874,6 +906,12 @@ export function AnalyticsPanel() {
           </div>
           <ReviewHeatmap cells={heatmapCells} />
         </section>
+
+        <NedfCoverage retention={slotRetention} nodes={palaceNodes} />
+
+        <EncodeSpeedTrend trend={encodeTrend} thresholds={encodeBands} />
+
+        <StormRecords records={storms} />
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
           <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
@@ -889,6 +927,11 @@ export function AnalyticsPanel() {
               <li>
                 - Graph work: node create/update, edge create/update, route
                 create, locus add/update.
+              </li>
+              <li>
+                - Encode time: how long a node or edge took to build or re-edit,
+                counting only active time (pauses over a minute count as one
+                minute; time in another app counts as none).
               </li>
               <li>
                 - Review flow: walk start, step changes, answer reveals, recall

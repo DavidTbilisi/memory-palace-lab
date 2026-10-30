@@ -124,8 +124,3 @@ export function firstDueInDeck(deck: ReviewDeck): GlobalDueItem | null {
     null,
   );
 }
-
-/** The name a due stop goes by: its own label when it has one, else its node's title. */
-export function dueItemTitle(item: Pick<GlobalDueItem, "locusLabel" | "nodeTitle">) {
-  return item.locusLabel?.trim() || item.nodeTitle;
-}

@@ -72,6 +72,38 @@ describe("RoutesPanel", () => {
     expect(within(active).getByText("· 1 due")).toBeInTheDocument();
   });
 
+  it("shows each route's metadata on its card, in order", () => {
+    act(() => {
+      usePalaceStore.setState({
+        routes: [
+          {
+            ...routes[0]!,
+            metadata: [
+              { key: "difficulty", value: "advanced" },
+              { key: "prereq", value: "Gate of SOLID" },
+              { key: "mode", value: null },
+            ],
+          },
+          { ...routes[1]!, metadata: [{ key: "duration", value: "30min" }] },
+        ],
+      });
+    });
+    render(<RoutesPanel />);
+
+    const chips = (routeName: string) =>
+      within(screen.getByRole("list", { name: `Metadata for ${routeName}` }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent);
+    // The inactive route shows its metadata too, not only the open one.
+    expect(chips("Morning walk")).toEqual(["difficulty:advanced", "prereq:Gate of SOLID", "mode"]);
+    expect(chips("Evening review")).toEqual(["duration:30min"]);
+  });
+
+  it("shows no metadata list for a route without metadata", () => {
+    render(<RoutesPanel />);
+    expect(screen.queryByRole("list", { name: /^Metadata for/ })).toBeNull();
+  });
+
   it("opens another route when its name is clicked", () => {
     render(<RoutesPanel />);
     fireEvent.click(screen.getByRole("button", { name: "Evening review" }));
@@ -297,5 +329,73 @@ describe("RoutesPanel", () => {
     render(<RoutesPanel />);
 
     expect(stopRows()).toEqual(["1Front door (painted)", "2Missing node", "3Missing nodedue"]);
+  });
+
+  it("sets the walk direction and takes a route out of review from its menu", async () => {
+    const user = userEvent.setup();
+    render(<RoutesPanel />);
+    await user.click(screen.getByRole("button", { name: "More actions for Morning walk" }));
+    expect(await screen.findByRole("menuitemradio", { name: "Forward" })).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("menuitemradio", { name: "Alternate each walk" }));
+    expect(store().routes[0]!.direction).toBe("alternate");
+
+    await user.click(screen.getByRole("button", { name: "More actions for Morning walk" }));
+    const review = await screen.findByRole("menuitemcheckbox", { name: "Include in review" });
+    expect(review).toHaveAttribute("aria-checked", "true");
+    await user.click(review);
+    expect(store().routes[0]!.inReview).toBe(false);
+
+    const card = screen.getByRole("region", { name: "Route Morning walk" });
+    expect(within(card).getByText("Draft")).toBeInTheDocument();
+    expect(within(card).queryByText("· 1 due")).toBeNull();
+    expect(stopRows()).toEqual(["1Front door", "2Coat hook· Hallway mirror", "3Kitchen sink"]);
+  });
+
+  it("edits the open route's notes and shows them on a closed card", async () => {
+    const user = userEvent.setup();
+    act(() => {
+      usePalaceStore.setState({ routes: [routes[0]!, { ...routes[1]!, notes: "Dusk light only." }] });
+    });
+    render(<RoutesPanel />);
+    expect(screen.getByText("Dusk light only.")).toBeInTheDocument();
+
+    const notes = screen.getByRole("textbox", { name: "Notes for Morning walk" });
+    await user.type(notes, "Start at the gate.");
+    await user.tab();
+    expect(store().routes[0]!.notes).toBe("Start at the gate.");
+  });
+
+  it("starts, names, and removes a section on a long route", async () => {
+    const user = userEvent.setup();
+    const long: Locus[] = Array.from({ length: 13 }, (_, i) => ({
+      id: `s${i}`,
+      routeId: "route-a",
+      nodeId: nodes[i % 3]!.id,
+      orderIndex: i,
+      label: `Stop ${i + 1}`,
+      nextReviewAt: future,
+    }));
+    seed({ loci: long });
+    render(<RoutesPanel />);
+
+    await user.click(screen.getByRole("button", { name: "Start a section at stop 6" }));
+    const name = screen.getByRole("textbox", { name: "Section name" });
+    expect(name).toHaveValue("Section 1");
+    await user.clear(name);
+    await user.type(name, "Upstairs{Enter}");
+    expect(store().loci.find((locus) => locus.id === "s5")!.section).toBe("Upstairs");
+    expect(stopRows().slice(4, 7)).toEqual([
+      expect.stringMatching(/^5Stop 5/),
+      "Upstairs",
+      expect.stringMatching(/^6Stop 6/),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Remove section Upstairs" }));
+    expect(store().loci.find((locus) => locus.id === "s5")!.section).toBeNull();
+  });
+
+  it("offers sections only once a route is long", () => {
+    render(<RoutesPanel />);
+    expect(screen.queryByRole("button", { name: /^Start a section/ })).toBeNull();
   });
 });

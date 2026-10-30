@@ -2,10 +2,15 @@ import type { Editor } from "@tldraw/editor";
 import type { TLShapeId } from "@tldraw/tlschema";
 import { toRichText } from "@tldraw/tlschema";
 import {
+  createConfusionLink,
   createImportedMemoryNodes,
   createMemoryArrow,
 } from "../../../canvas/createMemoryShapes";
 import type { MemoryPalaceMeta } from "../../../canvas/memoryMeta";
+import {
+  isMemoryNodeShape,
+  type MemoryNodeShapeType,
+} from "../../../canvas/memoryNodeShape";
 import { applyPortalRefToMeta } from "../../../canvas/palacePortal";
 import { encodeCastEdge } from "../../entities/types";
 import type {
@@ -13,6 +18,8 @@ import type {
   DslNode,
   DslSnapshot,
 } from "./types";
+import { normalizeAttributes } from "../attributes";
+import { normalizeNedf } from "../nedf";
 
 export interface DslApplyOptions {
   layout?: {
@@ -26,6 +33,7 @@ export interface DslApplyOptions {
 
 interface NodeIndexEntry {
   shapeId: string;
+  shapeType: MemoryNodeShapeType;
   mpNodeId: string;
   mpObjectId: string;
   meta: MemoryPalaceMeta;
@@ -34,6 +42,10 @@ interface NodeIndexEntry {
 interface EdgeIndexEntry {
   shapeId: string;
   meta: MemoryPalaceMeta;
+}
+
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 const DEFAULT_LAYOUT = {
@@ -74,6 +86,32 @@ function nextNodeMeta(prev: MemoryPalaceMeta, intent: DslNode): MemoryPalaceMeta
   } else {
     delete next.mpImageUrl;
   }
+  // Same rule for NEDF slots: the DSL is the whole intent, so a node written without them has none.
+  const nedf = normalizeNedf(intent.nedf);
+  if (nedf) {
+    next.mpNedf = nedf;
+  } else if (prev.mpNedf) {
+    next.mpNedf = null;
+  } else {
+    delete next.mpNedf;
+  }
+  // And for the concept glyph.
+  if (intent.glyph) {
+    next.mpGlyph = intent.glyph;
+  } else if (prev.mpGlyph) {
+    next.mpGlyph = null;
+  } else {
+    delete next.mpGlyph;
+  }
+  // And for attributes.
+  const attributes = normalizeAttributes(intent.attributes);
+  if (attributes) {
+    next.mpAttributes = attributes;
+  } else if (prev.mpAttributes) {
+    next.mpAttributes = null;
+  } else {
+    delete next.mpAttributes;
+  }
   return next;
 }
 
@@ -86,6 +124,9 @@ function nodeNeedsUpdate(prev: MemoryPalaceMeta, next: MemoryPalaceMeta): boolea
     prev.mpPortalRouteName !== next.mpPortalRouteName ||
     prev.mpPortalNodeId !== next.mpPortalNodeId ||
     (prev.mpImageUrl ?? null) !== (next.mpImageUrl ?? null) ||
+    (prev.mpGlyph ?? null) !== (next.mpGlyph ?? null) ||
+    JSON.stringify(normalizeNedf(prev.mpNedf)) !== JSON.stringify(normalizeNedf(next.mpNedf)) ||
+    JSON.stringify(normalizeAttributes(prev.mpAttributes)) !== JSON.stringify(normalizeAttributes(next.mpAttributes)) ||
     !arraysEqual(prev.mpTags, next.mpTags)
   );
 }
@@ -106,6 +147,9 @@ export function applyDslToCanvas(
   editor.run(() => {
     const nodesByTitle = new Map<string, NodeIndexEntry>();
     const edgesByKey = new Map<string, EdgeIndexEntry>();
+    // Confusion links, keyed by their unordered pair; extra links on one pair are stale.
+    const confusionsByPair = new Map<string, EdgeIndexEntry>();
+    const staleConfusions: EdgeIndexEntry[] = [];
 
     for (const shapeId of editor.getCurrentPageShapeIds()) {
       const shape = editor.getShape(shapeId);
@@ -114,13 +158,14 @@ export function applyDslToCanvas(
       if (meta.mpPalaceId !== palaceId) continue;
 
       if (
-        shape.type === "geo" &&
+        isMemoryNodeShape(shape) &&
         meta.mpNodeId &&
         meta.mpObjectId &&
         meta.mpTitle
       ) {
         nodesByTitle.set(meta.mpTitle, {
           shapeId: String(shape.id),
+          shapeType: shape.type,
           mpNodeId: meta.mpNodeId,
           mpObjectId: meta.mpObjectId,
           meta,
@@ -128,6 +173,16 @@ export function applyDslToCanvas(
       }
 
       if (
+        shape.type === "arrow" &&
+        meta.mpEdgeId &&
+        meta.mpSourceNodeId &&
+        meta.mpTargetNodeId &&
+        meta.mpEdgeKind === "confusion"
+      ) {
+        const key = pairKey(meta.mpSourceNodeId, meta.mpTargetNodeId);
+        if (confusionsByPair.has(key)) staleConfusions.push({ shapeId: String(shape.id), meta });
+        else confusionsByPair.set(key, { shapeId: String(shape.id), meta });
+      } else if (
         shape.type === "arrow" &&
         meta.mpEdgeId &&
         meta.mpSourceNodeId &&
@@ -165,12 +220,21 @@ export function applyDslToCanvas(
       const existing = nodesByTitle.get(node.title)!;
       const next = nextNodeMeta(existing.meta, node);
       if (!nodeNeedsUpdate(existing.meta, next)) continue;
-      editor.updateShape({
-        id: existing.shapeId as TLShapeId,
-        type: "geo",
-        meta: next,
-        props: { richText: toRichText(node.title) },
-      });
+      // An image node keeps its title in meta only; it has no richText prop.
+      if (existing.shapeType === "image") {
+        editor.updateShape({
+          id: existing.shapeId as TLShapeId,
+          type: "image",
+          meta: next,
+        });
+      } else {
+        editor.updateShape({
+          id: existing.shapeId as TLShapeId,
+          type: "geo",
+          meta: next,
+          props: { richText: toRichText(node.title) },
+        });
+      }
       existing.meta = next;
       result.updated.nodes += 1;
     }
@@ -203,6 +267,7 @@ export function applyDslToCanvas(
         });
         nodesByTitle.set(node.title, {
           shapeId: String(c.shapeId),
+          shapeType: "geo",
           mpNodeId: c.nodeId,
           mpObjectId: c.objectId,
           meta: next,
@@ -265,6 +330,33 @@ export function applyDslToCanvas(
         target.mpNodeId,
         intentEdge.cast,
       );
+      result.added.edges += 1;
+    }
+
+    // Confusion links: the DSL is the whole intent, as for edges. A pair is undirected, so a
+    // link drawn either way satisfies a `<>` line under either node.
+    const intentConfusions = new Map<string, { source: NodeIndexEntry; target: NodeIndexEntry }>();
+    for (const node of intent.nodes) {
+      const source = nodesByTitle.get(node.title);
+      if (!source) continue;
+      for (const confusion of node.confusions ?? []) {
+        const target = nodesByTitle.get(confusion.targetTitle);
+        if (!target || target.mpNodeId === source.mpNodeId) continue;
+        const key = pairKey(source.mpNodeId, target.mpNodeId);
+        if (!intentConfusions.has(key)) intentConfusions.set(key, { source, target });
+      }
+    }
+    for (const [key, entry] of confusionsByPair.entries()) {
+      if (!intentConfusions.has(key)) staleConfusions.push(entry);
+    }
+    for (const entry of staleConfusions) {
+      if (!editor.getShape(entry.shapeId as TLShapeId)) continue;
+      editor.deleteShape(entry.shapeId as TLShapeId);
+      result.deleted.edges += 1;
+    }
+    for (const [key, { source, target }] of intentConfusions.entries()) {
+      if (confusionsByPair.has(key)) continue;
+      createConfusionLink(editor, palaceId, source.shapeId, target.shapeId, source.mpNodeId, target.mpNodeId);
       result.added.edges += 1;
     }
   });

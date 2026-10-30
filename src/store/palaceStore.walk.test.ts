@@ -51,6 +51,8 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkOpen: false,
     walkRouteId: "route-a",
     walkIndex: 0,
+    walkDirection: "forward",
+    walkSlot: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: false,
@@ -59,6 +61,8 @@ function resetWalkState(overrides: Partial<ReturnType<typeof usePalaceStore.getS
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
+    walkRevealedNodeIds: [],
+    walkRevealedSessionId: null,
     ...overrides,
   });
 }
@@ -221,6 +225,68 @@ describe("currentWalkNodeId", () => {
   });
 });
 
+// ── walk direction ──────────────────────────────────────────────────────────
+
+describe("walk direction", () => {
+  const withDirection = (direction: MemoryRoute["direction"], lastWalkDirection?: MemoryRoute["lastWalkDirection"]) =>
+    routes.map((route) => (route.id === "route-a" ? { ...route, direction, lastWalkDirection } : route));
+
+  it("walks a reverse route from its last stop to its first", () => {
+    resetWalkState({ routes: withDirection("reverse") });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    expect(store.currentWalkNodeId()).toBe("n3");
+    store.walkNext();
+    expect(store.currentWalkNodeId()).toBe("n2");
+    store.walkNext();
+    store.walkNext();
+    expect(store.currentWalkNodeId()).toBe("n1");
+    store.walkPrev();
+    expect(store.currentWalkNodeId()).toBe("n2");
+  });
+
+  it("flips an alternate route on every walk and remembers the last direction", () => {
+    resetWalkState({ routes: withDirection("alternate") });
+    const store = usePalaceStore.getState();
+    const routeA = () => usePalaceStore.getState().routes.find((route) => route.id === "route-a")!;
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n1");
+    expect(routeA().lastWalkDirection).toBe("forward");
+    store.setWalkOpen(false);
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n3");
+    expect(routeA().lastWalkDirection).toBe("reverse");
+    store.setWalkOpen(false);
+
+    store.setWalkOpen(true);
+    expect(store.currentWalkNodeId()).toBe("n1");
+  });
+
+  it("keeps the direction while a walk stays open", () => {
+    resetWalkState({ routes: withDirection("alternate", "forward") });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    expect(usePalaceStore.getState().routes[0]!.lastWalkDirection).toBe("reverse");
+  });
+
+  it("takes the new route's direction when the route changes mid-walk", () => {
+    resetWalkState({
+      routes: routes.map((route) => (route.id === "route-b" ? route : { ...route, direction: "reverse" as const })),
+    });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkDirection).toBe("reverse");
+    store.setWalkRoute("route-b");
+    expect(usePalaceStore.getState().walkDirection).toBe("forward");
+    expect(store.currentWalkNodeId()).toBe("n4");
+  });
+});
+
 // ── setWalkRecallMode ───────────────────────────────────────────────────────
 
 describe("setWalkRecallMode", () => {
@@ -254,6 +320,24 @@ describe("setWalkRecallMode", () => {
 // ── revealWalkAnswer ────────────────────────────────────────────────────────
 
 describe("revealWalkAnswer", () => {
+  it("remembers the revealed node for the rest of the walk, and starts afresh in a new walk", () => {
+    resetWalkState({ walkOpen: true, walkSessionId: "s1", walkRecallMode: true, walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    const first = usePalaceStore.getState().walkRevealedNodeIds;
+    expect(first).toHaveLength(1);
+    expect(usePalaceStore.getState().walkRevealedSessionId).toBe("s1");
+
+    usePalaceStore.setState({ walkIndex: 1, walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    const both = usePalaceStore.getState().walkRevealedNodeIds;
+    expect(both).toHaveLength(2);
+
+    usePalaceStore.setState({ walkSessionId: "s2", walkAnswerRevealed: false });
+    usePalaceStore.getState().revealWalkAnswer();
+    expect(usePalaceStore.getState().walkRevealedNodeIds).toEqual([both[1]]);
+    expect(usePalaceStore.getState().walkRevealedSessionId).toBe("s2");
+  });
+
   it("sets walkAnswerRevealed to true", () => {
     resetWalkState({ walkOpen: true, walkSessionId: "s1", walkRecallMode: true, walkAnswerRevealed: false });
     usePalaceStore.getState().revealWalkAnswer();
@@ -297,6 +381,61 @@ describe("revealWalkAnswer", () => {
     if (latency !== null) {
       expect(Number.isNaN(latency)).toBe(false);
     }
+  });
+});
+
+// ── NEDF slots ──────────────────────────────────────────────────────────────
+
+describe("NEDF slots in a walk", () => {
+  const past = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  const nedf = {
+    nameHook: "Mute-X",
+    essence: "One key to the bathroom",
+    distinguisher: { prompt: "One key, or a bowl of keys?", reason: "A mutex has one owner" },
+  };
+  const encodedNodes = nodes.map((node) => (node.id === "n1" ? { ...node, nedf } : node));
+  const encodedLoci = loci.map((locus) =>
+    locus.id === "l1"
+      ? {
+          ...locus,
+          interval: 3,
+          easeFactor: 2.5,
+          repetitions: 1,
+          nextReviewAt: past(1),
+          slotSchedules: {
+            distinguisher: { interval: 1, easeFactor: 2.5, repetitions: 0, nextReviewAt: past(5), lastReviewedAt: null },
+          },
+        }
+      : locus,
+  );
+
+  it("asks the most overdue slot when a step is entered, and keeps it through rating", () => {
+    resetWalkState({ nodes: encodedNodes, loci: encodedLoci, walkRecallMode: true });
+    const store = usePalaceStore.getState();
+    store.setWalkOpen(true);
+    expect(usePalaceStore.getState().walkSlot).toBe("distinguisher");
+
+    store.revealWalkAnswer();
+    usePalaceStore.setState({ walkStepRated: false });
+    const beforeWalkNext = usePalaceStore.getState().walkIndex;
+    store.rateWalkRecall("again");
+    const rated = usePalaceStore.getState().loci.find((locus) => locus.id === "l1")!;
+    // Only the Distinguisher card moved; the stop's own schedule and the other slots did not.
+    expect(rated.slotSchedules?.distinguisher?.repetitions).toBe(0);
+    expect(Date.parse(rated.slotSchedules!.distinguisher!.lastReviewedAt!)).toBeGreaterThan(Date.now() - 5000);
+    expect(rated.slotSchedules?.nameHook).toBeUndefined();
+    expect(rated).toMatchObject({ interval: 3, repetitions: 1 });
+    // The walk moved on to a plain stop, which has no slot.
+    expect(usePalaceStore.getState().walkIndex).toBe(beforeWalkNext + 1);
+    expect(usePalaceStore.getState().walkSlot).toBeNull();
+  });
+
+  it("asks the slot a review from the queue chose", () => {
+    resetWalkState({ nodes: encodedNodes, loci: encodedLoci, walkOpen: true });
+    usePalaceStore.getState().selectWalkSlot("essence");
+    expect(usePalaceStore.getState().walkSlot).toBe("essence");
+    usePalaceStore.getState().selectWalkSlot();
+    expect(usePalaceStore.getState().walkSlot).toBe("distinguisher");
   });
 });
 

@@ -10,14 +10,16 @@ import {
 import { startReviewAt } from "../app/reviewNavigation";
 import type { GlobalDueItem } from "../domain/services/dueQueue";
 import {
-  dueItemTitle,
   firstDueInDeck,
   groupDueItemsByDeck,
   palacesInDeck,
   type ReviewDeck,
 } from "../domain/services/reviewDecks";
 import { usePalaceStore } from "../store/palaceStore";
+import { countStormReviewedToday } from "../domain/services/reviewMetrics";
 import { useDueQueue } from "./hooks/useDueQueue";
+import { StormStartCard } from "./StormStartCard";
+import { dueStopName } from "../domain/services/walkReveal";
 import { Button } from "./ui/button";
 
 type Props = {
@@ -125,17 +127,15 @@ function DueItemCard({
   item: GlobalDueItem;
   actions: ReviewActions;
 }) {
-  const title = dueItemTitle(item);
+  // Named by place, never by node: the node is the answer the review asks for.
+  const title = dueStopName(item.locusLabel, item.slot, item.stopNumber);
   const [settingTime, setSettingTime] = useState(false);
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-base font-medium text-zinc-100">{title}</div>
-          <div className="mt-1 text-xs text-zinc-400">
-            {item.routeName}
-            {title !== item.nodeTitle ? ` | ${item.nodeTitle}` : ""}
-          </div>
+          <div className="mt-1 text-xs text-zinc-400">{item.routeName}</div>
           <div className="mt-1 text-xs text-zinc-500">
             Due {new Date(item.nextReviewAt).toLocaleDateString()}{" "}
             {new Date(item.nextReviewAt).toLocaleTimeString()}
@@ -189,6 +189,13 @@ function DeckSection({
   const pausedHere = actions.pausedDecks.includes(deck.path);
   const paused = pausedHere || pausedAbove !== null;
   const [open, setOpen] = useState(!paused);
+  // Fold when switched off and unfold when back on, also when a parent deck
+  // is the one switched.
+  const [wasPaused, setWasPaused] = useState(paused);
+  if (wasPaused !== paused) {
+    setWasPaused(paused);
+    setOpen(!paused);
+  }
   const [settingTime, setSettingTime] = useState(false);
   const first = paused ? null : firstDueInDeck(deck);
   // Controls inside the summary must not also fold the deck.
@@ -244,10 +251,9 @@ function DeckSection({
                   ? "Turn this deck back on"
                   : "Turn this deck off: its stops leave the review queue"
             }
-            onClick={inSummary(() => {
-              actions.onSetDeckPaused(deck, !pausedHere);
-              setOpen(pausedHere);
-            })}
+            onClick={inSummary(() =>
+              actions.onSetDeckPaused(deck, !pausedHere),
+            )}
             className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
               pausedHere || pausedAbove !== null
                 ? "bg-zinc-700"
@@ -333,6 +339,11 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
   const pausedDecks = usePalaceStore((s) => s.pausedDecks);
   const setDeckPaused = usePalaceStore((s) => s.setDeckPaused);
   const rescheduleStops = usePalaceStore((s) => s.rescheduleStops);
+  const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
+  const stormReviewedToday = useMemo(
+    () => countStormReviewedToday(analyticsEvents),
+    [analyticsEvents],
+  );
   const {
     items: dueItems,
     pausedItems,
@@ -379,7 +390,10 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
         nextReviewAt,
       );
       refresh();
-      announceTime(dueItemTitle(item), nextReviewAt);
+      announceTime(
+        dueStopName(item.locusLabel, item.slot, item.stopNumber),
+        nextReviewAt,
+      );
     },
     async onSetDeckTime(deck, nextReviewAt) {
       // Every stop of every palace in the deck, not only the ones due now.
@@ -410,6 +424,7 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
       routeId: item.routeId,
       locusId: item.locusId,
       nodeId: item.nodeId,
+      slot: item.slot,
     });
 
   return (
@@ -500,9 +515,25 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
                 ? "Start your streak again today."
                 : "Keep the chain alive today."}
           </div>
+          {stormReviewedToday > 0 ? (
+            <div
+              data-testid="storm-reviews-note"
+              className="mt-1 text-xs text-zinc-500"
+            >
+              {stormReviewedToday}{" "}
+              {stormReviewedToday === 1 ? "review" : "reviews"} during a Storm
+              today {stormReviewedToday === 1 ? "is" : "are"} not counted: the
+              goal measures the daily reviews.
+            </div>
+          ) : null}
         </section>
 
-        <section className="mt-4 rounded-[28px] border border-zinc-800 bg-zinc-900/40 p-5">
+        <StormStartCard onStarted={onOpenPalaceWorkspace} />
+
+        <section
+          aria-label="Due loci"
+          className="mt-4 rounded-[28px] border border-zinc-800 bg-zinc-900/40 p-5"
+        >
           <div className="text-sm font-semibold text-zinc-100">
             Due Loci by Deck
           </div>

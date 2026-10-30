@@ -20,7 +20,11 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
+  NedfEncoding,
+  NedfSlot,
+  RouteDirection,
   StopView,
+  WalkDirection,
 } from "../domain/entities/types";
 import { buildPalaceSnapshot } from "../canvas/buildPalaceSnapshot";
 import { ensureUniqueMemoryIds } from "../canvas/memoryIds";
@@ -37,7 +41,8 @@ import {
   walkNext as nextWalkIndex,
   walkPrevious as prevWalkIndex,
   orderedLoci,
-  locusAtOrderedIndex,
+  walkOrderedLoci,
+  nextWalkDirection,
   clampWalkIndex,
 } from "../domain/services/walkService";
 import {
@@ -57,10 +62,13 @@ import {
   nextRouteName,
   uniqueRouteName,
 } from "../domain/services/routeBuilder";
+import { defaultLocusSchedule } from "../domain/services/spacedRepetition";
 import {
-  applySm2Schedule,
-  defaultLocusSchedule,
-} from "../domain/services/spacedRepetition";
+  normalizeNedf,
+  rateStopCard,
+  stopNextReviewAt,
+  walkCardFor,
+} from "../domain/services/nedf";
 import { applyDslToCanvas } from "../domain/services/palaceDsl/sync";
 import { reconcileRoutes } from "../domain/services/palaceDsl/routeSync";
 import type {
@@ -91,7 +99,27 @@ import {
   savePausedDecks,
   loadSaveStopViews,
   persistSaveStopViews,
+  STORM_TARGET_STORAGE_KEY,
+  WAKE_TIME_STORAGE_KEY,
+  loadStormTarget,
+  loadWakeTime,
+  writeStoredValue,
 } from "./palaceStoreHelpers";
+import { readClock, setClockHidden, startClock, tickClock, type ActiveClock } from "../domain/services/activeClock";
+import {
+  bestStormCount,
+  clampStormTarget,
+  firstReviewAfterSleep,
+  isPersonalBest,
+  parseWakeTime,
+  stormRatePerHour,
+  type StormResult,
+} from "../domain/services/storm";
+import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
+import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
+import { hasConfusionLink } from "../domain/services/confusion";
+import { hasLoggedConfusion, pullDistinguishersForward, type MissCause } from "../domain/services/confusionReview";
+import type { ReviewPhase } from "../domain/services/reviewMetrics";
 
 const repo = getPalaceRepository();
 
@@ -117,6 +145,50 @@ export type RouteNotice = {
   message: string;
   /** The notice reports a route edit that `undoRouteChange` can reverse. */
   canUndo: boolean;
+};
+
+/** A Storm in progress: one push that encodes new nodes onto its own route. */
+export type StormSession = {
+  id: string;
+  palaceId: string;
+  routeId: string;
+  routeName: string;
+  target: number;
+  startedAt: string;
+  /** Nodes encoded so far, in order; each is a stop on the Storm's route. */
+  nodeIds: string[];
+};
+
+/** What a finished Storm shows on its results screen. */
+export type StormSummary = StormResult & { routeName: string; firstReviewAt: string | null };
+
+/**
+ * A recall just rated Again, waiting for the learner to say why (backlog 07). It outlives the
+ * step: Again still moves on at once, and the question stays about the stop that was missed.
+ */
+export type WalkMissPrompt = {
+  palaceId: string;
+  routeId: string;
+  locusId: string | null;
+  nodeId: string;
+  nodeTitle: string;
+  slot: NedfSlot | null;
+  sessionId: string | null;
+  ratedAt: string;
+  phase: ReviewPhase;
+};
+
+/** What the learner is told once a confusion is logged; with `offerLink`, Link and Not now. */
+export type WalkMissNotice = {
+  palaceId: string;
+  nodeId: string;
+  nodeTitle: string;
+  otherNodeId: string;
+  otherTitle: string;
+  offerLink: boolean;
+  message: string;
+  /** Nodes that could not be pulled forward, e.g. "Mutex has no Distinguisher yet — …". */
+  notes: string[];
 };
 
 type WalkSummary = {
@@ -168,6 +240,13 @@ export type PalaceStore = {
   walkOpen: boolean;
   walkRouteId: string | null;
   walkIndex: number;
+  /** The order the current walk visits its route's stops; `walkIndex` counts in this order. */
+  walkDirection: WalkDirection;
+  /**
+   * The NEDF slot the current step asks, chosen when the step is entered so it stays put through
+   * reveal and rating; null for a stop whose node has no slots.
+   */
+  walkSlot: NedfSlot | null;
   walkSessionId: string | null;
   walkRecallMode: boolean;
   walkCueOnly: boolean;
@@ -175,10 +254,26 @@ export type PalaceStore = {
   walkStepRated: boolean;
   walkRatingCounts: WalkRatingCounts;
   walkSummary: WalkSummary | null;
+  walkMissPrompt: WalkMissPrompt | null;
+  walkMissNotice: WalkMissNotice | null;
   walkStepEnteredAt: string | null;
   walkRevealedAt: string | null;
   walkRevealLatencyMs: number | null;
+  /**
+   * Nodes revealed in the walk `walkRevealedSessionId`; a recall-first walk keeps every other node
+   * on its route hidden (see `walkHiddenNodeIds`). A new walk session starts the list afresh.
+   */
+  walkRevealedNodeIds: string[];
+  walkRevealedSessionId: string | null;
   dailyReviewGoal: number;
+  storm: StormSession | null;
+  /** Why a node has no concept glyph when one was offered (e.g. the wiki page's was taken). */
+  glyphNotice: { nodeId: string; message: string } | null;
+  stormSummary: StormSummary | null;
+  /** The last Storm target chosen, offered again next time. */
+  stormTarget: number;
+  /** "HH:MM"; material from a Storm is first reviewed at this time after the next sleep. */
+  wakeTime: string;
   /** User-chosen names for atlas hierarchy levels (Domain / Place / Section by default). */
   atlasLevelLabels: string[];
   /** Atlas paths of groups created by hand, kept so a group shows before any palace is in it. */
@@ -235,6 +330,10 @@ export type PalaceStore = {
   setCurrentPalaceMeta: (
     patch: Partial<Pick<Palace, "name" | "alias" | "atlasPath">>,
   ) => void;
+  /** Mark the open palace as a generated store (or, with null, an ordinary palace again). */
+  setCurrentStore: (
+    storeJson: string | null,
+  ) => void;
   setEditor: (e: Editor | null) => void;
   setSelectedShapeId: (id: string | null) => void;
   setToolMode: (m: ToolMode) => void;
@@ -279,6 +378,12 @@ export type PalaceStore = {
   dismissRouteNotice: () => void;
   setRouteColor: (routeId: string, color: RouteColor) => void;
   setRouteHidden: (routeId: string, hidden: boolean) => void;
+  setRouteDirection: (routeId: string, direction: RouteDirection) => void;
+  /** `false` makes the route a draft that is never due; its stops keep their schedules. */
+  setRouteInReview: (routeId: string, inReview: boolean) => void;
+  setRouteNotes: (routeId: string, notes: string) => void;
+  /** Start a named section at a stop; an empty name ends the section there. */
+  setStopSection: (locusId: string, section: string | null) => void;
   moveRouteTo: (routeId: string, toIndex: number) => void;
   /** The user deleted these nodes: take their stops out, keeping them for an undo. */
   detachStopsForNodes: (nodeIds: string[]) => void;
@@ -294,10 +399,22 @@ export type PalaceStore = {
   deleteRoute: (routeId: string) => void;
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
+  /** Ask this slot at the current step (a review started from the queue), or pick one when omitted. */
+  selectWalkSlot: (slot?: NedfSlot | null) => void;
   setWalkOpen: (v: boolean) => void;
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
   setDailyReviewGoal: (goal: number) => void;
+  /** Start a Storm in the open palace, on a new route of its own. Returns its id, or null with no palace open. */
+  startStorm: (target: number) => string | null;
+  /** A node was encoded for the first time; during a Storm it counts and becomes the next stop. */
+  countStormEncode: (nodeId: string) => void;
+  stopStorm: () => void;
+  /** Active and wall time of the Storm so far. */
+  readStormClock: () => { activeMs: number | null; wallMs: number } | null;
+  dismissStormSummary: () => void;
+  setWakeTime: (value: string) => void;
+  setGlyphNotice: (notice: { nodeId: string; message: string } | null) => void;
   setAtlasLevelLabels: (labels: string[]) => void;
   addAtlasGroup: (path: string) => void;
   /** Forgets a hand-made group and every hand-made group nested under it. */
@@ -320,6 +437,14 @@ export type PalaceStore = {
   dismissWalkSummary: () => void;
   revealWalkAnswer: () => void;
   rateWalkRecall: (rating: RecallRating) => void;
+  /**
+   * Say why the last Again missed: mixed up with another node, or a blank. A confusion pulls
+   * both nodes' Distinguisher cards forward and may offer to link the pair.
+   */
+  explainWalkMiss: (cause: MissCause, confusedWithNodeId?: string) => Promise<void>;
+  /** Accept the offer: link the logged pair as a confusion on the canvas. */
+  linkWalkMissConfusion: () => void;
+  dismissWalkMiss: () => void;
   walkNext: () => void;
   walkPrev: () => void;
   setWalkIndex: (index: number) => void;
@@ -342,6 +467,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
   const detachedStopsByNode = new Map<string, RemovedLocus[]>();
   let routeNoticeCounter = 0;
 
+  // The Storm's clock lives outside the store so input does not re-render anything.
+  let stormClock: ActiveClock | null = null;
+  const STORM_ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
+  const onStormActivity = () => {
+    if (stormClock) stormClock = tickClock(stormClock, Date.now());
+  };
+  const onStormVisibility = () => {
+    if (stormClock) stormClock = setClockHidden(stormClock, document.visibilityState === "hidden", Date.now());
+  };
+  const watchStormActivity = (on: boolean) => {
+    if (typeof window === "undefined") return;
+    const method = on ? "addEventListener" : "removeEventListener";
+    for (const name of STORM_ACTIVITY_EVENTS) window[method](name, onStormActivity, { passive: true } as AddEventListenerOptions);
+    document[method]("visibilitychange", onStormVisibility);
+  };
+
   /** Show a route notice; with `undo`, its Undo button runs that until the next notice. */
   const pushRouteNotice = (message: string, undo?: () => void) => {
     pendingRouteUndo = undo ?? null;
@@ -351,6 +492,23 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
 
   const activeRouteIdOf = (state: Pick<PalaceStore, "walkRouteId" | "routes">) =>
     state.walkRouteId ?? state.routes[0]?.id ?? null;
+
+  /** Settle a new walk's direction; an alternate route remembers it so the next walk flips. */
+  const startWalkDirection = (routeId: string | null): WalkDirection => {
+    const route = get().routes.find((candidate) => candidate.id === routeId);
+    const direction = nextWalkDirection(route);
+    if (route?.direction === "alternate") {
+      set((state) => ({
+        routes: state.routes.map((candidate) =>
+          candidate.id === route.id
+            ? { ...candidate, lastWalkDirection: direction }
+            : candidate,
+        ),
+      }));
+      scheduleDraftSave();
+    }
+    return direction;
+  };
 
   /** Keep the walk position inside the active route after its stops change. */
   const clampedWalkIndex = (nextLoci: Locus[]) => {
@@ -473,6 +631,47 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     void mirrorToMeter(events);
   };
 
+  /** End the Storm: record its result, mark a personal best, and show the summary. */
+  const finishStorm = (endedBy: StormResult["endedBy"]) => {
+    const state = get();
+    const storm = state.storm;
+    if (!storm) return;
+    const now = Date.now();
+    const reading = stormClock ? readClock(stormClock, now) : { activeMs: null, wallMs: now - Date.parse(storm.startedAt) };
+    stormClock = null;
+    watchStormActivity(false);
+    const count = storm.nodeIds.length;
+    const personalBest = isPersonalBest(count, bestStormCount(state.analyticsEvents));
+    const firstReviewAt =
+      state.loci
+        .filter((locus) => locus.routeId === storm.routeId)
+        .map((locus) => locus.nextReviewAt)
+        .filter((at): at is string => !!at)
+        .sort()[0] ?? null;
+    const summary: StormSummary = {
+      stormId: storm.id,
+      routeId: storm.routeId,
+      routeName: storm.routeName,
+      target: storm.target,
+      count,
+      activeMs: reading.activeMs,
+      wallMs: reading.wallMs,
+      ratePerHour: stormRatePerHour(count, reading.activeMs),
+      endedBy,
+      personalBest,
+      firstReviewAt,
+    };
+    // Recorded while the Storm is still set, so the event carries the Storm phase too.
+    void recordAnalytics({
+      eventType: "storm_completed",
+      eventGroup: "review",
+      palaceId: storm.palaceId,
+      routeId: storm.routeId,
+      payload: { ...summary },
+    });
+    set({ storm: null, stormSummary: summary });
+  };
+
   const recordAnalytics = async (input: RecordAnalyticsInput) => {
     const state = get();
     const event = createAnalyticsEvent({
@@ -488,14 +687,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           : (state.currentPalace?.id ?? null),
       routeId: "routeId" in input ? (input.routeId ?? null) : null,
       nodeId: "nodeId" in input ? (input.nodeId ?? null) : null,
-      payload: input.payload,
+      // Events in a Storm's palace are marked, so Storm activity can be told apart from Siege.
+      payload:
+        state.storm && (("palaceId" in input ? input.palaceId : state.currentPalace?.id) ?? null) === state.storm.palaceId
+          ? { ...input.payload, phase: "storm" }
+          : input.payload,
     });
     await appendAnalyticsEvents([event]);
     return event;
   };
 
   const getWalkContext = () => {
-    const { loci, routes, walkRouteId, walkIndex, currentPalace } = get();
+    const { loci, routes, walkRouteId, walkIndex, walkDirection, currentPalace } = get();
     const routeId = walkRouteId ?? routes[0]?.id ?? null;
     const route = routes.find((candidate) => candidate.id === routeId) ?? null;
     if (!routeId) {
@@ -510,8 +713,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         stepIndex: 0,
       };
     }
-    const list = orderedLoci(loci.filter((locus) => locus.routeId === routeId));
-    const locus = locusAtOrderedIndex(list, walkIndex) ?? null;
+    const list = walkOrderedLoci(
+      loci.filter((locus) => locus.routeId === routeId),
+      walkDirection,
+    );
+    const locus = list[walkIndex] ?? null;
     return {
       palaceId: currentPalace?.id ?? null,
       routeId,
@@ -530,7 +736,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     if (editorRef) {
       for (const shapeId of editorRef.getCurrentPageShapeIds()) {
         const shape = editorRef.getShape(shapeId as TLShapeId);
-        if (shape?.type !== "geo") continue;
+        if (!isMemoryNodeShape(shape)) continue;
         const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
         if (meta.mpNodeId !== nodeId) continue;
         return resolveMemoryNodeTitle(shape);
@@ -539,11 +745,34 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return nodes.find((node) => node.id === nodeId)?.title ?? null;
   };
 
+  /** A node's NEDF slots, read from its shape so edits count before the next save. */
+  const nedfOfNode = (nodeId: string | null): NedfEncoding | null => {
+    if (!nodeId) return null;
+    const { editorRef, nodes } = get();
+    if (editorRef) {
+      for (const shapeId of editorRef.getCurrentPageShapeIds()) {
+        const shape = editorRef.getShape(shapeId as TLShapeId);
+        if (!isMemoryNodeShape(shape)) continue;
+        const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
+        if (meta.mpNodeId === nodeId) return normalizeNedf(meta.mpNedf);
+      }
+    }
+    return normalizeNedf(nodes.find((node) => node.id === nodeId)?.nedf);
+  };
+
+  /** The slot a walk asks at the current step: the most overdue, or the soonest due. */
+  const currentWalkSlot = (): NedfSlot | null => {
+    const { locus, nodeId } = getWalkContext();
+    return locus ? walkCardFor(locus, nedfOfNode(nodeId)).slot : null;
+  };
+
   const noteWalkStepEntered = (
     direction: "open" | "next" | "prev" | "route_change",
   ) => {
     const enteredAt = new Date().toISOString();
+    const walkSlot = currentWalkSlot();
     set((state) => ({
+      walkSlot,
       walkStepEnteredAt: enteredAt,
       walkRevealedAt: null,
       walkRevealLatencyMs: null,
@@ -566,6 +795,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         locusId: context.locus?.id ?? null,
         routeName: context.routeName,
         nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
+        slot: walkSlot,
       },
     });
   };
@@ -628,6 +858,43 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return next;
   };
 
+  /**
+   * A stop's view is captured synchronously in the click that adds it, but a fast preceding
+   * wheel/trackpad zoom (a synthetic burst in tests, or real trailing input the browser hasn't
+   * finished delivering yet) can still be arriving for a short window afterwards. tldraw applies
+   * each wheel tick the instant it's delivered, so this isn't tldraw animating anything we could
+   * wait out with its own camera-moving flag — that flag decays on a fixed timer and can already
+   * read "idle" while more native wheel events are still queued upstream, before they've even
+   * reached tldraw. Re-capturing after a short fixed delay is what actually waits out that
+   * window; the stop's view is then quietly patched in place — no notice, no undo entry, since
+   * this corrects the same "current view" the click was already trying to save, not a new user
+   * action.
+   */
+  const settleStopView = (
+    locusId: string,
+    nodeId: string,
+    viewFor: (nodeId: string) => StopView | null,
+  ) => {
+    setTimeout(() => {
+      if (!get().loci.some((locus) => locus.id === locusId)) return;
+      const settled = viewFor(nodeId);
+      if (!settled) return;
+      const current = get().loci.find((locus) => locus.id === locusId);
+      if (!current) return;
+      const unchanged =
+        current.view &&
+        current.view.x === settled.x &&
+        current.view.y === settled.y &&
+        current.view.w === settled.w &&
+        current.view.h === settled.h;
+      if (unchanged) return;
+      set((state) => ({
+        loci: state.loci.map((locus) => (locus.id === locusId ? withStopView(locus, settled) : locus)),
+      }));
+      scheduleDraftSave();
+    }, 200);
+  };
+
   return {
     palaces: [],
     trashedPalaces: [],
@@ -659,6 +926,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkOpen: false,
     walkRouteId: null,
     walkIndex: 0,
+    walkDirection: "forward",
+    walkSlot: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
@@ -666,10 +935,19 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkStepRated: false,
     walkRatingCounts: { ...EMPTY_WALK_RATINGS },
     walkSummary: null,
+    walkMissPrompt: null,
+    walkMissNotice: null,
     walkStepEnteredAt: null,
     walkRevealedAt: null,
     walkRevealLatencyMs: null,
+    walkRevealedNodeIds: [],
+    walkRevealedSessionId: null,
     dailyReviewGoal: loadDailyReviewGoal(),
+    storm: null,
+    glyphNotice: null,
+    stormSummary: null,
+    stormTarget: loadStormTarget(),
+    wakeTime: loadWakeTime(),
     atlasLevelLabels: loadAtlasLevelLabels(DEFAULT_ATLAS_LEVEL_LABELS),
     atlasGroups: loadAtlasGroups(),
     pausedDecks: loadPausedDecks(),
@@ -720,7 +998,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         const titleToNodeId = new Map<string, string>();
         for (const shapeId of editorRef.getCurrentPageShapeIds()) {
           const shape = editorRef.getShape(shapeId);
-          if (!shape || shape.type !== "geo") continue;
+          if (!isMemoryNodeShape(shape)) continue;
           const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
           if (meta.mpPalaceId !== currentPalace.id) continue;
           if (meta.mpTitle && meta.mpNodeId) {
@@ -832,6 +1110,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     async openPalace(id: string) {
+      // A Storm belongs to its palace; leaving the palace ends it.
+      const storm = get().storm;
+      if (storm && storm.palaceId !== id) finishStorm("stopped");
       await get().flushDraftSave();
       clearDraftTimer();
       let snap: PalaceSnapshot | null;
@@ -992,6 +1273,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       scheduleDraftSave();
     },
 
+    setCurrentStore(storeJson) {
+      const { currentPalace, palaces } = get();
+      if (!currentPalace) return;
+      const next = { ...currentPalace, storeJson };
+      set({
+        currentPalace: next,
+        palaces: palaces.map((palace) => (palace.id === next.id ? { ...palace, storeJson } : palace)),
+      });
+      scheduleDraftSave();
+    },
+
     setCurrentPalaceMeta(patch) {
       const { currentPalace, palaces } = get();
       if (!currentPalace) return;
@@ -1134,6 +1426,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
               label: locus.label,
             },
           });
+          if (options.viewFor) settleStopView(locus.id, locus.nodeId, options.viewFor);
         }
       }
       const titleOf = (nodeId: string) =>
@@ -1245,6 +1538,48 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       set((state) => ({
         routes: state.routes.map((route) =>
           route.id === routeId ? { ...route, hidden } : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteDirection(routeId, direction) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId ? { ...route, direction } : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteInReview(routeId, inReview) {
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, inReview: inReview ? undefined : false }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setRouteNotes(routeId, notes) {
+      const trimmed = notes.trim();
+      set((state) => ({
+        routes: state.routes.map((route) =>
+          route.id === routeId
+            ? { ...route, notes: trimmed ? notes : undefined }
+            : route,
+        ),
+      }));
+      scheduleDraftSave();
+    },
+
+    setStopSection(locusId, section) {
+      const name = section?.trim() || null;
+      set((state) => ({
+        loci: state.loci.map((locus) =>
+          locus.id === locusId ? { ...locus, section: name } : locus,
         ),
       }));
       scheduleDraftSave();
@@ -1384,6 +1719,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkStepRated: false,
           walkRatingCounts: { ...EMPTY_WALK_RATINGS },
           walkSummary: null,
+          walkMissPrompt: null,
+          walkMissNotice: null,
           walkStepEnteredAt: null,
           walkRevealedAt: null,
           walkRevealLatencyMs: null,
@@ -1523,6 +1860,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkStepRated: false,
           walkRatingCounts: { ...EMPTY_WALK_RATINGS },
           walkSummary: null,
+          walkMissPrompt: null,
+          walkMissNotice: null,
           walkStepEnteredAt: null,
           walkRevealedAt: null,
           walkRevealLatencyMs: null,
@@ -1604,6 +1943,10 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       void appendAnalyticsEvents(events);
     },
 
+    selectWalkSlot(slot) {
+      set({ walkSlot: slot === undefined ? currentWalkSlot() : slot });
+    },
+
     setWalkRoute(walkRouteId) {
       const state = get();
       const wasOpen = state.walkOpen;
@@ -1611,14 +1954,19 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const previousWalkSessionId = state.walkSessionId;
       const nextWalkSessionId =
         wasOpen && walkRouteId ? crypto.randomUUID() : null;
+      const walkDirection =
+        wasOpen && walkRouteId ? startWalkDirection(walkRouteId) : "forward";
       set((state) => ({
         walkRouteId,
         walkIndex: 0,
+        walkDirection,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: !state.walkRecallMode,
         walkStepRated: false,
         walkRatingCounts: { ...EMPTY_WALK_RATINGS },
         walkSummary: null,
+        walkMissPrompt: null,
+        walkMissNotice: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -1667,9 +2015,13 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           : walkOpen
             ? state.walkSessionId
             : null;
+      const starting = walkOpen && !wasOpen;
       set({
         walkOpen,
-        walkIndex: walkOpen && !wasOpen ? 0 : state.walkIndex,
+        walkIndex: starting ? 0 : state.walkIndex,
+        walkDirection: starting
+          ? startWalkDirection(activeRouteIdOf(state))
+          : state.walkDirection,
         walkSessionId: nextWalkSessionId,
         walkAnswerRevealed: walkOpen ? !state.walkRecallMode : false,
         walkStepRated: false,
@@ -1678,6 +2030,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             ? { ...EMPTY_WALK_RATINGS }
             : state.walkRatingCounts,
         walkSummary: walkOpen && !wasOpen ? null : state.walkSummary,
+        // A walk that starts or is put away leaves no question about an earlier miss.
+        walkMissPrompt: walkOpen === wasOpen ? state.walkMissPrompt : null,
+        walkMissNotice: walkOpen === wasOpen ? state.walkMissNotice : null,
         walkStepEnteredAt: walkOpen ? state.walkStepEnteredAt : null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
@@ -1758,6 +2113,83 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           String(normalized),
         );
       }
+    },
+
+    startStorm(target) {
+      const state = get();
+      if (!state.currentPalace) return null;
+      if (state.storm) finishStorm("stopped");
+      const goal = clampStormTarget(target);
+      // A fixed month list: locale data spells September "Sep" in some runtimes and "Sept" in others.
+      const today = new Date();
+      const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][today.getMonth()];
+      const routeId = get().createRoute({ name: `Storm · ${today.getDate()} ${month}` });
+      const route = get().routes.find((candidate) => candidate.id === routeId);
+      if (!routeId || !route) return null;
+      const storm: StormSession = {
+        id: crypto.randomUUID(),
+        palaceId: state.currentPalace.id,
+        routeId,
+        routeName: route.name,
+        target: goal,
+        startedAt: new Date().toISOString(),
+        nodeIds: [],
+      };
+      stormClock = startClock(Date.now(), typeof document !== "undefined" && document.visibilityState === "hidden");
+      watchStormActivity(true);
+      writeStoredValue(STORM_TARGET_STORAGE_KEY, String(goal));
+      // createRoute shows the Routes tab; a Storm is spent naming nodes, so keep the Node tab.
+      set({ storm, stormSummary: null, stormTarget: goal, routePanelOpen: false });
+      void recordAnalytics({
+        eventType: "storm_started",
+        eventGroup: "review",
+        routeId,
+        payload: { stormId: storm.id, target: goal, routeName: route.name },
+      });
+      return storm.id;
+    },
+
+    countStormEncode(nodeId) {
+      const state = get();
+      const storm = state.storm;
+      if (!storm || state.currentPalace?.id !== storm.palaceId || storm.nodeIds.includes(nodeId)) return;
+      get().addStopsToRoute(storm.routeId, [nodeId]);
+      // First review after the next sleep, not a fixed day later.
+      const due = firstReviewAfterSleep(new Date(), state.wakeTime).toISOString();
+      set((current) => ({
+        loci: current.loci.map((locus) =>
+          locus.routeId === storm.routeId && locus.nodeId === nodeId && locus.repetitions === 0
+            ? { ...locus, nextReviewAt: due }
+            : locus,
+        ),
+        storm: current.storm ? { ...current.storm, nodeIds: [...current.storm.nodeIds, nodeId] } : null,
+      }));
+      scheduleDraftSave();
+      if (storm.nodeIds.length + 1 >= storm.target) finishStorm("target");
+    },
+
+    stopStorm() {
+      finishStorm("stopped");
+    },
+
+    readStormClock() {
+      const storm = get().storm;
+      if (!storm) return null;
+      return stormClock ? readClock(stormClock, Date.now()) : { activeMs: null, wallMs: Date.now() - Date.parse(storm.startedAt) };
+    },
+
+    dismissStormSummary() {
+      set({ stormSummary: null });
+    },
+
+    setGlyphNotice(glyphNotice) {
+      set({ glyphNotice });
+    },
+
+    setWakeTime(value) {
+      if (!parseWakeTime(value)) return;
+      set({ wakeTime: value });
+      writeStoredValue(WAKE_TIME_STORAGE_KEY, value);
     },
 
     setAtlasLevelLabels(labels) {
@@ -1854,9 +2286,27 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         }
         idsByPalace.set(palaceId, new Set([...(ids ?? []), ...locusIds]));
       }
+      // A stop's NEDF cards with a schedule of their own move with it; the
+      // others already follow the stop's schedule.
+      const moveCards = (slotSchedules: Locus["slotSchedules"]) =>
+        slotSchedules &&
+        (Object.fromEntries(
+          Object.entries(slotSchedules).map(([slot, schedule]) => [
+            slot,
+            schedule && { ...schedule, nextReviewAt },
+          ]),
+        ) as Locus["slotSchedules"]);
       const reschedule = (loci: Locus[], ids: Set<string> | null) =>
         loci.map((locus) =>
-          !ids || ids.has(locus.id) ? { ...locus, nextReviewAt } : locus,
+          !ids || ids.has(locus.id)
+            ? {
+                ...locus,
+                nextReviewAt,
+                ...(locus.slotSchedules
+                  ? { slotSchedules: moveCards(locus.slotSchedules) }
+                  : {}),
+              }
+            : locus,
         );
 
       for (const [palaceId, ids] of idsByPalace) {
@@ -1888,7 +2338,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     },
 
     dismissWalkSummary() {
-      set({ walkSummary: null });
+      set({ walkSummary: null, walkMissPrompt: null, walkMissNotice: null });
     },
 
     revealWalkAnswer() {
@@ -1896,10 +2346,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const enteredAt = get().walkStepEnteredAt;
       const now = Date.now();
       const timeToRevealMs = safeElapsedMs(enteredAt, now);
-      set({
-        walkAnswerRevealed: true,
-        walkRevealedAt: new Date(now).toISOString(),
-        walkRevealLatencyMs: timeToRevealMs,
+      set((state) => {
+        const sameWalk = state.walkRevealedSessionId === state.walkSessionId;
+        const earlier = sameWalk ? state.walkRevealedNodeIds : [];
+        return {
+          walkAnswerRevealed: true,
+          walkRevealedAt: new Date(now).toISOString(),
+          walkRevealLatencyMs: timeToRevealMs,
+          walkRevealedNodeIds:
+            context.nodeId && !earlier.includes(context.nodeId) ? [...earlier, context.nodeId] : earlier,
+          walkRevealedSessionId: state.walkSessionId,
+        };
       });
       if (!context.routeId || !context.nodeId) return;
       void recordAnalytics({
@@ -1939,21 +2396,34 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         context.count > 0 && context.stepIndex >= context.count - 1;
       // Read before the update below: rating the last step clears walkSessionId.
       const sessionId = get().walkSessionId;
+      const slot = get().walkSlot;
+      const palaceId = get().currentPalace?.id ?? null;
+      // An Again asks why it missed; the question stays about this stop after the walk moves on.
+      const missPrompt: WalkMissPrompt | null =
+        rating === "again" && palaceId
+          ? {
+              palaceId,
+              routeId: context.routeId,
+              locusId: context.locus?.id ?? null,
+              nodeId: context.nodeId,
+              nodeTitle: resolveNodeTitleForAnalytics(context.nodeId) ?? "Untitled node",
+              slot,
+              sessionId,
+              ratedAt,
+              // Stamped as the rating is: a miss in a Storm's palace belongs to the Storm.
+              phase: get().storm?.palaceId === palaceId ? "storm" : "siege",
+            }
+          : null;
 
       set((state) => {
         const nextLoci = state.loci.map((locus) => {
           if (locus.id !== context.locus?.id) return locus;
-          return applySm2Schedule(locus, rating, ratedAt);
+          return rateStopCard(locus, slot, rating, ratedAt);
         });
         const routeNextReviewAt =
-          orderedLoci(
-            nextLoci.filter((locus) => locus.routeId === context.routeId),
-          )
-            .map((locus) => locus.nextReviewAt)
-            .filter(
-              (value): value is string =>
-                typeof value === "string" && value.length > 0,
-            )
+          nextLoci
+            .filter((locus) => locus.routeId === context.routeId)
+            .map((locus) => stopNextReviewAt(locus, nedfOfNode(locus.nodeId), ratedAt))
             .sort()[0] ?? null;
         return {
           loci: nextLoci,
@@ -1962,6 +2432,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           walkRevealLatencyMs: revealLatencyMs,
           walkStepRated: true,
           walkRatingCounts: updatedRatings,
+          walkMissPrompt: missPrompt ?? state.walkMissPrompt,
+          walkMissNotice: missPrompt ? null : state.walkMissNotice,
           walkOpen: isLastStep ? false : state.walkOpen,
           walkSessionId: isLastStep ? null : state.walkSessionId,
           walkSummary: isLastStep
@@ -1993,6 +2465,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           locusId: context.locus?.id ?? null,
           routeName: context.routeName,
           nodeTitle: resolveNodeTitleForAnalytics(context.nodeId),
+          slot,
           timeToRevealMs,
           timeFromRevealToRatingMs,
         },
@@ -2030,6 +2503,89 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       get().walkNext();
     },
 
+    async explainWalkMiss(cause, confusedWithNodeId) {
+      const prompt = get().walkMissPrompt;
+      if (!prompt) return;
+      const otherId = cause === "confusion" ? (confusedWithNodeId ?? null) : null;
+      if (cause === "confusion" && (!otherId || otherId === prompt.nodeId)) return;
+      set({ walkMissPrompt: null, walkMissNotice: null });
+      if (get().currentPalace?.id !== prompt.palaceId) return;
+      const otherTitle = otherId ? (resolveNodeTitleForAnalytics(otherId) ?? "Untitled node") : null;
+      // Whether the pair was logged before is read before this one is recorded.
+      if (otherId && !get().analyticsLoaded) await get().loadAnalyticsEvents();
+      const loggedBefore = otherId ? hasLoggedConfusion(get().analyticsEvents, prompt.nodeId, otherId) : false;
+      void recordAnalytics({
+        eventType: "recall_miss_explained",
+        eventGroup: "review",
+        sessionId: prompt.sessionId,
+        palaceId: prompt.palaceId,
+        routeId: prompt.routeId,
+        nodeId: prompt.nodeId,
+        payload: {
+          cause,
+          confusedWithNodeId: otherId,
+          confusedWithTitle: otherTitle,
+          locusId: prompt.locusId,
+          slot: prompt.slot,
+          nodeTitle: prompt.nodeTitle,
+          ratedAt: prompt.ratedAt,
+          ...(prompt.phase === "storm" ? { phase: "storm" } : {}),
+        },
+      });
+      if (!otherId || !otherTitle) return;
+
+      const pulled = pullDistinguishersForward(get().loci, get().routes, nedfOfNode, [prompt.nodeId, otherId], prompt.ratedAt);
+      if (pulled.pulledLocusIds.length > 0) {
+        set({ loci: pulled.loci });
+        scheduleDraftSave();
+      }
+      const { editorRef, edges } = get();
+      const linked = hasConfusionLink(editorRef ? canvasConfusionEdges(editorRef) : edges, prompt.nodeId, otherId);
+      const titleOf = (nodeId: string) => (nodeId === otherId ? otherTitle : prompt.nodeTitle);
+      const pair = `${prompt.nodeTitle} and ${otherTitle}`;
+      // A new pair is offered as a link once; after that it is only logged.
+      const offerLink = !linked && !loggedBefore;
+      set({
+        walkMissNotice: {
+          palaceId: prompt.palaceId,
+          nodeId: prompt.nodeId,
+          nodeTitle: prompt.nodeTitle,
+          otherNodeId: otherId,
+          otherTitle,
+          offerLink,
+          message: linked
+            ? `Logged. ${pair} are linked as a confusion.`
+            : offerLink
+              ? `Link ${pair} as a confusion?`
+              : `Logged: ${prompt.nodeTitle} mixed up with ${otherTitle}.`,
+          notes: pulled.withoutDistinguisher.map(
+            (nodeId) => `${titleOf(nodeId)} has no Distinguisher yet — add one so the review can tell them apart.`,
+          ),
+        },
+      });
+    },
+
+    linkWalkMissConfusion() {
+      const notice = get().walkMissNotice;
+      if (!notice?.offerLink) return;
+      const { editorRef, currentPalace } = get();
+      const result =
+        editorRef && currentPalace?.id === notice.palaceId
+          ? linkConfusion(editorRef, currentPalace.id, notice.nodeId, notice.otherNodeId)
+          : ({ ok: false, message: "Open the palace on the canvas to link them." } as const);
+      set({
+        walkMissNotice: {
+          ...notice,
+          offerLink: false,
+          message: result.ok ? `Linked ${notice.nodeTitle} and ${notice.otherTitle} as a confusion.` : result.message,
+        },
+      });
+    },
+
+    dismissWalkMiss() {
+      set({ walkMissPrompt: null, walkMissNotice: null });
+    },
+
     walkNext() {
       const {
         loci,
@@ -2042,8 +2598,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const nextIndex = nextWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
@@ -2055,8 +2612,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const nextIndex = prevWalkIndex(walkIndex, list.length);
       if (nextIndex === walkIndex) return;
@@ -2076,8 +2634,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       if (walkRecallMode && !walkStepRated) return;
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
       const clamped = clampWalkIndex(index, list.length);
       if (clamped === walkIndex) return;
@@ -2089,10 +2648,11 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       const { loci, routes, walkRouteId, walkIndex } = get();
       const effectiveRouteId = walkRouteId ?? routes[0]?.id ?? null;
       if (!effectiveRouteId) return null;
-      const list = orderedLoci(
+      const list = walkOrderedLoci(
         loci.filter((l) => l.routeId === effectiveRouteId),
+        get().walkDirection,
       );
-      return locusAtOrderedIndex(list, walkIndex) ?? null;
+      return list[walkIndex] ?? null;
     },
 
     currentWalkNodeId() {
@@ -2119,6 +2679,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         walkStepRated: false,
         walkRatingCounts: { ...EMPTY_WALK_RATINGS },
         walkSummary: null,
+        walkMissPrompt: null,
+        walkMissNotice: null,
         walkStepEnteredAt: null,
         walkRevealedAt: null,
         walkRevealLatencyMs: null,
