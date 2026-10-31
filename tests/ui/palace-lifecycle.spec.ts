@@ -12,6 +12,7 @@
 
 import { expect, test } from "@playwright/test";
 import { addNode, addSelectedToRoute, createRoute, editSelectedNode } from "./nodeHelpers";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -285,6 +286,7 @@ test.describe("palace trash, restore, and purge", () => {
 
     // Accept the confirm dialog automatically
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     // Palace should disappear from the active list
@@ -303,6 +305,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect(page.getByRole("heading", { name: "Will Be Trashed" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
@@ -316,6 +319,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect(page.getByRole("heading", { name: "Will Be Restored" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
@@ -344,6 +348,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect(page.getByRole("heading", { name: "Will Be Purged" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
@@ -371,6 +376,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect(page.getByRole("heading", { name: "Delete Event Palace" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect
@@ -385,6 +391,7 @@ test.describe("palace trash, restore, and purge", () => {
     await expect(page.getByRole("heading", { name: "Restore Event Palace" })).toBeVisible();
 
     page.on("dialog", (dialog) => void dialog.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(trashHeading(page)).toBeVisible({ timeout: 8000 });
     await page.getByRole("button", { name: "Restore" }).click();

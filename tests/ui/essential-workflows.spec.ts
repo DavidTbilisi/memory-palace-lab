@@ -263,7 +263,10 @@ test("spaced review queue surfaces the due locus by its route, not its node", as
 
   await expect(page.getByText("Global Review Queue", { exact: true })).toBeVisible();
   const due = page.getByRole("region", { name: "Due loci" });
-  await expect(due.getByText("Tutorial Palace | Spaced Route", { exact: true })).toBeVisible();
+  // Grouped by deck, then palace; the stop goes by its number on the route, never its node.
+  await expect(due.getByText("Tutorial Palace · 1 due", { exact: true })).toBeVisible();
+  await expect(due.getByText("Stop 1", { exact: true })).toBeVisible();
+  await expect(due.getByText("Spaced Route", { exact: true })).toBeVisible();
   await expect(due).not.toContainText("Queue Node");
   await expect(page.getByRole("button", { name: "Review now" })).toBeVisible();
 

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 const BACKGROUND_SVG = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48"><rect width="64" height="48" fill="green"/></svg>',
@@ -21,6 +22,7 @@ test("background image button imports a browser image without page errors", asyn
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Background Palace");
   await page.getByRole("button", { name: "Create palace" }).click();
   await expect(page.getByRole("heading", { name: "Background Palace" })).toBeVisible();
+  await openCurrentPalaceDetails(page);
   await expect(page.getByRole("button", { name: "Set background" })).toBeEnabled();
   await expect
     .poll(() =>

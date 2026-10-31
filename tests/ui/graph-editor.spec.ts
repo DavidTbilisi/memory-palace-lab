@@ -23,6 +23,7 @@ import {
   openNodeTab,
 } from "./nodeHelpers";
 import { openTutorialPalace, routeSummary } from "./routeHelpers";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -768,6 +769,7 @@ test.describe("atlas hierarchy editor", () => {
     await page.getByRole("textbox", { name: "Lesson segment" }).fill("Quadratics");
     await page.getByRole("button", { name: "Save hierarchy" }).click();
 
+    await openCurrentPalaceDetails(page);
     await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue(
       "Math/Algebra/Quadratics",
     );
@@ -863,6 +865,7 @@ test.describe("theSystem pipeline materialization", () => {
 test.describe("inspector panel", () => {
   test("palace alias is saved and shown in sidebar", async ({ page }) => {
     await bootstrapPalace(page, "Alias Inspector Palace");
+    await openCurrentPalaceDetails(page);
     await page.getByRole("textbox", { name: "Current palace alias" }).fill("AIP");
     await page.getByRole("button", { name: "Save details" }).click();
     await expect(page.getByText("Alias: AIP")).toBeVisible();

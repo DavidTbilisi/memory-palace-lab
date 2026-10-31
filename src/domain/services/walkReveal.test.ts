@@ -47,4 +47,10 @@ describe("dueStopName", () => {
     expect(dueStopName("", null)).toBe("Unlabelled stop");
     expect(dueStopName(" ", "distinguisher")).toBe("Unlabelled stop · Distinguisher card");
   });
+
+  it("calls a stop with no label by its number on the route", () => {
+    expect(dueStopName("", null, 3)).toBe("Stop 3");
+    expect(dueStopName("", "distinguisher", 2)).toBe("Stop 2 · Distinguisher card");
+    expect(dueStopName("by the door", null, 3)).toBe("by the door");
+  });
 });

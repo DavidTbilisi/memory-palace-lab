@@ -28,6 +28,7 @@ import { SHORTCUTS, formatShortcut } from "../content/shortcuts";
 import { GLOSSARY } from "../domain/glossary";
 import { requestNavigation } from "../app/navigationEvents";
 import { createGeoMemoryNode } from "../canvas/createMemoryShapes";
+import { measureCanvas } from "../canvas/routeCanvas";
 import { buildPipelineTemplateFromDoc } from "../system/pipelineFromDoc";
 import { usePalaceStore } from "../store/palaceStore";
 import type { TLShapeId } from "@tldraw/tlschema";
@@ -464,28 +465,33 @@ export function LibraryPage({
       disabledReason: encodeDisabledReason,
       onAddAsNode: () => {
         if (!currentPalace || !editorRef) return;
-        const viewport = editorRef.getViewportPageBounds();
-        const sectionLabel = LIBRARY_SECTIONS.find((info) => info.id === selectedEntry.section)?.label ?? "Library";
-        const { shapeId } = createGeoMemoryNode(
-          editorRef,
-          currentPalace.id,
-          { x: viewport.x + viewport.w / 2, y: viewport.y + viewport.h / 2 },
-          {
-            title: selectedEntry.title,
-            content: `<p>${selectedEntry.summary}</p><p>Source: Library › ${sectionLabel} › ${selectedEntry.title}</p>`,
-          },
-        );
-        // A node added from a wiki concept page adopts the page's glyph, unless another node here holds it.
-        if (selectedEntry.glyph) {
-          const nodeId = (editorRef.getShape(shapeId as TLShapeId)?.meta as MemoryPalaceMeta | undefined)?.mpNodeId;
-          const adopted = nodeId ? writeNodeGlyph(editorRef, nodeId, selectedEntry.glyph) : null;
-          if (adopted && !adopted.ok && nodeId) {
-            usePalaceStore.getState().setGlyphNotice({ nodeId, message: `${adopted.message} This node was added without it.` });
-          }
-        }
-        editorRef.setSelectedShapes([shapeId as TLShapeId]);
-        editorRef.zoomToSelectionIfOffscreen(96, { animation: { duration: 240 } });
+        // The canvas is hidden on this page and measures 1×1 px, so a node placed or zoomed to now
+        // lands in a corner at 800%. Show the canvas, then add the node once it has its real size.
         requestNavigation("graph");
+        requestAnimationFrame(() => {
+          measureCanvas(editorRef);
+          const viewport = editorRef.getViewportPageBounds();
+          const sectionLabel = LIBRARY_SECTIONS.find((info) => info.id === selectedEntry.section)?.label ?? "Library";
+          const { shapeId } = createGeoMemoryNode(
+            editorRef,
+            currentPalace.id,
+            { x: viewport.x + viewport.w / 2, y: viewport.y + viewport.h / 2 },
+            {
+              title: selectedEntry.title,
+              content: `<p>${selectedEntry.summary}</p><p>Source: Library › ${sectionLabel} › ${selectedEntry.title}</p>`,
+            },
+          );
+          // A node added from a wiki concept page adopts the page's glyph, unless another node here holds it.
+          if (selectedEntry.glyph) {
+            const nodeId = (editorRef.getShape(shapeId as TLShapeId)?.meta as MemoryPalaceMeta | undefined)?.mpNodeId;
+            const adopted = nodeId ? writeNodeGlyph(editorRef, nodeId, selectedEntry.glyph) : null;
+            if (adopted && !adopted.ok && nodeId) {
+              usePalaceStore.getState().setGlyphNotice({ nodeId, message: `${adopted.message} This node was added without it.` });
+            }
+          }
+          editorRef.setSelectedShapes([shapeId as TLShapeId]);
+          editorRef.zoomToSelectionIfOffscreen(96, { animation: { duration: 240 } });
+        });
       },
       onRunAsPipeline: () => {
         if (body === null) return;

@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { addNode, editSelectedNode } from "./nodeHelpers";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -347,6 +348,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Soft Delete Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect
@@ -367,6 +369,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Restore Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();
@@ -387,6 +390,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await expect(page.getByRole("heading", { name: "Purge Palace" })).toBeVisible();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Delete now" }).click();
@@ -410,6 +414,7 @@ test.describe("A — palace repository (in-memory / Tauri parity)", () => {
     await page.getByRole("button", { name: "Create palace" }).click();
     await expect(page.getByRole("heading", { name: "Atlas Save Palace" })).toBeVisible();
 
+    await openCurrentPalaceDetails(page);
     await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue(
       "Science/Physics",
     );
@@ -517,6 +522,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     expect(palaceId).toBeTruthy();
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
 
     await expect
@@ -545,6 +551,7 @@ test.describe("B — Tauri IPC mock: correct commands are called", () => {
     });
 
     page.on("dialog", (d) => void d.accept());
+    await openCurrentPalaceDetails(page);
     await page.getByRole("button", { name: /Move to trash/i }).click();
     await expect(trashHeading(page)).toBeVisible({ timeout: 6000 });
     await page.getByRole("button", { name: "Restore" }).click();

@@ -19,8 +19,9 @@ function mockState(overrides: Record<string, unknown> = {}) {
   state = {
     palaces: [
       { id: "a", name: "Alpha", createdAt: PAST },
-      { id: "b", name: "Beta", createdAt: PAST },
+      { id: "b", name: "Beta", atlasPath: "Science/Physics", createdAt: PAST },
     ],
+    pausedDecks: [],
     currentPalace: { id: "a", name: "Alpha", createdAt: PAST },
     routes: [{ id: "ra", palaceId: "a", name: "RA" }],
     loci: [locus("la", "ra", "na")],
@@ -67,6 +68,15 @@ describe("useDueQueue", () => {
     rerender();
     await waitFor(() => expect(result.current.dueCountAll).toBe(3));
     expect(loadPalace).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds back stops under a paused deck, by the palace list's current path", async () => {
+    mockState({ pausedDecks: ["Science"] });
+    const { result } = renderHook(() => useDueQueue());
+    await waitFor(() => expect(result.current.pausedItems).toHaveLength(1));
+    expect(result.current.pausedItems[0]?.palaceName).toBe("Beta");
+    expect(result.current.items.map((item) => item.palaceName)).toEqual(["Alpha"]);
+    expect(result.current.dueCountAll).toBe(1);
   });
 
   it("refetches after the cache is invalidated", async () => {

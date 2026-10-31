@@ -70,14 +70,21 @@ export function stopViewPageBounds(editor: Editor, shapeId: TLShapeId, view: Sto
 }
 
 /**
+ * Measure the canvas now. tldraw re-measures it up to 200 ms after a resize, and a hidden canvas
+ * measures 1×1 px, so a camera move just after the canvas resizes or reappears uses a stale size.
+ */
+export function measureCanvas(editor: Editor) {
+  const container = editor.getContainer();
+  editor.updateViewportScreenBounds(container.querySelector<HTMLElement>(".tl-canvas") ?? container);
+}
+
+/**
  * Animate the camera to a stop: its saved view, or else the node itself. Select the node
  * first, since the fallback zooms to the selection.
  */
 export function zoomToStop(editor: Editor, shapeId: TLShapeId, view: StopView | null | undefined) {
-  // tldraw re-measures the canvas up to 200 ms after a resize, and starting a walk resizes it
-  // (the walk bar grows) in the same render that moves the camera. Fit against the new size.
-  const container = editor.getContainer();
-  editor.updateViewportScreenBounds(container.querySelector<HTMLElement>(".tl-canvas") ?? container);
+  // Starting a walk resizes the canvas (the walk bar grows) in the same render that moves the camera.
+  measureCanvas(editor);
   const animation = { duration: 320 };
   const bounds = view ? stopViewPageBounds(editor, shapeId, view) : null;
   if (bounds) editor.zoomToBounds(bounds, { inset: 0, animation });

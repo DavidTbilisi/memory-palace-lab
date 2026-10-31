@@ -51,9 +51,14 @@ export function hiddenStopCue(label: string | null | undefined): string {
 
 /**
  * How a due stop is named before its review starts (the Review page, Next up): by its place and
- * the card it asks, never by the node stored there, which is the answer the review asks for.
+ * the card it asks, never by the node stored there, which is the answer the review asks for. A
+ * stop with no label goes by its number on the route, which callers show beside the route name.
  */
-export function dueStopName(locusLabel: string | null | undefined, slot: NedfSlot | null): string {
-  const place = locusLabel?.trim() || "Unlabelled stop";
+export function dueStopName(
+  locusLabel: string | null | undefined,
+  slot: NedfSlot | null,
+  stopNumber?: number | null,
+): string {
+  const place = locusLabel?.trim() || (stopNumber ? `Stop ${stopNumber}` : "Unlabelled stop");
   return slot ? `${place} · ${NEDF_SLOT_LABELS[slot]} card` : place;
 }

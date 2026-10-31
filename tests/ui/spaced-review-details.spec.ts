@@ -340,7 +340,10 @@ test.describe("review queue UI", () => {
     await expect(page.getByText("Global Review Queue", { exact: true })).toBeVisible();
 
     const due = page.getByRole("region", { name: "Due loci" });
-    await expect(due.getByText("Tutorial Palace | Queue Panel Route", { exact: true })).toBeVisible();
+    // Grouped by deck, then palace; the stop goes by its number on its route.
+    await expect(due.getByText("Tutorial Palace · 1 due", { exact: true })).toBeVisible();
+    await expect(due.getByText("Stop 1", { exact: true })).toBeVisible();
+    await expect(due.getByText("Queue Panel Route", { exact: true })).toBeVisible();
     // The node is the answer the review asks for, so the queue does not name it.
     await expect(due).not.toContainText("Review Subject");
     await expect(page.getByRole("button", { name: "Start top due review" })).toBeVisible();

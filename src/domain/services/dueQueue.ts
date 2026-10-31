@@ -30,6 +30,8 @@ export type GlobalDueItem = {
   slot: NedfSlot | null;
   /** How many of the stop's cards are due; 1 for a stop without slots. */
   dueCards: number;
+  /** The stop's place on its route, from 1: names a stop with no label without giving away its node. */
+  stopNumber: number;
 };
 
 export type DueQueueSnapshot = {
@@ -107,6 +109,13 @@ export function buildDueQueue(snapshots: readonly DueQueueSnapshot[], nowIso = n
     const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
     const nedfOf = nedfLookup(snapshot.nodes);
     const loci = reviewedLoci(snapshot.loci, snapshot.routes);
+    const stopNumberById = new Map<string, number>();
+    for (const route of snapshot.routes) {
+      snapshot.loci
+        .filter((locus) => locus.routeId === route.id)
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .forEach((locus, index) => stopNumberById.set(locus.id, index + 1));
+    }
     cards.push(...loci.flatMap((locus) => stopCards(locus, nedfOf(locus.nodeId), nowIso)));
     for (const locus of loci) {
       const due = dueStopCards(locus, nedfOf(locus.nodeId), nowIso);
@@ -126,6 +135,7 @@ export function buildDueQueue(snapshots: readonly DueQueueSnapshot[], nowIso = n
         nextReviewAt: due[0]!.schedule.nextReviewAt,
         slot: due[0]!.slot,
         dueCards: due.length,
+        stopNumber: stopNumberById.get(locus.id) ?? locus.orderIndex + 1,
       });
       countByPalace.set(snapshot.palace.id, (countByPalace.get(snapshot.palace.id) ?? 0) + 1);
       countByRoute.set(route.id, (countByRoute.get(route.id) ?? 0) + 1);

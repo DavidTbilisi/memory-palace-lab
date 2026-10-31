@@ -58,7 +58,7 @@ export function NextUpCard() {
       <Footprints className="h-3.5 w-3.5 text-violet-300" />
       <span className="font-semibold uppercase tracking-wide text-violet-300">Next up</span>
       <span className="min-w-0 truncate">
-        <span className="text-zinc-100">{next.routeName}</span> · {dueStopName(next.locusLabel, next.slot)}
+        <span className="text-zinc-100">{next.routeName}</span> · {dueStopName(next.locusLabel, next.slot, next.stopNumber)}
         {elsewhere ? <span className="text-zinc-500"> · {next.palaceName}</span> : null}
         <span className="text-zinc-500"> · {describeDue(next.nextReviewAt)}</span>
         {remaining > 0 ? <span className="text-zinc-500"> · {remaining} more due</span> : null}

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   canvasView,
   clickStops,
@@ -10,6 +10,7 @@ import {
   routeSummary,
   zoomTowardsNode,
 } from "./routeHelpers";
+import { openCurrentPalaceDetails } from "./sidebarHelpers";
 
 /** Number of memory-node shapes on the current canvas, read through the dev store hook. */
 function countNodeShapes(page: Page): Promise<number> {
@@ -136,6 +137,7 @@ test("atlas path groups palaces into nested places", async ({ page }) => {
   await expect(page.getByText("Georgia", { exact: true })).toBeVisible();
   await expect(page.getByText("Tbilisi", { exact: true })).toBeVisible();
   await expect(page.getByText("Vake", { exact: true })).toBeVisible();
+  await openCurrentPalaceDetails(page);
   await expect(page.getByRole("textbox", { name: "Current atlas path" })).toHaveValue("Georgia/Tbilisi/Vake");
 
   await page.getByText("Hierarchy editor").click();
@@ -155,6 +157,88 @@ test("atlas path groups palaces into nested places", async ({ page }) => {
   await expect(page.getByText("Math", { exact: true })).toBeVisible();
   await expect(page.getByText("Algebra", { exact: true })).toBeVisible();
   await expect(page.getByText("Quadratics", { exact: true })).toBeVisible();
+});
+
+test("right-clicking the palace list creates groups and palaces inside them", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Algebra");
+  await page.getByRole("textbox", { name: "Atlas path" }).fill("Math");
+  await page.getByRole("button", { name: "Create palace" }).click();
+  await expect(page.getByRole("heading", { name: "Algebra" })).toBeVisible();
+
+  // A group made from a group header nests under it and shows while still empty.
+  await page.locator("summary", { hasText: /^Math$/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New group…" }).click();
+  await page.getByRole("textbox", { name: "New group name" }).fill("Geometry");
+  await page.keyboard.press("Enter");
+  const geometry = page.locator("summary", { hasText: /^Geometry$/ });
+  await expect(geometry).toBeVisible();
+
+  await geometry.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New palace…" }).click();
+  await page.getByRole("textbox", { name: "New palace name" }).fill("Triangles");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Triangles" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Triangles/ })).toContainText("Math/Geometry");
+
+  // From a palace, a new palace lands beside it; Escape drops the draft.
+  await page.getByRole("button", { name: /^Algebra/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New palace…" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("textbox", { name: "New palace name" })).toHaveCount(0);
+
+  // An empty hand-made group can be removed; one holding palaces cannot.
+  await page.locator("summary", { hasText: /^Math$/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New group…" }).click();
+  await page.getByRole("textbox", { name: "New group name" }).fill("Calculus");
+  await page.keyboard.press("Enter");
+  await page.locator("summary", { hasText: /^Calculus$/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove group" }).click();
+  await expect(page.locator("summary", { hasText: /^Calculus$/ })).toHaveCount(0);
+  await geometry.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Remove group (not empty)" })).toBeDisabled();
+});
+
+test("dragging moves palaces and groups between sidebar groups", async ({ page }) => {
+  await page.goto("/");
+  for (const [name, path] of [
+    ["Algebra", "Math"],
+    ["Biology", "Science"],
+  ]) {
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
+    await page.getByRole("textbox", { name: "Atlas path" }).fill(path);
+    await page.getByRole("button", { name: "Create palace" }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+  }
+  const group = (label: string) => page.locator("summary", { hasText: new RegExp(`^${label}$`) });
+  const palaceRow = (name: string) => page.getByRole("button", { name: new RegExp(`^${name}`) });
+  const drag = async (from: Locator, to: { x: number; y: number }) => {
+    const box = (await from.boundingBox())!;
+    await page.mouse.move(box.x + 10, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+  };
+  const centerOf = async (target: Locator) => {
+    const box = (await target.boundingBox())!;
+    return { x: box.x + 10, y: box.y + box.height / 2 };
+  };
+
+  // A palace dropped on a group moves into it, and the drop does not open it.
+  await drag(palaceRow("Algebra"), await centerOf(group("Science")));
+  await expect(palaceRow("Algebra")).toContainText("Science");
+  await expect(page.getByRole("heading", { name: "Biology" })).toBeVisible();
+
+  // A group dropped on another carries its palaces along; the emptied Math stays.
+  await drag(group("Science"), await centerOf(group("Math")));
+  await expect(palaceRow("Biology")).toContainText("Math/Science");
+  await expect(palaceRow("Algebra")).toContainText("Math/Science");
+
+  // Empty list space is the top level.
+  const list = (await page.locator('[data-drop-path=""]').boundingBox())!;
+  await drag(group("Science"), { x: list.x + 40, y: list.y + list.height - 20 });
+  await expect(palaceRow("Biology")).toContainText(/^Biology\s*Science$/);
+  await expect(group("Math")).toBeVisible();
 });
 
 /** 1x1 red PNG; enough for the background picker, which only needs a decodable image. */
@@ -235,6 +319,7 @@ test("palace background can be set, adjusted, locked, replaced, and removed", as
 
   // The picker is a detached <input type="file">; Playwright still sees the chooser.
   const firstChooser = page.waitForEvent("filechooser");
+  await openCurrentPalaceDetails(page);
   await page.getByRole("button", { name: "Set background" }).click();
   await (await firstChooser).setFiles({ name: "bg.png", mimeType: "image/png", buffer: TINY_PNG });
 
