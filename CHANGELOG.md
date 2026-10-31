@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.24.0 — 2026-10-31
+
+### A palace tree that works like a file explorer
+
+- **Current palace folds away.** In the sidebar, **Current palace** now folds like **Hierarchy editor** and starts folded, so the palace list has room. Click its heading to rename the palace, change its background or move it to the trash.
+- **Right-click to create.** Right-click a group, a palace or empty space for **New palace…** or **New group…**, and type the name in place. Enter creates it, and Escape cancels. A name such as `Bible/Gospels` makes nested groups. A group you make stays listed while it is empty, and **Remove group** in its menu takes it away again.
+- **Drag to reorganise.** Drag a palace or a whole group onto another group to move it there, or onto empty space to move it to the top level. The group a palace leaves stays listed, as an empty folder would.
+
+### Review by deck
+
+- **Due stops are grouped into decks.** The Review page groups them by palace group, such as Bible › OT › 01 Law. Each deck shows how many stops are due, and **Review deck** starts at its soonest one.
+- **Switch a deck off.** A deck that is switched off leaves the review queue, the due badge and the counts, and so do the decks inside it, until you switch it back on. Insights' Strength tab still counts every palace.
+- **Choose when a stop comes back.** Set the next review of one stop, or of every stop in a deck, to **Now**, **+1 day**, **+3 days**, **+1 week** or an exact date and time. A stop's NEDF cards move with it.
+- **Stops without a label are numbered.** The review queue names them **Stop 3** on their route instead of **Unlabelled stop**. It still never shows the node, which is the answer.
+
+### Fixes
+
+- **Add as node** in the Library no longer opens the canvas zoomed in to 800% on the new node. The node now lands in the middle of the view at your current zoom.
+
+### Note for sync
+
+- Groups you make by hand while they are empty, and decks you switch off, are kept on this device only. Palaces moved into a group sync as before, because the group is part of the palace.
+
 ## v0.23.1 — 2026-09-29
 
 ### Sync that remembers its folder and says what it is doing
