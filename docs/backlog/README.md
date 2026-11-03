@@ -117,3 +117,9 @@ Distinguishers, and hotspots on the Strength tab.
     weak signals into direct actions like re-encode, split a route, add confusion contrast, or
     shorten a cognitively expensive sequence. Written in April beside `04` and left on its
     branch; it builds on the Strength tab's weak stops, route friction, and palace hotspots.
+
+20. [Timeline Palaces](./20-timeline-palaces.feature)
+    Why: the wiki's Reflective district names a "timeline / biography palace" as its default,
+    and the app had none. A palace holds what happened; it does not hold when. This is a third
+    generated store: dated events on a scaled axis with eras as rooms, a typed image for each
+    date, cards in both directions, and an order drill. Two sequential PRs.

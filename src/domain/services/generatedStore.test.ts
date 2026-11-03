@@ -9,6 +9,7 @@ import {
   numberClusterSlots,
   parseStore,
   serializeStore,
+  type GeneratedStore,
   type NumberClusterInput,
 } from "./generatedStore";
 
@@ -146,5 +147,21 @@ describe("table of support images", () => {
   it("round-trips a table store", () => {
     const table = { kind: "support-table" as const, generatedAt: "2026-09-28T10:00:00.000Z" };
     expect(parseStore(serializeStore(table))).toEqual(table);
+  });
+});
+
+describe("timeline store", () => {
+  it("round-trips, and drops eras it cannot read", () => {
+    const store: GeneratedStore = {
+      kind: "timeline",
+      title: "Bertrand Russell",
+      generatedAt: "2026-11-03T10:00:00.000Z",
+      routeId: "r1",
+      eras: [{ id: "e1", name: "Principia years", from: "1900", to: "1913" }],
+    };
+    expect(parseStore(serializeStore(store))).toEqual(store);
+    const raw = JSON.stringify({ ...store, routeId: 7, eras: [{ id: "e1", name: "Ok", from: "1900", to: "1913" }, { name: "No id" }, null] });
+    expect(parseStore(raw)).toEqual({ ...store, routeId: null, eras: [{ id: "e1", name: "Ok", from: "1900", to: "1913" }] });
+    expect(parseStore('{"kind":"timeline"}')).toBeNull();
   });
 });

@@ -26,6 +26,10 @@ export type MemoryPalaceMeta = {
   mpStoreRole?: StoreRole;
   /** The title a store node was generated with; a node still titled this holds nothing of the learner's yet. */
   mpPlaceholder?: string;
+  /** On a timeline's date image: the event whose date it pictures. */
+  mpPairNodeId?: string;
+  /** A timeline's drawn scaffold (axis, ticks, era rooms, span bars), redrawn with each layout. Never a node. */
+  mpTimelineDecor?: "axis" | "tick" | "era" | "span";
   /** Concept glyph; `null` clears it, for the same reason as `mpImageUrl`. */
   mpGlyph?: string | null;
   mpPortalPalaceId?: string;
