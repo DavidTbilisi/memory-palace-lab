@@ -8,7 +8,14 @@ import {
 } from "../canvas/timelineCanvas";
 import type { Locus, MemoryRoute } from "../domain/entities/types";
 import { parseStore, serializeStore, type TimelineStore } from "../domain/services/generatedStore";
-import { eraSections, parseTimelineDate, resolveEras, type DatedEvent } from "../domain/services/timeline";
+import {
+  ORDER_DRILL_MIN,
+  drillRun,
+  isInDateOrder,
+  shuffleForDrill,
+  weakestEventIndex,
+} from "../domain/services/orderDrill";
+import { eraSections, orderEvents, parseTimelineDate, resolveEras, type DatedEvent } from "../domain/services/timeline";
 import { usePalaceStore } from "../store/palaceStore";
 import { waitForEditorReady } from "./examplePalaces";
 
@@ -175,4 +182,34 @@ export function removeEra(eraId: string): boolean {
 /** Put every event back in its place, redraw missing date images, and bring the route in line. */
 export function relayoutTimeline(): boolean {
   return relayout("lay out timeline");
+}
+
+/** One event in an order drill, as the learner sees it before checking: no date shown. */
+export type DrillEvent = DatedEvent & { title: string };
+
+export type OrderDrill = { routeId: string | null; events: DrillEvent[] };
+
+/**
+ * Start an order drill on the open timeline: up to five neighbouring events centred on the
+ * weakest, shuffled out of date order.
+ */
+export function startOrderDrill(random = Math.random): OrderDrill | { error: string } {
+  const store = currentTimeline();
+  const editor = usePalaceStore.getState().editorRef;
+  if (!store || !editor) return { error: "Open a timeline first." };
+  const stops = routeStops(store.routeId);
+  const dated = readTimeline(editor).events.flatMap((event) =>
+    event.date ? [{ nodeId: event.nodeId, date: event.date, title: event.meta.mpTitle?.trim() || "Untitled event" }] : [],
+  );
+  const ordered = orderEvents(
+    dated,
+    stops.map((locus) => locus.nodeId),
+  );
+  if (ordered.length < ORDER_DRILL_MIN) {
+    return { error: `An order drill needs at least ${ORDER_DRILL_MIN} dated events.` };
+  }
+  const stopByNode = new Map(stops.map((locus) => [locus.nodeId, locus]));
+  const centre = weakestEventIndex(ordered, (nodeId) => stopByNode.get(nodeId), new Date().toISOString()) ?? 0;
+  const run = drillRun(ordered, centre);
+  return { routeId: store.routeId, events: shuffleForDrill(run, isInDateOrder, random) };
 }

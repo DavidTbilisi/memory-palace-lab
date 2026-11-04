@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AnalyticsEvent, Locus, MemoryNode, MemoryRoute } from "../../domain/entities/types";
-import { averageLocusInterval, countDueLoci, nedfLookup, reviewedLoci } from "../../domain/services/dueQueue";
+import { averageLocusInterval, countDueLoci, cardLookup, reviewedLoci } from "../../domain/services/dueQueue";
 import {
   buildReviewHeatmap,
   buildRetentionSeries,
@@ -36,9 +36,9 @@ export function useReviewMetrics(
     },
     [filter.routeId, loci, routes],
   );
-  const nedfOf = useMemo(() => nedfLookup(nodes), [nodes]);
-  const dueCount = useMemo(() => countDueLoci(scopedLoci, undefined, nedfOf), [scopedLoci, nedfOf]);
-  const averageInterval = useMemo(() => averageLocusInterval(scopedLoci, undefined, nedfOf), [scopedLoci, nedfOf]);
+  const cardsOf = useMemo(() => cardLookup(nodes), [nodes]);
+  const dueCount = useMemo(() => countDueLoci(scopedLoci, undefined, cardsOf), [scopedLoci, cardsOf]);
+  const averageInterval = useMemo(() => averageLocusInterval(scopedLoci, undefined, cardsOf), [scopedLoci, cardsOf]);
 
   return { retentionSeries, trendDown, heatmapCells, dueCount, averageInterval };
 }

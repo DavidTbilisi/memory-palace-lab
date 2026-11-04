@@ -9,7 +9,7 @@ import { attributeWarnings, normalizeAttributes } from "../../../src/domain/serv
 import { checkGlyph, glyphHolder, glyphTakenMessage } from "../../../src/domain/services/conceptGlyph";
 import type { CountShapeKind } from "../../../src/domain/services/countShape";
 import { confusionNeighbours, meaningEdges } from "../../../src/domain/services/confusion";
-import { normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
+import { cardNodeOf, nodeCards, normalizeNedf, stopCards, stopNextReviewAt } from "../../../src/domain/services/nedf";
 import { loadPalace, resolvePalace } from "../palaceDb";
 import { withPalaceMutation } from "../palaceWriter";
 import type { ServerContext } from "./shared";
@@ -105,10 +105,11 @@ export function nodeGet(ctx: ServerContext, args: { palace: string; node: string
       routeName: snapshot.routes.find((r) => r.id === l.routeId)?.name ?? l.routeId,
       locusId: l.id,
       orderIndex: l.orderIndex,
-      nextReviewAt: stopNextReviewAt(l, node.nedf),
-      // One schedule per filled NEDF slot; absent for a node reviewed on the stop's own schedule.
-      slots: node.nedf
-        ? stopCards(l, node.nedf)
+      nextReviewAt: stopNextReviewAt(l, cardNodeOf(node)),
+      // One schedule per card (filled NEDF slot or timeline direction); absent for a node reviewed
+      // on the stop's own schedule.
+      slots: nodeCards(cardNodeOf(node)).length > 0
+        ? stopCards(l, cardNodeOf(node))
             .filter((card) => card.slot !== null)
             .map((card) => ({
               slot: card.slot,

@@ -1,6 +1,6 @@
 import type { AnalyticsEvent, Locus, MemoryRoute } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
-import { isRouteInReview, type NedfLookup } from "./dueQueue";
+import { isRouteInReview, type CardLookup } from "./dueQueue";
 import { isSlotFilled, stopCards } from "./nedf";
 
 /**
@@ -70,21 +70,21 @@ export type PullForwardResult = {
 export function pullDistinguishersForward(
   loci: readonly Locus[],
   routes: readonly Pick<MemoryRoute, "id" | "inReview">[],
-  nedfOf: NedfLookup,
+  cardsOf: CardLookup,
   nodeIds: readonly string[],
   atIso: string,
 ): PullForwardResult {
   const wanted = new Set(nodeIds);
-  const withoutDistinguisher = [...wanted].filter((nodeId) => !isSlotFilled(nedfOf(nodeId), "distinguisher"));
+  const withoutDistinguisher = [...wanted].filter((nodeId) => !isSlotFilled(cardsOf(nodeId)?.nedf, "distinguisher"));
   const inReview = new Set(routes.filter(isRouteInReview).map((route) => route.id));
   const at = Date.parse(atIso);
   const pulledLocusIds: string[] = [];
   const next = loci.map((locus) => {
     if (!wanted.has(locus.nodeId) || !inReview.has(locus.routeId)) return locus;
-    const nedf = nedfOf(locus.nodeId);
-    if (!isSlotFilled(nedf, "distinguisher")) return locus;
+    const node = cardsOf(locus.nodeId);
+    if (!isSlotFilled(node?.nedf, "distinguisher")) return locus;
     // Its own schedule, or the stop's when the slot was never rated on its own.
-    const card = stopCards(locus, nedf, atIso).find((candidate) => candidate.slot === "distinguisher");
+    const card = stopCards(locus, node, atIso).find((candidate) => candidate.slot === "distinguisher");
     if (!card || Date.parse(card.schedule.nextReviewAt) <= at) return locus;
     pulledLocusIds.push(locus.id);
     return {

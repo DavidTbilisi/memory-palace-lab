@@ -4,7 +4,18 @@ import { CalendarRange, X } from "lucide-react";
 import { isDateImageFilled, readTimeline } from "../canvas/timelineCanvas";
 import { STORE_KIND_LABELS, type TimelineStore } from "../domain/services/generatedStore";
 import { usePalaceStore } from "../store/palaceStore";
-import { addEra, addTimelineEvent, eventImageIsFilled, redateEvent, relayoutTimeline, removeEra, removeEvent } from "../system/timelineStore";
+import {
+  addEra,
+  addTimelineEvent,
+  eventImageIsFilled,
+  redateEvent,
+  relayoutTimeline,
+  removeEra,
+  removeEvent,
+  startOrderDrill,
+  type OrderDrill,
+} from "../system/timelineStore";
+import { OrderDrillDialog } from "./OrderDrillDialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -32,6 +43,18 @@ export function TimelinePanel({ store }: { store: TimelineStore }) {
   const [eraFrom, setEraFrom] = useState("");
   const [eraTo, setEraTo] = useState("");
   const [eraError, setEraError] = useState<string | null>(null);
+  const [drill, setDrill] = useState<OrderDrill | null>(null);
+  const [drillError, setDrillError] = useState<string | null>(null);
+
+  const beginDrill = () => {
+    const next = startOrderDrill();
+    if ("error" in next) {
+      setDrillError(next.error);
+      return;
+    }
+    setDrillError(null);
+    setDrill(next);
+  };
 
   const add = () => {
     const result = addTimelineEvent(title, date);
@@ -166,11 +189,23 @@ export function TimelinePanel({ store }: { store: TimelineStore }) {
         ) : null}
       </div>
 
-      <Button size="sm" variant="ghost" type="button" onClick={() => relayoutTimeline()}>
-        Lay out again
-      </Button>
+      <div className="flex flex-wrap gap-1.5 border-t border-zinc-800 pt-1.5">
+        <Button size="sm" variant="secondary" type="button" onClick={beginDrill}>
+          Order drill
+        </Button>
+        <Button size="sm" variant="ghost" type="button" onClick={() => relayoutTimeline()}>
+          Lay out again
+        </Button>
+      </div>
+      {drillError ? (
+        <p role="status" className="text-[11px] text-amber-300">
+          {drillError}
+        </p>
+      ) : null}
+      {drill ? <OrderDrillDialog drill={drill} onClose={() => setDrill(null)} /> : null}
       <p className="text-[10px] leading-4 text-zinc-500">
         Dates look like {DATE_EXAMPLE}. Each event's place follows its date; laying out again puts moved nodes back.
+        Each event reviews both ways: from the event to its date, and from the date to the event.
       </p>
     </section>
   );

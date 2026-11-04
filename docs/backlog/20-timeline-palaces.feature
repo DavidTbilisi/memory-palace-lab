@@ -15,6 +15,13 @@
 #     mpPairNodeId. The axis, ticks, era rooms and span bars are locked decor shapes
 #     (mpTimelineDecor), redrawn by every layout. Go to date finds the nearest event.
 #   PR 2 — the drills: event -> date and date -> event cards, and the order drill.
+#     Built 2026-11-04. The two directions joined NEDF slots as card keys (CardKey), so each has
+#     its own schedule in a stop's slotSchedules and every due count includes them. Callers now
+#     pass a card node ({ nedf, timelineEvent }) instead of bare NEDF slots. An Event -> date card
+#     flips the hide-until-reveal rule for its stop: the event shows, and its date image, its
+#     date label and the inspector's date field stay hidden until Reveal. The axis ticks still
+#     give the rough date by position, which is the palace's own cue. The order drill logs a
+#     `timeline_order_drill` analytics event.
 
 Feature: Timeline palaces
   In order to remember when things happened and in what order, not only what happened

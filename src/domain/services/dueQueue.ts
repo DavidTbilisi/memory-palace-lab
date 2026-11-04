@@ -1,14 +1,17 @@
-import type { Locus, MemoryEdge, MemoryNode, MemoryRoute, NedfEncoding, NedfSlot, Palace } from "../entities/types";
-import { dueStopCards, stopCards, type StopCard } from "./nedf";
+import type { CardKey, Locus, MemoryEdge, MemoryNode, MemoryRoute, Palace } from "../entities/types";
+import { cardNodeOf, dueStopCards, stopCards, type CardNode, type StopCard } from "./nedf";
 
-/** Looks up a node's NEDF slots; stops on nodes without any review on their single schedule. */
-export type NedfLookup = (nodeId: string) => NedfEncoding | null | undefined;
+/**
+ * Looks up what decides a node's cards: its NEDF slots and whether it is a timeline event. Stops
+ * on nodes with no cards review on their single schedule.
+ */
+export type CardLookup = (nodeId: string) => CardNode;
 
-const NO_NEDF: NedfLookup = () => null;
+const NO_CARDS: CardLookup = () => null;
 
 /** A lookup over a snapshot's nodes. */
-export function nedfLookup(nodes: readonly Pick<MemoryNode, "id" | "nedf">[]): NedfLookup {
-  const byId = new Map(nodes.map((node) => [node.id, node.nedf]));
+export function cardLookup(nodes: readonly Pick<MemoryNode, "id" | "nedf" | "storeRole" | "address">[]): CardLookup {
+  const byId = new Map(nodes.map((node) => [node.id, cardNodeOf(node)]));
   return (nodeId) => byId.get(nodeId);
 }
 
@@ -26,8 +29,8 @@ export type GlobalDueItem = {
   locusLabel: string;
   nodeTitle: string;
   nextReviewAt: string;
-  /** The NEDF slot a review of this stop asks (its most overdue); null for a stop without slots. */
-  slot: NedfSlot | null;
+  /** The card a review of this stop asks (its most overdue); null for a stop without cards. */
+  slot: CardKey | null;
   /** How many of the stop's cards are due; 1 for a stop without slots. */
   dueCards: number;
   /** The stop's place on its route, from 1: names a stop with no label without giving away its node. */
@@ -83,18 +86,18 @@ function meanInterval(cards: readonly StopCard[]): number | null {
 export function averageLocusInterval(
   loci: readonly Locus[],
   nowIso = new Date().toISOString(),
-  nedfOf: NedfLookup = NO_NEDF,
+  cardsOf: CardLookup = NO_CARDS,
 ): number | null {
-  return meanInterval(loci.flatMap((locus) => stopCards(locus, nedfOf(locus.nodeId), nowIso)));
+  return meanInterval(loci.flatMap((locus) => stopCards(locus, cardsOf(locus.nodeId), nowIso)));
 }
 
 /** Number of stops with anything due now (the nav badge and stat cards). */
 export function countDueLoci(
   loci: readonly Locus[],
   nowIso = new Date().toISOString(),
-  nedfOf: NedfLookup = NO_NEDF,
+  cardsOf: CardLookup = NO_CARDS,
 ): number {
-  return loci.filter((locus) => dueStopCards(locus, nedfOf(locus.nodeId), nowIso).length > 0).length;
+  return loci.filter((locus) => dueStopCards(locus, cardsOf(locus.nodeId), nowIso).length > 0).length;
 }
 
 /** Build the cross-palace queue from already-loaded snapshots. Pure. */
@@ -107,7 +110,7 @@ export function buildDueQueue(snapshots: readonly DueQueueSnapshot[], nowIso = n
   for (const snapshot of snapshots) {
     const routeById = new Map(snapshot.routes.map((route) => [route.id, route]));
     const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
-    const nedfOf = nedfLookup(snapshot.nodes);
+    const cardsOf = cardLookup(snapshot.nodes);
     const loci = reviewedLoci(snapshot.loci, snapshot.routes);
     const stopNumberById = new Map<string, number>();
     for (const route of snapshot.routes) {
@@ -116,9 +119,9 @@ export function buildDueQueue(snapshots: readonly DueQueueSnapshot[], nowIso = n
         .sort((a, b) => a.orderIndex - b.orderIndex)
         .forEach((locus, index) => stopNumberById.set(locus.id, index + 1));
     }
-    cards.push(...loci.flatMap((locus) => stopCards(locus, nedfOf(locus.nodeId), nowIso)));
+    cards.push(...loci.flatMap((locus) => stopCards(locus, cardsOf(locus.nodeId), nowIso)));
     for (const locus of loci) {
-      const due = dueStopCards(locus, nedfOf(locus.nodeId), nowIso);
+      const due = dueStopCards(locus, cardsOf(locus.nodeId), nowIso);
       if (due.length === 0) continue;
       const route = routeById.get(locus.routeId);
       if (!route) continue;

@@ -21,6 +21,11 @@ export function formatEventDetail(event: AnalyticsEvent): string {
     const other = typeof payload.confusedWithTitle === "string" ? payload.confusedWithTitle.trim() : "";
     return `mixed up with ${other || "another node"}`;
   }
+  if (event.eventType === "timeline_order_drill") {
+    const size = typeof payload.size === "number" ? payload.size : 0;
+    const misplaced = typeof payload.misplaced === "number" ? payload.misplaced : 0;
+    return misplaced === 0 ? `${size} events in order` : `${misplaced} of ${size} events out of place`;
+  }
   if (event.eventType === "walk_answer_revealed") {
     return typeof payload.timeToRevealMs === "number" ? `${payload.timeToRevealMs} ms to reveal` : "answer revealed";
   }

@@ -64,6 +64,14 @@ export type NodeDifficultyOverride = {
 export const NEDF_SLOTS = ["nameHook", "essence", "distinguisher", "failure"] as const;
 export type NedfSlot = (typeof NEDF_SLOTS)[number];
 
+/** A timeline event's two cards (backlog 20): from the event to its date, and back. */
+export const TIMELINE_CARDS = ["eventToDate", "dateToEvent"] as const;
+export type TimelineCard = (typeof TIMELINE_CARDS)[number];
+
+/** Every card a stop can review on its own schedule: an NEDF slot or a timeline direction. */
+export const CARD_KEYS = [...NEDF_SLOTS, ...TIMELINE_CARDS] as const;
+export type CardKey = (typeof CARD_KEYS)[number];
+
 /**
  * A concept encoded as one scene reachable from four angles. Distinguisher and Failure are pairs
  * so a walk can ask a real discrimination question and a real diagnosis scenario.
@@ -196,10 +204,11 @@ export interface Locus {
   /** Starts a named section of the route at this stop. */
   section?: string | null;
   /**
-   * One schedule per NEDF slot of the stop's node. A filled slot with no entry yet starts from
-   * the stop's own schedule above, which a node without NEDF slots keeps using on its own.
+   * One schedule per card of the stop's node: each filled NEDF slot, and a timeline event's two
+   * directions. A card with no entry yet starts from the stop's own schedule above, which a node
+   * without cards keeps using on its own.
    */
-  slotSchedules?: Partial<Record<NedfSlot, SlotSchedule>>;
+  slotSchedules?: Partial<Record<CardKey, SlotSchedule>>;
 }
 
 /** One card's spaced-repetition state. */
@@ -248,6 +257,8 @@ export type AnalyticsEventType =
   | "walk_completed"
   /** Why a recall rated Again missed: a confusion with another node, or a blank. */
   | "recall_miss_explained"
+  /** A timeline order drill: how many events were put back, and how many out of place. */
+  | "timeline_order_drill"
   | "storm_started"
   | "storm_completed"
   | "system_run_materialized";

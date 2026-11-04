@@ -8,11 +8,13 @@ import { routeIndexOfWalkStep, walkOrderedLoci } from "../domain/services/walkSe
 import { resolveMemoryNodeTitle } from "../canvas/readShapeText";
 import type { NedfEncoding, RecallRating } from "../domain/entities/types";
 import {
-  NEDF_SLOT_LABELS,
-  NEDF_SLOT_OPERATIONS,
+  CARD_LABELS,
+  CARD_OPERATIONS,
   isSlotFilled,
+  isTimelineCard,
   nedfCardText,
   normalizeNedf,
+  timelineCardText,
 } from "../domain/services/nedf";
 import type { MemoryPalaceMeta } from "../canvas/memoryMeta";
 import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
@@ -28,6 +30,8 @@ type NodeReviewState = {
   title: string;
   content: string;
   nedf: NedfEncoding | null;
+  /** Set on a timeline event: its date, and the learner's image for it once renamed. */
+  timeline: { date: string; dateImage: string | null } | null;
 };
 
 function stripHtml(value: string) {
@@ -39,25 +43,36 @@ function resolveCurrentNodeReviewState(
   editorRef: ReturnType<typeof usePalaceStore.getState>["editorRef"],
   snapshotNodes: ReturnType<typeof usePalaceStore.getState>["nodes"],
 ): NodeReviewState {
-  if (!nodeId) return { title: "No node", content: "", nedf: null };
+  if (!nodeId) return { title: "No node", content: "", nedf: null, timeline: null };
   if (editorRef) {
+    let found: NodeReviewState | null = null;
+    let dateImage: string | null = null;
     for (const id of editorRef.getCurrentPageShapeIds()) {
       const shape = editorRef.getShape(id);
       if (!isMemoryNodeShape(shape)) continue;
       const meta = shape.meta as MemoryPalaceMeta;
+      if (meta.mpPairNodeId === nodeId && meta.mpStoreRole === "date-image") {
+        const title = resolveMemoryNodeTitle(shape).trim();
+        // A placeholder is not the learner's image, so a card does not show or ask for it.
+        if (title && title !== meta.mpPlaceholder?.trim()) dateImage = title;
+      }
       if (meta.mpNodeId !== nodeId) continue;
-      return {
+      found = {
         title: resolveMemoryNodeTitle(shape),
         content: stripHtml(meta.mpContent?.trim() || ""),
         nedf: normalizeNedf(meta.mpNedf),
+        timeline: meta.mpStoreRole === "event" && meta.mpAddress ? { date: meta.mpAddress, dateImage: null } : null,
       };
     }
+    if (found) return found.timeline ? { ...found, timeline: { ...found.timeline, dateImage } } : found;
   }
   const snapshotNode = snapshotNodes.find((node) => node.id === nodeId);
   return {
     title: snapshotNode?.title || nodeId.slice(0, 8),
     content: stripHtml(snapshotNode?.content?.trim() || ""),
     nedf: normalizeNedf(snapshotNode?.nedf),
+    timeline:
+      snapshotNode?.storeRole === "event" && snapshotNode.address ? { date: snapshotNode.address, dateImage: null } : null,
   };
 }
 
@@ -178,9 +193,13 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
     return titles[0];
   }, [currentLocus?.nodeId, editorRef, snapshotNodes, snapshotEdges]);
 
-  // An NEDF step asks its slot's own question; a stop without slots keeps the classic cue.
-  const card =
-    walkSlot && isSlotFilled(nodeState.nedf, walkSlot)
+  // A card asks its own question (an NEDF slot, or a timeline direction); a stop without cards
+  // keeps the classic cue.
+  const card = isTimelineCard(walkSlot)
+    ? nodeState.timeline
+      ? timelineCardText(walkSlot, { title: nodeState.title, ...nodeState.timeline })
+      : null
+    : walkSlot && isSlotFilled(nodeState.nedf, walkSlot)
       ? nedfCardText(walkSlot, nodeState.nedf!, nodeState.title, neighbourTitle)
       : null;
   // Until the answer is revealed, the stop names only its place, never the node stored there.
@@ -343,9 +362,9 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
                 <span
                   data-testid="walk-slot"
                   className="rounded bg-emerald-900/60 px-2 py-0.5 text-[11px] font-medium text-emerald-200"
-                  title={`NEDF ${NEDF_SLOT_LABELS[walkSlot]} card`}
+                  title={`${isTimelineCard(walkSlot) ? "Timeline" : "NEDF"} ${CARD_LABELS[walkSlot]} card`}
                 >
-                  {NEDF_SLOT_OPERATIONS[walkSlot]}
+                  {CARD_OPERATIONS[walkSlot]}
                 </span>
               ) : null}
               {sectionName ? (

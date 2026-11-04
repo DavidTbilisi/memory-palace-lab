@@ -1,13 +1,19 @@
 import {
+  CARD_KEYS,
   NEDF_SLOTS,
+  TIMELINE_CARDS,
+  type CardKey,
   type Locus,
+  type MemoryNode,
   type NedfEncoding,
   type NedfSlot,
   type RecallRating,
   type SlotSchedule,
+  type TimelineCard,
 } from "../entities/types";
 import { discriminationChoices } from "./confusion";
 import { applySm2Schedule, normalizeLocusSchedule } from "./spacedRepetition";
+import { parseTimelineDate } from "./timeline";
 
 export const NEDF_SLOT_LABELS: Record<NedfSlot, string> = {
   nameHook: "Name-hook",
@@ -23,6 +29,44 @@ export const NEDF_SLOT_OPERATIONS: Record<NedfSlot, string> = {
   distinguisher: "Discrimination",
   failure: "Diagnosis",
 };
+
+export const CARD_LABELS: Record<CardKey, string> = {
+  ...NEDF_SLOT_LABELS,
+  eventToDate: "Event → date",
+  dateToEvent: "Date → event",
+};
+
+/** The memory operation each card drills; a timeline's two directions are both recall. */
+export const CARD_OPERATIONS: Record<CardKey, string> = {
+  ...NEDF_SLOT_OPERATIONS,
+  eventToDate: "Dating",
+  dateToEvent: "Recall",
+};
+
+export function isTimelineCard(card: CardKey | null | undefined): card is TimelineCard {
+  return !!card && (TIMELINE_CARDS as readonly string[]).includes(card);
+}
+
+/**
+ * What decides which cards a node reviews: its NEDF slots, and whether it is a dated timeline
+ * event. Null for a node that cannot be found, which reviews on its stop's own schedule.
+ */
+export type CardNode = { nedf?: NedfEncoding | null; timelineEvent?: boolean } | null | undefined;
+
+/** A timeline event whose address still reads as a date reviews in both directions. */
+export function isDatedTimelineEvent(node: Pick<MemoryNode, "storeRole" | "address">): boolean {
+  return node.storeRole === "event" && !!parseTimelineDate(node.address ?? "");
+}
+
+export function cardNodeOf(node: Pick<MemoryNode, "nedf" | "storeRole" | "address"> | null | undefined): CardNode {
+  if (!node) return null;
+  return { nedf: node.nedf ?? null, timelineEvent: isDatedTimelineEvent(node) };
+}
+
+/** The cards a node reviews, in order: its filled NEDF slots, then a timeline event's two directions. */
+export function nodeCards(node: CardNode): CardKey[] {
+  return [...filledNedfSlots(node?.nedf), ...(node?.timelineEvent ? TIMELINE_CARDS : [])];
+}
 
 function text(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
@@ -87,11 +131,11 @@ export function isNedfEncoded(nedf: NedfEncoding | null | undefined): boolean {
 }
 
 /**
- * One reviewable card on a stop. `slot` is null for a stop whose node has no NEDF slots, which
- * keeps reviewing on the stop's own (legacy) schedule.
+ * One reviewable card on a stop. `slot` is null for a stop whose node has no cards (no NEDF slots
+ * and not a timeline event), which keeps reviewing on the stop's own (legacy) schedule.
  */
 export interface StopCard {
-  slot: NedfSlot | null;
+  slot: CardKey | null;
   schedule: SlotSchedule;
 }
 
@@ -113,11 +157,11 @@ function stopSchedule(locus: Locus, nowIso: string): SlotSchedule {
  */
 export function stopCards(
   locus: Locus,
-  nedf: NedfEncoding | null | undefined,
+  node: CardNode,
   nowIso = new Date().toISOString(),
 ): StopCard[] {
   const base = stopSchedule(locus, nowIso);
-  const slots = filledNedfSlots(nedf);
+  const slots = nodeCards(node);
   if (slots.length === 0) return [{ slot: null, schedule: base }];
   return slots.map((slot) => {
     const own = locus.slotSchedules?.[slot];
@@ -130,11 +174,11 @@ const dueMs = (card: StopCard) => Date.parse(card.schedule.nextReviewAt);
 /** The cards on a stop that are due now, most overdue first. */
 export function dueStopCards(
   locus: Locus,
-  nedf: NedfEncoding | null | undefined,
+  node: CardNode,
   nowIso = new Date().toISOString(),
 ): StopCard[] {
   const now = Date.parse(nowIso);
-  return stopCards(locus, nedf, nowIso)
+  return stopCards(locus, node, nowIso)
     .filter((card) => dueMs(card) <= now)
     .sort((a, b) => dueMs(a) - dueMs(b));
 }
@@ -145,20 +189,20 @@ export function dueStopCards(
  */
 export function walkCardFor(
   locus: Locus,
-  nedf: NedfEncoding | null | undefined,
+  node: CardNode,
   nowIso = new Date().toISOString(),
 ): StopCard {
-  const cards = stopCards(locus, nedf, nowIso);
+  const cards = stopCards(locus, node, nowIso);
   return cards.reduce((best, card) => (dueMs(card) < dueMs(best) ? card : best), cards[0]!);
 }
 
 /** When the stop next has something to review: its earliest card. */
 export function stopNextReviewAt(
   locus: Locus,
-  nedf: NedfEncoding | null | undefined,
+  node: CardNode,
   nowIso = new Date().toISOString(),
 ): string {
-  return walkCardFor(locus, nedf, nowIso).schedule.nextReviewAt;
+  return walkCardFor(locus, node, nowIso).schedule.nextReviewAt;
 }
 
 /**
@@ -167,7 +211,7 @@ export function stopNextReviewAt(
  */
 export function rateStopCard(
   locus: Locus,
-  slot: NedfSlot | null,
+  slot: CardKey | null,
   rating: RecallRating,
   ratedAtIso = new Date().toISOString(),
 ): Locus {
@@ -197,8 +241,8 @@ function isSlotSchedule(value: unknown): value is SlotSchedule {
 export function decodeSlotSchedules(value: unknown): Locus["slotSchedules"] {
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Record<string, unknown>;
-  const schedules: Partial<Record<NedfSlot, SlotSchedule>> = {};
-  for (const slot of NEDF_SLOTS) {
+  const schedules: Partial<Record<CardKey, SlotSchedule>> = {};
+  for (const slot of CARD_KEYS) {
     const entry = raw[slot];
     if (isSlotSchedule(entry)) {
       const { interval, easeFactor, repetitions, nextReviewAt, lastReviewedAt } = entry;
@@ -268,4 +312,26 @@ export function nedfCardText(slot: NedfSlot, nedf: NedfEncoding, title: string, 
         answer: `${name}: ${nedf.failure?.correction ?? ""}`,
       };
   }
+}
+
+/** A timeline event as its cards read it. `dateImage` is null while it is still a placeholder. */
+export type TimelineCardEvent = { title: string; date: string; dateImage: string | null };
+
+/**
+ * What a timeline event's card asks and answers. Event → date shows the event and asks when it
+ * happened; Date → event shows the date, with the learner's image for it, and asks what happened.
+ */
+export function timelineCardText(card: TimelineCard, event: TimelineCardEvent): NedfCardText {
+  const name = event.title.trim() || "Untitled event";
+  const date = event.dateImage ? `${event.date} · ${event.dateImage}` : event.date;
+  if (card === "eventToDate") {
+    return {
+      cue: name,
+      prompt: event.dateImage
+        ? "Dating: when did this happen? Say the date and your image for it."
+        : "Dating: when did this happen?",
+      answer: date,
+    };
+  }
+  return { cue: date, prompt: "Recall: what happened then?", answer: name };
 }

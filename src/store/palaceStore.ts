@@ -20,8 +20,7 @@ import type {
   PalaceSnapshot,
   RecallRating,
   RouteColor,
-  NedfEncoding,
-  NedfSlot,
+  CardKey,
   RouteDirection,
   StopView,
   WalkDirection,
@@ -65,7 +64,9 @@ import {
 import { defaultLocusSchedule } from "../domain/services/spacedRepetition";
 import {
   normalizeNedf,
+  cardNodeOf,
   rateStopCard,
+  type CardNode,
   stopNextReviewAt,
   walkCardFor,
 } from "../domain/services/nedf";
@@ -119,6 +120,7 @@ import { isMemoryNodeShape } from "../canvas/memoryNodeShape";
 import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
 import { hasConfusionLink } from "../domain/services/confusion";
 import { hasLoggedConfusion, pullDistinguishersForward, type MissCause } from "../domain/services/confusionReview";
+import { pullEventsForward } from "../domain/services/orderDrill";
 import type { ReviewPhase } from "../domain/services/reviewMetrics";
 
 const repo = getPalaceRepository();
@@ -172,7 +174,7 @@ export type WalkMissPrompt = {
   locusId: string | null;
   nodeId: string;
   nodeTitle: string;
-  slot: NedfSlot | null;
+  slot: CardKey | null;
   sessionId: string | null;
   ratedAt: string;
   phase: ReviewPhase;
@@ -246,7 +248,7 @@ export type PalaceStore = {
    * The NEDF slot the current step asks, chosen when the step is entered so it stays put through
    * reveal and rating; null for a stop whose node has no slots.
    */
-  walkSlot: NedfSlot | null;
+  walkSlot: CardKey | null;
   walkSessionId: string | null;
   walkRecallMode: boolean;
   walkCueOnly: boolean;
@@ -400,7 +402,7 @@ export type PalaceStore = {
   replaceRoutesAndLoci: (routes: MemoryRoute[], loci: Locus[]) => void;
   setWalkRoute: (routeId: string | null) => void;
   /** Ask this slot at the current step (a review started from the queue), or pick one when omitted. */
-  selectWalkSlot: (slot?: NedfSlot | null) => void;
+  selectWalkSlot: (slot?: CardKey | null) => void;
   setWalkOpen: (v: boolean) => void;
   setWalkRecallMode: (v: boolean) => void;
   setWalkCueOnly: (v: boolean) => void;
@@ -442,6 +444,11 @@ export type PalaceStore = {
    * both nodes' Distinguisher cards forward and may offer to link the pair.
    */
   explainWalkMiss: (cause: MissCause, confusedWithNodeId?: string) => Promise<void>;
+  /**
+   * Finish a timeline order drill (backlog 20): pull the misplaced events' Event → date cards due
+   * now and log the drill. Returns how many stops moved.
+   */
+  recordOrderDrill: (drill: { routeId: string | null; nodeIds: string[]; misplacedNodeIds: string[] }) => number;
   /** Accept the offer: link the logged pair as a confusion on the canvas. */
   linkWalkMissConfusion: () => void;
   dismissWalkMiss: () => void;
@@ -745,8 +752,8 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     return nodes.find((node) => node.id === nodeId)?.title ?? null;
   };
 
-  /** A node's NEDF slots, read from its shape so edits count before the next save. */
-  const nedfOfNode = (nodeId: string | null): NedfEncoding | null => {
+  /** What decides a node's cards (its NEDF slots, and whether it is a timeline event), read from its shape so edits count before the next save. */
+  const cardNodeOfNode = (nodeId: string | null): CardNode => {
     if (!nodeId) return null;
     const { editorRef, nodes } = get();
     if (editorRef) {
@@ -754,16 +761,18 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         const shape = editorRef.getShape(shapeId as TLShapeId);
         if (!isMemoryNodeShape(shape)) continue;
         const meta = (shape.meta ?? {}) as MemoryPalaceMeta;
-        if (meta.mpNodeId === nodeId) return normalizeNedf(meta.mpNedf);
+        if (meta.mpNodeId === nodeId) {
+          return cardNodeOf({ nedf: normalizeNedf(meta.mpNedf), storeRole: meta.mpStoreRole ?? null, address: meta.mpAddress ?? null });
+        }
       }
     }
-    return normalizeNedf(nodes.find((node) => node.id === nodeId)?.nedf);
+    return cardNodeOf(nodes.find((node) => node.id === nodeId));
   };
 
-  /** The slot a walk asks at the current step: the most overdue, or the soonest due. */
-  const currentWalkSlot = (): NedfSlot | null => {
+  /** The card a walk asks at the current step: the most overdue, or the soonest due. */
+  const currentWalkSlot = (): CardKey | null => {
     const { locus, nodeId } = getWalkContext();
-    return locus ? walkCardFor(locus, nedfOfNode(nodeId)).slot : null;
+    return locus ? walkCardFor(locus, cardNodeOfNode(nodeId)).slot : null;
   };
 
   const noteWalkStepEntered = (
@@ -2423,7 +2432,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
         const routeNextReviewAt =
           nextLoci
             .filter((locus) => locus.routeId === context.routeId)
-            .map((locus) => stopNextReviewAt(locus, nedfOfNode(locus.nodeId), ratedAt))
+            .map((locus) => stopNextReviewAt(locus, cardNodeOfNode(locus.nodeId), ratedAt))
             .sort()[0] ?? null;
         return {
           loci: nextLoci,
@@ -2534,7 +2543,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       });
       if (!otherId || !otherTitle) return;
 
-      const pulled = pullDistinguishersForward(get().loci, get().routes, nedfOfNode, [prompt.nodeId, otherId], prompt.ratedAt);
+      const pulled = pullDistinguishersForward(get().loci, get().routes, cardNodeOfNode, [prompt.nodeId, otherId], prompt.ratedAt);
       if (pulled.pulledLocusIds.length > 0) {
         set({ loci: pulled.loci });
         scheduleDraftSave();
@@ -2563,6 +2572,22 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
           ),
         },
       });
+    },
+
+    recordOrderDrill({ routeId, nodeIds, misplacedNodeIds }) {
+      const at = new Date().toISOString();
+      void recordAnalytics({
+        eventType: "timeline_order_drill",
+        eventGroup: "review",
+        routeId,
+        payload: { size: nodeIds.length, misplaced: misplacedNodeIds.length, nodeIds, misplacedNodeIds },
+      });
+      const pulled = pullEventsForward(get().loci, get().routes, misplacedNodeIds, at);
+      if (pulled.pulledLocusIds.length > 0) {
+        set({ loci: pulled.loci });
+        scheduleDraftSave();
+      }
+      return pulled.pulledLocusIds.length;
     },
 
     linkWalkMissConfusion() {

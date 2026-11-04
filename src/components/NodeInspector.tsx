@@ -10,7 +10,7 @@ import { isMemoryNodeShape, isNodeCapableShape } from "../canvas/memoryNodeShape
 import type { MemoryEdge, MemoryNode, MemoryNodeKind, MemoryRoute, PalacePortalRef } from "../domain/entities/types";
 import { getPalaceRepository } from "../infrastructure/palaceRepositoryProvider";
 import { usePalaceStore } from "../store/palaceStore";
-import { useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
+import { useWalkCardCover, useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -22,7 +22,7 @@ import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
 import { CountShapeControls } from "./CountShapeControls";
 import { TimelineEventFields } from "./TimelinePanel";
 import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
-import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
+import { cardNodeOf, normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
 const AI_KEY_STORAGE = "mp-ai-anthropic-key";
 
@@ -191,6 +191,7 @@ export function NodeInspector() {
   const editorRef = usePalaceStore((s) => s.editorRef);
   const selectedShapeId = usePalaceStore((s) => s.selectedShapeId);
   const walkHidden = useWalkHiddenNodeIds();
+  const labelHiddenNodeId = useWalkCardCover().labelHiddenNodeId;
   const snapshotNodes = usePalaceStore((s) => s.nodes);
   const snapshotEdges = usePalaceStore((s) => s.edges);
   const analyticsEvents = usePalaceStore((s) => s.analyticsEvents);
@@ -384,10 +385,14 @@ export function NodeInspector() {
     const meta = (shape?.meta ?? {}) as MemoryPalaceMeta;
     if (!isMemoryNodeShape(shape) || !meta.mpNodeId) return null;
     const nowIso = new Date().toISOString();
-    const nedf = normalizeNedf(meta.mpNedf);
+    const node = cardNodeOf({
+      nedf: normalizeNedf(meta.mpNedf),
+      storeRole: meta.mpStoreRole ?? null,
+      address: meta.mpAddress ?? null,
+    });
     const nodeLoci = loci
       .filter((locus) => locus.nodeId === meta.mpNodeId)
-      .map((locus) => ({ routeId: locus.routeId, nextReviewAt: stopNextReviewAt(locus, nedf, nowIso) }));
+      .map((locus) => ({ routeId: locus.routeId, nextReviewAt: stopNextReviewAt(locus, node, nowIso) }));
     if (nodeLoci.length === 0) return null;
     const next = nodeLoci.map((locus) => locus.nextReviewAt).sort()[0];
     if (!next) return null;
@@ -712,7 +717,9 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
-        {meta.mpStoreRole === "event" ? (
+        {meta.mpStoreRole === "event" && meta.mpNodeId === labelHiddenNodeId ? (
+          <ReadOnlyMetaField id="mp-store-address" label="Date" value="Hidden until revealed" />
+        ) : meta.mpStoreRole === "event" ? (
           <TimelineEventFields nodeId={sh.meta.mpNodeId} dateLabel={meta.mpAddress ?? ""} />
         ) : meta.mpStoreRole === "date-image" ? (
           <ReadOnlyMetaField id="mp-store-address" label="Date" value={meta.mpAddress ?? ""} subvalue={STORE_ROLE_HINTS["date-image"]} />
