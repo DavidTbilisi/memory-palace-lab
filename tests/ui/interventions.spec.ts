@@ -7,7 +7,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /** A timeline gives a palace with a route in review in a few clicks. */
-async function palaceWithRoute(page: Page) {
+async function palaceWithRoute(
+  page: Page,
+  events: [string, string][] = [
+    ["Born", "1872"],
+    ["Nobel Prize", "1950"],
+  ],
+) {
   await page.goto("/");
   await page.getByRole("button", { name: "Generate store" }).click();
   const form = page.getByRole("region", { name: "Generate store" });
@@ -15,10 +21,7 @@ async function palaceWithRoute(page: Page) {
   await form.getByRole("button", { name: "Create timeline" }).click();
   await expect(page.getByRole("heading", { name: "Russell · timeline" })).toBeVisible();
   const panel = page.getByRole("region", { name: "Store", exact: true });
-  for (const [name, date] of [
-    ["Born", "1872"],
-    ["Nobel Prize", "1950"],
-  ]) {
+  for (const [name, date] of events) {
     await panel.getByLabel("Event", { exact: true }).fill(name!);
     await panel.getByLabel("Date", { exact: true }).fill(date!);
     await panel.getByRole("button", { name: "Add event" }).click();
@@ -142,4 +145,72 @@ test("two nodes mixed up in review are suggested for linking, and the suggestion
     )
     .toBe(1);
   await expect.poll(async () => (await bornStop(page)).accepted).toEqual(["link-confusion"]);
+});
+
+function routesState(page: Page) {
+  return page.evaluate(() => {
+    type Shape = { meta?: { mpNodeId?: string; mpTitle?: string } };
+    type State = {
+      editorRef: { getCurrentPageShapes: () => Shape[] };
+      routes: { id: string; name: string }[];
+      loci: { routeId: string; nodeId: string; orderIndex: number }[];
+    };
+    const state = (window as { __mp_store?: { getState: () => State } }).__mp_store!.getState();
+    const titleOf = new Map(state.editorRef.getCurrentPageShapes().map((s) => [s.meta?.mpNodeId, s.meta?.mpTitle]));
+    return state.routes.map((route) => ({
+      name: route.name,
+      stops: state.loci
+        .filter((l) => l.routeId === route.id)
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .map((l) => titleOf.get(l.nodeId)),
+    }));
+  });
+}
+
+test("a route that costs too much to walk gets a proposed fix, applied only on confirm and undone on request", async ({ page }) => {
+  test.setTimeout(150_000);
+  await palaceWithRoute(page, [
+    ["Born", "1872"],
+    ["Cambridge degree", "1894"],
+    ["Nobel Prize", "1950"],
+  ]);
+  for (let walkNumber = 0; walkNumber < 2; walkNumber++) {
+    await page.getByRole("button", { name: "Toggle walk mode" }).click();
+    const recall = page.getByRole("button", { name: "Recall-first" });
+    if ((await recall.getAttribute("aria-pressed")) !== "true") await recall.click();
+    for (const rating of ["1 Again", "2 Hard", "3 Good"]) {
+      await page.getByRole("button", { name: "Reveal answer" }).click();
+      await page.getByRole("button", { name: rating }).click();
+    }
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+  }
+
+  await openStrength(page);
+  const row = page.getByRole("region", { name: "Suggested next" }).getByTestId("intervention").filter({ hasText: "Route Russell · timeline" });
+  await expect(row).toHaveAttribute("data-kind", "route-surgery");
+  await row.getByRole("button", { name: "Fix route" }).click();
+
+  // Nothing changes until the learner has seen the proposal and applied it.
+  const proposal = row.getByRole("group", { name: "Proposed change" });
+  await expect(proposal).toContainText("Move Born, Cambridge degree out of Russell · timeline into Russell · timeline · weak spots");
+  expect(await routesState(page)).toHaveLength(1);
+  await proposal.getByRole("button", { name: "Apply" }).click();
+
+  const status = page.getByRole("region", { name: "Suggested next" }).getByRole("status");
+  await expect(status).toContainText("Moved Born, Cambridge degree");
+  await expect
+    .poll(() => routesState(page))
+    .toEqual([
+      { name: "Russell · timeline", stops: ["Nobel Prize"] },
+      { name: "Russell · timeline · weak spots", stops: ["Born", "Cambridge degree"] },
+    ]);
+
+  // The fix is listed as an intervention to judge once reviews come in.
+  await expect(page.getByRole("region", { name: "Did it help" }).getByTestId("intervention-impact").first()).toContainText(
+    "Fixed route Russell · timeline",
+  );
+
+  await status.getByRole("button", { name: "Undo" }).click();
+  await expect(status).toContainText("Undone");
+  await expect.poll(() => routesState(page)).toEqual([{ name: "Russell · timeline", stops: ["Born", "Cambridge degree", "Nobel Prize"] }]);
 });

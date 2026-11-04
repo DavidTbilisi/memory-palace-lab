@@ -26,8 +26,8 @@ async function openOnNode(palaceId: string, nodeId: string) {
 /**
  * Act on a suggestion. Re-encode opens the node and waits for the learner to finish (the banner's
  * Done restarts its schedule and logs it). Linking a confusion happens at once, where the learner
- * is. Adding a Distinguisher opens the node on its NEDF slots. Returns a line for the learner when
- * there is something to say.
+ * is. Adding a Distinguisher opens the node on its NEDF slots. A route fix is applied as proposed,
+ * once the learner has confirmed it. Returns a line for the learner when there is something to say.
  */
 export async function launchIntervention(intervention: Intervention): Promise<string | null> {
   const store = usePalaceStore.getState();
@@ -36,7 +36,12 @@ export async function launchIntervention(intervention: Intervention): Promise<st
       kind: intervention.kind,
       palaceId: intervention.palaceId,
       nodeIds: interventionNodeIds(intervention),
-      title: intervention.kind === "link-confusion" ? intervention.nodes.map((node) => node.title).join(" + ") : intervention.title,
+      title:
+        intervention.kind === "link-confusion"
+          ? intervention.nodes.map((node) => node.title).join(" + ")
+          : intervention.kind === "route-surgery"
+            ? intervention.routeName
+            : intervention.title,
     });
 
   switch (intervention.kind) {
@@ -64,5 +69,10 @@ export async function launchIntervention(intervention: Intervention): Promise<st
       await openOnNode(intervention.palaceId, intervention.nodeId);
       accept();
       return null;
+    case "route-surgery": {
+      // Called once the learner has confirmed the proposal; the store logs it with its routes.
+      await openPalace(intervention.palaceId);
+      return usePalaceStore.getState().applyRouteSurgeryPlan(intervention.plan, intervention.palaceId).message;
+    }
   }
 }
