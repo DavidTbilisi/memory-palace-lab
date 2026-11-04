@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.26.0 — 2026-11-04
+
+### What to fix when reviewing again is not working
+
+- **Suggested next.** Insights › Strength now lists what to do about weak material, beyond reviewing it again, most urgent first. The most urgent suggestion is also a **Fix first** card at the top of the Review page.
+- **Re-encode a node that keeps failing.** A node rated Again or Hard on 3 of its last 5 reviews is suggested for a new image. **Re-encode** opens it under a banner. When you have changed it, **Done** starts its reviews again as a new memory, its NEDF and timeline cards included. **Cancel** leaves its schedule alone.
+- **Link two nodes you keep mixing up.** A pair you said you mixed up in review, but have not linked, is linked as a confusion in one click. A linked pair whose node has no Distinguisher yet opens that node for you to write one.
+- **Fix a route that costs too much to walk.** A route the Strength tab marks unsteady or costly gets one concrete proposal. A route of 8 or more stops is split in two, at a section boundary or before its slowest stop. A shorter route has the stops you last missed moved into a short route of their own, "‹route› · weak spots". **Fix route** shows exactly what will change, and nothing changes until you click **Apply**. Stops keep their schedules, and **Undo** puts them back, keeping any reviews you made since.
+
+### Did it help?
+
+- **Before and after, for each change.** The Strength tab lists every suggestion you acted on. Once 3 reviews follow it, it shows how often you recalled what it touched (Good or Easy) before and after, such as "Re-encoded Closure: 20% → 80% Good or Easy".
+
+### Small fixes
+
+- The **Recall-first** button now tells screen readers whether it is on.
+
 ## v0.25.0 — 2026-11-04
 
 ### Timeline palaces
