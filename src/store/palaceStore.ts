@@ -122,6 +122,7 @@ import { hasConfusionLink } from "../domain/services/confusion";
 import { hasLoggedConfusion, pullDistinguishersForward, type MissCause } from "../domain/services/confusionReview";
 import { pullEventsForward } from "../domain/services/orderDrill";
 import type { InterventionKind } from "../domain/services/interventions";
+import { applyRouteSurgery, describePlan, type RouteSurgeryPlan } from "../domain/services/routeSurgery";
 import type { ReviewPhase } from "../domain/services/reviewMetrics";
 
 const repo = getPalaceRepository();
@@ -169,6 +170,15 @@ export type StormSummary = StormResult & { routeName: string; firstReviewAt: str
  * A recall just rated Again, waiting for the learner to say why (backlog 07). It outlives the
  * step: Again still moves on at once, and the question stays about the stop that was missed.
  */
+/** What Undo needs to put a palace's routes back as they were before a route surgery. */
+export type RouteSurgeryUndo = {
+  palaceId: string;
+  routes: MemoryRoute[];
+  loci: Locus[];
+  newRouteId: string;
+  description: string;
+};
+
 /** The node a re-encode suggestion opened, and where it lives. */
 export type ReEncodeTarget = { palaceId: string; nodeId: string; title: string };
 
@@ -463,7 +473,19 @@ export type PalaceStore = {
   finishReEncode: () => number;
   cancelReEncode: () => void;
   /** Log a suggestion the learner acted on, so later reviews can be compared with earlier ones. */
-  recordInterventionAccepted: (input: { kind: InterventionKind; palaceId: string; nodeIds: string[]; title: string }) => void;
+  recordInterventionAccepted: (input: {
+    kind: InterventionKind;
+    palaceId: string;
+    nodeIds: string[];
+    title: string;
+    routeIds?: string[];
+  }) => void;
+  /** The route surgery last applied, which Undo reverses while its palace is open. */
+  routeSurgeryUndo: RouteSurgeryUndo | null;
+  /** Apply a proposed route change in the open palace (backlog 19). Undo reverses it. */
+  applyRouteSurgeryPlan: (plan: RouteSurgeryPlan, palaceId: string) => { ok: boolean; message: string };
+  /** Put the routes back as they were before the last surgery; stops keep any reviews since. */
+  undoRouteSurgery: () => boolean;
   /** Accept the offer: link the logged pair as a confusion on the canvas. */
   linkWalkMissConfusion: () => void;
   dismissWalkMiss: () => void;
@@ -953,6 +975,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkDirection: "forward",
     walkSlot: null,
     reEncoding: null,
+    routeSurgeryUndo: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
@@ -2622,14 +2645,60 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
       return restarted;
     },
 
-    recordInterventionAccepted({ kind, palaceId, nodeIds, title }) {
+    recordInterventionAccepted({ kind, palaceId, nodeIds, title, routeIds }) {
       void recordAnalytics({
         eventType: "intervention_accepted",
         eventGroup: "review",
         palaceId,
         nodeId: nodeIds[0] ?? null,
-        payload: { kind, nodeIds, title },
+        routeId: routeIds?.[0] ?? null,
+        payload: { kind, nodeIds, title, ...(routeIds ? { routeIds } : {}) },
       });
+    },
+
+    applyRouteSurgeryPlan(plan, palaceId) {
+      const { currentPalace, routes, loci } = get();
+      if (currentPalace?.id !== palaceId) return { ok: false, message: "Open the palace to change its route." };
+      const result = applyRouteSurgery(plan, routes, loci, crypto.randomUUID());
+      if (!result) return { ok: false, message: `${plan.routeName} has changed since this was suggested. Nothing was changed.` };
+      const description = describePlan(plan);
+      set({ routeSurgeryUndo: { palaceId, routes, loci, newRouteId: result.newRouteId, description } });
+      get().replaceRoutesAndLoci(result.routes, result.loci);
+      const movedNodeIds =
+        plan.kind === "extract-weak"
+          ? loci.filter((locus) => plan.locusIds.includes(locus.id)).map((locus) => locus.nodeId)
+          : [];
+      get().recordInterventionAccepted({
+        kind: "route-surgery",
+        palaceId,
+        nodeIds: movedNodeIds,
+        routeIds: [plan.routeId, result.newRouteId],
+        title: plan.routeName,
+      });
+      // The description is a proposal ("Move …"); once applied it reads as done ("Moved …").
+      return { ok: true, message: description.replace(/^Move /, "Moved ") };
+    },
+
+    undoRouteSurgery() {
+      const undo = get().routeSurgeryUndo;
+      if (!undo || get().currentPalace?.id !== undo.palaceId) return false;
+      // Stops keep whatever was reviewed since; only where they sit goes back.
+      const current = new Map(get().loci.map((locus) => [locus.id, locus]));
+      const restored = undo.loci.map((before) => {
+        const now = current.get(before.id);
+        return now ? { ...now, routeId: before.routeId, orderIndex: before.orderIndex, section: before.section } : before;
+      });
+      const before = new Set(undo.loci.map((locus) => locus.id));
+      const added = get().loci.filter((locus) => !before.has(locus.id) && locus.routeId !== undo.newRouteId);
+      // Routes keep settings changed since, but take back their old names; the new route goes.
+      const routeNow = new Map(get().routes.map((route) => [route.id, route]));
+      const routes = undo.routes.map((old) => {
+        const now = routeNow.get(old.id);
+        return now ? { ...now, name: old.name } : old;
+      });
+      set({ routeSurgeryUndo: null });
+      get().replaceRoutesAndLoci(routes, [...restored, ...added]);
+      return true;
     },
 
     recordOrderDrill({ routeId, nodeIds, misplacedNodeIds }) {

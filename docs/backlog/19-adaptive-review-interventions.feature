@@ -1,7 +1,7 @@
 # ROI: Very High
 # Psych leverage: Very High, because feedback only matters when it changes the next learning action.
 # Tech leverage: Very High, because it uses analytics, review, routes, and node metadata that already exist.
-# Status: planned 2026-11. Two sequential PRs off main:
+# Status: delivered 2026-11, as two sequential PRs off main (#125, PR 2):
 #   PR 1 — suggestions and the ones that launch directly: re-encode a failing node (which restarts
 #     its schedule), link an unlinked confusion pair, add a missing Distinguisher. The full list is
 #     on Insights › Strength; the most urgent one is a card at the top of the Review page. Each
@@ -14,6 +14,13 @@
 #   PR 2 — route surgery the app proposes and the learner applies (split at the slowest stop or a
 #     section boundary, or move the weakest stops into a short route of their own), with Undo; and
 #     before/after recall for each accepted intervention once 3 or more later ratings exist.
+#     Built 2026-11-04. A route the Strength tab marks unstable or cognitively expensive gets one
+#     proposal: 8+ stops split at the section boundary nearest the middle (else before the slowest
+#     stop in the middle half); shorter routes move their stops last rated Again or Hard (2 to 5)
+#     into "<route> · weak spots". Fix route shows the proposal; Apply changes it; Undo puts the
+#     stops back where they were, keeping reviews made since. A fixed route is not proposed again
+#     until 5 ratings land on it. "Did it help?" on the Strength tab compares Good-or-Easy recall
+#     over the 5 ratings before and after each accepted intervention, once 3 follow it.
 # Decisions (David, 2026-11-04): Strength tab + Review page; re-encoding restarts the node's
 #   schedule; route changes are proposed and confirmed, never made silently; before/after is shown
 #   per intervention.

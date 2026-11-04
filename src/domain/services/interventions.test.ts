@@ -129,3 +129,53 @@ describe("ranking", () => {
     expect(kinds).toEqual(["re-encode", "link-confusion"]);
   });
 });
+
+describe("route fixes", () => {
+  const friction = (status: "cognitively_expensive" | "unstable" | "steady") => [
+    {
+      routeId: "r",
+      routeName: "Basics",
+      palaceId: "p",
+      palaceName: "JavaScript",
+      attemptCount: 6,
+      averageRevealLatencyMs: 9000,
+      failureRate: 0.5,
+      hardRate: 0.2,
+      frictionScore: 74,
+      status,
+      dueState: null,
+      reasons: ["half the recalls fail"],
+    },
+  ];
+  const weakOnBoth = [rated("closure", "again"), rated("hoist", "hard")];
+  const withThird = (): DueQueueSnapshot => {
+    const snap = palace();
+    snap.nodes.push(node("scope", "Scope"));
+    snap.loci.push({ id: "l-scope", routeId: "r", nodeId: "scope", orderIndex: 2, label: "" });
+    return snap;
+  };
+
+  it("propose a concrete change for a route the Strength tab flags", () => {
+    const [fix] = buildInterventions({ snapshots: [withThird()], analyticsEvents: weakOnBoth, hotspots: [], routeFriction: friction("cognitively_expensive") });
+    expect(fix).toMatchObject({ kind: "route-surgery", routeId: "r", plan: { kind: "extract-weak", locusIds: ["l-closure", "l-hoist"] } });
+    expect((fix as { proposal: string }).proposal).toBe("Move Closure, Hoisting out of Basics into Basics · weak spots, a short route of their own.");
+    expect(fix!.reason).toBe("Costs a lot to walk: half the recalls fail.");
+  });
+
+  it("leave a steady route alone, and a route just fixed until five ratings land on it", () => {
+    expect(buildInterventions({ snapshots: [withThird()], analyticsEvents: weakOnBoth, hotspots: [], routeFriction: friction("steady") })).toEqual([]);
+    minute += 1;
+    const fixed: AnalyticsEvent = {
+      ...createAnalyticsEvent({ eventType: "intervention_accepted", eventGroup: "review", palaceId: "p", payload: { kind: "route-surgery", routeIds: ["r", "r2"] } }),
+      createdAt: new Date(Date.UTC(2026, 10, 1, 9, minute)).toISOString(),
+    };
+    const after = [...weakOnBoth, fixed, rated("closure", "again"), rated("hoist", "hard")];
+    const settled = [...after, rated("scope", "good"), rated("closure", "again"), rated("hoist", "hard")];
+    const routeFixes = (events: AnalyticsEvent[]) =>
+      buildInterventions({ snapshots: [withThird()], analyticsEvents: events, hotspots: [], routeFriction: friction("unstable") }).filter(
+        (i) => i.kind === "route-surgery",
+      );
+    expect(routeFixes(after)).toEqual([]);
+    expect(routeFixes(settled)).toHaveLength(1);
+  });
+});

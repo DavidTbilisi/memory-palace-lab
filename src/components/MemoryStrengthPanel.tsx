@@ -21,7 +21,7 @@ import {
 import { usePalaceStore } from "../store/palaceStore";
 import { StatCard } from "./analytics/StatCard";
 import { useDueQueue } from "./hooks/useDueQueue";
-import { SuggestedInterventions } from "./Interventions";
+import { InterventionImpacts, SuggestedInterventions } from "./Interventions";
 import { buildInterventions } from "../domain/services/interventions";
 
 const SECTION = "mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3";
@@ -401,14 +401,25 @@ export function MemoryStrengthPanel() {
   );
 
   const interventions = useMemo(
-    () => buildInterventions({ snapshots, analyticsEvents, hotspots: dashboard.confusionHotspots }),
-    [snapshots, analyticsEvents, dashboard.confusionHotspots],
+    () =>
+      buildInterventions({
+        snapshots,
+        analyticsEvents,
+        hotspots: dashboard.confusionHotspots,
+        routeFriction: dashboard.routeFriction,
+      }),
+    [snapshots, analyticsEvents, dashboard.confusionHotspots, dashboard.routeFriction],
   );
 
   return (
     <StrengthDashboardView
       dashboard={dashboard}
-      suggestions={<SuggestedInterventions items={interventions} />}
+      suggestions={
+        <>
+          <SuggestedInterventions items={interventions} />
+          <InterventionImpacts />
+        </>
+      }
       onStartStop={(item) =>
         void startReviewAt({
           palaceId: item.palaceId,
