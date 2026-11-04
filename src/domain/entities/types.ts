@@ -257,6 +257,8 @@ export type AnalyticsEventType =
   | "walk_completed"
   /** Why a recall rated Again missed: a confusion with another node, or a blank. */
   | "recall_miss_explained"
+  /** A suggestion from the Strength tab or Review page acted on (backlog 19): what kind, and on which nodes. */
+  | "intervention_accepted"
   /** A timeline order drill: how many events were put back, and how many out of place. */
   | "timeline_order_drill"
   | "storm_started"

@@ -4,6 +4,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { AssessBanner } from "./AssessBanner";
 import { ComprehendOverlay } from "./ComprehendOverlay";
 import { ExternalChangeBanner } from "./ExternalChangeBanner";
+import { ReEncodeBanner } from "./Interventions";
 import { GraphEmptyState } from "./GraphEmptyState";
 import { NextUpCard } from "./NextUpCard";
 import { PalaceDslEditor } from "./PalaceDslEditor";
@@ -71,6 +72,7 @@ export function GraphWorkspace({
       <RecallMissPrompt placement="walk" />
       <StormBar />
       <ExternalChangeBanner />
+      <ReEncodeBanner />
       {assessHint && currentPalace ? (
         <div className="border-b border-zinc-800 px-2 py-2">
           <AssessBanner
