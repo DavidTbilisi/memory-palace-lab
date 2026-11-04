@@ -1,8 +1,8 @@
-import type { AnalyticsEvent, Locus, NedfSlot, RecallRating } from "../entities/types";
+import { CARD_KEYS, type AnalyticsEvent, type CardKey, type Locus, type RecallRating } from "../entities/types";
 import { parseAnalyticsPayload } from "./analyticsService";
 import { hasConfusionLink } from "./confusion";
 import { readLoggedConfusion, unorderedPairKey } from "./confusionReview";
-import { buildDueQueue, isRouteInReview, nedfLookup, reviewedLoci, type DueQueueSnapshot } from "./dueQueue";
+import { buildDueQueue, isRouteInReview, cardLookup, reviewedLoci, type DueQueueSnapshot } from "./dueQueue";
 import { dueStopCards, isSlotFilled, stopCards, type StopCard } from "./nedf";
 import { eventPhase } from "./reviewMetrics";
 
@@ -43,8 +43,8 @@ export type StopStrengthItem = {
   title: string;
   locusLabel: string;
   /** The weakest card's slot, which a review of this stop should ask; null for a stop without slots. */
-  slot: NedfSlot | null;
-  /** How many cards the stop reviews (one per filled NEDF slot, or one). */
+  slot: CardKey | null;
+  /** How many cards the stop reviews (one per filled NEDF slot and timeline direction, or one). */
   cardCount: number;
   /** Whether `buildDueQueue` lists the stop. */
   due: boolean;
@@ -150,7 +150,7 @@ type SiegeRating = {
   event: AnalyticsEvent;
   rating: RecallRating;
   locusId: string | null;
-  slot: NedfSlot | null;
+  slot: CardKey | null;
   timeToRevealMs: number | null;
 };
 
@@ -211,8 +211,8 @@ function coerceRecallRating(value: unknown): RecallRating | null {
   return value === "again" || value === "hard" || value === "good" || value === "easy" ? value : null;
 }
 
-function coerceSlot(value: unknown): NedfSlot | null {
-  return value === "nameHook" || value === "essence" || value === "distinguisher" || value === "failure" ? value : null;
+function coerceSlot(value: unknown): CardKey | null {
+  return typeof value === "string" && (CARD_KEYS as readonly string[]).includes(value) ? (value as CardKey) : null;
 }
 
 /** Walk ratings made in Siege (the daily drip); Storm ratings are left out. */
@@ -306,7 +306,7 @@ function latestRatingsIndex(ratings: readonly SiegeRating[]) {
    * A slot card never rated on its own carries its stop's history, as its schedule does
    * (`stopCards`), so it falls back to the stop's slot-less rating.
    */
-  return (locus: Locus, slot: NedfSlot | null): SiegeRating | null => {
+  return (locus: Locus, slot: CardKey | null): SiegeRating | null => {
     const find = (slotKey: string) =>
       byLocus.get(`${locus.id}|${slotKey}`) ?? byRouteNode.get(`${locus.routeId}|${locus.nodeId}|${slotKey}`) ?? null;
     return (slot ? find(slot) : null) ?? find("");
@@ -351,14 +351,14 @@ function buildStopItems(
   for (const snapshot of snapshots) {
     const routeById = new Map(snapshot.routes.map((route) => [route.id, route]));
     const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
-    const nedfOf = nedfLookup(snapshot.nodes);
+    const cardsOf = cardLookup(snapshot.nodes);
     for (const locus of reviewedLoci(snapshot.loci, snapshot.routes)) {
       const route = routeById.get(locus.routeId);
       if (!route) continue;
-      const nedf = nedfOf(locus.nodeId);
+      const node = cardsOf(locus.nodeId);
       const isDue = dueLocusIds.has(locus.id);
-      const dueSlots = new Set(isDue ? dueStopCards(locus, nedf, now).map((card) => card.slot) : []);
-      const cards: CardStrength[] = stopCards(locus, nedf, now).map((card) => {
+      const dueSlots = new Set(isDue ? dueStopCards(locus, node, now).map((card) => card.slot) : []);
+      const cards: CardStrength[] = stopCards(locus, node, now).map((card) => {
         const rating = latestRating(locus, card.slot);
         const state = cardState(card, dueSlots.has(card.slot), rating !== null, nowMs);
         return { card, state, rating, score: scoreCard(rating, state) };

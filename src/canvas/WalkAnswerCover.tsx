@@ -1,4 +1,4 @@
-import { NEDF_SLOT_OPERATIONS } from "../domain/services/nedf";
+import { CARD_OPERATIONS } from "../domain/services/nedf";
 import { usePalaceStore } from "../store/palaceStore";
 import type { NodeBox } from "./routeOverlayGeometry";
 
@@ -50,7 +50,7 @@ export function WalkAnswerCover({
               fontWeight={600}
               fill={asked ? "#c4b5fd" : "#52525b"}
             >
-              {asked ? (slot ? `${NEDF_SLOT_OPERATIONS[slot]}?` : "Recall?") : "?"}
+              {asked ? (slot ? `${CARD_OPERATIONS[slot]}?` : "Recall?") : "?"}
             </text>
           </g>
         );

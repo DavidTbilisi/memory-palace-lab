@@ -12,6 +12,7 @@ import {
   NEDF_SLOT_OPERATIONS,
   filledNedfSlots,
   isSlotFilled,
+  isTimelineCard,
   normalizeNedf,
   stopCards,
 } from "../domain/services/nedf";
@@ -171,8 +172,8 @@ export function NedfSlotsEditor({ nodeId }: { nodeId: string }) {
     const next = new Map<NedfSlot, string>();
     for (const locus of loci) {
       if (locus.nodeId !== nodeId) continue;
-      for (const card of stopCards(locus, current)) {
-        if (!card.slot) continue;
+      for (const card of stopCards(locus, { nedf: current })) {
+        if (!card.slot || isTimelineCard(card.slot)) continue;
         const known = next.get(card.slot);
         if (!known || card.schedule.nextReviewAt < known) next.set(card.slot, card.schedule.nextReviewAt);
       }

@@ -1,4 +1,4 @@
-import type { NedfSlot } from "../domain/entities/types";
+import type { CardKey } from "../domain/entities/types";
 import { walkOrderedLoci } from "../domain/services/walkService";
 import { usePalaceStore } from "../store/palaceStore";
 import { requestNavigation } from "./navigationEvents";
@@ -8,8 +8,8 @@ export type ReviewStart = {
   routeId: string;
   locusId?: string;
   nodeId?: string;
-  /** The NEDF slot to ask at that stop, as the due queue chose it; picked afresh when omitted. */
-  slot?: NedfSlot | null;
+  /** The card to ask at that stop, as the due queue chose it; picked afresh when omitted. */
+  slot?: CardKey | null;
 };
 
 /**

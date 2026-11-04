@@ -2,7 +2,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import { Activity, AlertTriangle, Castle, Gauge, LineChart, Route, Shuffle, Target } from "lucide-react";
 import { requestNavigation } from "../app/navigationEvents";
 import { startReviewAt } from "../app/reviewNavigation";
-import { NEDF_SLOT_LABELS } from "../domain/services/nedf";
+import { CARD_LABELS } from "../domain/services/nedf";
 import {
   buildMemoryStrengthDashboard,
   type ConfusionHotspot,
@@ -98,7 +98,7 @@ function NeedsAttention({ items, onStart }: { items: StopStrengthItem[]; onStart
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-zinc-100">
                     {item.title}
-                    {item.slot ? <span className="text-zinc-400"> · {NEDF_SLOT_LABELS[item.slot]}</span> : null}
+                    {item.slot ? <span className="text-zinc-400"> · {CARD_LABELS[item.slot]}</span> : null}
                   </div>
                   <div className="truncate text-xs text-zinc-500">
                     {item.routeName} · {item.palaceName}

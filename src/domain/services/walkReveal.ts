@@ -1,5 +1,5 @@
-import type { NedfSlot } from "../entities/types";
-import { NEDF_SLOT_LABELS } from "./nedf";
+import type { CardKey } from "../entities/types";
+import { CARD_LABELS } from "./nedf";
 
 /**
  * What a recall-first walk keeps hidden. Walking a palace means standing at a place and saying
@@ -21,7 +21,38 @@ export type WalkRevealInput = {
   routeNodeIds: readonly string[];
   /** Nodes revealed earlier in this walk. */
   revealedNodeIds: readonly string[];
+  /** What the current card turns around: see `walkCardCover`. */
+  cardCover?: WalkCardCover;
 };
+
+/**
+ * Most cards ask for the node at a stop, so the node is what stays hidden. An Event → date card
+ * turns that round: it shows the event and asks for its date, so the event is the cue and its
+ * date image, and the stop's label (which is the date), are what stay hidden until Reveal.
+ */
+export type WalkCardCover = {
+  /** Shown although on the route: the cue the card asks from. */
+  shownNodeIds: readonly string[];
+  /** Hidden until the answer is revealed although not on the route: part of the answer. */
+  hiddenNodeIds: readonly string[];
+  /** The stop whose label is part of the answer, by node; null when labels are cues as usual. */
+  labelHiddenNodeId: string | null;
+};
+
+export const NO_CARD_COVER: WalkCardCover = { shownNodeIds: [], hiddenNodeIds: [], labelHiddenNodeId: null };
+
+export function walkCardCover(
+  slot: CardKey | null,
+  currentNodeId: string | null,
+  dateImageNodeId: string | null,
+): WalkCardCover {
+  if (slot !== "eventToDate" || !currentNodeId) return NO_CARD_COVER;
+  return {
+    shownNodeIds: [currentNodeId],
+    hiddenNodeIds: dateImageNodeId ? [dateImageNodeId] : [],
+    labelHiddenNodeId: currentNodeId,
+  };
+}
 
 const NOTHING_HIDDEN: ReadonlySet<string> = new Set();
 
@@ -32,12 +63,15 @@ export function walkHiddenNodeIds({
   currentNodeId,
   routeNodeIds,
   revealedNodeIds,
+  cardCover = NO_CARD_COVER,
 }: WalkRevealInput): ReadonlySet<string> {
   if (!walkOpen || !recallMode || routeNodeIds.length === 0) return NOTHING_HIDDEN;
   const revealed = new Set(revealedNodeIds);
   if (answerRevealed && currentNodeId) revealed.add(currentNodeId);
+  const shown = answerRevealed ? new Set<string>() : new Set(cardCover.shownNodeIds);
   const hidden = new Set<string>();
-  for (const nodeId of routeNodeIds) if (!revealed.has(nodeId)) hidden.add(nodeId);
+  for (const nodeId of routeNodeIds) if (!revealed.has(nodeId) && !shown.has(nodeId)) hidden.add(nodeId);
+  if (!answerRevealed) for (const nodeId of cardCover.hiddenNodeIds) hidden.add(nodeId);
   return hidden;
 }
 
@@ -56,9 +90,11 @@ export function hiddenStopCue(label: string | null | undefined): string {
  */
 export function dueStopName(
   locusLabel: string | null | undefined,
-  slot: NedfSlot | null,
+  slot: CardKey | null,
   stopNumber?: number | null,
 ): string {
-  const place = locusLabel?.trim() || (stopNumber ? `Stop ${stopNumber}` : "Unlabelled stop");
-  return slot ? `${place} · ${NEDF_SLOT_LABELS[slot]} card` : place;
+  // A timeline stop is labelled with its date, which is the answer an Event → date card asks for.
+  const label = slot === "eventToDate" ? "" : locusLabel?.trim();
+  const place = label || (stopNumber ? `Stop ${stopNumber}` : "Unlabelled stop");
+  return slot ? `${place} · ${CARD_LABELS[slot]} card` : place;
 }

@@ -7,7 +7,7 @@ import {
   readLoggedConfusion,
   unorderedPairKey,
 } from "./confusionReview";
-import { buildDueQueue, nedfLookup } from "./dueQueue";
+import { buildDueQueue, cardLookup } from "./dueQueue";
 
 const AT = "2026-09-29T10:00:00.000Z";
 const LATER = "2026-10-05T10:00:00.000Z";
@@ -35,7 +35,7 @@ function locus(id: string, nodeId: string, routeId = "r1", extra: Partial<Locus>
   };
 }
 
-const nedfOf = (map: Record<string, NedfEncoding | null>) => (nodeId: string) => map[nodeId] ?? null;
+const nedfOf = (map: Record<string, NedfEncoding | null>) => (nodeId: string) => ({ nedf: map[nodeId] ?? null });
 
 describe("pullDistinguishersForward", () => {
   it("brings both nodes' Distinguisher cards due at the rating time, leaving other slots alone", () => {
@@ -112,7 +112,7 @@ describe("pullDistinguishersForward", () => {
     const palace = { id: "p", name: "P", createdAt: EARLIER };
     const before = [locus("l-a", "a"), locus("l-b", "b")];
     expect(buildDueQueue([{ palace, routes, nodes, loci: before }], AT).items).toHaveLength(0);
-    const { loci } = pullDistinguishersForward(before, routes, nedfLookup(nodes), ["a", "b"], AT);
+    const { loci } = pullDistinguishersForward(before, routes, cardLookup(nodes), ["a", "b"], AT);
     const items = buildDueQueue([{ palace, routes, nodes, loci }], AT).items;
     expect(items.map((item) => [item.nodeTitle, item.slot])).toEqual([
       ["Mutex", "distinguisher"],

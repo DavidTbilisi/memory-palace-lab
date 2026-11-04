@@ -24,7 +24,7 @@ import {
 } from "react";
 import { captureStopView, memoryNodeCenter, selectedMemoryNodePoints } from "../canvas/routeCanvas";
 import { ROUTE_COLORS, type Locus, type MemoryRoute, type RouteDirection } from "../domain/entities/types";
-import { countDueLoci, isRouteInReview, nedfLookup } from "../domain/services/dueQueue";
+import { cardLookup, countDueLoci, isRouteInReview } from "../domain/services/dueQueue";
 import { SECTIONED_ROUTE_STOPS } from "../domain/services/routeSections";
 import {
   ROUTE_COLOR_HEX,
@@ -40,7 +40,7 @@ import { usePalaceStore } from "../store/palaceStore";
 import { cn } from "../utils/cn";
 import { confirmDestructive } from "../utils/confirmDestructive";
 import { useCanvasNodeTitles } from "./hooks/useCanvasNodeTitles";
-import { useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
+import { useWalkCardCover, useWalkHiddenNodeIds } from "./hooks/useWalkHiddenNodeIds";
 import { Button } from "./ui/button";
 
 const DIRECTION_LABELS: Record<RouteDirection, string> = {
@@ -56,7 +56,13 @@ const menuItemClass =
   "flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-zinc-800";
 
 /** `hidden`: a recall walk keeps this stop's node hidden until it is revealed. */
-type StopInfo = { title: string | null; missing: boolean; hidden?: boolean };
+type StopInfo = {
+  title: string | null;
+  missing: boolean;
+  hidden?: boolean;
+  /** The stop's label is the answer being asked for (an Event → date card's date), so it is not shown. */
+  labelHidden?: boolean;
+};
 
 function IconButton({
   label,
@@ -496,7 +502,7 @@ function StopList({
 }) {
   const setStopSection = usePalaceStore((s) => s.setStopSection);
   const nodes = usePalaceStore((s) => s.nodes);
-  const nedfOf = useMemo(() => nedfLookup(nodes), [nodes]);
+  const cardsOf = useMemo(() => cardLookup(nodes), [nodes]);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const moveStop = usePalaceStore((s) => s.moveStop);
   const removeStop = usePalaceStore((s) => s.removeStop);
@@ -552,11 +558,15 @@ function StopList({
   return (
     <ol aria-label="Stops" className="mt-2 space-y-px">
       {stops.map((stop, index) => {
-        const { title, missing, hidden } = infoFor(stop.nodeId);
-        const label = hidden ? stop.label.trim() || "Hidden until revealed" : stopLabel(stop, title);
+        const { title, missing, hidden, labelHidden } = infoFor(stop.nodeId);
+        const label = hidden
+          ? stop.label.trim() || "Hidden until revealed"
+          : labelHidden
+            ? title?.trim() || "Untitled node"
+            : stopLabel(stop, title);
         const custom = stop.label.trim().length > 0;
         const current = currentIndex === index;
-        const due = reviewed && countDueLoci([stop], nowIso, nedfOf) > 0;
+        const due = reviewed && countDueLoci([stop], nowIso, cardsOf) > 0;
         const section = stop.section?.trim() ? stop : null;
         return (
           <Fragment key={stop.id}>
@@ -781,7 +791,7 @@ function RouteCard({
   const color = routeColorHex(route, index);
   const reviewed = isRouteInReview(route);
   const nodes = usePalaceStore((s) => s.nodes);
-  const dueCount = reviewed ? countDueLoci(stops, undefined, nedfLookup(nodes)) : 0;
+  const dueCount = reviewed ? countDueLoci(stops, undefined, cardLookup(nodes)) : 0;
   const hasSections = stops.some((stop) => stop.section?.trim());
   const sectionable = hasSections || stops.length > SECTIONED_ROUTE_STOPS;
   const startRename = () => {
@@ -977,11 +987,13 @@ export function RoutesPanel() {
   }, [routes, loci]);
   // With a canvas mounted, a node it does not show is gone; otherwise trust the saved titles.
   const walkHidden = useWalkHiddenNodeIds();
+  const labelHiddenNodeId = useWalkCardCover().labelHiddenNodeId;
   const infoFor = (nodeId: string): StopInfo => {
     if (walkHidden.has(nodeId)) return { title: null, missing: false, hidden: true };
+    const labelHidden = nodeId === labelHiddenNodeId || undefined;
     const live = canvasTitles.get(nodeId);
-    if (live !== undefined) return { title: live, missing: false };
-    return { title: snapshotTitles.get(nodeId) ?? null, missing: editorRef !== null };
+    if (live !== undefined) return { title: live, missing: false, labelHidden };
+    return { title: snapshotTitles.get(nodeId) ?? null, missing: editorRef !== null, labelHidden };
   };
 
   return (

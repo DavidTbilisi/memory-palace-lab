@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Locus, NedfEncoding } from "../entities/types";
 import {
+  cardNodeOf,
   decodeSlotSchedules,
   dueStopCards,
   filledNedfSlots,
@@ -10,6 +11,7 @@ import {
   rateStopCard,
   stopCards,
   stopNextReviewAt,
+  timelineCardText,
   unencodedNedfSlots,
   walkCardFor,
 } from "./nedf";
@@ -69,7 +71,7 @@ describe("stop cards", () => {
   });
 
   it("gives each filled slot a card, and only filled slots", () => {
-    const cards = stopCards(locus(), { nameHook: "Hook", essence: "Does" }, NOW);
+    const cards = stopCards(locus(), { nedf: { nameHook: "Hook", essence: "Does" } }, NOW);
     expect(cards.map((card) => card.slot)).toEqual(["nameHook", "essence"]);
     // Never rated, so both start from the stop's own schedule and keep its history.
     expect(cards.every((card) => card.schedule.interval === 6 && card.schedule.nextReviewAt === at(3))).toBe(true);
@@ -107,13 +109,13 @@ describe("stop cards", () => {
       },
     });
     // Failure has no entry of its own, so it follows the stop's schedule (due in 3 days).
-    expect(dueStopCards(stop, full, NOW).map((card) => card.slot)).toEqual(["essence", "nameHook"]);
-    expect(walkCardFor(stop, full, NOW).slot).toBe("essence");
-    expect(stopNextReviewAt(stop, full, NOW)).toBe(at(-4));
+    expect(dueStopCards(stop, { nedf: full }, NOW).map((card) => card.slot)).toEqual(["essence", "nameHook"]);
+    expect(walkCardFor(stop, { nedf: full }, NOW).slot).toBe("essence");
+    expect(stopNextReviewAt(stop, { nedf: full }, NOW)).toBe(at(-4));
 
     const later = { distinguisher: full.distinguisher, failure: full.failure };
-    expect(dueStopCards(stop, later, NOW)).toEqual([]);
-    expect(walkCardFor(stop, later, NOW).slot).toBe("failure");
+    expect(dueStopCards(stop, { nedf: later }, NOW)).toEqual([]);
+    expect(walkCardFor(stop, { nedf: later }, NOW).slot).toBe("failure");
   });
 
   it("ignores the schedule of a slot that was emptied", () => {
@@ -122,7 +124,7 @@ describe("stop cards", () => {
         essence: { interval: 1, easeFactor: 2.5, repetitions: 0, nextReviewAt: at(-4), lastReviewedAt: null },
       },
     });
-    expect(dueStopCards(stop, { nameHook: "Hook" }, NOW)).toEqual([]);
+    expect(dueStopCards(stop, { nedf: { nameHook: "Hook" } }, NOW)).toEqual([]);
   });
 });
 
@@ -194,5 +196,49 @@ describe("card text", () => {
 
   it("leaves unfilled slots out of the recognition answer", () => {
     expect(nedfCardText("nameHook", { nameHook: "Mute-X" }, "Mutex").answer).toBe("Mutex");
+  });
+});
+
+describe("timeline event cards", () => {
+  it("are two directions for a dated timeline event, after any NEDF slots", () => {
+    expect(stopCards(locus(), { timelineEvent: true }, NOW).map((card) => card.slot)).toEqual(["eventToDate", "dateToEvent"]);
+    expect(stopCards(locus(), { nedf: { nameHook: "Hook" }, timelineEvent: true }, NOW).map((card) => card.slot)).toEqual([
+      "nameHook",
+      "eventToDate",
+      "dateToEvent",
+    ]);
+  });
+
+  it("come only from an event whose address reads as a date", () => {
+    expect(cardNodeOf({ storeRole: "event", address: "1901" })).toEqual({ nedf: null, timelineEvent: true });
+    expect(cardNodeOf({ storeRole: "event", address: "someday" })?.timelineEvent).toBe(false);
+    expect(cardNodeOf({ storeRole: "date-image", address: "1901" })?.timelineEvent).toBe(false);
+    expect(cardNodeOf({ storeRole: "cell", address: "1.1.1" })?.timelineEvent).toBe(false);
+  });
+
+  it("each move on their own schedule, which survives a save", () => {
+    const rated = rateStopCard(locus(), "eventToDate", "again", NOW);
+    const cards = stopCards(rated, { timelineEvent: true }, NOW);
+    expect(cards[0]!.schedule.nextReviewAt).not.toBe(cards[1]!.schedule.nextReviewAt);
+    expect(cards[1]!.schedule.nextReviewAt).toBe(at(3));
+    expect(decodeSlotSchedules(JSON.parse(JSON.stringify(rated.slotSchedules)))).toEqual(rated.slotSchedules);
+  });
+
+  it("ask from the event for its date, and from the date for the event", () => {
+    const event = { title: "Discovers the paradox", date: "1901", dateImage: "Sputnik shaving" };
+    expect(timelineCardText("eventToDate", event)).toEqual({
+      cue: "Discovers the paradox",
+      prompt: "Dating: when did this happen? Say the date and your image for it.",
+      answer: "1901 · Sputnik shaving",
+    });
+    expect(timelineCardText("dateToEvent", event)).toEqual({
+      cue: "1901 · Sputnik shaving",
+      prompt: "Recall: what happened then?",
+      answer: "Discovers the paradox",
+    });
+    expect(timelineCardText("eventToDate", { ...event, dateImage: null })).toMatchObject({
+      prompt: "Dating: when did this happen?",
+      answer: "1901",
+    });
   });
 });
