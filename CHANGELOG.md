@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.25.0 — 2026-11-04
+
+### Timeline palaces
+
+- **A palace for dates.** **Generate store › Create timeline** makes a palace where events sit on a time axis by their date, so a 22-year gap is drawn wider than a 7-year one. Events that would overlap, including two on the same date, stack into lanes below each other.
+- **Dates as you write them.** A year (`1901`), a month (`1969-07`), a day (`1969-07-20`), a year before the common era (`490 BCE`), or a span such as `1910–1913`, which draws a bar to its end.
+- **An image for every date.** Each event gets a node above it named like **1901 · image**. Rename it to your own image for that date.
+- **Eras are rooms.** Name a stretch of time, such as *Principia years, 1900–1913*, and it is drawn as a coloured band behind the axis. Its events become a section of the route.
+- **Walked in date order.** The timeline's route follows the dates and is in review from the start. Change an event's date in the inspector and it moves, with its stop and its review schedule. A date image still showing its placeholder is renamed to the new date. One you have renamed keeps your name.
+- **Nothing of yours is deleted silently.** Removing an event asks before deleting a date image you have named. **Go to 1901** in the toolbar jumps to the nearest event.
+
+### Review a timeline both ways
+
+- **Two cards per event, each on its own schedule.** **Event → date** shows the event and asks when it happened. **Date → event** shows the date and your image for it, and asks what happened.
+- **The date stays hidden until you reveal it.** On an Event → date card, the event is the cue, so it shows. Its date image, the date on its stop and the date in the inspector stay hidden until **Reveal**. Next up and the Review page name the stop by its number, so they do not give the date away either.
+- **Order drill.** **Order drill** in the timeline panel shows up to five neighbouring events without dates, shuffled, centred on the one you know least well. Put them back in order and check. Events out of place are marked with their dates, and their Event → date cards come due now. Events on the same date count as right in either order.
+
 ## v0.24.0 — 2026-10-31
 
 ### A palace tree that works like a file explorer
