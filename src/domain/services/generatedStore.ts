@@ -1,3 +1,5 @@
+import type { TimelineEra } from "./timeline";
+
 /**
  * Generated loci stores: palaces the app lays out itself, whose cells are found by address rather
  * than by walking. The app makes the structure and the addresses; every image in it is the
@@ -6,9 +8,10 @@
 
 /**
  * A node's part in a generated store. Cells hold material; the rest is the scaffold that finds
- * them: a block's theme and stickers, or a table's number images and their associations.
+ * them: a block's theme and stickers, or a table's number images and their associations. A
+ * timeline holds events, each paired with the learner's image for its date.
  */
-export const STORE_ROLES = ["theme", "sticker", "number", "image", "cell"] as const;
+export const STORE_ROLES = ["theme", "sticker", "number", "image", "cell", "event", "date-image"] as const;
 export type StoreRole = (typeof STORE_ROLES)[number];
 
 export type FourLevelBlock = {
@@ -25,13 +28,40 @@ export type SupportTable = {
   generatedAt: string;
 };
 
-export type GeneratedStore = FourLevelBlock | SupportTable;
+/**
+ * A timeline (backlog 20): dated events on a scaled axis. Each event's date is its node's
+ * address; the eras, drawn as rooms along the axis, live here.
+ */
+export type TimelineStore = {
+  kind: "timeline";
+  title: string;
+  generatedAt: string;
+  /** The timeline's route: its events in date order, walked and reviewed from the start. */
+  routeId: string | null;
+  eras: TimelineEra[];
+};
+
+export type GeneratedStore = FourLevelBlock | SupportTable | TimelineStore;
 export type StoreKind = GeneratedStore["kind"];
 
 export const STORE_KIND_LABELS: Record<StoreKind, string> = {
   "four-level-block": "Four-level block",
   "support-table": "Table of support images",
+  timeline: "Timeline",
 };
+
+function parseEras(raw: unknown): TimelineEra[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((era: Record<string, unknown>) =>
+    era &&
+    typeof era.id === "string" &&
+    typeof era.name === "string" &&
+    typeof era.from === "string" &&
+    typeof era.to === "string"
+      ? [{ id: era.id, name: era.name, from: era.from, to: era.to }]
+      : [],
+  );
+}
 
 /** A four-level block has five branches of five stickers, each sticker five cells: 125 in all. */
 export const BLOCK_SIZE = 5;
@@ -41,6 +71,15 @@ export function parseStore(storeJson: string | null | undefined): GeneratedStore
   if (!storeJson) return null;
   try {
     const raw = JSON.parse(storeJson) as Record<string, unknown>;
+    if (raw.kind === "timeline" && typeof raw.title === "string") {
+      return {
+        kind: "timeline",
+        title: raw.title,
+        generatedAt: typeof raw.generatedAt === "string" ? raw.generatedAt : "",
+        routeId: typeof raw.routeId === "string" ? raw.routeId : null,
+        eras: parseEras(raw.eras),
+      };
+    }
     if (raw.kind === "support-table") {
       return { kind: "support-table", generatedAt: typeof raw.generatedAt === "string" ? raw.generatedAt : "" };
     }

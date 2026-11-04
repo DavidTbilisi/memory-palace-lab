@@ -20,6 +20,7 @@ import { ConceptGlyphField } from "./ConceptGlyphField";
 import { NedfSlotsEditor } from "./NedfSlotsEditor";
 import { EncodeSpeedBadge } from "./analytics/EncodeSpeedBadge";
 import { CountShapeControls } from "./CountShapeControls";
+import { TimelineEventFields } from "./TimelinePanel";
 import { nodeEncodeSpeeds } from "../domain/services/encodeSpeed";
 import { normalizeNedf, stopNextReviewAt } from "../domain/services/nedf";
 
@@ -166,6 +167,8 @@ const STORE_ROLE_HINTS: Record<NonNullable<MemoryPalaceMeta["mpStoreRole"]>, str
   theme: "The block's theme image.",
   number: "Your image for this number. Edit the number from the store panel to change its cells.",
   image: "An image the number brings to mind. Its three parts are the cells below it.",
+  event: "An event on the timeline. Change its date to move it.",
+  "date-image": "Your image for this date: rename it. It moves with its event and is renamed with it while it is still a placeholder.",
 };
 
 function ReadOnlyMetaField({ id, label, value, subvalue }: { id: string; label: string; value: string; subvalue?: string }) {
@@ -709,7 +712,11 @@ export function NodeInspector() {
           <p className="mt-1 text-[11px] text-zinc-500">Ctrl+click a link to open it (Obsidian notes, web).</p>
         </div>
 
-        {meta.mpStoreRole ? (
+        {meta.mpStoreRole === "event" ? (
+          <TimelineEventFields nodeId={sh.meta.mpNodeId} dateLabel={meta.mpAddress ?? ""} />
+        ) : meta.mpStoreRole === "date-image" ? (
+          <ReadOnlyMetaField id="mp-store-address" label="Date" value={meta.mpAddress ?? ""} subvalue={STORE_ROLE_HINTS["date-image"]} />
+        ) : meta.mpStoreRole ? (
           <ReadOnlyMetaField
             id="mp-store-address"
             label="Store address"

@@ -118,7 +118,7 @@ export interface MemoryNode {
   attributes?: NodeAttribute[] | null;
   /** In a generated store: the node's address and its part in the store. */
   address?: string | null;
-  storeRole?: "theme" | "sticker" | "number" | "image" | "cell" | null;
+  storeRole?: "theme" | "sticker" | "number" | "image" | "cell" | "event" | "date-image" | null;
   /** The node's concept glyph: one symbol, unique in the palace, kept through renames. */
   glyph?: string | null;
 }

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useValue } from "@tldraw/editor";
-import { Grid3x3 } from "lucide-react";
+import { CalendarRange, Grid3x3 } from "lucide-react";
 import { filledBlockNodes } from "../canvas/fourLevelBlock";
 import { findNodeByAddress } from "../canvas/storeNodes";
+import { readTimeline } from "../canvas/timelineCanvas";
 import { filledTableCells, tableNumbers } from "../canvas/supportTable";
 import {
   BLOCK_CELL_COUNT,
@@ -14,23 +15,27 @@ import {
   type FourLevelBlock,
 } from "../domain/services/generatedStore";
 import { usePalaceStore } from "../store/palaceStore";
+import { parseTimelineDate } from "../domain/services/timeline";
 import { generateFourLevelBlock, generateSupportTable, regenerateCurrentBlock } from "../system/generatedStores";
+import { createTimeline } from "../system/timelineStore";
 import { AddNumberDialog } from "./AddNumberDialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { TimelinePanel } from "./TimelinePanel";
 
 /** Marks a generated store wherever palaces are listed, so it is not mistaken for a walked palace. */
 export function StoreBadge({ storeJson }: { storeJson?: string | null }) {
   const store = parseStore(storeJson);
   if (!store) return null;
+  const timeline = store.kind === "timeline";
   return (
     <span
       data-testid="store-badge"
-      title={`${STORE_KIND_LABELS[store.kind]}: found by address, not walked`}
+      title={timeline ? "Timeline: walked in date order" : `${STORE_KIND_LABELS[store.kind]}: found by address, not walked`}
       className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-sky-900/50 px-1 text-[10px] font-medium text-sky-200"
     >
-      <Grid3x3 className="h-2.5 w-2.5" />
-      Store
+      {timeline ? <CalendarRange className="h-2.5 w-2.5" /> : <Grid3x3 className="h-2.5 w-2.5" />}
+      {timeline ? "Timeline" : "Store"}
     </span>
   );
 }
@@ -39,6 +44,7 @@ export function StoreBadge({ storeJson }: { storeJson?: string | null }) {
 export function GenerateStoreForm() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState("");
+  const [timelineTitle, setTimelineTitle] = useState("");
   const [busy, setBusy] = useState(false);
 
   const run = async (make: () => Promise<unknown>) => {
@@ -46,6 +52,7 @@ export function GenerateStoreForm() {
     try {
       await make();
       setTheme("");
+      setTimelineTitle("");
       setOpen(false);
     } finally {
       setBusy(false);
@@ -53,6 +60,9 @@ export function GenerateStoreForm() {
   };
   const generate = () => {
     if (theme.trim()) void run(() => generateFourLevelBlock(theme));
+  };
+  const makeTimeline = () => {
+    if (timelineTitle.trim()) void run(() => createTimeline(timelineTitle));
   };
 
   if (!open) {
@@ -88,6 +98,23 @@ export function GenerateStoreForm() {
       <Button size="sm" variant="secondary" type="button" disabled={busy} onClick={() => void run(generateSupportTable)}>
         Generate table
       </Button>
+      <p className="border-t border-zinc-800 pt-1.5 text-[11px] leading-4 text-zinc-400">
+        A timeline: dated events placed along a time axis, each with an image for its date, walked in date order.
+        Name stretches of it as eras.
+      </p>
+      <Input
+        aria-label="Timeline title"
+        placeholder="Title, e.g. Bertrand Russell"
+        value={timelineTitle}
+        onChange={(event) => setTimelineTitle(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") makeTimeline();
+        }}
+        className="h-8 text-xs"
+      />
+      <Button size="sm" variant="secondary" type="button" disabled={!timelineTitle.trim() || busy} onClick={makeTimeline}>
+        Create timeline
+      </Button>
       <Button size="sm" variant="ghost" type="button" onClick={() => setOpen(false)}>
         Cancel
       </Button>
@@ -100,6 +127,7 @@ export function StorePanel() {
   const storeJson = usePalaceStore((s) => s.currentPalace?.storeJson ?? null);
   const store = parseStore(storeJson);
   if (!store) return null;
+  if (store.kind === "timeline") return <TimelinePanel store={store} />;
   return store.kind === "four-level-block" ? <BlockPanel block={store} /> : <TablePanel />;
 }
 
@@ -205,7 +233,18 @@ function BlockPanel({ block: store }: { block: FourLevelBlock }) {
   );
 }
 
-/** Jump straight to a cell by its address, without walking a route. Shown only in a store. */
+/** The event nearest a date; on a tie, the earlier one. */
+function nearestEvent(editor: Parameters<typeof readTimeline>[0], key: number): string | null {
+  let best: { nodeId: string; distance: number } | null = null;
+  for (const event of readTimeline(editor).events) {
+    if (!event.date) continue;
+    const distance = Math.abs(event.date.startKey - key);
+    if (!best || distance < best.distance) best = { nodeId: event.nodeId, distance };
+  }
+  return best?.nodeId ?? null;
+}
+
+/** Jump straight to a cell by its address, or a timeline's event by its date. Shown only in a store. */
 export function GoToAddress() {
   const storeJson = usePalaceStore((s) => s.currentPalace?.storeJson ?? null);
   const editorRef = usePalaceStore((s) => s.editorRef);
@@ -215,9 +254,20 @@ export function GoToAddress() {
 
   const store = parseStore(storeJson);
   if (!store) return null;
-  const example = store.kind === "support-table" ? "47.3" : "2.3.4";
+  const example = store.kind === "timeline" ? "1901" : store.kind === "support-table" ? "47.3" : "2.3.4";
 
   const go = () => {
+    if (store.kind === "timeline") {
+      const target = parseTimelineDate(value);
+      const nodeId = target && editorRef ? nearestEvent(editorRef, target.startKey) : null;
+      if (!nodeId) {
+        setMiss(target ? "No events yet" : `Dates look like ${example}`);
+        return;
+      }
+      setMiss(null);
+      setFocusNodeId(nodeId);
+      return;
+    }
     const address = normalizeAddress(value, store.kind);
     const nodeId = address && editorRef ? findNodeByAddress(editorRef, address) : null;
     if (!nodeId) {
@@ -231,7 +281,7 @@ export function GoToAddress() {
   return (
     <div className="ml-2 flex items-center gap-1.5">
       <Input
-        aria-label="Go to address"
+        aria-label={store.kind === "timeline" ? "Go to date" : "Go to address"}
         placeholder={`Go to ${example}`}
         value={value}
         onChange={(event) => {
