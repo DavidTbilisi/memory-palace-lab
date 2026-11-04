@@ -326,6 +326,7 @@ export function WalkModeBar({ onHoverHintChange }: Props) {
             size="sm"
             type="button"
             variant={walkRecallMode ? "default" : "secondary"}
+            aria-pressed={walkRecallMode}
             onClick={() => setWalkRecallMode(!walkRecallMode)}
             onMouseEnter={() => onHoverHintChange?.("Recall-first: hide the answer until you explicitly reveal it.")}
             onMouseLeave={() => onHoverHintChange?.(null)}

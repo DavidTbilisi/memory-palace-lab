@@ -1,6 +1,22 @@
 # ROI: Very High
 # Psych leverage: Very High, because feedback only matters when it changes the next learning action.
 # Tech leverage: Very High, because it uses analytics, review, routes, and node metadata that already exist.
+# Status: planned 2026-11. Two sequential PRs off main:
+#   PR 1 — suggestions and the ones that launch directly: re-encode a failing node (which restarts
+#     its schedule), link an unlinked confusion pair, add a missing Distinguisher. The full list is
+#     on Insights › Strength; the most urgent one is a card at the top of the Review page. Each
+#     accepted suggestion is logged as an analytics event.
+#     Built 2026-11-04. A node is failing at Again or Hard on 3 of its last 5 Siege ratings; ratings
+#     before it was last re-encoded through a suggestion do not count. Re-encode opens the node in
+#     Encode mode under a banner whose Done gives every stop of the node a new stop's schedule (NEDF
+#     and timeline cards included). Linking happens where the learner is; adding a Distinguisher
+#     opens the node. Accepted suggestions are `intervention_accepted` events.
+#   PR 2 — route surgery the app proposes and the learner applies (split at the slowest stop or a
+#     section boundary, or move the weakest stops into a short route of their own), with Undo; and
+#     before/after recall for each accepted intervention once 3 or more later ratings exist.
+# Decisions (David, 2026-11-04): Strength tab + Review page; re-encoding restarts the node's
+#   schedule; route changes are proposed and confirmed, never made silently; before/after is shown
+#   per intervention.
 
 Feature: Adaptive review interventions
   In order to turn analytics into better study behavior

@@ -21,6 +21,7 @@ import { useDueQueue } from "./hooks/useDueQueue";
 import { StormStartCard } from "./StormStartCard";
 import { dueStopName } from "../domain/services/walkReveal";
 import { Button } from "./ui/button";
+import { TopIntervention } from "./Interventions";
 
 type Props = {
   onOpenPalaceWorkspace: () => void;
@@ -472,7 +473,8 @@ export function ReviewPage({ onOpenPalaceWorkspace }: Props) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="grid gap-4 lg:grid-cols-4">
+        <TopIntervention />
+        <div className="mt-4 grid gap-4 lg:grid-cols-4">
           <StatCard
             label="Total Due"
             value={String(filteredDueItems.length)}

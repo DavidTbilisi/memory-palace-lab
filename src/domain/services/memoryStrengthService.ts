@@ -146,7 +146,7 @@ export type MemoryStrengthDashboard = {
   confusionHotspots: ConfusionHotspot[];
 };
 
-type SiegeRating = {
+export type SiegeRating = {
   event: AnalyticsEvent;
   rating: RecallRating;
   locusId: string | null;
@@ -216,7 +216,7 @@ function coerceSlot(value: unknown): CardKey | null {
 }
 
 /** Walk ratings made in Siege (the daily drip); Storm ratings are left out. */
-function siegeRatings(events: readonly AnalyticsEvent[]): SiegeRating[] {
+export function siegeRatings(events: readonly AnalyticsEvent[]): SiegeRating[] {
   const ratings: SiegeRating[] = [];
   for (const event of events) {
     if (event.eventType !== "walk_recall_rated" || eventPhase(event) === "storm") continue;

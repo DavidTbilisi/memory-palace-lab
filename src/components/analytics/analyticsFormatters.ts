@@ -21,6 +21,10 @@ export function formatEventDetail(event: AnalyticsEvent): string {
     const other = typeof payload.confusedWithTitle === "string" ? payload.confusedWithTitle.trim() : "";
     return `mixed up with ${other || "another node"}`;
   }
+  if (event.eventType === "intervention_accepted") {
+    const kind = typeof payload.kind === "string" ? payload.kind.replace(/-/g, " ") : "intervention";
+    return typeof payload.title === "string" && payload.title.trim() ? `${kind}: ${payload.title}` : kind;
+  }
   if (event.eventType === "timeline_order_drill") {
     const size = typeof payload.size === "number" ? payload.size : 0;
     const misplaced = typeof payload.misplaced === "number" ? payload.misplaced : 0;

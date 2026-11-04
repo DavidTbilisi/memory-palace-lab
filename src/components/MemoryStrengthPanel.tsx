@@ -21,6 +21,8 @@ import {
 import { usePalaceStore } from "../store/palaceStore";
 import { StatCard } from "./analytics/StatCard";
 import { useDueQueue } from "./hooks/useDueQueue";
+import { SuggestedInterventions } from "./Interventions";
+import { buildInterventions } from "../domain/services/interventions";
 
 const SECTION = "mt-3 rounded-md border border-zinc-800 bg-zinc-900/40 p-3";
 const ROW_BUTTON =
@@ -318,6 +320,8 @@ export type StrengthDashboardViewProps = {
   onStartRoute: (item: RouteFrictionItem) => void;
   onOpenPalace: (palaceId: string) => void;
   onStartHotspot: (item: ConfusionHotspot) => void;
+  /** Suggested interventions (backlog 19), shown above the weak stops. */
+  suggestions?: ReactNode;
 };
 
 /** The Strength tab's body for a computed dashboard. */
@@ -327,6 +331,7 @@ export function StrengthDashboardView({
   onStartRoute,
   onOpenPalace,
   onStartHotspot,
+  suggestions,
 }: StrengthDashboardViewProps) {
   const { overview } = dashboard;
   return (
@@ -363,6 +368,7 @@ export function StrengthDashboardView({
           />
           <StatCard icon={<LineChart className="h-3.5 w-3.5" />} label="Review sessions" value={String(overview.reviewSessions)} />
         </div>
+        {suggestions}
         <NeedsAttention items={dashboard.actionItems} onStart={onStartStop} />
         <div className="grid gap-x-3 lg:grid-cols-2">
           <PalaceHealth items={dashboard.palaceHealth} onOpen={onOpenPalace} />
@@ -394,9 +400,15 @@ export function MemoryStrengthPanel() {
     [snapshots, analyticsEvents],
   );
 
+  const interventions = useMemo(
+    () => buildInterventions({ snapshots, analyticsEvents, hotspots: dashboard.confusionHotspots }),
+    [snapshots, analyticsEvents, dashboard.confusionHotspots],
+  );
+
   return (
     <StrengthDashboardView
       dashboard={dashboard}
+      suggestions={<SuggestedInterventions items={interventions} />}
       onStartStop={(item) =>
         void startReviewAt({
           palaceId: item.palaceId,

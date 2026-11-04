@@ -121,6 +121,7 @@ import { canvasConfusionEdges, linkConfusion } from "../canvas/confusionLinks";
 import { hasConfusionLink } from "../domain/services/confusion";
 import { hasLoggedConfusion, pullDistinguishersForward, type MissCause } from "../domain/services/confusionReview";
 import { pullEventsForward } from "../domain/services/orderDrill";
+import type { InterventionKind } from "../domain/services/interventions";
 import type { ReviewPhase } from "../domain/services/reviewMetrics";
 
 const repo = getPalaceRepository();
@@ -168,6 +169,9 @@ export type StormSummary = StormResult & { routeName: string; firstReviewAt: str
  * A recall just rated Again, waiting for the learner to say why (backlog 07). It outlives the
  * step: Again still moves on at once, and the question stays about the stop that was missed.
  */
+/** The node a re-encode suggestion opened, and where it lives. */
+export type ReEncodeTarget = { palaceId: string; nodeId: string; title: string };
+
 export type WalkMissPrompt = {
   palaceId: string;
   routeId: string;
@@ -449,6 +453,17 @@ export type PalaceStore = {
    * now and log the drill. Returns how many stops moved.
    */
   recordOrderDrill: (drill: { routeId: string | null; nodeIds: string[]; misplacedNodeIds: string[] }) => number;
+  /** A node being re-encoded from a suggestion (backlog 19); its schedule restarts once it is done. */
+  reEncoding: ReEncodeTarget | null;
+  startReEncode: (target: ReEncodeTarget) => void;
+  /**
+   * Finish re-encoding: every stop of the node starts again as a new stop would, its NEDF and
+   * timeline cards included, and the re-encode is logged. Returns how many stops restarted.
+   */
+  finishReEncode: () => number;
+  cancelReEncode: () => void;
+  /** Log a suggestion the learner acted on, so later reviews can be compared with earlier ones. */
+  recordInterventionAccepted: (input: { kind: InterventionKind; palaceId: string; nodeIds: string[]; title: string }) => void;
   /** Accept the offer: link the logged pair as a confusion on the canvas. */
   linkWalkMissConfusion: () => void;
   dismissWalkMiss: () => void;
@@ -937,6 +952,7 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
     walkIndex: 0,
     walkDirection: "forward",
     walkSlot: null,
+    reEncoding: null,
     walkSessionId: null,
     walkRecallMode: false,
     walkCueOnly: true,
@@ -2571,6 +2587,48 @@ export const usePalaceStore = create<PalaceStore>((set, get) => {
             (nodeId) => `${titleOf(nodeId)} has no Distinguisher yet — add one so the review can tell them apart.`,
           ),
         },
+      });
+    },
+
+    startReEncode(target) {
+      set({ reEncoding: target });
+    },
+
+    cancelReEncode() {
+      set({ reEncoding: null });
+    },
+
+    finishReEncode() {
+      const target = get().reEncoding;
+      set({ reEncoding: null });
+      if (!target || get().currentPalace?.id !== target.palaceId) return 0;
+      const now = new Date().toISOString();
+      let restarted = 0;
+      const loci = get().loci.map((locus) => {
+        if (locus.nodeId !== target.nodeId) return locus;
+        restarted += 1;
+        return { ...locus, ...defaultLocusSchedule(now), slotSchedules: undefined };
+      });
+      if (restarted > 0) {
+        set({ loci });
+        scheduleDraftSave();
+      }
+      get().recordInterventionAccepted({
+        kind: "re-encode",
+        palaceId: target.palaceId,
+        nodeIds: [target.nodeId],
+        title: resolveNodeTitleForAnalytics(target.nodeId) ?? target.title,
+      });
+      return restarted;
+    },
+
+    recordInterventionAccepted({ kind, palaceId, nodeIds, title }) {
+      void recordAnalytics({
+        eventType: "intervention_accepted",
+        eventGroup: "review",
+        palaceId,
+        nodeId: nodeIds[0] ?? null,
+        payload: { kind, nodeIds, title },
       });
     },
 
