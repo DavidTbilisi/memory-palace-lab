@@ -42,22 +42,27 @@ jobs:
   ui-tests:
     # Playwright 1.59 cannot install Chromium on ubuntu-latest (26.04).
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          # Pinned: since lts/* became Node 26 (2026-11), `playwright install` hangs after the
+          # download until the job times out. It took 17 s on Node 24.
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright browsers
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
 
       - name: UI test suite
+        timeout-minutes: 30
         run: npx playwright test tests/ui/
 
       - name: Upload failure traces
