@@ -8,7 +8,7 @@
 #   "timeline / biography palace"), theSystem/calendar-time-memorization.md (date log format),
 #   theSystem/mind-palace.md ("order matters: ... timeline"), and the dated mnemonics on
 #   biography pages such as theSystem/wiki/bertrand-russell.md.
-# Status: planned 2026-11. Two sequential PRs off main:
+# Status: delivered 2026-11 in v0.25.0, as two sequential PRs off main (#122, #123):
 #   PR 1 — the timeline store: events, scaled axis, eras as rooms, date images, date-ordered route.
 #     Built 2026-11-03. A timeline is a store of kind "timeline" whose eras live in store_json;
 #     an event's date is its node's address, and its date image points back at it with
