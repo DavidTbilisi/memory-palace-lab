@@ -640,7 +640,7 @@ function StopList({
                   title={
                     missing
                       ? "This stop's node is not on the canvas. It is dropped when the palace is saved."
-                      : `${label}${custom && title ? ` (node: ${title})` : ""}. Click to show it on the canvas${
+                      : `${label}${custom && title && !labelHidden ? ` (node: ${title})` : ""}. Click to show it on the canvas${
                           stop.view ? " in its saved view" : ""
                         }, double-click to rename the stop.`
                   }
@@ -656,7 +656,7 @@ function StopList({
                   }}
                 >
                   {missing ? "Missing node" : label}
-                  {custom && title && !missing ? <span className="ml-1 text-zinc-500">· {title}</span> : null}
+                  {custom && title && !missing && !labelHidden ? <span className="ml-1 text-zinc-500">· {title}</span> : null}
                 </button>
               )}
               {due ? (
